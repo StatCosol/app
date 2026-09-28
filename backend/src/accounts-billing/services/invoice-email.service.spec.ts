@@ -4,6 +4,7 @@ import { Invoice } from '../entities';
 import { MailStatus } from '../enums';
 import { InvoiceEmailService } from './invoice-email.service';
 import { InvoicePdfService } from './invoice-pdf.service';
+import { InvoiceDeliveryService } from './invoice-delivery.service';
 
 jest.mock('fs', () => ({
   ...jest.requireActual('fs'),
@@ -50,6 +51,19 @@ describe('Invoice email snapshot consistency', () => {
       create: jest.fn((value) => value),
       save: jest.fn(async (value) => value),
     };
+    const deliveries = {
+      fingerprint: jest.fn(() => 'fingerprint'),
+      existing: jest.fn().mockResolvedValue(undefined),
+      begin: jest.fn(async (_invoiceId, _requestId, _fingerprint, input) => {
+        await logs.save(input);
+        return { job: { id: 'job', status: 'PREPARING' }, claimed: true };
+      }),
+      start: jest.fn(),
+      accepted: jest.fn(),
+      uncertain: jest.fn(),
+      preparationFailed: jest.fn(),
+      result: InvoiceDeliveryService.prototype.result,
+    };
     const service = new InvoiceEmailService(
       logs as any,
       email as any,
@@ -59,6 +73,7 @@ describe('Invoice email snapshot consistency', () => {
         INVOICE_FROM_NAME: 'Test sender',
         INVOICE_FROM_EMAIL: 'sender@example.invalid',
       }),
+      deliveries as any,
     );
     return {
       service,
@@ -68,6 +83,7 @@ describe('Invoice email snapshot consistency', () => {
       legacyGenerate,
       email,
       logs,
+      deliveries,
       snapshot,
       edit: () => {
         current = {
@@ -103,9 +119,9 @@ describe('Invoice email snapshot consistency', () => {
       expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
       expect(x.invoices.updatePdfPath).toHaveBeenCalledTimes(1);
       expect(x.email.send).toHaveBeenCalledTimes(1);
-      expect(x.invoices.updateMailStatus).toHaveBeenCalledWith(
-        'sample',
-        MailStatus.SENT,
+      expect(x.deliveries.accepted).toHaveBeenCalledWith(
+        'job',
+        'sample-message',
       );
     },
   );
@@ -135,11 +151,11 @@ describe('Invoice email snapshot consistency', () => {
       grandTotal: 118,
       purchaseOrderNumber: 'PO-ORIGINAL',
     });
-    expect(x.logs.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subject: call[1],
-        body: expect.stringContaining('118'),
-      }),
+    expect(x.deliveries.start).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'job' }),
+      expect.any(String),
+      call[1],
+      expect.stringContaining('118'),
     );
     expect(x.invoices.findOne).toHaveBeenCalledTimes(1);
 
@@ -206,7 +222,8 @@ describe('Invoice email snapshot consistency', () => {
       ),
     ).rejects.toThrow('render failed');
     expect(x.email.send).not.toHaveBeenCalled();
-    expect(x.logs.save).not.toHaveBeenCalled();
+    expect(x.deliveries.preparationFailed).toHaveBeenCalledWith('job');
+    expect(x.deliveries.start).not.toHaveBeenCalled();
     expect(x.invoices.updateMailStatus).not.toHaveBeenCalled();
   });
 
@@ -222,14 +239,15 @@ describe('Invoice email snapshot consistency', () => {
           'actor',
         ),
       ).toMatchObject({ success: false });
-      expect(x.logs.save).toHaveBeenLastCalledWith(
-        expect.objectContaining({ sentStatus: MailStatus.FAILED }),
+      expect(x.deliveries.uncertain).toHaveBeenCalledWith(
+        'job',
+        'skipped' in response,
       );
       expect(x.invoices.updateMailStatus).not.toHaveBeenCalled();
     },
   );
 
-  it('records and propagates a transport exception without marking the invoice sent', async () => {
+  it('records uncertain transport exceptions without encouraging an unsafe resend', async () => {
     const x = setup();
     x.email.send.mockRejectedValue(new Error('transport unavailable'));
     await expect(
@@ -238,53 +256,81 @@ describe('Invoice email snapshot consistency', () => {
         { toEmail: 'recipient@example.invalid' },
         'actor',
       ),
-    ).rejects.toThrow('transport unavailable');
-    expect(x.logs.save).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        sentStatus: MailStatus.FAILED,
-        failureReason: 'transport unavailable',
-      }),
-    );
+    ).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining('Do not resend'),
+    });
+    expect(x.deliveries.uncertain).toHaveBeenCalledWith('job', false);
     expect(x.invoices.updateMailStatus).not.toHaveBeenCalled();
   });
 
-  it.each(['email log', 'invoice status', 'both'])(
-    'does not report accepted mail as failed when saving %s fails',
-    async (failure) => {
-      const x = setup();
-      if (failure !== 'invoice status') {
-        x.logs.save
-          .mockResolvedValueOnce(undefined)
-          .mockRejectedValueOnce(new Error('database unavailable'));
-      }
-      if (failure !== 'email log') {
-        x.invoices.updateMailStatus.mockRejectedValueOnce(
-          new Error('database unavailable'),
-        );
-      }
-      const result = await x.service.sendInvoice(
+  it('does not report accepted mail as failed when receipt bookkeeping fails', async () => {
+    const x = setup();
+    x.deliveries.accepted.mockRejectedValue(new Error('database unavailable'));
+    const result = await x.service.sendInvoice(
+      'sample',
+      { toEmail: 'recipient@example.invalid' },
+      'actor',
+    );
+    expect(result).toMatchObject({
+      success: true,
+      messageId: 'sample-message',
+      statusUpdatePending: true,
+    });
+    expect(result).toHaveProperty(
+      'warning',
+      expect.stringContaining('Do not resend'),
+    );
+    expect(x.email.send).toHaveBeenCalledTimes(1);
+    expect(x.deliveries.uncertain).not.toHaveBeenCalled();
+  });
+
+  it('returns the saved outcome for a retried request without rendering or sending again', async () => {
+    const x = setup();
+    x.deliveries.existing.mockResolvedValue({
+      status: 'RECONCILED',
+      message_id: 'prior-message',
+    } as any);
+    expect(
+      await x.service.sendInvoice(
+        'sample',
+        { toEmail: 'recipient@example.invalid', requestId: 'same-key' },
+        'actor',
+      ),
+    ).toEqual({ success: true, messageId: 'prior-message' });
+    expect(x.render).not.toHaveBeenCalled();
+    expect(x.email.send).not.toHaveBeenCalled();
+  });
+
+  it('does not send when the reservation was already claimed by another request', async () => {
+    const x = setup();
+    x.deliveries.begin.mockResolvedValue({
+      job: { id: 'job', status: 'SENDING' },
+      claimed: false,
+    });
+    expect(
+      await x.service.sendInvoice(
         'sample',
         { toEmail: 'recipient@example.invalid' },
         'actor',
-      );
-      expect(result).toMatchObject({
-        success: true,
-        messageId: 'sample-message',
-        statusUpdatePending: true,
-      });
-      expect(result).toHaveProperty(
-        'warning',
-        expect.stringContaining('Do not resend'),
-      );
-      expect(x.email.send).toHaveBeenCalledTimes(1);
-      expect(x.logs.save).toHaveBeenCalledTimes(2);
-      expect(x.logs.save.mock.calls[1][0].sentStatus).toBe(MailStatus.SENT);
-      expect(x.invoices.updateMailStatus).toHaveBeenCalledWith(
+      ),
+    ).toMatchObject({ success: false });
+    expect(x.render).not.toHaveBeenCalled();
+    expect(x.email.send).not.toHaveBeenCalled();
+  });
+
+  it('does not send after its preparation reservation expired', async () => {
+    const x = setup();
+    x.deliveries.start.mockRejectedValue(new Error('preparation expired'));
+    await expect(
+      x.service.sendInvoice(
         'sample',
-        MailStatus.SENT,
-      );
-    },
-  );
+        { toEmail: 'recipient@example.invalid' },
+        'actor',
+      ),
+    ).rejects.toThrow('expired');
+    expect(x.email.send).not.toHaveBeenCalled();
+  });
 
   it('does not send if the initial email log cannot be persisted', async () => {
     const x = setup();

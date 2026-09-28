@@ -104,7 +104,16 @@ export type InvoiceEmailResult =
   | { success: true; messageId?: string; statusUpdatePending?: boolean; warning?: string }
   | { success: false; error: string };
 
+export interface InvoiceFileInventory {
+  deletionEnabled: false;
+  truncated: boolean;
+  scanned: number;
+  minAgeDays: number;
+  items: { name: string; bytes: number; ageDays: number; status: string }[];
+}
+
 export interface InvoiceEmailLog {
+  delivery?: { id: string; status: string; messageId?: string; acceptedAt?: string; resolutionNote?: string } | null;
   id: string;
   invoiceId: string | null;
   pendingPaymentId?: string | null;

@@ -46,4 +46,22 @@ describe('AccountsBillingService', () => {
       body,
     );
   });
+
+  it('resolves a delivery with explicit provider evidence, not a send request', () => {
+    mockHttp.post.mockReturnValue(of({ success: true }));
+    service.resolveInvoiceDelivery('receipt', 'NOT_SENT', 'Provider verified', true).subscribe();
+    expect(mockHttp.post).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('/api/v1/billing/email-logs/receipt/resolve-delivery'),
+      { outcome: 'NOT_SENT', note: 'Provider verified', providerVerified: true },
+    );
+  });
+
+  it('requests a read-only inventory with its age threshold', () => {
+    mockHttp.get.mockReturnValue(of({ deletionEnabled: false, items: [] }));
+    service.getInvoiceFileInventory(730).subscribe();
+    expect(mockHttp.get).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/billing/pdf-retention-preview'),
+      { params: { minAgeDays: 730 } },
+    );
+  });
 });

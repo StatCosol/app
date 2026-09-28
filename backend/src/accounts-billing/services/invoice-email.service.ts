@@ -8,6 +8,8 @@ import { InvoicesService } from './invoices.service';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { SendInvoiceEmailDto } from '../dto';
 import { MailStatus } from '../enums';
+import { randomUUID } from 'node:crypto';
+import { InvoiceDeliveryService } from './invoice-delivery.service';
 
 @Injectable()
 export class InvoiceEmailService {
@@ -20,6 +22,7 @@ export class InvoiceEmailService {
     private readonly invoicesService: InvoicesService,
     private readonly pdfService: InvoicePdfService,
     private readonly config: ConfigService,
+    private readonly deliveries: InvoiceDeliveryService,
   ) {}
 
   async sendInvoice(
@@ -27,13 +30,45 @@ export class InvoiceEmailService {
     dto: SendInvoiceEmailDto,
     userId: string,
   ) {
+    const requestId = dto.requestId || randomUUID();
+    const fingerprint = this.deliveries.fingerprint(dto);
+    const existing = await this.deliveries.existing(
+      invoiceId,
+      requestId,
+      fingerprint,
+    );
+    if (existing) return this.deliveries.result(existing);
+    const { job, claimed } = await this.deliveries.begin(
+      invoiceId,
+      requestId,
+      fingerprint,
+      {
+        invoiceId,
+        toEmail: dto.toEmail,
+        ccEmail: dto.ccEmail,
+        bccEmail: dto.bccEmail,
+        subject: dto.subject || 'Preparing invoice email',
+        body: dto.body || '',
+        sentStatus: MailStatus.NOT_SENT,
+        sentBy: userId,
+      },
+    );
+    if (!claimed) return this.deliveries.result(job);
     // Build the email from the same snapshot as its attachment, even if edited
     // while the PDF is rendering. Generation already persists the PDF once.
+    let prepared: Awaited<ReturnType<InvoicePdfService['generatePdfBuffer']>>;
+    try {
+      prepared = await this.pdfService.generatePdfBuffer(invoiceId);
+    } catch (error) {
+      await this.markPreparationFailed(job.id);
+      throw error;
+    }
     const {
       buffer: pdfBuffer,
       fileName: pdfFileName,
       invoice,
-    } = await this.pdfService.generatePdfBuffer(invoiceId);
+      pdfPath,
+    } = prepared;
 
     const references = [
       invoice.proformaReferenceNumber
@@ -50,24 +85,20 @@ export class InvoiceEmailService {
       dto.body ||
       `Dear ${invoice.billingClient?.contactPerson || 'Sir/Madam'},\n\nPlease find attached invoice ${invoice.invoiceNumber} dated ${invoice.invoiceDate}.\n\nAmount: ₹${invoice.grandTotal}${invoice.dueDate ? `\nDue Date: ${invoice.dueDate}` : ''}\n\nRegards,\nStatCo Solutions`;
 
-    const log = this.emailLogRepo.create({
-      invoiceId,
-      toEmail: dto.toEmail,
-      ccEmail: dto.ccEmail,
-      bccEmail: dto.bccEmail,
-      subject,
-      body,
-      sentStatus: MailStatus.NOT_SENT,
-      sentBy: userId,
-    });
-    await this.emailLogRepo.save(log);
-
     try {
-      const result = await this.emailService.send(
+      await this.deliveries.start(job, pdfPath, subject, body);
+    } catch (error) {
+      await this.markPreparationFailed(job.id);
+      throw error;
+    }
+
+    let result: Awaited<ReturnType<EmailService['send']>>;
+    try {
+      result = await this.emailService.send(
         dto.toEmail,
         subject,
         `Invoice ${invoice.invoiceNumber}`,
-        `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        `<p>${body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`,
         {
           name: this.config.get<string>(
             'INVOICE_FROM_NAME',
@@ -90,55 +121,56 @@ export class InvoiceEmailService {
           ],
         },
       );
+    } catch {
+      await this.markUncertain(job.id);
+      return this.deliveries.result({ ...job, status: 'UNKNOWN' });
+    }
 
-      if ('ok' in result && result.ok) {
-        log.sentStatus = MailStatus.SENT;
-        log.sentAt = new Date();
-        // SMTP acceptance cannot be undone by a bookkeeping failure. In
-        // particular, never overwrite SENT with FAILED or retry delivery here.
-        let statusUpdatePending = false;
-        try {
-          await this.emailLogRepo.save(log);
-        } catch {
-          statusUpdatePending = true;
-          this.log.error(
-            `Invoice ${invoiceId}: email accepted, email log update failed; reconcile before resending`,
-          );
-        }
-        try {
-          await this.invoicesService.updateMailStatus(
-            invoiceId,
-            MailStatus.SENT,
-          );
-        } catch {
-          statusUpdatePending = true;
-          this.log.error(
-            `Invoice ${invoiceId}: email accepted, invoice status update failed; reconcile before resending`,
-          );
-        }
-        return {
-          success: true,
-          messageId: result.messageId,
-          ...(statusUpdatePending
-            ? {
-                statusUpdatePending: true,
-                warning:
-                  'The mail server accepted this email, but its saved status could not be fully updated. Do not resend; ask an administrator to reconcile the email log.',
-              }
-            : {}),
-        };
-      } else {
-        const errMsg = 'error' in result ? String(result.error) : 'skipped';
-        log.sentStatus = MailStatus.FAILED;
-        log.failureReason = errMsg;
-        await this.emailLogRepo.save(log);
-        return { success: false, error: errMsg };
-      }
-    } catch (err) {
-      log.sentStatus = MailStatus.FAILED;
-      log.failureReason = (err as Error).message;
-      await this.emailLogRepo.save(log);
-      throw err;
+    if (!('ok' in result) || !result.ok) {
+      const skipped = 'skipped' in result && result.skipped;
+      await this.markUncertain(job.id, !!skipped);
+      return this.deliveries.result({
+        ...job,
+        status: skipped ? 'NOT_SENT' : 'UNKNOWN',
+      });
+    }
+    try {
+      await this.deliveries.accepted(job.id, result.messageId);
+      return { success: true as const, messageId: result.messageId };
+    } catch {
+      this.log.error({
+        event: 'INVOICE_DELIVERY_RECONCILIATION_PENDING',
+        deliveryId: job.id,
+      });
+      return {
+        success: true as const,
+        messageId: result.messageId,
+        statusUpdatePending: true,
+        warning:
+          'The mail server accepted this email, but its saved status needs reconciliation. Do not resend; review Email Logs with an administrator.',
+      };
+    }
+  }
+
+  private async markPreparationFailed(id: string) {
+    try {
+      await this.deliveries.preparationFailed(id);
+    } catch {
+      this.log.error({
+        event: 'INVOICE_PREPARATION_STATUS_PENDING',
+        deliveryId: id,
+      });
+    }
+  }
+
+  private async markUncertain(id: string, skipped = false) {
+    try {
+      await this.deliveries.uncertain(id, skipped);
+    } catch {
+      this.log.error({
+        event: 'INVOICE_DELIVERY_OUTCOME_PENDING',
+        deliveryId: id,
+      });
     }
   }
 
@@ -168,6 +200,20 @@ export class InvoiceEmailService {
       .take(limit)
       .getManyAndCount();
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    const deliveries = new Map(
+      (await this.deliveries.details(data.map((row) => row.id))).map(
+        (row: any) => [row.id, row],
+      ),
+    );
+    return {
+      data: data.map((row) => ({
+        ...row,
+        delivery: deliveries.get(row.id) || null,
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 }

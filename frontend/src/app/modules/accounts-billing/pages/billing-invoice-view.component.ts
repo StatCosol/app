@@ -42,7 +42,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                   class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
             {{ generatingPdf ? 'Generating...' : 'Generate PDF' }}
           </button>
-          <button (click)="showEmailModal = true" [disabled]="actionBusy"
+          <button (click)="openEmail()" [disabled]="actionBusy"
                   class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700">Send Email</button>
           @if (canCancel()) {
 <button (click)="cancel()" [disabled]="actionBusy"
@@ -625,6 +625,12 @@ export class BillingInvoiceViewComponent implements OnInit, OnDestroy {
     });
   }
 
+  openEmail(): void {
+    if (!this.invoice || this.actionBusy) return;
+    this.resetEmailForm();
+    this.showEmailModal = true;
+  }
+
   resetEmailForm(): void {
     const references = [
       this.invoice?.proformaReferenceNumber
@@ -635,6 +641,7 @@ export class BillingInvoiceViewComponent implements OnInit, OnDestroy {
         : '',
     ].filter(Boolean);
     this.emailForm = {
+      requestId: crypto.randomUUID(),
       toEmail: this.invoice?.billingClient?.billingEmail || '',
       ccEmail: this.invoice?.billingClient?.ccEmail || '',
       // Prefilled from the client so a standing blind copy is not forgotten on
@@ -651,6 +658,7 @@ export class BillingInvoiceViewComponent implements OnInit, OnDestroy {
 
   submitEmail(): void {
     if (!this.invoice || this.actionBusy) return;
+    this.emailForm.requestId ||= crypto.randomUUID();
     const id = this.invoice.id;
     this.sendingEmail = true;
     this.svc.sendInvoiceEmail(id, this.emailForm).pipe(takeUntil(this.contextChanged)).subscribe({
