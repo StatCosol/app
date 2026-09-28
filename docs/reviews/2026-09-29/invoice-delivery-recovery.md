@@ -34,8 +34,8 @@ The inventory is a local, capped observation, not proof a file may be deleted. F
 
 ## Verification
 
-- Backend billing tests: 150 passed across 12 suites.
-- Full backend suite: 2,408 passed across 274 suites; one existing test/suite skipped.
+- Backend billing tests: 153 passed across 12 suites, using the production validation pipe for HTTP cases. Provider confirmation must be an actual boolean true; text/numeric coercion is rejected.
+- Full backend suite: 2,411 passed across 274 suites; one existing test/suite skipped.
 - Isolated PostgreSQL fixture: 16 checks passed, including concurrent reservations, stale preparation, restart recovery, stale PDF protection, manual-resolution authorization and atomic rollback when evidence persistence fails. Migration replay tested twice. The fixture creates and drops only its own UUID-named localhost database; no SMTP calls.
 - Backend and production frontend builds passed; existing Bootstrap/Sass deprecation warnings remain.
 - Backend and frontend lint passed.

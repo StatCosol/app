@@ -39,12 +39,16 @@ export class SendInvoiceEmailDto {
 }
 
 export class ResolveInvoiceDeliveryDto {
+  // Preserve the submitted boolean despite global implicit conversion.
+  @Transform(({ obj, key }) => obj[key])
   @Equals(true)
   providerVerified: boolean;
   @IsIn(['SENT', 'NOT_SENT'])
   outcome: 'SENT' | 'NOT_SENT';
 
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ obj, key }) =>
+    typeof obj[key] === 'string' ? obj[key].trim() : obj[key],
+  )
   @IsString()
   @MinLength(10)
   @MaxLength(2000)

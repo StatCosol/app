@@ -1,7 +1,6 @@
 import {
   INestApplication,
   UnauthorizedException,
-  ValidationPipe,
   VersioningType,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -12,6 +11,7 @@ import { InvoicePdfService } from '../services/invoice-pdf.service';
 import { InvoiceEmailService } from '../services/invoice-email.service';
 import { InvoiceDeliveryService } from '../services/invoice-delivery.service';
 import { InvoiceFileInventoryService } from '../services/invoice-file-inventory.service';
+import { createGlobalValidationPipe } from '../../common/validators/global-validation-pipe';
 
 describe('Invoice delivery HTTP permissions and validation', () => {
   let app: INestApplication;
@@ -58,13 +58,7 @@ describe('Invoice delivery HTTP permissions and validation', () => {
     app = module.createNestApplication({ logger: false });
     app.setGlobalPrefix('api');
     app.enableVersioning({ type: VersioningType.URI });
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
   });
   afterAll(async () => {
@@ -137,8 +131,11 @@ describe('Invoice delivery HTTP permissions and validation', () => {
   it.each([
     { providerVerified: false },
     { providerVerified: 'true' },
+    { providerVerified: 'false' },
+    { providerVerified: 1 },
     { outcome: 'RETRY' },
     { note: 'short' },
+    { note: 1234567890123 },
     { note: ' '.repeat(20) },
     { note: 'x'.repeat(2001) },
     { unexpected: true },
