@@ -77,6 +77,10 @@ export class EmailService {
       config.get<string>('SMTP_PAYROLL_USER'),
       config.get<string>('SMTP_PAYROLL_PASS'),
     );
+    register(
+      config.get<string>('SMTP_COMPLIANCE_USER'),
+      config.get<string>('SMTP_COMPLIANCE_PASS'),
+    );
 
     // Legacy single-mailbox transporter (acts as fallback / default)
     const legacyUser = config.get<string>('SMTP_USER');
@@ -89,6 +93,7 @@ export class EmailService {
       config.get<string>('SMTP_FINANCE_USER') ||
       config.get<string>('SMTP_AUDIT_USER') ||
       config.get<string>('SMTP_PAYROLL_USER') ||
+      config.get<string>('SMTP_COMPLIANCE_USER') ||
       ''
     ).toLowerCase();
     this.defaultTransporter =
@@ -238,6 +243,39 @@ export class EmailService {
         email: this.config.get<string>(
           'PAYROLL_FROM_EMAIL',
           'payroll_audit@statcosol.com',
+        ),
+      },
+      extras,
+    );
+  }
+
+  /**
+   * Send compliance advisory/news emails. Defaults to the CRM audit mailbox so
+   * compliance news can reuse the same approved SMTP identity.
+   */
+  async sendComplianceMail(
+    to: string | string[],
+    subject: string,
+    title: string,
+    bodyHtml: string,
+    extras?: { cc?: string | string[]; bcc?: string | string[] },
+  ) {
+    return this.send(
+      to,
+      subject,
+      title,
+      bodyHtml,
+      {
+        name: this.config.get<string>(
+          'COMPLIANCE_FROM_NAME',
+          this.config.get<string>('AUDIT_FROM_NAME', 'StatCo Audit Desk'),
+        ),
+        email: this.config.get<string>(
+          'COMPLIANCE_FROM_EMAIL',
+          this.config.get<string>(
+            'AUDIT_FROM_EMAIL',
+            'crm_india@statcosol.com',
+          ),
         ),
       },
       extras,

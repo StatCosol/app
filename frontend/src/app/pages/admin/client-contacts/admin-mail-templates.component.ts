@@ -23,6 +23,7 @@ interface EditState {
 const TYPE_LABELS: Record<ClientCommType, string> = {
   PAYROLL_INPUT_REQUEST: 'Payroll Inputs Request (1st of month)',
   MCD_REQUEST: 'MCD Data Request (16th of month)',
+  WEEKLY_COMPLIANCE_NEWS: 'Weekly Compliance News (Monday 9 AM)',
 };
 
 @Component({
@@ -32,7 +33,7 @@ const TYPE_LABELS: Record<ClientCommType, string> = {
   template: `
     <ui-page-header
       title="Monthly Mail Templates"
-      subtitle="Edit subject & HTML body of the auto-sent payroll & MCD client emails"
+      subtitle="Edit subject & HTML body of auto-sent payroll, MCD, and compliance news emails"
       [breadcrumbs]="[
         { label: 'Admin', route: '/admin/dashboard' },
         { label: 'Client Contacts', route: '/admin/client-contacts' },
@@ -45,7 +46,9 @@ const TYPE_LABELS: Record<ClientCommType, string> = {
         Use placeholders <code>{{ '{{clientName}}' }}</code>,
         <code>{{ '{{monthLabel}}' }}</code>,
         <code>{{ '{{deadlineLabel}}' }}</code>,
-        <code>{{ '{{portalUrl}}' }}</code> — they get replaced at send-time.
+        <code>{{ '{{portalUrl}}' }}</code>,
+        <code>{{ '{{newsDigest}}' }}</code>,
+        <code>{{ '{{brandLogoUrl}}' }}</code> — they get replaced at send-time.
         Body supports HTML.
       </p>
 

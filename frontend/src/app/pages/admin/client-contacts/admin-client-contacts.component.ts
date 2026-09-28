@@ -1,4 +1,3 @@
-import { ClientCommPolicyComponent } from './client-comm-policy.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -53,7 +52,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 @Component({
   selector: 'app-admin-client-contacts',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent, ClientCommPolicyComponent],
+  imports: [FormsModule, PageHeaderComponent],
   template: `
     <ui-page-header
       title="Client Department Contacts"
@@ -124,7 +123,6 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 
         <!-- ────── RIGHT: Contacts for selected client ────── -->
         <div class="lg:col-span-8 space-y-4">
-          @if (selectedClient(); as client) { <app-client-comm-policy [clientId]="client.id" /> }
           @if (!selectedClient()) {
 <div
            
@@ -166,6 +164,14 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                   [disabled]="busyTrigger()"
                 >
                   ▶ Send MCD Mail Now
+                </button>
+                <button
+                  type="button"
+                  class="px-3 py-1.5 text-xs font-medium rounded-md border border-sky-300 text-sky-700 hover:bg-sky-50"
+                  (click)="triggerWeeklyNewsMail(client)"
+                  [disabled]="busyTrigger()"
+                >
+                  Send News Mail Now
                 </button>
                 <button
                   type="button"
@@ -479,16 +485,19 @@ export class AdminClientContactsComponent implements OnInit {
   }
 
   loadContacts(clientId: string): void {
-    this.contacts.set([]);
     this.loadingContacts.set(true);
     this.contactsSvc.list(clientId).subscribe({
       next: (rows) => {
-        if (this.selectedClient()?.id !== clientId) return;
+        if (this.selectedClient()?.id !== clientId) {
+          return;
+        }
         this.contacts.set(rows || []);
         this.loadingContacts.set(false);
       },
       error: () => {
-        if (this.selectedClient()?.id !== clientId) return;
+        if (this.selectedClient()?.id !== clientId) {
+          return;
+        }
         this.loadingContacts.set(false);
         this.flash('err', 'Failed to load contacts');
       },
@@ -655,6 +664,30 @@ export class AdminClientContactsComponent implements OnInit {
         this.flash(
           s.failed ? 'err' : 'ok',
           `MCD mail: sent=${s.sent}, skipped=${s.skipped}, failed=${s.failed}`,
+        );
+      },
+      error: (e) => {
+        this.busyTrigger.set(false);
+        this.flash('err', this.errMsg(e));
+      },
+    });
+  }
+
+  async triggerWeeklyNewsMail(c: Client): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Send News Mail',
+      `Send weekly compliance news email now to ${c.clientName}?`,
+      { confirmText: 'Send' },
+    );
+    if (!ok) return;
+    this.busyTrigger.set(true);
+    this.contactsSvc.triggerWeeklyComplianceNewsNow(c.id).subscribe({
+      next: (res) => {
+        this.busyTrigger.set(false);
+        const s = res.summary;
+        this.flash(
+          s.failed ? 'err' : 'ok',
+          `News mail: sent=${s.sent}, skipped=${s.skipped}, failed=${s.failed}`,
         );
       },
       error: (e) => {
