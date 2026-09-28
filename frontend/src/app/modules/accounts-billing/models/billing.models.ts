@@ -101,7 +101,7 @@ export interface InvoicePayment {
 }
 
 export type InvoiceEmailResult =
-  | { success: true; messageId?: string }
+  | { success: true; messageId?: string; statusUpdatePending?: boolean; warning?: string }
   | { success: false; error: string };
 
 export interface InvoiceEmailLog {

@@ -248,6 +248,57 @@ describe('Invoice email snapshot consistency', () => {
     expect(x.invoices.updateMailStatus).not.toHaveBeenCalled();
   });
 
+  it.each(['email log', 'invoice status', 'both'])(
+    'does not report accepted mail as failed when saving %s fails',
+    async (failure) => {
+      const x = setup();
+      if (failure !== 'invoice status') {
+        x.logs.save
+          .mockResolvedValueOnce(undefined)
+          .mockRejectedValueOnce(new Error('database unavailable'));
+      }
+      if (failure !== 'email log') {
+        x.invoices.updateMailStatus.mockRejectedValueOnce(
+          new Error('database unavailable'),
+        );
+      }
+      const result = await x.service.sendInvoice(
+        'sample',
+        { toEmail: 'recipient@example.invalid' },
+        'actor',
+      );
+      expect(result).toMatchObject({
+        success: true,
+        messageId: 'sample-message',
+        statusUpdatePending: true,
+      });
+      expect(result).toHaveProperty(
+        'warning',
+        expect.stringContaining('Do not resend'),
+      );
+      expect(x.email.send).toHaveBeenCalledTimes(1);
+      expect(x.logs.save).toHaveBeenCalledTimes(2);
+      expect(x.logs.save.mock.calls[1][0].sentStatus).toBe(MailStatus.SENT);
+      expect(x.invoices.updateMailStatus).toHaveBeenCalledWith(
+        'sample',
+        MailStatus.SENT,
+      );
+    },
+  );
+
+  it('does not send if the initial email log cannot be persisted', async () => {
+    const x = setup();
+    x.logs.save.mockRejectedValueOnce(new Error('database unavailable'));
+    await expect(
+      x.service.sendInvoice(
+        'sample',
+        { toEmail: 'recipient@example.invalid' },
+        'actor',
+      ),
+    ).rejects.toThrow('database unavailable');
+    expect(x.email.send).not.toHaveBeenCalled();
+  });
+
   it('does not overwrite the same disk file on concurrent renders', async () => {
     const x = setup();
     const [first, second] = await Promise.all([

@@ -66,6 +66,10 @@ import { ToastService } from '../../../shared/toast/toast.service';
 }
       </div>
 
+      @if (emailWarning) {
+        <p role="alert" class="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-900">{{ emailWarning }}</p>
+      }
+
       <!-- Client & Amount Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="bg-white rounded-xl border p-5">
@@ -403,6 +407,7 @@ export class BillingInvoiceViewComponent implements OnInit, OnDestroy {
   showEmailModal = false;
   sendingEmail = false;
   emailForm: any = {};
+  emailWarning = '';
 
   generatingPdf = false;
   showConversionModal = false;
@@ -425,6 +430,7 @@ export class BillingInvoiceViewComponent implements OnInit, OnDestroy {
     this.routeSubscription = this.route.paramMap.subscribe(params => {
       this.contextVersion++;
       this.contextChanged.next();
+      this.emailWarning = '';
       this.approving = this.cancelling = this.savingPayment = false;
       this.generatingPdf = this.sendingEmail = this.convertingProforma = false;
       this.showPaymentModal = this.showEmailModal = this.showConversionModal = false;
@@ -655,7 +661,11 @@ export class BillingInvoiceViewComponent implements OnInit, OnDestroy {
           return;
         }
         this.showEmailModal = false;
-        this.toast.success('Invoice email sent');
+        this.emailWarning = result.statusUpdatePending
+          ? (result.warning || 'The mail server accepted this email, but its saved status needs reconciliation. Do not resend; contact your administrator.')
+          : '';
+        if (this.emailWarning) this.toast.warning('Email accepted; status update pending');
+        else this.toast.success('Invoice email sent');
         this.loadInvoice(id);
       },
       error: (e) => { this.sendingEmail = false; this.reportError(e, 'Could not send invoice email'); },

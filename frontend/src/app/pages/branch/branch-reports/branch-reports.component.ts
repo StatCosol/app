@@ -1,10 +1,13 @@
 import { Component, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
+import { ReportsService, PdfReportType } from '../../../core/reports.service';
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 
 interface ReportItem {
   name: string;
@@ -19,7 +22,7 @@ interface ReportItem {
 @Component({
   selector: 'app-branch-reports',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-container">
@@ -29,6 +32,26 @@ interface ReportItem {
           <p class="page-subtitle">Generate and download branch compliance reports</p>
         </div>
       </div>
+
+      @if (canDownloadPdf) {
+        <section class="pdf-downloads" aria-label="PDF reports" [attr.aria-busy]="pdfLoading">
+          <label for="pdf-report-type">PDF report
+            <select id="pdf-report-type" [(ngModel)]="pdfType" [disabled]="pdfLoading">
+              <option value="compliance">Compliance summary</option>
+              <option value="risk-heatmap">Branch risk heatmap</option>
+              <option value="dtss">Due-task submission status</option>
+            </select>
+          </label>
+          <label for="pdf-report-month">Month (optional)
+            <input id="pdf-report-month" type="month" [(ngModel)]="pdfMonth" [disabled]="pdfLoading" />
+          </label>
+          <button type="button" class="pdf-download-button" (click)="downloadPdf()" [disabled]="pdfLoading">
+            <ui-icon name="download" [size]="18" />
+            {{ pdfLoading ? 'Preparing PDF...' : 'Download PDF' }}
+          </button>
+          @if (pdfError) { <p class="pdf-error" role="alert">{{ pdfError }}</p> }
+        </section>
+      }
 
       @if (categories.length === 0) {
         <div class="empty-state">No report services are enabled for this branch user.</div>
@@ -434,6 +457,44 @@ interface ReportItem {
         max-width: 1280px;
         margin: 0 auto;
       }
+      .pdf-downloads {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: end;
+        gap: 1rem;
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-block: 1px solid #e2e8f0;
+      }
+      .pdf-downloads label { display: grid; gap: 0.375rem; font-size: 0.8125rem; min-width: 0; }
+      .pdf-downloads select, .pdf-downloads input {
+        height: 2.75rem;
+        max-width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        background: white;
+        color: #1e293b;
+      }
+      .pdf-download-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        min-width: 10rem;
+        height: 2.75rem;
+        border-radius: 6px;
+        background: #116958;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+      }
+      .pdf-download-button:disabled { opacity: 0.65; cursor: wait; }
+      .pdf-error { flex-basis: 100%; color: #b91c1c; font-size: 0.875rem; margin: 0; }
+      @media (max-width: 480px) {
+        .pdf-downloads label, .pdf-download-button { width: 100%; }
+        .report-grid { grid-template-columns: minmax(0, 1fr); }
+      }
       .page-header {
         margin-bottom: 1.5rem;
       }
@@ -461,7 +522,7 @@ interface ReportItem {
       }
       .report-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
         gap: 0.75rem;
       }
       .report-card {
@@ -517,6 +578,10 @@ export class BranchReportsComponent {
   reportData: any[] = [];
   reportSummary: any = null;
   reportLoading = false;
+  pdfLoading = false;
+  pdfError = '';
+  pdfMonth = '';
+  pdfType: PdfReportType = 'compliance';
   summaryPairs: { label: string; value: any }[] = [];
 
   reports: ReportItem[] = [
@@ -593,7 +658,32 @@ export class BranchReportsComponent {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private auth: AuthService,
+    private pdfReports: ReportsService,
   ) {}
+
+  get canDownloadPdf(): boolean {
+    return this.auth.hasModule('EMPLOYEE_COMPLIANCE') && !!this.auth.getUser()?.clientId;
+  }
+
+  downloadPdf(): void {
+    if (this.pdfLoading || !this.canDownloadPdf) return;
+    this.pdfError = '';
+    if (this.pdfMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(this.pdfMonth)) {
+      this.pdfError = 'Select a valid report month.';
+      return;
+    }
+    this.pdfLoading = true;
+    this.pdfReports.downloadPdf(this.pdfType, this.auth.getUser().clientId, this.pdfMonth || undefined)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.pdfLoading = false; this.cdr.markForCheck(); }),
+      ).subscribe({
+        error: (error) => {
+          this.pdfError = ReportsService.downloadError(error);
+          this.cdr.markForCheck();
+        },
+      });
+  }
 
   getReportsForCategory(cat: string): ReportItem[] {
     return this.visibleReports.filter((r) => r.category === cat);

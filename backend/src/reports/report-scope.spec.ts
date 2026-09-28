@@ -12,6 +12,7 @@ import { AuditReportController } from './audit-report.controller';
 import { AssignmentReportController } from './assignment-report.controller';
 import { ReportExportController } from './report-export.controller';
 import { ReportExportService } from './report-export.service';
+import { ServiceEntitlementsService } from '../service-entitlements/service-entitlements.service';
 
 describe('Operational report scope', () => {
   const user = { id: 'user', userId: 'user', roleCode: 'CCO' } as ReqUser;
@@ -19,9 +20,13 @@ describe('Operational report scope', () => {
   let db: DataSource;
   let access: Record<string, jest.Mock>;
   let scope: OperationalScopeService;
+  let entitlements: ServiceEntitlementsService;
   beforeEach(() => {
     query = jest.fn().mockResolvedValue([]);
     db = { query } as unknown as DataSource;
+    entitlements = {
+      assertModule: jest.fn().mockResolvedValue(undefined),
+    } as unknown as ServiceEntitlementsService;
     access = {
       getScope: jest.fn().mockResolvedValue({ level: 'all' }),
       getCcoClientIds: jest.fn().mockResolvedValue(['company-a']),
@@ -38,12 +43,28 @@ describe('Operational report scope', () => {
     (method) => {
       const response = () =>
         ({ set: jest.fn(), end: jest.fn() }) as unknown as Response;
+      it.each(['2026-13', 'September', '2026-09-01'])(
+        'rejects an invalid month (%s)',
+        async (month) => {
+          const controller = new PdfReportController(
+            {} as PdfReportService,
+            db,
+            scope,
+            entitlements,
+          );
+          await expect(
+            controller[method](user, 'company-a', month, response()),
+          ).rejects.toThrow('month must use YYYY-MM');
+          expect(query).not.toHaveBeenCalled();
+        },
+      );
       it('rejects a CCO outside the company before reading or rendering', async () => {
         const render = jest.fn();
         const controller = new PdfReportController(
           { [method]: render } as unknown as PdfReportService,
           db,
           scope,
+          entitlements,
         );
         await expect(
           controller[method](user, 'company-b', '2026-09', response()),
@@ -52,7 +73,80 @@ describe('Operational report scope', () => {
         expect(render).not.toHaveBeenCalled();
       });
 
-      it('rejects company-wide output for a branch user', async () => {
+      it('rejects a branch user with no assignments', async () => {
+        access.getScope.mockResolvedValue({
+          level: 'branches',
+          clientId: 'company-a',
+          branchIds: [],
+        });
+        const controller = new PdfReportController(
+          {} as PdfReportService,
+          db,
+          scope,
+          entitlements,
+        );
+        await expect(
+          controller[method](
+            { ...user, roleCode: 'CLIENT' },
+            'company-a',
+            '2026-09',
+            response(),
+          ),
+        ).rejects.toThrow(ForbiddenException);
+        expect(query).not.toHaveBeenCalled();
+      });
+
+      it.each(['2026-09', undefined])(
+        'restricts branch output before rendering (%s)',
+        async (month) => {
+          access.getScope.mockResolvedValue({
+            level: 'branches',
+            clientId: 'company-a',
+            branchIds: ['branch-a'],
+          });
+          const render = jest.fn().mockResolvedValue(Buffer.from('pdf'));
+          const pdf = {
+            complianceSummary: render,
+            riskHeatmap: render,
+            dtssReport: render,
+          };
+          await new PdfReportController(
+            pdf as unknown as PdfReportService,
+            db,
+            scope,
+            entitlements,
+          )[method](
+            { ...user, roleCode: 'CLIENT' },
+            'company-a',
+            month as string,
+            response(),
+          );
+          if (method === 'dtss') {
+            expect(query).toHaveBeenLastCalledWith(
+              expect.stringContaining(
+                `ct.branch_id = ANY($${month ? 3 : 2}::uuid[])`,
+              ),
+              month
+                ? ['company-a', month, ['branch-a']]
+                : ['company-a', ['branch-a']],
+            );
+            expect(query.mock.calls[1][0]).toContain('b.clientid = $1');
+            expect(render).toHaveBeenCalledWith(
+              'company-a',
+              month || 'All',
+              [],
+              'Client',
+              true,
+            );
+          } else {
+            expect(render).toHaveBeenCalledWith('company-a', month, 'Client', [
+              'branch-a',
+            ]);
+          }
+        },
+      );
+
+      it('rejects branch access to another company', async () => {
         access.getScope.mockResolvedValue({
           level: 'branches',
           clientId: 'company-a',
@@ -62,11 +156,12 @@ describe('Operational report scope', () => {
           {} as PdfReportService,
           db,
           scope,
+          entitlements,
         );
         await expect(
           controller[method](
             { ...user, roleCode: 'CLIENT' },
-            'company-a',
+            'company-b',
             '2026-09',
             response(),
           ),
@@ -88,6 +183,7 @@ describe('Operational report scope', () => {
           pdf as unknown as PdfReportService,
           db,
           scope,
+          entitlements,
         )[method](user, 'company-a', '2026-09', res);
         expect(access.assertCcoClientAllowed).toHaveBeenCalledWith(
           user,

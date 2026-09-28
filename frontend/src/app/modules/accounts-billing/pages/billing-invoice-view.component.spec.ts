@@ -35,7 +35,7 @@ async function setup(overrides: Partial<Invoice> = {}) {
     generatePdf: vi.fn(() => of(new Blob())),
     convertProformaToTaxInvoice: vi.fn(() => of(invoice({ id: 'tax' }))),
   };
-  const toast = { error: vi.fn(), success: vi.fn() };
+  const toast = { error: vi.fn(), success: vi.fn(), warning: vi.fn() };
   const dialog = { confirm: vi.fn(() => Promise.resolve(true)) };
   await TestBed.configureTestingModule({
     imports: [BillingInvoiceViewComponent],
@@ -115,6 +115,21 @@ describe('Invoice action availability', () => {
 });
 
 describe('Payment and email outcomes', () => {
+  it('keeps a visible reconciliation warning after accepted mail with failed bookkeeping', async () => {
+    const { create, api, toast } = await setup();
+    api.sendInvoiceEmail.mockReturnValue(of({ success: true, statusUpdatePending: true, warning: 'Accepted. Do not resend; reconcile status.' }));
+    const fixture = create();
+    const c = fixture.componentInstance;
+    c.showEmailModal = true;
+    c.submitEmail();
+    fixture.detectChanges();
+    expect(c.showEmailModal).toBe(false);
+    expect(c.sendingEmail).toBe(false);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.warning).toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Do not resend; reconcile status.');
+  });
   it('uses numeric defaults, blocks repeats and retains rejected payment inputs', async () => {
     const { create, api, toast } = await setup({ balanceOutstanding: '100.00' as any });
     const pending = new Subject<any>(); api.recordPayment.mockReturnValue(pending);

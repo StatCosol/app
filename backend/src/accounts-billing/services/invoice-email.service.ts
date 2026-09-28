@@ -94,9 +94,39 @@ export class InvoiceEmailService {
       if ('ok' in result && result.ok) {
         log.sentStatus = MailStatus.SENT;
         log.sentAt = new Date();
-        await this.emailLogRepo.save(log);
-        await this.invoicesService.updateMailStatus(invoiceId, MailStatus.SENT);
-        return { success: true, messageId: result.messageId };
+        // SMTP acceptance cannot be undone by a bookkeeping failure. In
+        // particular, never overwrite SENT with FAILED or retry delivery here.
+        let statusUpdatePending = false;
+        try {
+          await this.emailLogRepo.save(log);
+        } catch {
+          statusUpdatePending = true;
+          this.log.error(
+            `Invoice ${invoiceId}: email accepted, email log update failed; reconcile before resending`,
+          );
+        }
+        try {
+          await this.invoicesService.updateMailStatus(
+            invoiceId,
+            MailStatus.SENT,
+          );
+        } catch {
+          statusUpdatePending = true;
+          this.log.error(
+            `Invoice ${invoiceId}: email accepted, invoice status update failed; reconcile before resending`,
+          );
+        }
+        return {
+          success: true,
+          messageId: result.messageId,
+          ...(statusUpdatePending
+            ? {
+                statusUpdatePending: true,
+                warning:
+                  'The mail server accepted this email, but its saved status could not be fully updated. Do not resend; ask an administrator to reconcile the email log.',
+              }
+            : {}),
+        };
       } else {
         const errMsg = 'error' in result ? String(result.error) : 'skipped';
         log.sentStatus = MailStatus.FAILED;

@@ -13,6 +13,7 @@ import { ReportExportController } from './report-export.controller';
 import { PdfReportService } from './pdf-report.service';
 import { PdfReportController } from './pdf-report.controller';
 import { AccessModule } from '../access/access.module';
+import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AccessModule } from '../access/access.module';
     AssignmentsModule,
     AuthModule,
     AccessModule,
+    ServiceEntitlementsModule,
   ],
   providers: [ReportsService, ReportExportService, PdfReportService],
   controllers: [

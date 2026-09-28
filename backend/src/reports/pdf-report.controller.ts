@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   ForbiddenException,
   Get,
@@ -16,6 +17,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import { OperationalScopeService } from '../access/operational-scope.service';
+import { ServiceEntitlementsService } from '../service-entitlements/service-entitlements.service';
 
 /**
  * /api/v1/reports/pdf
@@ -30,6 +32,7 @@ export class PdfReportController {
     private readonly pdf: PdfReportService,
     @InjectDataSource() private ds: DataSource,
     private readonly scope: OperationalScopeService,
+    private readonly entitlements: ServiceEntitlementsService,
   ) {}
 
   /* ── Compliance Summary (per client) ── */
@@ -37,16 +40,21 @@ export class PdfReportController {
   @Version('1')
   @ApiOperation({ summary: 'Compliance Summary' })
   @Get('compliance/:clientId')
-  @Roles('CRM', 'CLIENT', 'ADMIN', 'CCO', 'CEO')
+  @Roles('CRM', 'CLIENT', 'BRANCH_DESK', 'ADMIN', 'CCO', 'CEO')
   async complianceSummary(
     @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Query('month') month: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
-    await this.assertCompanyReportAccess(user, clientId);
+    const branchIds = await this.reportBranchIds(user, clientId, month);
     const name = await this.clientName(clientId);
-    const buf = await this.pdf.complianceSummary(clientId, month, name);
+    const buf = await this.pdf.complianceSummary(
+      clientId,
+      month,
+      name,
+      branchIds,
+    );
     this.streamPdf(res, buf, `compliance-summary-${clientId}.pdf`);
   }
 
@@ -72,16 +80,16 @@ export class PdfReportController {
   @Version('1')
   @ApiOperation({ summary: 'Risk Heatmap' })
   @Get('risk-heatmap/:clientId')
-  @Roles('CRM', 'CLIENT', 'ADMIN', 'CCO', 'CEO')
+  @Roles('CRM', 'CLIENT', 'BRANCH_DESK', 'ADMIN', 'CCO', 'CEO')
   async riskHeatmap(
     @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Query('month') month: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
-    await this.assertCompanyReportAccess(user, clientId);
+    const branchIds = await this.reportBranchIds(user, clientId, month);
     const name = await this.clientName(clientId);
-    const buf = await this.pdf.riskHeatmap(clientId, month, name);
+    const buf = await this.pdf.riskHeatmap(clientId, month, name, branchIds);
     this.streamPdf(res, buf, `risk-heatmap-${clientId}.pdf`);
   }
 
@@ -90,15 +98,21 @@ export class PdfReportController {
   @Version('1')
   @ApiOperation({ summary: 'Dtss' })
   @Get('dtss/:clientId')
-  @Roles('CRM', 'CLIENT', 'ADMIN', 'CCO', 'CEO')
+  @Roles('CRM', 'CLIENT', 'BRANCH_DESK', 'ADMIN', 'CCO', 'CEO')
   async dtss(
     @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Query('month') month: string,
     @Res() res: Response,
   ): Promise<void> {
-    await this.assertCompanyReportAccess(user, clientId);
+    const branchIds = await this.reportBranchIds(user, clientId, month);
     const name = await this.clientName(clientId);
+    const params: unknown[] = [clientId];
+    if (month) params.push(month);
+    if (branchIds) params.push(branchIds);
+    const branchFilter = branchIds
+      ? `AND b.clientid = $1 AND ct.branch_id = ANY($${params.length}::uuid[])`
+      : '';
 
     // Fetch tasks for the month
     const tasks = await this.ds.query(
@@ -111,8 +125,9 @@ export class PdfReportController {
        LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
        WHERE ct.client_id = $1
          ${month ? "AND to_char(ct.due_date, 'YYYY-MM') = $2" : ''}
+         ${branchFilter}
        ORDER BY ct.due_date`,
-      month ? [clientId, month] : [clientId],
+      params,
     );
 
     const buf = await this.pdf.dtssReport(
@@ -120,20 +135,37 @@ export class PdfReportController {
       month || 'All',
       tasks,
       name,
+      branchIds !== undefined,
     );
     this.streamPdf(res, buf, `dtss-${clientId}-${month || 'all'}.pdf`);
   }
 
   /* ──────── helpers ──────── */
 
-  private async assertCompanyReportAccess(user: ReqUser, clientId: string) {
-    const scope = await this.scope.resolve(user, clientId);
-    // These generators aggregate every branch and cannot produce a scoped PDF.
-    if (scope.level === 'branches') {
-      throw new ForbiddenException(
-        'Company-wide reports require company access',
+  private async reportBranchIds(
+    user: ReqUser,
+    clientId: string,
+    month?: string,
+  ): Promise<string[] | undefined> {
+    if (
+      month &&
+      (typeof month !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    ) {
+      throw new BadRequestException(
+        'month must use YYYY-MM with a valid calendar month',
       );
     }
+    const scope = await this.scope.resolve(user, clientId);
+    if (scope.level === 'branches') {
+      if (!scope.branchIds?.length) {
+        throw new ForbiddenException(
+          'No branches are assigned for this report',
+        );
+      }
+      await this.entitlements.assertModule(clientId, 'EMPLOYEE_COMPLIANCE');
+      return scope.branchIds;
+    }
+    return undefined;
   }
 
   private async clientName(clientId: string): Promise<string> {
