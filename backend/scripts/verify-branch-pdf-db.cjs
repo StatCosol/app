@@ -48,7 +48,11 @@ async function main() {
     assert.deepEqual(await pct.clientBranchesPct(company, '2026-09', []), []);
     assert.equal((await pct.clientBranchesPct(company, undefined, [allowed]))[0].total, 4);
     const scope = { resolve: async () => ({ level: 'branches', clientId: company, branchIds: [allowed, foreign] }) };
-    const controller = new PdfReportController(new PdfReportService(pct), ds, scope);
+    const entitlements = { assertModule: async (id, module) => {
+      assert.equal(id, company);
+      assert.equal(module, 'EMPLOYEE_COMPLIANCE');
+    } };
+    const controller = new PdfReportController(new PdfReportService(pct), ds, scope, entitlements);
     for (const method of ['complianceSummary', 'riskHeatmap', 'dtss']) {
       let buffer;
       await controller[method]({}, company, '2026-09', { set() {}, end(value) { buffer = value; } });

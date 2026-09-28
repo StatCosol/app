@@ -17,6 +17,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import { OperationalScopeService } from '../access/operational-scope.service';
+import { ServiceEntitlementsService } from '../service-entitlements/service-entitlements.service';
 
 /**
  * /api/v1/reports/pdf
@@ -31,6 +32,7 @@ export class PdfReportController {
     private readonly pdf: PdfReportService,
     @InjectDataSource() private ds: DataSource,
     private readonly scope: OperationalScopeService,
+    private readonly entitlements: ServiceEntitlementsService,
   ) {}
 
   /* ── Compliance Summary (per client) ── */
@@ -160,6 +162,7 @@ export class PdfReportController {
           'No branches are assigned for this report',
         );
       }
+      await this.entitlements.assertModule(clientId, 'EMPLOYEE_COMPLIANCE');
       return scope.branchIds;
     }
     return undefined;

@@ -10,6 +10,12 @@
 
 ## Protection boundaries
 
+### Review follow-up: branch PDF entitlement
+
+The three scoped PDF endpoints now call the existing entitlement service for `EMPLOYEE_COMPLIANCE` before returning branch IDs or reading report data. This covers both `CLIENT` branch users and explicit `BRANCH_DESK` users, including direct HTTP requests where the global route guard does not enforce the module. Current server-side entitlements are checked on every request; frontend visibility or a stale user snapshot is not treated as authorization. Non-branch reporting scope is unchanged. ReportsModule explicitly imports ServiceEntitlementsModule; the shared guard and attendance routes are untouched.
+
+Verification for this follow-up: 158 tests passed across report scope, report rendering, the new HTTP regression suite and existing entitlement-service/guard suites. The HTTP fixture uses synthetic authentication and the actual entitlement guard, PDF controller and entitlement service. It covers contractor-only modules, empty modules, permitted access, revocation, lookup failure and unchanged non-branch behavior.
+
 No kiosk, APK, face capture, attendance, biometric, PIN, salary-calculation, shared authentication, migration or startup-schema changes. The optional compliance-calculator branch argument is additive; existing callers that omit it retain their existing SQL scope. No production database checks, real email deliveries or production file deletion were performed.
 
 No schema migration or new runtime configuration is needed for this PR. Merge/deployment remains the existing PR workflow; local validation does not mean the changes are published.

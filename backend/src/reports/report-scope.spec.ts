@@ -12,6 +12,7 @@ import { AuditReportController } from './audit-report.controller';
 import { AssignmentReportController } from './assignment-report.controller';
 import { ReportExportController } from './report-export.controller';
 import { ReportExportService } from './report-export.service';
+import { ServiceEntitlementsService } from '../service-entitlements/service-entitlements.service';
 
 describe('Operational report scope', () => {
   const user = { id: 'user', userId: 'user', roleCode: 'CCO' } as ReqUser;
@@ -19,9 +20,13 @@ describe('Operational report scope', () => {
   let db: DataSource;
   let access: Record<string, jest.Mock>;
   let scope: OperationalScopeService;
+  let entitlements: ServiceEntitlementsService;
   beforeEach(() => {
     query = jest.fn().mockResolvedValue([]);
     db = { query } as unknown as DataSource;
+    entitlements = {
+      assertModule: jest.fn().mockResolvedValue(undefined),
+    } as unknown as ServiceEntitlementsService;
     access = {
       getScope: jest.fn().mockResolvedValue({ level: 'all' }),
       getCcoClientIds: jest.fn().mockResolvedValue(['company-a']),
@@ -45,6 +50,7 @@ describe('Operational report scope', () => {
             {} as PdfReportService,
             db,
             scope,
+            entitlements,
           );
           await expect(
             controller[method](user, 'company-a', month, response()),
@@ -58,6 +64,7 @@ describe('Operational report scope', () => {
           { [method]: render } as unknown as PdfReportService,
           db,
           scope,
+          entitlements,
         );
         await expect(
           controller[method](user, 'company-b', '2026-09', response()),
@@ -76,6 +83,7 @@ describe('Operational report scope', () => {
           {} as PdfReportService,
           db,
           scope,
+          entitlements,
         );
         await expect(
           controller[method](
@@ -106,6 +114,7 @@ describe('Operational report scope', () => {
             pdf as unknown as PdfReportService,
             db,
             scope,
+            entitlements,
           )[method](
             { ...user, roleCode: 'CLIENT' },
             'company-a',
@@ -147,6 +156,7 @@ describe('Operational report scope', () => {
           {} as PdfReportService,
           db,
           scope,
+          entitlements,
         );
         await expect(
           controller[method](
@@ -173,6 +183,7 @@ describe('Operational report scope', () => {
           pdf as unknown as PdfReportService,
           db,
           scope,
+          entitlements,
         )[method](user, 'company-a', '2026-09', res);
         expect(access.assertCcoClientAllowed).toHaveBeenCalledWith(
           user,
