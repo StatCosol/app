@@ -82,10 +82,16 @@ export class CompliancePctService {
   async clientBranchesPct(
     clientId: string,
     month?: string,
+    branchIds?: string[],
   ): Promise<BranchPctRow[]> {
+    if (branchIds && branchIds.length === 0) return [];
     const monthFilter = month ? `AND to_char(ct.due_date, 'YYYY-MM') = $2` : '';
     const params: unknown[] = [clientId];
     if (month) params.push(month);
+    if (branchIds) params.push(branchIds);
+    const branchFilter = branchIds
+      ? `AND b.id = ANY($${params.length}::uuid[])`
+      : '';
 
     const sql = `
       SELECT
@@ -109,6 +115,7 @@ export class CompliancePctService {
       LEFT JOIN compliance_tasks ct ON ct.branch_id = b.id AND ct.client_id = $1
         ${monthFilter}
       WHERE b.clientid = $1
+        ${branchFilter}
         AND (b.status IS NULL OR b.status = 'ACTIVE')
       GROUP BY b.id, b.branchname, b.statecode
       ORDER BY "compliancePct" ASC

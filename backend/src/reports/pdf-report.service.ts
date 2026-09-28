@@ -37,18 +37,25 @@ export class PdfReportService {
     clientId: string,
     month?: string,
     clientName?: string,
+    branchIds?: string[],
   ): Promise<Buffer> {
-    const [overall, branches] = await Promise.all([
-      this.pctSvc.clientOverallPct(clientId, month),
-      this.pctSvc.clientBranchesPct(clientId, month),
-    ]);
+    const branches = await this.pctSvc.clientBranchesPct(
+      clientId,
+      month,
+      branchIds,
+    );
+    // Scoped totals must be calculated from the same rows as the branch table.
+    const overall =
+      branchIds !== undefined
+        ? this.branchSummary(branches)
+        : await this.pctSvc.clientOverallPct(clientId, month);
 
     const doc = createDoc();
 
     header(
       doc,
       'Compliance Summary Report',
-      `${clientName || 'Client'} — ${month || 'All Time'}`,
+      `${clientName || 'Client'} — ${month || 'All Time'}${branchIds ? ' — Assigned branches' : ''}`,
     );
 
     // KPI row
@@ -168,14 +175,19 @@ export class PdfReportService {
     clientId: string,
     month?: string,
     clientName?: string,
+    branchIds?: string[],
   ): Promise<Buffer> {
-    const branches = await this.pctSvc.clientBranchesPct(clientId, month);
+    const branches = await this.pctSvc.clientBranchesPct(
+      clientId,
+      month,
+      branchIds,
+    );
     const doc = createDoc({ layout: 'landscape' });
 
     header(
       doc,
       'Risk Heatmap',
-      `${clientName || 'Client'} — ${month || 'All Time'}`,
+      `${clientName || 'Client'} — ${month || 'All Time'}${branchIds ? ' — Assigned branches' : ''}`,
     );
 
     // Bucket branches by risk
@@ -226,13 +238,14 @@ export class PdfReportService {
     month: string,
     tasks: DtssTaskRow[],
     clientName?: string,
+    branchScoped = false,
   ): Promise<Buffer> {
     const doc = createDoc();
 
     header(
       doc,
       'DTSS Report — Due Task Submission Status',
-      `${clientName || 'Client'} — ${month}`,
+      `${clientName || 'Client'} — ${month}${branchScoped ? ' — Assigned branches' : ''}`,
     );
 
     // Summary KPIs
@@ -286,5 +299,22 @@ export class PdfReportService {
 
     addPageNumbers(doc);
     return toBuffer(doc);
+  }
+
+  private branchSummary(branches: BranchPctRow[]): PctSummary {
+    const summary = branches.reduce<PctSummary>(
+      (sum, branch) => ({
+        total: sum.total + branch.total,
+        compliant: sum.compliant + branch.approved + branch.submitted,
+        pending: sum.pending + branch.pending,
+        overdue: sum.overdue + branch.overdue,
+        compliancePct: 0,
+      }),
+      { total: 0, compliant: 0, pending: 0, overdue: 0, compliancePct: 0 },
+    );
+    summary.compliancePct = summary.total
+      ? Math.round((1000 * summary.compliant) / summary.total) / 10
+      : 0;
+    return summary;
   }
 }
