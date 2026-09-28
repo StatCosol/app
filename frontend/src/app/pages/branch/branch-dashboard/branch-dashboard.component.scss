@@ -1,12 +1,42 @@
 @use '../../../shared/dashboard-hero.scss';
 
+:host { display: block; min-width: 0; }
+
 .branch-dashboard {
   max-width: 1280px;
-  margin: 0 auto;
+  margin: 1.25rem auto 0;
   position: relative;
 }
 
 .dash-hero { margin-bottom: 1.25rem; }
+
+.dash-hero__title { overflow-wrap: anywhere; }
+
+.dash-hero__right {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dash-hero__controls {
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dash-hero__controls label { color: #e0eff3; }
+
+.dash-hero__controls select,
+.dash-hero__month {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dash-hero__ring,
+.dash-hero__btn { flex-shrink: 0; }
+
+.dash-hero__btn { padding: 0; }
 
 /* Loading */
 .loading-overlay {
