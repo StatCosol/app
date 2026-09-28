@@ -12,6 +12,8 @@ export interface TemplatePlaceholders {
   monthLabel: string;
   deadlineLabel: string;
   portalUrl: string;
+  newsDigest?: string;
+  brandLogoUrl?: string;
 }
 
 export interface ResolvedTemplate {
@@ -93,6 +95,42 @@ const DEFAULT_MCD_BODY = `
       <p>Regards,<br/>Contractor Compliance &mdash; StatCo Solutions</p>
     `;
 
+const DEFAULT_WEEKLY_COMPLIANCE_NEWS_SUBJECT =
+  'Weekly Compliance News - {{clientName}} - {{monthLabel}}';
+
+const DEFAULT_WEEKLY_COMPLIANCE_NEWS_BODY = `
+      <div style="border-radius:20px;overflow:hidden;border:1px solid #dbeafe;background:#f8fafc">
+        <div style="background:#0a1f44;padding:22px 24px;color:#fff">
+          <img src="{{brandLogoUrl}}" alt="StatCo Solutions" style="height:42px;max-width:180px;display:block;margin-bottom:18px" />
+          <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7dd3fc;font-weight:700">Weekly Compliance News</div>
+          <div style="font-size:26px;line-height:1.2;font-weight:800;margin-top:6px">{{clientName}}</div>
+          <div style="font-size:14px;color:#cbd5e1;margin-top:8px">{{monthLabel}}</div>
+        </div>
+
+        <div style="padding:22px 24px">
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:16px 18px;margin-bottom:18px">
+            <div style="font-size:15px;color:#0f172a;line-height:1.6">
+              Dear Compliance Team,<br/>
+              Here is your weekly statutory update covering labour law, minimum wages, EPF/ESI, FSSAI and other official compliance portal changes.
+            </div>
+          </div>
+
+          {{newsDigest}}
+
+          <div style="text-align:center;margin:24px 0 12px">
+            <a href="{{portalUrl}}"
+               style="background:#0a1f44;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;display:inline-block;font-weight:700">
+              Open Client News
+            </a>
+          </div>
+
+          <div style="font-size:12px;color:#64748b;line-height:1.6;text-align:center;margin-top:16px">
+            This is a compliance awareness digest. Please verify applicability based on establishment type, state, scheduled employment, registrations and official notifications.
+          </div>
+        </div>
+      </div>
+    `;
+
 export const DEFAULT_TEMPLATES: Record<
   ClientCommType,
   { subject: string; body: string }
@@ -105,6 +143,10 @@ export const DEFAULT_TEMPLATES: Record<
     subject: DEFAULT_MCD_SUBJECT,
     body: DEFAULT_MCD_BODY,
   },
+  WEEKLY_COMPLIANCE_NEWS: {
+    subject: DEFAULT_WEEKLY_COMPLIANCE_NEWS_SUBJECT,
+    body: DEFAULT_WEEKLY_COMPLIANCE_NEWS_BODY,
+  },
 };
 
 export const TEMPLATE_PLACEHOLDERS = [
@@ -112,6 +154,8 @@ export const TEMPLATE_PLACEHOLDERS = [
   '{{monthLabel}}',
   '{{deadlineLabel}}',
   '{{portalUrl}}',
+  '{{newsDigest}}',
+  '{{brandLogoUrl}}',
 ];
 
 @Injectable()
@@ -186,7 +230,9 @@ export class ClientCommTemplatesService {
       .replace(/\{\{\s*clientName\s*\}\}/g, this.escape(vars.clientName))
       .replace(/\{\{\s*monthLabel\s*\}\}/g, this.escape(vars.monthLabel))
       .replace(/\{\{\s*deadlineLabel\s*\}\}/g, this.escape(vars.deadlineLabel))
-      .replace(/\{\{\s*portalUrl\s*\}\}/g, vars.portalUrl);
+      .replace(/\{\{\s*portalUrl\s*\}\}/g, vars.portalUrl)
+      .replace(/\{\{\s*newsDigest\s*\}\}/g, vars.newsDigest || '')
+      .replace(/\{\{\s*brandLogoUrl\s*\}\}/g, vars.brandLogoUrl || '');
   }
 
   private escape(s: string): string {

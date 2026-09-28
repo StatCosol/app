@@ -162,6 +162,20 @@ export class ClientContactsController {
     });
   }
 
+  @ApiOperation({ summary: 'Trigger weekly compliance-news emails now' })
+  @Post('trigger/weekly-compliance-news')
+  @Roles('ADMIN')
+  triggerWeeklyComplianceNews(
+    @CurrentUser() user: ReqUser,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.cron.runWeeklyComplianceNews({
+      triggeredBy: user?.userId || 'ADMIN_MANUAL',
+      manual: true,
+      onlyClientId: clientId,
+    });
+  }
+
   // --- Email template editor (admin only) ---------------------------------
 
   @ApiOperation({ summary: 'List editable mail templates with defaults' })
@@ -231,6 +245,8 @@ export class ClientContactsController {
       portalUrl?: string;
       subjectTemplate?: string;
       bodyTemplate?: string;
+      newsDigest?: string;
+      brandLogoUrl?: string;
     },
   ) {
     const ct = commType as ClientCommType;
@@ -245,7 +261,15 @@ export class ClientContactsController {
         dto?.portalUrl ||
         (ct === 'PAYROLL_INPUT_REQUEST'
           ? portalUrl('/client/payroll')
-          : portalUrl('/contractor/tasks')),
+          : ct === 'MCD_REQUEST'
+            ? portalUrl('/contractor/tasks')
+            : portalUrl('/client/news')),
+      newsDigest:
+        dto?.newsDigest ||
+        '<div style="border:1px solid #e2e8f0;border-radius:16px;padding:16px;background:#ffffff"><strong>Sample compliance update</strong><br/>Latest labour and FSSAI news summary appears here.</div>',
+      brandLogoUrl:
+        dto?.brandLogoUrl ||
+        portalUrl('/assets/images/statco-wordmark-white.png'),
     };
     // If caller passed un-saved drafts, render those; otherwise pull from DB/default.
     if (dto?.subjectTemplate || dto?.bodyTemplate) {
@@ -263,7 +287,9 @@ export class ClientContactsController {
           .replace(/\{\{\s*clientName\s*\}\}/g, escape(vars.clientName))
           .replace(/\{\{\s*monthLabel\s*\}\}/g, escape(vars.monthLabel))
           .replace(/\{\{\s*deadlineLabel\s*\}\}/g, escape(vars.deadlineLabel))
-          .replace(/\{\{\s*portalUrl\s*\}\}/g, vars.portalUrl);
+          .replace(/\{\{\s*portalUrl\s*\}\}/g, vars.portalUrl)
+          .replace(/\{\{\s*newsDigest\s*\}\}/g, vars.newsDigest)
+          .replace(/\{\{\s*brandLogoUrl\s*\}\}/g, vars.brandLogoUrl);
       return {
         ok: true,
         subject: render(subjTpl),

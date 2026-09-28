@@ -107,6 +107,16 @@ export class ClientContactsService {
     );
   }
 
+  triggerWeeklyComplianceNewsNow(clientId?: string): Observable<CommRunSummary> {
+    let params = new HttpParams();
+    if (clientId) params = params.set('clientId', clientId);
+    return this.http.post<CommRunSummary>(
+      `${this.base}/trigger/weekly-compliance-news`,
+      {},
+      { params },
+    );
+  }
+
   // ----- Email templates -----
   listTemplates(): Observable<MailTemplate[]> {
     return this.http.get<MailTemplate[]>(`${this.base}/templates`);
@@ -140,6 +150,8 @@ export class ClientContactsService {
       monthLabel?: string;
       deadlineLabel?: string;
       portalUrl?: string;
+      newsDigest?: string;
+      brandLogoUrl?: string;
     },
   ): Observable<{
     ok: boolean;
@@ -163,7 +175,10 @@ export class ClientContactsService {
   }
 }
 
-export type ClientCommType = 'PAYROLL_INPUT_REQUEST' | 'MCD_REQUEST';
+export type ClientCommType =
+  | 'PAYROLL_INPUT_REQUEST'
+  | 'MCD_REQUEST'
+  | 'WEEKLY_COMPLIANCE_NEWS';
 
 export interface MailTemplate {
   commType: ClientCommType;

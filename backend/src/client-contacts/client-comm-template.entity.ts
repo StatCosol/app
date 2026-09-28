@@ -5,11 +5,15 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export type ClientCommType = 'PAYROLL_INPUT_REQUEST' | 'MCD_REQUEST';
+export type ClientCommType =
+  | 'PAYROLL_INPUT_REQUEST'
+  | 'MCD_REQUEST'
+  | 'WEEKLY_COMPLIANCE_NEWS';
 
 export const CLIENT_COMM_TYPES: ClientCommType[] = [
   'PAYROLL_INPUT_REQUEST',
   'MCD_REQUEST',
+  'WEEKLY_COMPLIANCE_NEWS',
 ];
 
 @Entity({ name: 'client_comm_templates' })
