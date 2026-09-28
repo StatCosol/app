@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { NotificationEntity } from '../../notifications/entities/notification.entity';
 import { NotificationMessageEntity } from '../../notifications/entities/notification-message.entity';
 import { operationalDate } from '../../common/operational-date';
@@ -61,7 +61,10 @@ export class AutomationNotificationService {
 
   // A durable receipt and both visible records commit together. Failed delivery
   // leaves no receipt, allowing a retry without losing or multiplying reminders.
-  private async deliver(p: Delivery): Promise<boolean> {
+  private async deliver(
+    p: Delivery,
+    transactionManager?: EntityManager,
+  ): Promise<boolean> {
     const scope = [
       p.event,
       p.sourceId,
@@ -70,7 +73,7 @@ export class AutomationNotificationService {
       p.role,
       p.daily === false ? null : operationalDate(),
     ];
-    return this.dataSource.transaction(async (manager) => {
+    const deliver = async (manager: EntityManager) => {
       const claim = async (channel: string, recipient: string | null) => {
         const key = createHash('sha256')
           .update(JSON.stringify([channel, ...scope, recipient]))
@@ -136,7 +139,10 @@ export class AutomationNotificationService {
         sent = true;
       }
       return sent;
-    });
+    };
+    return transactionManager
+      ? deliver(transactionManager)
+      : this.dataSource.transaction(deliver);
   }
 
   async sendNcReminder(p: {
@@ -271,31 +277,37 @@ export class AutomationNotificationService {
     });
   }
 
-  async sendAuditReportReady(p: {
-    auditId: string;
-    auditCode: string;
-    score: number | null;
-    clientId: string;
-    branchId?: string | null;
-  }) {
+  async sendAuditReportReady(
+    p: {
+      auditId: string;
+      auditCode: string;
+      score: number | null;
+      clientId: string;
+      branchId?: string | null;
+    },
+    manager?: EntityManager,
+  ) {
     const score = p.score != null ? `${p.score}%` : 'N/A';
     for (const role of ['CRM', 'CLIENT'])
-      await this.deliver({
-        event: `audit-report:${score}`,
-        sourceId: p.auditId,
-        role,
-        clientId: p.clientId,
-        branchId: p.branchId,
-        module: 'AUDITS',
-        daily: false,
-        title:
-          role === 'CRM'
-            ? `Audit Report Ready — ${p.auditCode}`
-            : `Your Audit Report — ${p.auditCode}`,
-        message: `Audit ${p.auditCode} report has been generated. Score: ${score}.`,
-        priority: role === 'CRM' ? 'HIGH' : 'MEDIUM',
-        entityType: 'AUDIT',
-      });
+      await this.deliver(
+        {
+          event: `audit-report:${score}`,
+          sourceId: p.auditId,
+          role,
+          clientId: p.clientId,
+          branchId: p.branchId,
+          module: 'AUDITS',
+          daily: false,
+          title:
+            role === 'CRM'
+              ? `Audit Report Ready — ${p.auditCode}`
+              : `Your Audit Report — ${p.auditCode}`,
+          message: `Audit ${p.auditCode} report has been generated. Score: ${score}.`,
+          priority: role === 'CRM' ? 'HIGH' : 'MEDIUM',
+          entityType: 'AUDIT',
+        },
+        manager,
+      );
   }
 
   async sendReturnOverdueAlert(p: {

@@ -93,6 +93,7 @@ jobs:
           AUDITXPERT_TEST_PASSWORD: postgres
         run: |
           node scripts/verify-audit-corrections.cjs
+          node scripts/verify-audit-follow-ups.cjs
           node scripts/verify-audit-entry.cjs ./auditxpert-test-db.cjs
           node scripts/verify-auditor-dashboard.cjs ./auditxpert-test-db.cjs
           node scripts/verify-payslip-layout-db.cjs

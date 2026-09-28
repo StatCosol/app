@@ -70,16 +70,15 @@ describe('Audit correction lifecycle', () => {
       getRepository: jest.fn((entity) => repositories.get(entity)),
     };
     const transaction = jest.fn(async (callback) => callback(manager));
-    const ncEngine = { closeNc: jest.fn(), createTaskForNc: jest.fn() };
-    const outputEngine = { refreshAuditOutputs: jest.fn() };
-    const auditLogs = { log: jest.fn() };
+    const followUps = {
+      enqueue: jest.fn().mockResolvedValue('job'),
+      run: jest.fn().mockResolvedValue('SUCCEEDED'),
+    };
     const service: AuditNcService = Object.assign(
       Object.create(AuditNcService.prototype),
       {
         dataSource: { transaction },
-        ncEngine,
-        auditOutputEngine: outputEngine,
-        auditLogs,
+        followUps,
       },
     );
     return {
@@ -93,17 +92,23 @@ describe('Audit correction lifecycle', () => {
       reviewRepo,
       manager,
       transaction,
-      ncEngine,
-      outputEngine,
-      auditLogs,
+      followUps,
     };
   }
 
-  it('preserves the saved correction, attempts independent hooks, and records warnings', async () => {
+  it('persists the follow-up inside the correction transaction and dispatches after commit', async () => {
     const t = setup();
-    t.ncEngine.closeNc.mockRejectedValue(
-      new Error('private SQL or document content'),
-    );
+    let committed = false;
+    t.transaction.mockImplementation(async (callback) => {
+      const result = await callback(t.manager);
+      expect(t.followUps.run).not.toHaveBeenCalled();
+      committed = true;
+      return result;
+    });
+    t.followUps.run.mockImplementation(async () => {
+      expect(committed).toBe(true);
+      return 'RETRY';
+    });
     const result = await t.service.reviewCorrectedDocument(
       auditor,
       'nc',
@@ -111,13 +116,17 @@ describe('Audit correction lifecycle', () => {
     );
     expect(result.status).toBe('ACCEPTED');
     expect(result.warnings).toEqual([
-      expect.stringContaining('NC task closure failed'),
+      expect.stringContaining('queued for automatic retry'),
     ]);
     expect(JSON.stringify(result)).not.toContain('private SQL');
-    expect(t.outputEngine.refreshAuditOutputs).toHaveBeenCalledWith('audit');
-    expect(t.auditLogs.log).toHaveBeenCalledWith(
+    expect(t.followUps.run).toHaveBeenCalledWith('job');
+    expect(t.followUps.enqueue).toHaveBeenCalledWith(
+      t.manager,
       expect.objectContaining({
-        meta: { auditId: 'audit', followUpWarnings: result.warnings },
+        auditId: 'audit',
+        ncId: 'nc',
+        resubmissionId: 'upload',
+        event: 'NC_ACCEPTED',
       }),
     );
   });
@@ -125,12 +134,21 @@ describe('Audit correction lifecycle', () => {
   it('reports a logging failure without falsely failing a committed upload', async () => {
     const t = setup();
     t.nc.status = 'NC_RAISED';
-    t.auditLogs.log.mockRejectedValue(new Error('logging unavailable'));
+    t.followUps.run.mockRejectedValue(new Error('logging unavailable'));
     const result = await t.service.uploadCorrectedFile(vendor, 'nc', file);
     expect(result.status).toBe('REUPLOADED');
     expect(result.warnings).toEqual([
-      expect.stringContaining('Audit activity logging failed'),
+      expect.stringContaining('queued for automatic retry'),
     ]);
+  });
+
+  it('fails the transaction if the durable job cannot be saved', async () => {
+    const t = setup();
+    t.followUps.enqueue.mockRejectedValue(new Error('outbox unavailable'));
+    await expect(
+      t.service.reviewCorrectedDocument(auditor, 'nc', 'COMPLIED'),
+    ).rejects.toThrow('outbox unavailable');
+    expect(t.followUps.run).not.toHaveBeenCalled();
   });
 
   it.each(['INVALID', '', undefined, null, 42])(
@@ -282,7 +300,10 @@ describe('Audit correction lifecycle', () => {
         reviewedAt: expect.any(Date),
       }),
     );
-    expect(t.ncEngine.createTaskForNc).toHaveBeenCalledWith('nc');
+    expect(t.followUps.enqueue).toHaveBeenCalledWith(
+      t.manager,
+      expect.objectContaining({ event: 'NC_REJECTED' }),
+    );
   });
 
   it.each(['REUPLOADED', 'REVERIFICATION_PENDING'])(
@@ -315,7 +336,7 @@ describe('Audit correction lifecycle', () => {
     await expect(
       t.service.reviewCorrectedDocument(auditor, 'nc', 'COMPLIED'),
     ).rejects.toThrow('database failure');
-    expect(t.ncEngine.closeNc).not.toHaveBeenCalled();
+    expect(t.followUps.enqueue).not.toHaveBeenCalled();
   });
 
   it.each(['NC_RAISED', 'AWAITING_REUPLOAD'])(

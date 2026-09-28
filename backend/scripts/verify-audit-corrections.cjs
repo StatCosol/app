@@ -116,9 +116,7 @@ const file = {
 };
 const nc = Object.assign(Object.create(AuditNcService.prototype), {
   dataSource: ds,
-  ncEngine: { closeNc: async () => {}, createTaskForNc: async () => {} },
-  auditOutputEngine: { refreshAuditOutputs: async () => {} },
-  auditLogs: { log: async () => {} },
+  followUps: { enqueue: async () => 'sample-job', run: async () => 'SUCCEEDED' },
 });
 const auditRepo = () => ds.getRepository(AuditEntity);
 const ncRepo = () => ds.getRepository(AuditNonComplianceEntity);

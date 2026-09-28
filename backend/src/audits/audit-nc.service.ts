@@ -2,16 +2,12 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-  Logger,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ReqUser } from '../access/access-scope.service';
-import { NonComplianceEngineService } from '../automation/services/non-compliance-engine.service';
-import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
-import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditFollowUpsService } from './audit-follow-ups.service';
 import { AuditEntity } from './entities/audit.entity';
 import { AuditDocumentReviewEntity } from './entities/audit-document-review.entity';
 import { AuditNonComplianceEntity } from './entities/audit-non-compliance.entity';
@@ -29,9 +25,7 @@ export class AuditNcService {
     @InjectRepository(AuditResubmissionEntity)
     private readonly resubRepo: Repository<AuditResubmissionEntity>,
     private readonly dataSource: DataSource,
-    private readonly ncEngine: NonComplianceEngineService,
-    private readonly auditOutputEngine: AuditOutputEngineService,
-    @Optional() private readonly auditLogs?: AuditLogsService,
+    private readonly followUps: AuditFollowUpsService,
   ) {}
 
   private assertAuditor(user: ReqUser) {
@@ -277,7 +271,7 @@ export class AuditNcService {
         'Remarks of at least 5 characters are required when rejecting a corrected document',
       );
     }
-    const nc = await this.dataSource.transaction(async (manager) => {
+    const { nc, jobId } = await this.dataSource.transaction(async (manager) => {
       const { nc, audit } = await this.lockNcForUpdate(manager, ncId);
       if (audit.assignedAuditorId !== (user.userId || user.id)) {
         throw new ForbiddenException('Not your audit');
@@ -389,39 +383,25 @@ export class AuditNcService {
         audit.status = 'CLOSED';
         await auditRepo.save(audit);
       }
-      return nc;
-    });
-
-    const warnings: string[] = [];
-    if (decision === 'COMPLIED') {
-      await this.runFollowUp(ncId, 'NC task closure', warnings, () =>
-        this.ncEngine.closeNc(ncId),
-      );
-      await this.runFollowUp(ncId, 'Audit report refresh', warnings, () =>
-        this.auditOutputEngine.refreshAuditOutputs(nc.auditId),
-      );
-    } else {
-      await this.runFollowUp(ncId, 'NC task creation', warnings, () =>
-        this.ncEngine.createTaskForNc(ncId),
-      );
-    }
-
-    await this.runFollowUp(
-      ncId,
-      'Audit activity logging',
-      warnings,
-      async () => {
-        await this.auditLogs?.log({
+      const event = decision === 'COMPLIED' ? 'NC_ACCEPTED' : 'NC_REJECTED';
+      const jobId = await this.followUps.enqueue(manager, {
+        auditId: nc.auditId,
+        ncId,
+        resubmissionId: latestResub.id,
+        event,
+        log: {
           entityType: 'AUDIT_NC',
           entityId: ncId,
-          action: decision === 'COMPLIED' ? 'NC_ACCEPTED' : 'NC_REJECTED',
+          action: event,
           performedBy: user.userId,
           performedRole: user.roleCode || null,
           reason: remark || null,
-          meta: { auditId: nc.auditId, followUpWarnings: [...warnings] },
-        });
-      },
-    );
+          meta: { auditId: nc.auditId },
+        },
+      });
+      return { nc, jobId };
+    });
+    const warnings = await this.finishFollowUp(jobId);
 
     return {
       ncId,
@@ -571,24 +551,23 @@ export class AuditNcService {
         audit.status = 'REVERIFICATION_PENDING';
         await manager.getRepository(AuditEntity).save(audit);
       }
-      return { nc, resub };
-    });
-    const warnings: string[] = [];
-    await this.runFollowUp(
-      ncId,
-      'Audit activity logging',
-      warnings,
-      async () => {
-        await this.auditLogs?.log({
+      const jobId = await this.followUps.enqueue(manager, {
+        auditId: nc.auditId,
+        ncId,
+        resubmissionId: resub.id,
+        event: 'NC_REUPLOADED',
+        log: {
           entityType: 'AUDIT_NC',
-          entityId: result.nc.id,
+          entityId: nc.id,
           action: 'NC_REUPLOADED',
           performedBy: user.userId || user.id,
           performedRole: user.roleCode || null,
-          meta: { auditId: result.nc.auditId, fileName: file.originalname },
-        });
-      },
-    );
+          meta: { auditId: nc.auditId, fileName: file.originalname },
+        },
+      });
+      return { nc, resub, jobId };
+    });
+    const warnings = await this.finishFollowUp(result.jobId);
     return {
       resubmissionId: result.resub.id,
       status: result.nc.status,
@@ -596,25 +575,16 @@ export class AuditNcService {
     };
   }
 
-  private async runFollowUp(
-    ncId: string,
-    operation: string,
-    warnings: string[],
-    run: () => Promise<unknown>,
-  ) {
+  private async finishFollowUp(jobId: string): Promise<string[]> {
     try {
-      await run();
+      const status = await this.followUps.run(jobId);
+      if (status === 'SUCCEEDED' || status === 'SKIPPED') return [];
     } catch {
-      // The correction is committed. Do not invite a duplicate submission or
-      // expose document contents, SQL parameters, or credentials in diagnostics.
-      Logger.error(
-        { event: 'AUDIT_NC_FOLLOW_UP_FAILED', ncId, operation },
-        AuditNcService.name,
-      );
-      warnings.push(
-        `${operation} failed. The correction was saved; contact an administrator.`,
-      );
+      // The correction and its job have committed; the scheduled worker can recover.
     }
+    return [
+      'The correction was saved. Follow-up work is queued for automatic retry; administrators can track its status.',
+    ];
   }
 
   private assertCorrectionOpen(audit: AuditEntity) {
