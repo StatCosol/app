@@ -115,6 +115,19 @@ describe('Invoice action availability', () => {
 });
 
 describe('Payment and email outcomes', () => {
+  it('reuses the request key after a lost response, but assigns a new key when reopening the form', async () => {
+    const { create, api } = await setup();
+    api.sendInvoiceEmail.mockReturnValue(throwError(() => ({ status: 503 })));
+    const c = create().componentInstance;
+    c.openEmail();
+    const firstKey = c.emailForm.requestId;
+    expect(firstKey).toMatch(/^[0-9a-f-]{36}$/);
+    c.submitEmail(); c.submitEmail();
+    expect(api.sendInvoiceEmail.mock.calls.map(call => (call as any[])[1].requestId)).toEqual([firstKey, firstKey]);
+    c.showEmailModal = false; c.openEmail();
+    expect(c.emailForm.requestId).not.toBe(firstKey);
+  });
+
   it('keeps a visible reconciliation warning after accepted mail with failed bookkeeping', async () => {
     const { create, api, toast } = await setup();
     api.sendInvoiceEmail.mockReturnValue(of({ success: true, statusUpdatePending: true, warning: 'Accepted. Do not resend; reconcile status.' }));

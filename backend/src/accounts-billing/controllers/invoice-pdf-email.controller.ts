@@ -18,6 +18,13 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { InvoicePdfService } from '../services/invoice-pdf.service';
 import { InvoiceEmailService } from '../services/invoice-email.service';
 import { SendInvoiceEmailDto } from '../dto';
+import {
+  ResolveInvoiceDeliveryDto,
+  InvoiceEmailLogsQuery,
+} from '../dto/email.dto';
+import { InvoiceDeliveryService } from '../services/invoice-delivery.service';
+import { InvoiceFileInventoryService } from '../services/invoice-file-inventory.service';
+import { InvoiceFileInventoryQuery } from '../dto/email.dto';
 
 @ApiTags('Accounts & Billing - PDF & Email')
 @ApiBearerAuth()
@@ -28,6 +35,8 @@ export class InvoicePdfEmailController {
   constructor(
     private readonly pdfService: InvoicePdfService,
     private readonly emailService: InvoiceEmailService,
+    private readonly deliveries: InvoiceDeliveryService,
+    private readonly inventory: InvoiceFileInventoryService,
   ) {}
 
   @ApiOperation({ summary: 'Generate invoice PDF (returns PDF binary)' })
@@ -68,15 +77,32 @@ export class InvoicePdfEmailController {
 
   @ApiOperation({ summary: 'Email logs' })
   @Get('email-logs')
-  async emailLogs(
-    @Query('invoiceId') invoiceId?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+  async emailLogs(@Query() query: InvoiceEmailLogsQuery) {
+    return this.emailService.findLogs(query);
+  }
+
+  @Roles('ADMIN')
+  @Post('email-logs/:id/resolve-delivery')
+  resolveDelivery(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResolveInvoiceDeliveryDto,
+    @CurrentUser() user: any,
   ) {
-    return this.emailService.findLogs({
-      invoiceId,
-      page: page ? +page : undefined,
-      limit: limit ? +limit : undefined,
-    });
+    return this.deliveries.resolve(
+      user,
+      id,
+      dto.outcome,
+      dto.note,
+      dto.providerVerified,
+    );
+  }
+
+  @Roles('ADMIN')
+  @Get('pdf-retention-preview')
+  previewFiles(
+    @CurrentUser() user: any,
+    @Query() query: InvoiceFileInventoryQuery,
+  ) {
+    return this.inventory.preview(user?.roleCode, query.minAgeDays);
   }
 }

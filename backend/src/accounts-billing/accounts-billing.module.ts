@@ -38,6 +38,9 @@ import { InvoicePdfEmailController } from './controllers/invoice-pdf-email.contr
 import { RecurringInvoicesController } from './controllers/recurring-invoices.controller';
 import { PendingPaymentFollowupsController } from './controllers/pending-payment-followups.controller';
 import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
+import { InvoiceDeliveryService } from './services/invoice-delivery.service';
+import { InvoiceDeliveryRecoveryJob } from './jobs/invoice-delivery-recovery.job';
+import { InvoiceFileInventoryService } from './services/invoice-file-inventory.service';
 
 @Module({
   imports: [
@@ -65,6 +68,9 @@ import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
     PendingPaymentFollowupsController,
   ],
   providers: [
+    InvoiceFileInventoryService,
+    InvoiceDeliveryService,
+    InvoiceDeliveryRecoveryJob,
     BillingCalculationService,
     BillingNumberService,
     InvoicesService,

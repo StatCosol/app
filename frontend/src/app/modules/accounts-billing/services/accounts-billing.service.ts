@@ -5,7 +5,7 @@ import { environment } from '../../../../environments/environment';
 import {
   BillingClient, Invoice, InvoicePayment, InvoiceEmailLog,
   BillingSetting, DashboardStats, PagedResult,
-  BillingReportResult, InvoiceEmailResult,
+  BillingReportResult, InvoiceEmailResult, InvoiceFileInventory,
 } from '../models/billing.models';
 
 @Injectable({ providedIn: 'root' })
@@ -114,6 +114,14 @@ export class AccountsBillingService {
 
   getEmailLogs(params?: Record<string, string>): Observable<PagedResult<InvoiceEmailLog>> {
     return this.http.get<PagedResult<InvoiceEmailLog>>(`${this.base}/email-logs`, { params });
+  }
+
+  resolveInvoiceDelivery(id: string, outcome: 'SENT' | 'NOT_SENT', note: string, providerVerified: boolean): Observable<{ success: boolean }> {
+    return this.http.post<{ success: boolean }>(`${this.base}/email-logs/${id}/resolve-delivery`, { outcome, note, providerVerified });
+  }
+
+  getInvoiceFileInventory(minAgeDays: number): Observable<InvoiceFileInventory> {
+    return this.http.get<InvoiceFileInventory>(`${this.base}/pdf-retention-preview`, { params: { minAgeDays } });
   }
 
   // ── Payments ──

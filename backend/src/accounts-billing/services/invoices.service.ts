@@ -663,6 +663,18 @@ export class InvoicesService {
         }
       }
 
+      // Downloads may render a fresh file while SMTP is in flight. Keep the
+      // registered attachment identity until its receipt is reconciled. Real
+      // invoice edits clear pdfPath, so they cannot retain this protection.
+      if (invoice.pdfPath) {
+        const active = await manager.query(
+          `SELECT id FROM invoice_deliveries WHERE invoice_id=$1 AND pdf_path=$2
+           AND status IN ('SENDING','UNKNOWN','ACCEPTED') LIMIT 1`,
+          [id, invoice.pdfPath],
+        );
+        if (active.length) return;
+      }
+
       // Status transitions to GENERATED only from DRAFT or APPROVED. Once an
       // invoice has been GENERATED, EMAILED, PARTIALLY_PAID, PAID, OVERDUE
       // or CANCELLED, regenerating / re-emailing / re-downloading the PDF
