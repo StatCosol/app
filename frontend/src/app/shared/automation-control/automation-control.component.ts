@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Subscription } from 'rxjs';
+import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 
 interface Options {
@@ -59,7 +60,7 @@ interface Run {
 @Component({
   selector: 'app-automation-control',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './automation-control.component.html',
   styleUrl: './automation-control.component.scss',
 })

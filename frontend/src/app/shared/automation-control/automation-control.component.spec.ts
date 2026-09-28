@@ -1,5 +1,6 @@
 import { page as browserPage } from 'vitest/browser';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AutomationControlComponent } from './automation-control.component';
@@ -98,7 +99,7 @@ describe('Automation Control Centre browser behaviour', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [AutomationControlComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     http = TestBed.inject(HttpTestingController);
   });

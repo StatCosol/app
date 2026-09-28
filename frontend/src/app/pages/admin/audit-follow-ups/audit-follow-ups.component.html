@@ -1,0 +1,40 @@
+<section class="follow-ups">
+  <a routerLink="/admin/automation" class="back">Automation Control Centre</a>
+  <header>
+    <h1>Audit follow-ups</h1>
+    <button type="button" class="icon-button" (click)="load()" [disabled]="loading() || !!retrying()" aria-label="Refresh follow-ups" title="Refresh follow-ups"><ui-icon name="refresh" /></button>
+  </header>
+  <div class="toolbar">
+    <label>Status <select [(ngModel)]="status" (ngModelChange)="message.set(''); load(true)" [disabled]="!!retrying()"><option value="">All statuses</option>@for (state of states; track state) { <option [value]="state">{{ labels[state] }}</option> }</select></label>
+    <span>{{ total() }} jobs</span>
+  </div>
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (message()) { <p class="success" role="status">{{ message() }}</p> }
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Audit follow-up jobs" [attr.aria-busy]="loading()">
+    <table>
+      <thead><tr><th>Audit</th><th>Event</th><th>Status</th><th>Attempts</th><th>Created (IST)</th><th>Next retry (IST)</th><th>Details</th><th>Action</th></tr></thead>
+      <tbody>
+        @if (loading()) { <tr><td colspan="8" role="status">Loading follow-ups...</td></tr> }
+        @else {
+          @for (job of items(); track job.id) {
+            <tr>
+              <td class="audit">{{ job.auditCode || job.auditId }}</td>
+              <td>{{ labels[job.event] || job.event }}</td>
+              <td><span class="status" [class.failed]="job.status === 'FAILED'" [class.complete]="job.status === 'SUCCEEDED'">{{ labels[job.status] || job.status }}</span></td>
+              <td>{{ job.attempts }} / 8@if (job.retryCount) { <small>{{ job.retryCount }} manual retries</small> }</td>
+              <td>{{ job.createdAt | date:'dd MMM yyyy, HH:mm':'+0530' }}</td>
+              <td>{{ (job.status === 'RETRY' || job.status === 'PENDING') ? (job.nextAttemptAt | date:'dd MMM yyyy, HH:mm':'+0530') : '-' }}</td>
+              <td class="details">{{ job.lastError || '-' }}</td>
+              <td>@if (job.status === 'RETRY' || job.status === 'FAILED') { <button type="button" class="icon-button" (click)="retry(job)" [disabled]="!!retrying()" [attr.aria-label]="'Retry follow-up for ' + (job.auditCode || job.auditId)" title="Queue retry"><ui-icon name="refresh" /></button> } @else { - }</td>
+            </tr>
+          } @empty { <tr><td colspan="8">{{ error() ? 'Follow-ups unavailable.' : 'No follow-ups match this status.' }}</td></tr> }
+        }
+      </tbody>
+    </table>
+  </div>
+  <footer>
+    <button type="button" class="icon-button previous" (click)="changePage(-1)" [disabled]="page === 1 || loading() || !!retrying()" aria-label="Previous page" title="Previous page"><ui-icon name="chevron-right" /></button>
+    <span>Page {{ page }}</span>
+    <button type="button" class="icon-button" (click)="changePage(1)" [disabled]="page * limit >= total() || loading() || !!retrying()" aria-label="Next page" title="Next page"><ui-icon name="chevron-right" /></button>
+  </footer>
+</section>

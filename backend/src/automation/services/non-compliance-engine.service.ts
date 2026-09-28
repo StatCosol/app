@@ -1,7 +1,7 @@
 import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import {
   AuditNonComplianceEntity,
   NcStatus,
@@ -28,31 +28,38 @@ export class NonComplianceEngineService {
    * Create a system task when an NC is raised.
    * Call this AFTER the NC record has already been created by AuditsService.
    */
-  async createTaskForNc(ncId: string): Promise<void> {
-    const nc = await this.ncRepo.findOne({ where: { id: ncId } });
+  async createTaskForNc(ncId: string, manager?: EntityManager): Promise<void> {
+    const nc = await (
+      manager?.getRepository(AuditNonComplianceEntity) ?? this.ncRepo
+    ).findOne({ where: { id: ncId } });
     if (!nc) return;
 
-    const audit = await this.auditRepo.findOne({ where: { id: nc.auditId } });
+    const audit = await (
+      manager?.getRepository(AuditEntity) ?? this.auditRepo
+    ).findOne({ where: { id: nc.auditId } });
     if (!audit) return;
 
     const dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
 
-    await this.taskEngine.createAuditNcTask({
-      auditId: nc.auditId,
-      ncId: nc.id,
-      assignedRole:
-        nc.requestedToRole === 'CONTRACTOR'
-          ? ('CONTRACTOR' as const)
-          : ('BRANCH' as const),
-      assignedUserId: nc.requestedToUserId,
-      clientId: audit.clientId,
-      branchId: audit.branchId || null,
-      contractorId:
-        nc.requestedToRole === 'CONTRACTOR' ? nc.requestedToUserId : null,
-      dueDate,
-      description:
-        nc.remark || `Non-complied document: ${nc.documentName || 'Unknown'}`,
-    });
+    await this.taskEngine.createAuditNcTask(
+      {
+        auditId: nc.auditId,
+        ncId: nc.id,
+        assignedRole:
+          nc.requestedToRole === 'CONTRACTOR'
+            ? ('CONTRACTOR' as const)
+            : ('BRANCH' as const),
+        assignedUserId: nc.requestedToUserId,
+        clientId: audit.clientId,
+        branchId: audit.branchId || null,
+        contractorId:
+          nc.requestedToRole === 'CONTRACTOR' ? nc.requestedToUserId : null,
+        dueDate,
+        description:
+          nc.remark || `Non-complied document: ${nc.documentName || 'Unknown'}`,
+      },
+      manager,
+    );
   }
 
   /** Mark an NC as reuploaded (contractor/branch uploaded corrected doc). */
@@ -74,18 +81,27 @@ export class NonComplianceEngineService {
   }
 
   /** Close an NC + its system task. Also try closing the parent schedule. */
-  async closeNc(ncId: string): Promise<AuditNonComplianceEntity> {
-    const nc = await this.ncRepo.findOne({ where: { id: ncId } });
+  async closeNc(
+    ncId: string,
+    manager?: EntityManager,
+  ): Promise<AuditNonComplianceEntity> {
+    const repo =
+      manager?.getRepository(AuditNonComplianceEntity) ?? this.ncRepo;
+    const nc = await repo.findOne({ where: { id: ncId } });
     if (!nc) throw new NotFoundException('Non-compliance not found');
     nc.status = 'CLOSED' as NcStatus;
-    nc.closedAt = new Date();
-    const saved = await this.ncRepo.save(nc);
+    nc.closedAt = nc.closedAt ?? new Date();
+    const saved = await repo.save(nc);
 
     // Close associated system task
-    await this.taskEngine.closeTasksByReference('AUDIT_NON_COMPLIANCE', ncId);
+    await this.taskEngine.closeTasksByReference(
+      'AUDIT_NON_COMPLIANCE',
+      ncId,
+      manager,
+    );
 
     // Try to close the audit schedule if all NCs are resolved
-    await this.tryCloseAuditSchedule(nc.auditId);
+    await this.tryCloseAuditSchedule(nc.auditId, manager);
 
     return saved;
   }
@@ -94,10 +110,15 @@ export class NonComplianceEngineService {
    * After an NC is closed, check if ALL NCs for this audit are closed.
    * If so, mark the audit_schedules row as COMPLETED.
    */
-  private async tryCloseAuditSchedule(auditId: string): Promise<void> {
+  private async tryCloseAuditSchedule(
+    auditId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
     try {
       // Check for any open NCs remaining
-      const openCount = await this.ncRepo.count({
+      const openCount = await (
+        manager?.getRepository(AuditNonComplianceEntity) ?? this.ncRepo
+      ).count({
         where: [
           { auditId, closedAt: IsNull(), status: 'NC_RAISED' as NcStatus },
           {
@@ -117,7 +138,7 @@ export class NonComplianceEngineService {
       if (openCount > 0) return;
 
       // All NCs closed — find + close linked schedule
-      const schedRows = await this.dataSource.query(
+      const schedRows = await (manager ?? this.dataSource).query(
         `SELECT id FROM audit_schedules
          WHERE id = (SELECT schedule_id FROM audits WHERE id = $1 AND schedule_id IS NOT NULL)
            AND status NOT IN ('COMPLETED', 'CANCELLED')
@@ -126,8 +147,9 @@ export class NonComplianceEngineService {
       );
       if (!schedRows.length) return;
 
-      await this.dataSource.query(
-        `UPDATE audit_schedules SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1`,
+      await (manager ?? this.dataSource).query(
+        `UPDATE audit_schedules SET status = 'COMPLETED', updated_at = NOW()
+         WHERE id = $1 AND status NOT IN ('COMPLETED', 'CANCELLED')`,
         [schedRows[0].id],
       );
 

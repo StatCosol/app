@@ -5,6 +5,7 @@
       <h1>Automation Control Centre</h1>
       <p>Keep routine work moving with clear scope, schedules and execution history.</p>
     </div>
+    <a routerLink="/admin/audit-follow-ups">Audit follow-ups</a>
     <button (click)="refresh()" [disabled]="busy() || loading()">Refresh</button>
   </header>
   @if (error()) {

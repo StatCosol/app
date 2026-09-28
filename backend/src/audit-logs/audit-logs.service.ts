@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import {
   AuditAction,
   AuditEntityType,
@@ -41,8 +41,9 @@ export class AuditLogsService {
     private readonly approvalRepo: Repository<TaskApprovalHistoryEntity>,
   ) {}
 
-  async log(input: AuditLogInput) {
-    const entity = this.repo.create({
+  async log(input: AuditLogInput, manager?: EntityManager) {
+    const repo = manager?.getRepository(AuditLogEntity) ?? this.repo;
+    const entity = repo.create({
       entityType: input.entityType,
       entityId: input.entityId,
       action: input.action,
@@ -56,7 +57,7 @@ export class AuditLogsService {
         meta: input.meta ?? null,
       },
     });
-    return this.repo.save(entity);
+    return repo.save(entity);
   }
 
   async logApproval(input: ApprovalHistoryInput) {

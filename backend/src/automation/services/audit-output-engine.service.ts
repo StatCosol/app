@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { AuditEntity } from '../../audits/entities/audit.entity';
 import { AuditDocumentReviewEntity } from '../../audits/entities/audit-document-review.entity';
 import { AuditNonComplianceEntity } from '../../audits/entities/audit-non-compliance.entity';
@@ -28,7 +28,10 @@ export class AuditOutputEngineService {
    * Recalculate audit score from document reviews.
    * Uses the same blended formula as submitAudit (50% observation + 50% document).
    */
-  async calculateAuditScore(auditId: string): Promise<{
+  async calculateAuditScore(
+    auditId: string,
+    manager?: EntityManager,
+  ): Promise<{
     auditId: string;
     docScore: number;
     obsScore: number;
@@ -36,11 +39,12 @@ export class AuditOutputEngineService {
     totalDocs: number;
     compliedDocs: number;
   }> {
-    const audit = await this.auditRepo.findOne({ where: { id: auditId } });
+    const repo = manager?.getRepository(AuditEntity) ?? this.auditRepo;
+    const audit = await repo.findOne({ where: { id: auditId } });
     if (!audit) throw new NotFoundException('Audit not found');
 
     // Document compliance score
-    const branchDocStats = await this.dataSource.query(
+    const branchDocStats = await (manager ?? this.dataSource).query(
       `SELECT COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS complied
        FROM branch_documents
@@ -51,7 +55,7 @@ export class AuditOutputEngineService {
         audit.clientId,
       ],
     );
-    const ctrDocStats = await this.dataSource.query(
+    const ctrDocStats = await (manager ?? this.dataSource).query(
       `SELECT COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS complied
        FROM contractor_documents WHERE audit_id = $1`,
@@ -65,7 +69,7 @@ export class AuditOutputEngineService {
       totalDocs > 0 ? Math.round((compliedDocs / totalDocs) * 100) : 100;
 
     // Observation-based score (from audit_observations)
-    const obsRows = await this.dataSource.query(
+    const obsRows = await (manager ?? this.dataSource).query(
       `SELECT COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE status = 'COMPLIED')::int AS complied
        FROM audit_observations WHERE audit_id = $1`,
@@ -80,7 +84,7 @@ export class AuditOutputEngineService {
     // Update audit record
     audit.score = blendedScore;
     audit.scoreCalculatedAt = new Date();
-    await this.auditRepo.save(audit);
+    await repo.save(audit);
 
     this.logger.log(
       `Score recalculated for audit ${auditId}: doc=${docScore}, obs=${obsScore}, blended=${blendedScore}`,
@@ -100,21 +104,26 @@ export class AuditOutputEngineService {
    * Generate audit report version (hook point).
    * Connects to the existing report-pdf utility.
    */
-  async generateReportVersion(auditId: string): Promise<{
+  async generateReportVersion(
+    auditId: string,
+    manager?: EntityManager,
+  ): Promise<{
     auditId: string;
     version: number;
     generatedAt: Date;
     pdfBuffer: Buffer | null;
     publishable: boolean;
   }> {
-    const audit = await this.auditRepo.findOne({
+    const audit = await (
+      manager?.getRepository(AuditEntity) ?? this.auditRepo
+    ).findOne({
       where: { id: auditId },
       relations: ['client', 'branch'],
     });
     if (!audit) throw new NotFoundException('Audit not found');
 
     // Fetch the latest audit_reports record
-    const reportRows = await this.dataSource.query(
+    const reportRows = await (manager ?? this.dataSource).query(
       `SELECT ar.executive_summary, ar.scope, ar.methodology,
               ar.findings, ar.recommendations, ar.version AS report_version,
               ar.selected_observation_ids, ar.finalized_at, ar.updated_at, ar.version_no,
@@ -122,7 +131,7 @@ export class AuditOutputEngineService {
        FROM audit_reports ar
        WHERE ar.audit_id = $1
        ORDER BY ar.updated_at DESC, ar.created_at DESC
-       LIMIT 1`,
+       LIMIT 1${manager ? ' FOR UPDATE OF ar' : ''}`,
       [auditId],
     );
     const report = reportRows[0] ?? null;
@@ -157,7 +166,10 @@ export class AuditOutputEngineService {
     }
     obsQuery += ` ORDER BY sequence_number ASC, created_at ASC`;
 
-    const obsRows = await this.dataSource.query(obsQuery, obsParams);
+    const obsRows = await (manager ?? this.dataSource).query(
+      obsQuery,
+      obsParams,
+    );
 
     // Generate PDF
     let pdfBuffer: Buffer | null = null;
@@ -216,8 +228,13 @@ export class AuditOutputEngineService {
   /**
    * Push audit results to CRM and Client via notifications.
    */
-  async publishToCrmAndClient(auditId: string): Promise<void> {
-    const audit = await this.auditRepo.findOne({ where: { id: auditId } });
+  async publishToCrmAndClient(
+    auditId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const audit = await (
+      manager?.getRepository(AuditEntity) ?? this.auditRepo
+    ).findOne({ where: { id: auditId } });
     if (!audit) return;
 
     const auditCode = audit.auditCode || auditId.slice(0, 8);
@@ -225,7 +242,7 @@ export class AuditOutputEngineService {
 
     try {
       // Find CRM user assigned to this client
-      const crmRows = await this.dataSource.query(
+      const crmRows = await (manager ?? this.dataSource).query(
         `SELECT assigned_to_user_id FROM client_assignments_current
          WHERE client_id = $1 AND assignment_type = 'CRM'
            AND assigned_to_user_id IS NOT NULL
@@ -236,16 +253,21 @@ export class AuditOutputEngineService {
         crmRows[0]?.assigned_to_user_id || audit.createdByUserId;
 
       // Notify CRM
-      await this.notificationsService.createTicket(crmUserId, 'CRM', {
-        queryType: 'COMPLIANCE',
-        subject: `Audit Score Updated — ${auditCode} (${scoreText})`,
-        message: `Audit ${auditCode} score has been recalculated to ${scoreText} after reverification.`,
-        clientId: audit.clientId,
-        branchId: audit.branchId || undefined,
-      });
+      await this.notificationsService.createTicket(
+        crmUserId,
+        'CRM',
+        {
+          queryType: 'COMPLIANCE',
+          subject: `Audit Score Updated — ${auditCode} (${scoreText})`,
+          message: `Audit ${auditCode} score has been recalculated to ${scoreText} after reverification.`,
+          clientId: audit.clientId,
+          branchId: audit.branchId || undefined,
+        },
+        manager,
+      );
 
       // Find a client-portal user for this client
-      const clientUserRows = await this.dataSource.query(
+      const clientUserRows = await (manager ?? this.dataSource).query(
         `SELECT id FROM users
          WHERE client_id = $1 AND is_active = true AND deleted_at IS NULL
          ORDER BY created_at ASC LIMIT 1`,
@@ -254,13 +276,18 @@ export class AuditOutputEngineService {
       const clientUserId = clientUserRows[0]?.id || crmUserId;
 
       // Notify Client
-      await this.notificationsService.createTicket(clientUserId, 'CLIENT', {
-        queryType: 'AUDIT',
-        subject: `Audit Report Updated — ${auditCode} (${scoreText})`,
-        message: `Audit ${auditCode} has been updated. New score: ${scoreText}. View the latest report from your Audits page.`,
-        clientId: audit.clientId,
-        branchId: audit.branchId || undefined,
-      });
+      await this.notificationsService.createTicket(
+        clientUserId,
+        'CLIENT',
+        {
+          queryType: 'AUDIT',
+          subject: `Audit Report Updated — ${auditCode} (${scoreText})`,
+          message: `Audit ${auditCode} has been updated. New score: ${scoreText}. View the latest report from your Audits page.`,
+          clientId: audit.clientId,
+          branchId: audit.branchId || undefined,
+        },
+        manager,
+      );
     } catch (error) {
       this.logger.warn(
         `Failed to publish audit ${auditId} updates to CRM/Client`,
@@ -273,27 +300,38 @@ export class AuditOutputEngineService {
    * Full refresh: recalculate score, generate report, publish.
    * Call this after reverification, resubmission, or any NC closure.
    */
-  async refreshAuditOutputs(auditId: string): Promise<{
+  async refreshAuditOutputs(
+    auditId: string,
+    manager?: EntityManager,
+  ): Promise<{
     score: Awaited<ReturnType<AuditOutputEngineService['calculateAuditScore']>>;
     report: Awaited<
       ReturnType<AuditOutputEngineService['generateReportVersion']>
     >;
   }> {
-    const score = await this.calculateAuditScore(auditId);
-    const report = await this.generateReportVersion(auditId);
+    const args: [string, EntityManager?] = manager
+      ? [auditId, manager]
+      : [auditId];
+    const score = await this.calculateAuditScore(...args);
+    const report = await this.generateReportVersion(...args);
     if (report.pdfBuffer && report.publishable)
-      await this.publishToCrmAndClient(auditId);
+      await this.publishToCrmAndClient(...args);
 
     // Push to notification center
-    const audit = await this.auditRepo.findOne({ where: { id: auditId } });
+    const audit = await (
+      manager?.getRepository(AuditEntity) ?? this.auditRepo
+    ).findOne({ where: { id: auditId } });
     if (audit && report.pdfBuffer && report.publishable) {
-      await this.automationNotification.sendAuditReportReady({
-        auditId,
-        auditCode: audit.auditCode || auditId.slice(0, 8),
-        score: score.blendedScore,
-        clientId: audit.clientId,
-        branchId: audit.branchId,
-      });
+      await this.automationNotification.sendAuditReportReady(
+        {
+          auditId,
+          auditCode: audit.auditCode || auditId.slice(0, 8),
+          score: score.blendedScore,
+          clientId: audit.clientId,
+          branchId: audit.branchId,
+        },
+        manager,
+      );
     }
 
     this.logger.log(

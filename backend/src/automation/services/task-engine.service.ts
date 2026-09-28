@@ -153,35 +153,45 @@ export class TaskEngineService {
       : this.dataSource.transaction('READ COMMITTED', create);
   }
 
-  async createAuditNcTask(params: {
-    auditId: string;
-    ncId: string;
-    assignedRole: 'BRANCH' | 'CONTRACTOR';
-    assignedUserId?: string | null;
-    clientId?: string | null;
-    branchId?: string | null;
-    contractorId?: string | null;
-    dueDate?: Date | null;
-    description: string;
-  }) {
-    return this.createTask({
-      module: 'AUDIT',
-      title: 'Correct non-complied audit document',
-      description: params.description,
-      referenceId: params.ncId,
-      referenceType: 'AUDIT_NON_COMPLIANCE',
-      priority: 'HIGH',
-      assignedRole: params.assignedRole,
-      assignedUserId: params.assignedUserId ?? null,
-      clientId: params.clientId ?? null,
-      branchId: params.branchId ?? null,
-      contractorId: params.contractorId ?? null,
-      dueDate: params.dueDate ?? null,
-    });
+  async createAuditNcTask(
+    params: {
+      auditId: string;
+      ncId: string;
+      assignedRole: 'BRANCH' | 'CONTRACTOR';
+      assignedUserId?: string | null;
+      clientId?: string | null;
+      branchId?: string | null;
+      contractorId?: string | null;
+      dueDate?: Date | null;
+      description: string;
+    },
+    transactionManager?: EntityManager,
+  ) {
+    return this.createTask(
+      {
+        module: 'AUDIT',
+        title: 'Correct non-complied audit document',
+        description: params.description,
+        referenceId: params.ncId,
+        referenceType: 'AUDIT_NON_COMPLIANCE',
+        priority: 'HIGH',
+        assignedRole: params.assignedRole,
+        assignedUserId: params.assignedUserId ?? null,
+        clientId: params.clientId ?? null,
+        branchId: params.branchId ?? null,
+        contractorId: params.contractorId ?? null,
+        dueDate: params.dueDate ?? null,
+      },
+      transactionManager,
+    );
   }
 
-  async closeTasksByReference(referenceType: string, referenceId: string) {
-    await this.dataSource.query(
+  async closeTasksByReference(
+    referenceType: string,
+    referenceId: string,
+    transactionManager?: EntityManager,
+  ) {
+    await (transactionManager ?? this.dataSource).query(
       `
       UPDATE system_tasks
       SET status = 'CLOSED',

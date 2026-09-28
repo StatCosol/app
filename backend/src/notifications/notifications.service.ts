@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Response } from 'express';
@@ -60,8 +60,8 @@ export class NotificationsService {
   // Routing helpers
   // -------------------------
 
-  private async findAnyAdminUserId(): Promise<string> {
-    const rows = await this.dataSource.query(
+  private async findAnyAdminUserId(manager?: EntityManager): Promise<string> {
+    const rows = await (manager ?? this.dataSource).query(
       `
       SELECT u.id
       FROM users u
@@ -81,29 +81,32 @@ export class NotificationsService {
 
   private async resolveAssigneeUserId(
     dto: CreateNotificationDto,
+    manager?: EntityManager,
   ): Promise<string> {
     // TECHNICAL always goes to Admin
-    if (dto.queryType === 'TECHNICAL') return this.findAnyAdminUserId();
+    if (dto.queryType === 'TECHNICAL') return this.findAnyAdminUserId(manager);
 
     // If there is no client context, route to Admin as safe fallback
-    if (!dto.clientId) return this.findAnyAdminUserId();
+    if (!dto.clientId) return this.findAnyAdminUserId(manager);
 
-    const assignment = await this.assignmentsRepo.findOne({
+    const assignment = await (
+      manager?.getRepository(ClientAssignment) ?? this.assignmentsRepo
+    ).findOne({
       where: { clientId: dto.clientId, endDate: IsNull() },
     });
 
     if (dto.queryType === 'COMPLIANCE') {
       if (assignment?.crmUserId) return assignment.crmUserId;
-      return this.findAnyAdminUserId();
+      return this.findAnyAdminUserId(manager);
     }
 
     if (dto.queryType === 'AUDIT') {
       if (assignment?.auditorUserId) return assignment.auditorUserId;
-      return this.findAnyAdminUserId();
+      return this.findAnyAdminUserId(manager);
     }
 
     // GENERAL -> Admin by default (keeps behaviour predictable)
-    return this.findAnyAdminUserId();
+    return this.findAnyAdminUserId(manager);
   }
 
   // -------------------------
@@ -133,14 +136,15 @@ export class NotificationsService {
     actorUserId: string,
     _actorRole: string,
     dto: CreateNotificationDto,
+    transactionManager?: EntityManager,
   ): Promise<{
     threadId: string;
     assignedTo: { userId: string | null; roleCode: RoleCode | null };
     status: 'OPEN' | 'CLOSED';
   }> {
-    const toUserId = await this.resolveAssigneeUserId(dto);
+    const toUserId = await this.resolveAssigneeUserId(dto, transactionManager);
 
-    return this.dataSource.transaction(async (manager) => {
+    const create = async (manager: EntityManager) => {
       const notification = manager.create(NotificationEntity, {
         subject: dto.subject,
         queryType: dto.queryType,
@@ -185,9 +189,12 @@ export class NotificationsService {
       return {
         threadId: saved.id,
         assignedTo: { userId: toUserId, roleCode },
-        status: 'OPEN',
+        status: 'OPEN' as const,
       };
-    });
+    };
+    return transactionManager
+      ? create(transactionManager)
+      : this.dataSource.transaction(create);
   }
 
   // -------------------------

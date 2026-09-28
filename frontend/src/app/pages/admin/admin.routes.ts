@@ -88,6 +88,7 @@ export const ADMIN_ROUTES: Routes = [
     loadComponent: AdminLayoutComponent,
     canActivate: [roleGuard(['ADMIN'])],
     children: [
+      { path: 'audit-follow-ups', loadComponent: () => import('./audit-follow-ups/audit-follow-ups.component').then(m => m.AuditFollowUpsComponent) },
       { path: 'automation', loadComponent: () => import('../../shared/automation-control/automation-control.component').then(m => m.AutomationControlComponent) },
       { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'dashboard', loadComponent: AdminDashboardComponent },

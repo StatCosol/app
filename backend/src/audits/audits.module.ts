@@ -10,6 +10,9 @@ import { AuditNonComplianceEntity } from './entities/audit-non-compliance.entity
 import { AuditResubmissionEntity } from './entities/audit-resubmission.entity';
 import { AuditsService } from './audits.service';
 import { AuditNcService } from './audit-nc.service';
+import { AuditFollowUpsService } from './audit-follow-ups.service';
+import { AuditFollowUpsController } from './audit-follow-ups.controller';
+import { AuditFollowUpsJob } from './jobs/audit-follow-ups.job';
 import { AuditNcUploadCleanupInterceptor } from './audit-nc-upload-cleanup.interceptor';
 import { AuditChecklistService } from './audit-checklist.service';
 import { AuditAuditorDashboardService } from './audit-auditor-dashboard.service';
@@ -66,6 +69,7 @@ import { AuditEntryService } from './audit-entry.service';
     forwardRef(() => AutomationModule),
   ],
   controllers: [
+    AuditFollowUpsController,
     AuditEntryController,
     // Register the static KPI routes before the legacy /audits/:id alias.
     AuditKpiController,
@@ -79,6 +83,8 @@ import { AuditEntryService } from './audit-entry.service';
     AuditorObservationsController,
   ],
   providers: [
+    AuditFollowUpsService,
+    AuditFollowUpsJob,
     AuditEntryService,
     AuditsService,
     AuditorObservationsService,
