@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsNumberString, IsUUID, MaxLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsNumberString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /** GET /payroll/summary, GET /payroll/dashboard — currently unused but kept for forward compat */
@@ -77,7 +83,9 @@ export class ClientPayrollEmployeeRecordsQueryDto {
   @IsOptional() @IsNumberString() periodMonth?: string;
   @IsOptional()
   @Transform(({ value }) =>
-    value === undefined || value === null || value === '' ? undefined : String(value),
+    value === undefined || value === null || value === ''
+      ? undefined
+      : String(value),
   )
   @IsString()
   search?: string;

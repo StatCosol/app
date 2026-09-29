@@ -16,17 +16,25 @@ export const CLIENT_FNF_DOC_TYPES = [
 
 export type ClientFnfDocType = (typeof CLIENT_FNF_DOC_TYPES)[number];
 
-export function isApprovedPayrollRun(status: string | null | undefined): boolean {
+export function isApprovedPayrollRun(
+  status: string | null | undefined,
+): boolean {
   return String(status || '').toUpperCase() === 'APPROVED';
 }
 
-export function isFinalizedFnfStatus(status: string | null | undefined): boolean {
+export function isFinalizedFnfStatus(
+  status: string | null | undefined,
+): boolean {
   return FINALIZED_FNF_STATUSES.includes(
-    String(status || '').toUpperCase() as (typeof FINALIZED_FNF_STATUSES)[number],
+    String(
+      status || '',
+    ).toUpperCase() as (typeof FINALIZED_FNF_STATUSES)[number],
   );
 }
 
-export function isClientFnfDocType(docType: string | null | undefined): docType is ClientFnfDocType {
+export function isClientFnfDocType(
+  docType: string | null | undefined,
+): docType is ClientFnfDocType {
   return CLIENT_FNF_DOC_TYPES.includes(
     String(docType || '').toUpperCase() as ClientFnfDocType,
   );
@@ -55,14 +63,16 @@ export function fnfDownloadVisible(
   return isFinalizedFnfStatus(fnfStatus) && documentReady;
 }
 
-export function fnfDocumentReady(fnfStatus: string | null | undefined): boolean {
+export function fnfDocumentReady(
+  fnfStatus: string | null | undefined,
+): boolean {
   return isFinalizedFnfStatus(fnfStatus);
 }
 
 export interface BranchScopeInput {
   userType: string | null | undefined;
   userBranchIds?: string[] | null;
-  payrollBranchScope?: 'ALL' | 'SELECTED' | string | null;
+  payrollBranchScope?: string | null;
   payrollAllowedBranchIds?: string[] | null;
   requestedBranchId?: string | null;
 }
@@ -78,7 +88,9 @@ export interface BranchScope {
  * and, when the client selected specific payroll branches, that allow-list.
  * LegitX master users keep the whole client, plus an optional branch filter.
  */
-export function resolveAuthorizedBranches(input: BranchScopeInput): BranchScope {
+export function resolveAuthorizedBranches(
+  input: BranchScopeInput,
+): BranchScope {
   const requested = input.requestedBranchId || null;
   if (input.userType !== 'BRANCH') {
     return {
@@ -132,6 +144,35 @@ export interface FnfSource {
   employeeId: string;
   status: string;
   updatedAt: string | Date;
+  separationDate: string | Date | null;
+  lastWorkingDay: string | Date | null;
+}
+
+/**
+ * An F&F case belongs to the payroll month of the employee's last working
+ * day, falling back to the separation date when no last working day is set.
+ */
+export function fnfInPeriod(
+  fnf: Pick<FnfSource, 'separationDate' | 'lastWorkingDay'>,
+  periodYear: number,
+  periodMonth: number,
+): boolean {
+  const ym = yearMonthOf(fnf.lastWorkingDay) ?? yearMonthOf(fnf.separationDate);
+  if (!ym) return false;
+  return ym.year === periodYear && ym.month === periodMonth;
+}
+
+function yearMonthOf(
+  value: string | Date | null | undefined,
+): { year: number; month: number } | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return { year: value.getFullYear(), month: value.getMonth() + 1 };
+  }
+  const match = /^(\d{4})-(\d{2})/.exec(value);
+  if (!match) return null;
+  return { year: Number(match[1]), month: Number(match[2]) };
 }
 
 export interface FnfDocumentSource {
@@ -165,6 +206,8 @@ export interface EmployeePayrollRecordView {
 }
 
 export function assembleEmployeePayrollRecords(input: {
+  periodYear: number;
+  periodMonth: number;
   branchIds: string[] | null;
   runEmployees: RunEmployeeSource[];
   archives: PayslipArchiveSource[];
@@ -183,6 +226,7 @@ export function assembleEmployeePayrollRecords(input: {
 
   const latestFnf = new Map<string, FnfSource>();
   for (const fnf of input.fnfCases) {
+    if (!fnfInPeriod(fnf, input.periodYear, input.periodMonth)) continue;
     const current = latestFnf.get(fnf.employeeId);
     if (!current || timeOf(fnf.updatedAt) >= timeOf(current.updatedAt)) {
       latestFnf.set(fnf.employeeId, fnf);
@@ -192,8 +236,11 @@ export function assembleEmployeePayrollRecords(input: {
   const records = new Map<string, EmployeePayrollRecordView>();
 
   for (const row of input.runEmployees) {
-    const master = row.employeeId ? employeeById.get(row.employeeId) : undefined;
-    const branchId = row.branchId || row.runBranchId || master?.branchId || null;
+    const master = row.employeeId
+      ? employeeById.get(row.employeeId)
+      : undefined;
+    const branchId =
+      row.branchId || row.runBranchId || master?.branchId || null;
     if (!employeeBranchAllowed(input.branchIds, branchId)) continue;
     const key = recordKey(row.employeeId, row.employeeCode);
     const payslipAvailable = payslipDownloadVisible(
@@ -224,7 +271,10 @@ export function assembleEmployeePayrollRecords(input: {
     if (!master) continue;
     const branchId = master.branchId || null;
     if (!employeeBranchAllowed(input.branchIds, branchId)) continue;
-    const key = recordKey(fnf.employeeId, master.employeeCode || fnf.employeeId);
+    const key = recordKey(
+      fnf.employeeId,
+      master.employeeCode || fnf.employeeId,
+    );
     const ready = fnfDocumentReady(fnf.status);
     const settlementAvailable = fnfDownloadVisible(fnf.status, ready);
     const relievingAvailable = fnfDownloadVisible(fnf.status, ready);
@@ -255,7 +305,11 @@ export function assembleEmployeePayrollRecords(input: {
 
   const list = [...records.values()]
     .filter((row) => row.employeeCode)
-    .sort((a, b) => a.employeeName.localeCompare(b.employeeName) || a.employeeCode.localeCompare(b.employeeCode));
+    .sort(
+      (a, b) =>
+        a.employeeName.localeCompare(b.employeeName) ||
+        a.employeeCode.localeCompare(b.employeeCode),
+    );
 
   return {
     records: list,

@@ -72,9 +72,9 @@ describe('ClientPayrollDocumentsService downloads', () => {
       },
     });
 
-    await expect(service.downloadPayslip(user(), 'run-1', 'B1')).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      service.downloadPayslip(user(), 'run-1', 'B1'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('refuses a payslip that is not on an approved published run', async () => {
@@ -89,9 +89,9 @@ describe('ClientPayrollDocumentsService downloads', () => {
       archive: null,
     });
 
-    await expect(service.downloadPayslip(user(), 'run-1', 'A1')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.downloadPayslip(user(), 'run-1', 'A1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('refuses a BranchDesk user when the requested branch is not authorized', async () => {

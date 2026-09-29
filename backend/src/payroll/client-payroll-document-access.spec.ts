@@ -2,6 +2,7 @@ import {
   assembleEmployeePayrollRecords,
   employeeBranchAllowed,
   fnfDownloadVisible,
+  fnfInPeriod,
   payslipDownloadVisible,
   resolveAuthorizedBranches,
 } from './client-payroll-document-access';
@@ -55,6 +56,8 @@ describe('client payroll document access', () => {
 
   it('hides employees outside a BranchDesk user branches and keeps LegitX client scope', () => {
     const rows = assembleEmployeePayrollRecords({
+      periodYear: 2026,
+      periodMonth: 9,
       branchIds: [branchA],
       runEmployees: [
         {
@@ -105,18 +108,24 @@ describe('client payroll document access', () => {
           employeeId: 'emp-a',
           status: 'SETTLED',
           updatedAt: '2026-09-01',
+          separationDate: '2026-09-01',
+          lastWorkingDay: '2026-09-15',
         },
         {
           id: 'fnf-c',
           employeeId: 'emp-c',
           status: 'INITIATED',
           updatedAt: '2026-09-02',
+          separationDate: '2026-09-02',
+          lastWorkingDay: null,
         },
         {
           id: 'fnf-d',
           employeeId: 'emp-d',
           status: 'SETTLED',
           updatedAt: '2026-09-03',
+          separationDate: '2026-09-03',
+          lastWorkingDay: null,
         },
       ],
       fnfDocuments: [],
@@ -141,6 +150,8 @@ describe('client payroll document access', () => {
 
   it('keeps an unapproved payslip hidden even when an archive file exists', () => {
     const rows = assembleEmployeePayrollRecords({
+      periodYear: 2026,
+      periodMonth: 9,
       branchIds: null,
       runEmployees: [
         {
@@ -169,5 +180,59 @@ describe('client payroll document access', () => {
 
     expect(rows.records).toEqual([]);
     expect(rows.bulkPayslipAvailable).toBe(false);
+  });
+
+  it('assigns an F&F case to the month of its last working day, else its separation date', () => {
+    expect(
+      fnfInPeriod(
+        { separationDate: '2026-08-28', lastWorkingDay: '2026-09-05' },
+        2026,
+        9,
+      ),
+    ).toBe(true);
+    expect(
+      fnfInPeriod(
+        { separationDate: '2026-08-28', lastWorkingDay: '2026-09-05' },
+        2026,
+        8,
+      ),
+    ).toBe(false);
+    expect(
+      fnfInPeriod(
+        { separationDate: '2026-01-20', lastWorkingDay: null },
+        2026,
+        1,
+      ),
+    ).toBe(true);
+    expect(
+      fnfInPeriod({ separationDate: null, lastWorkingDay: null }, 2026, 1),
+    ).toBe(false);
+  });
+
+  it('does not list a finalized F&F case from another month', () => {
+    const rows = assembleEmployeePayrollRecords({
+      periodYear: 2026,
+      periodMonth: 9,
+      branchIds: null,
+      runEmployees: [],
+      archives: [],
+      fnfCases: [
+        {
+          id: 'fnf-jan',
+          employeeId: 'emp-a',
+          status: 'COMPLETED',
+          updatedAt: '2026-01-31',
+          separationDate: '2026-01-10',
+          lastWorkingDay: '2026-01-20',
+        },
+      ],
+      fnfDocuments: [],
+      employees: [
+        { id: 'emp-a', branchId: branchA, name: 'Asha', employeeCode: 'A1' },
+      ],
+      fileExists: () => true,
+    });
+
+    expect(rows.records).toEqual([]);
   });
 });

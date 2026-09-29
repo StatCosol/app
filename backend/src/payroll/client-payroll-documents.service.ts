@@ -65,12 +65,7 @@ export class ClientPayrollDocumentsService {
     const clientId = await this.assertClientPayrollUser(user);
     const periodYear = Number(q.periodYear);
     const periodMonth = Number(q.periodMonth);
-    if (
-      !periodYear ||
-      !periodMonth ||
-      periodMonth < 1 ||
-      periodMonth > 12
-    ) {
+    if (!periodYear || !periodMonth || periodMonth < 1 || periodMonth > 12) {
       return {
         periodYear: periodYear || null,
         periodMonth: periodMonth || null,
@@ -84,7 +79,7 @@ export class ClientPayrollDocumentsService {
     const [runEmployees, archives, fnfCases, fnfDocuments] = await Promise.all([
       this.loadRunEmployees(clientId, periodYear, periodMonth),
       this.loadArchives(clientId, periodYear, periodMonth),
-      this.loadFnfCases(clientId),
+      this.loadFnfCases(clientId, periodYear, periodMonth),
       this.loadFnfDocuments(clientId),
     ]);
     const employees = await this.loadEmployees(clientId, [
@@ -93,6 +88,8 @@ export class ClientPayrollDocumentsService {
     ]);
 
     const assembled = assembleEmployeePayrollRecords({
+      periodYear,
+      periodMonth,
       branchIds: scope.branchIds,
       runEmployees,
       archives,
@@ -103,7 +100,9 @@ export class ClientPayrollDocumentsService {
     });
     const records = search
       ? assembled.records.filter((row) =>
-          `${row.employeeName} ${row.employeeCode}`.toLowerCase().includes(search),
+          `${row.employeeName} ${row.employeeCode}`
+            .toLowerCase()
+            .includes(search),
         )
       : assembled.records;
 
@@ -123,7 +122,11 @@ export class ClientPayrollDocumentsService {
     }
 
     const run = await this.runRepo.findOne({ where: { id: runId } });
-    if (!run || run.clientId !== clientId || !isApprovedPayrollRun(run.status)) {
+    if (
+      !run ||
+      run.clientId !== clientId ||
+      !isApprovedPayrollRun(run.status)
+    ) {
       throw new NotFoundException('Payslip is not available');
     }
 
@@ -161,7 +164,9 @@ export class ClientPayrollDocumentsService {
     res: Response,
   ) {
     const listed = await this.listEmployeeRecords(user, q);
-    const ready = listed.records.filter((row) => row.payslipAvailable && row.runId);
+    const ready = listed.records.filter(
+      (row) => row.payslipAvailable && row.runId,
+    );
     if (!ready.length) {
       throw new NotFoundException(
         'No published payslips are available for this month',
@@ -218,7 +223,11 @@ export class ClientPayrollDocumentsService {
     }
 
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
-    if (!fnf || fnf.clientId !== clientId || !isFinalizedFnfStatus(fnf.status)) {
+    if (
+      !fnf ||
+      fnf.clientId !== clientId ||
+      !isFinalizedFnfStatus(fnf.status)
+    ) {
       throw new NotFoundException('Document is not available');
     }
 
@@ -232,7 +241,9 @@ export class ClientPayrollDocumentsService {
       where: { fnfId, clientId, docType: type },
       order: { createdAt: 'DESC' },
     });
-    const file = stored.find((doc) => doc.filePath && this.fileExists(doc.filePath));
+    const file = stored.find(
+      (doc) => doc.filePath && this.fileExists(doc.filePath),
+    );
     if (file) {
       return {
         fileName: safeFileName(file.fileName || file.docName, `${type}.pdf`),
@@ -251,7 +262,9 @@ export class ClientPayrollDocumentsService {
 
   private async assertClientPayrollUser(user: ReqUser): Promise<string> {
     if (!user?.id || user.roleCode !== 'CLIENT' || !user.clientId) {
-      throw new ForbiddenException('Only client users can access this resource');
+      throw new ForbiddenException(
+        'Only client users can access this resource',
+      );
     }
     if (user.userType === 'BRANCH') {
       const toggles = await this.readSettings(user.clientId);
@@ -371,17 +384,34 @@ export class ClientPayrollDocumentsService {
     }));
   }
 
-  private async loadFnfCases(clientId: string): Promise<FnfSource[]> {
-    const rows = await this.fnfRepo.find({ where: { clientId } });
+  private async loadFnfCases(
+    clientId: string,
+    periodYear: number,
+    periodMonth: number,
+  ): Promise<FnfSource[]> {
+    const start = `${periodYear}-${String(periodMonth).padStart(2, '0')}-01`;
+    const rows = await this.fnfRepo
+      .createQueryBuilder('f')
+      .where('f.client_id = :clientId', { clientId })
+      .andWhere(
+        `COALESCE(f.last_working_day, f.separation_date) >= CAST(:start AS date)
+         AND COALESCE(f.last_working_day, f.separation_date) < CAST(:start AS date) + INTERVAL '1 month'`,
+        { start },
+      )
+      .getMany();
     return rows.map((row) => ({
       id: row.id,
       employeeId: row.employeeId,
       status: row.status,
       updatedAt: row.updatedAt,
+      separationDate: row.separationDate,
+      lastWorkingDay: row.lastWorkingDay,
     }));
   }
 
-  private async loadFnfDocuments(clientId: string): Promise<FnfDocumentSource[]> {
+  private async loadFnfDocuments(
+    clientId: string,
+  ): Promise<FnfDocumentSource[]> {
     const rows = await this.fnfDocRepo.find({
       where: {
         clientId,
@@ -398,7 +428,10 @@ export class ClientPayrollDocumentsService {
     }));
   }
 
-  private async loadEmployees(clientId: string, employeeIds: Array<string | null>) {
+  private async loadEmployees(
+    clientId: string,
+    employeeIds: Array<string | null>,
+  ) {
     const ids = [...new Set(employeeIds.filter((id): id is string => !!id))];
     if (!ids.length) return [];
     return this.employeeRepo.find({
@@ -410,8 +443,11 @@ export class ClientPayrollDocumentsService {
 
 function text(row: Record<string, unknown>, key: string): string | null {
   const value = row[key] ?? row[key.toLowerCase()];
-  if (value === undefined || value === null || value === '') return null;
-  return String(value);
+  if (typeof value === 'string') return value || null;
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return null;
 }
 
 function normalizeSearch(search?: string): string {
@@ -422,7 +458,10 @@ function normalizeSearch(search?: string): string {
     .slice(0, 80);
 }
 
-function safeFileName(name: string | null | undefined, fallback: string): string {
+function safeFileName(
+  name: string | null | undefined,
+  fallback: string,
+): string {
   const cleaned = String(name || fallback)
     .replace(/[\r\n"]/g, '_')
     .replace(/[\\/:*?<>|]+/g, '_')
