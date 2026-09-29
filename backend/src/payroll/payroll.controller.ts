@@ -57,9 +57,12 @@ import {
   QueriesListQueryDto,
   FnfListQueryDto,
   ClientPayrollPeriodQueryDto,
+  ClientPayrollEmployeeRecordsQueryDto,
+  ClientPayslipDownloadQueryDto,
   ClientRegistersQueryDto,
   AuditorRegistersQueryDto,
 } from './dto/payroll-query-params.dto';
+import { ClientPayrollDocumentsService } from './client-payroll-documents.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
@@ -795,7 +798,10 @@ export class ClientPayrollInputsController {
 @UseGuards(JwtAuthGuard, RolesGuard, ClientPayrollToggleGuard)
 @Roles('CLIENT')
 export class ClientPayrollMonitoringController {
-  constructor(private readonly svc: PayrollService) {}
+  constructor(
+    private readonly svc: PayrollService,
+    private readonly documents: ClientPayrollDocumentsService,
+  ) {}
 
   private toArray(payload: unknown): Record<string, unknown>[] {
     if (Array.isArray(payload)) return payload as Record<string, unknown>[];
@@ -934,6 +940,73 @@ export class ClientPayrollMonitoringController {
         (typeof row?.status === 'string' ? row.status : '').toUpperCase() ===
         'SUBMITTED',
     );
+  }
+
+  @ApiOperation({
+    summary:
+      'List employee payroll records with payslip and F&F download availability',
+  })
+  @Get('employee-records')
+  employeeRecords(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayrollEmployeeRecordsQueryDto,
+  ) {
+    return this.documents.listEmployeeRecords(user, q);
+  }
+
+  @ApiOperation({
+    summary: 'Download a published payslip for one employee in an approved run',
+  })
+  @Get('payslips/file')
+  async downloadEmployeePayslip(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayslipDownloadQueryDto,
+    @Res() res: Response,
+  ) {
+    const out = await this.documents.downloadPayslip(
+      user,
+      q.runId,
+      q.employeeCode,
+    );
+    res.setHeader('Content-Type', out.fileType || 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${out.fileName}"`,
+    );
+    res.end(out.buffer);
+  }
+
+  @ApiOperation({
+    summary:
+      'Download published payslips for the selected month, limited to authorized branches',
+  })
+  @Get('payslips/pack')
+  async downloadPayslipPack(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayrollEmployeeRecordsQueryDto,
+    @Res() res: Response,
+  ) {
+    await this.documents.streamPayslipPack(user, q, res);
+  }
+
+  @ApiOperation({
+    summary:
+      'Download a finalized full and final settlement statement or relieving letter',
+  })
+  @Get('fnf/:fnfId/documents/:docType')
+  async downloadFnfDocument(
+    @CurrentUser() user: ReqUser,
+    @Param('fnfId', ParseUUIDPipe) fnfId: string,
+    @Param('docType') docType: string,
+    @Res() res: Response,
+  ) {
+    const out = await this.documents.downloadFnfDocument(user, fnfId, docType);
+    res.setHeader('Content-Type', out.fileType || 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${out.fileName}"`,
+    );
+    res.end(out.buffer);
   }
 }
 

@@ -44,6 +44,22 @@
   color: #111827;
 }
 
+.record-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.record-note {
+  margin: 0.75rem 0 0;
+}
+
 .muted {
   color: #6b7280;
   font-size: 0.8rem;

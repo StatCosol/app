@@ -11,7 +11,10 @@ import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
-import { ClientPayrollService } from '../../../core/client-payroll.service';
+import {
+  ClientPayrollService,
+  EmployeePayrollRecord,
+} from '../../../core/client-payroll.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
@@ -122,6 +125,11 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
   selectedInput: PayrollInputItem | null = null;
   statusHistory: StatusHistoryItem[] = [];
   inputFiles: InputFileItem[] = [];
+  employeeRecordsLoading = false;
+  employeeRecords: EmployeePayrollRecord[] = [];
+  selectedEmployeeRecord: EmployeePayrollRecord | null = null;
+  bulkPayslipAvailable = false;
+  documentDownloadBusy = false;
 
   filters = {
     periodYear: new Date().getFullYear(),
@@ -207,6 +215,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
     });
     this.loadBranches();
     this.loadInputs();
+    this.loadEmployeeRecords();
   }
 
   ngOnDestroy(): void {
@@ -263,6 +272,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
 
   onFiltersChanged(): void {
     this.recomputeWorkspace();
+    this.loadEmployeeRecords();
   }
 
   clearFilters(): void {
@@ -274,6 +284,116 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       search: '',
     };
     this.recomputeWorkspace();
+    this.loadEmployeeRecords();
+  }
+
+  loadEmployeeRecords(): void {
+    const periodMonth = Number(this.filters.periodMonth);
+    if (!periodMonth) {
+      this.employeeRecords = [];
+      this.selectedEmployeeRecord = null;
+      this.bulkPayslipAvailable = false;
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.employeeRecordsLoading = true;
+    this.payrollSvc
+      .listEmployeeRecords({
+        periodYear: this.filters.periodYear,
+        periodMonth,
+        branchId: this.filters.branchId || undefined,
+        search: this.filters.search?.trim() || undefined,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.employeeRecordsLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.employeeRecords = res?.records || [];
+          this.bulkPayslipAvailable = !!res?.bulkPayslipAvailable;
+          const selected = this.selectedEmployeeRecord;
+          this.selectedEmployeeRecord = selected
+            ? this.employeeRecords.find(
+                (row) =>
+                  row.employeeCode === selected.employeeCode &&
+                  row.runId === selected.runId &&
+                  row.fnfId === selected.fnfId,
+              ) || null
+            : null;
+        },
+        error: (err) => {
+          this.employeeRecords = [];
+          this.selectedEmployeeRecord = null;
+          this.bulkPayslipAvailable = false;
+          this.toast.error(err?.error?.message || 'Could not load employee payroll records.');
+        },
+      });
+  }
+
+  selectEmployeeRecord(row: EmployeePayrollRecord): void {
+    this.selectedEmployeeRecord = row;
+    this.cdr.markForCheck();
+  }
+
+  downloadEmployeePayslip(row: EmployeePayrollRecord): void {
+    if (!row.payslipAvailable || !row.runId || this.documentDownloadBusy) return;
+    this.downloadProtectedFile(
+      this.payrollSvc.payslipFileUrl(row.runId, row.employeeCode),
+      `payslip_${row.employeeCode}.pdf`,
+      'Could not download payslip.',
+    );
+  }
+
+  downloadPayslipPack(): void {
+    if (!this.bulkPayslipAvailable || !this.filters.periodMonth || this.documentDownloadBusy) return;
+    this.downloadProtectedFile(
+      this.payrollSvc.payslipPackUrl({
+        periodYear: this.filters.periodYear,
+        periodMonth: this.filters.periodMonth,
+        branchId: this.filters.branchId || undefined,
+      }),
+      `payslips_${this.filters.periodYear}_${String(this.filters.periodMonth).padStart(2, '0')}.zip`,
+      'Could not download payslips.',
+    );
+  }
+
+  downloadSettlement(row: EmployeePayrollRecord): void {
+    if (!row.settlementAvailable || !row.fnfId || this.documentDownloadBusy) return;
+    this.downloadProtectedFile(
+      this.payrollSvc.fnfDocumentUrl(row.fnfId, 'SETTLEMENT_STATEMENT'),
+      `settlement_${row.employeeCode}.pdf`,
+      'Could not download the settlement statement.',
+    );
+  }
+
+  downloadRelievingLetter(row: EmployeePayrollRecord): void {
+    if (!row.relievingAvailable || !row.fnfId || this.documentDownloadBusy) return;
+    this.downloadProtectedFile(
+      this.payrollSvc.fnfDocumentUrl(row.fnfId, 'RELIEVING_LETTER'),
+      `relieving_${row.employeeCode}.pdf`,
+      'Could not download the relieving letter.',
+    );
+  }
+
+  private downloadProtectedFile(url: string, fileName: string, errorMessage: string): void {
+    this.documentDownloadBusy = true;
+    this.protectedFiles
+      .download(url, fileName)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.documentDownloadBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        error: () => this.toast.error(errorMessage),
+      });
   }
 
   createInput(): void {

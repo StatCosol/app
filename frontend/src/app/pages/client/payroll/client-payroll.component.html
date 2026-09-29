@@ -83,6 +83,74 @@
     </article>
   </div>
 
+  <section class="workspace-card mb-6">
+    <div class="section-head">
+      <h3>Employee payroll records</h3>
+      <span class="muted">{{ filters.periodMonth ? periodLabel(filters) : 'Select a month' }}</span>
+    </div>
+    @if (employeeRecordsLoading) {
+      <ui-loading-spinner text="Loading employee payroll records..."></ui-loading-spinner>
+    } @else if (!filters.periodMonth) {
+      <ui-empty-state title="Select a payroll month" description="Choose a month to see employee payroll records and approved downloads."></ui-empty-state>
+    } @else if (!employeeRecords.length) {
+      <ui-empty-state title="No employee payroll records" description="Records appear here after the payroll user approves and finalizes the month, or finalizes full and final documents."></ui-empty-state>
+    } @else {
+      <div class="table-wrap max-h-[600px] overflow-y-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Code</th>
+              <th>Branch</th>
+              <th>Payslip</th>
+              <th>Settlement</th>
+              <th>Relieving letter</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of employeeRecords; track row.employeeCode + (row.runId || '') + (row.fnfId || '')) {
+              <tr>
+                <td>{{ row.employeeName }}</td>
+                <td>{{ row.employeeCode }}</td>
+                <td>{{ toBranchLabel(row.branchId) }}</td>
+                <td>{{ row.payslipAvailable ? 'Available' : '—' }}</td>
+                <td>{{ row.settlementAvailable ? 'Available' : '—' }}</td>
+                <td>{{ row.relievingAvailable ? 'Available' : '—' }}</td>
+                <td>
+                  <ui-button size="sm" variant="secondary" (clicked)="selectEmployeeRecord(row)">Open</ui-button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @if (selectedEmployeeRecord) {
+      <div class="record-panel">
+        <div class="section-head">
+          <h3>{{ selectedEmployeeRecord.employeeName }}</h3>
+          <span class="muted">{{ selectedEmployeeRecord.employeeCode }} · {{ toBranchLabel(selectedEmployeeRecord.branchId) }}</span>
+        </div>
+        <div class="record-actions">
+          @if (selectedEmployeeRecord.payslipAvailable) {
+            <ui-button size="sm" variant="primary" [disabled]="documentDownloadBusy" (clicked)="downloadEmployeePayslip(selectedEmployeeRecord)">Download payslip</ui-button>
+          }
+          @if (bulkPayslipAvailable) {
+            <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadPayslipPack()">Download payslips for this month</ui-button>
+          }
+          @if (selectedEmployeeRecord.settlementAvailable) {
+            <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadSettlement(selectedEmployeeRecord)">Download settlement statement</ui-button>
+          }
+          @if (selectedEmployeeRecord.relievingAvailable) {
+            <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadRelievingLetter(selectedEmployeeRecord)">Download relieving letter</ui-button>
+          }
+        </div>
+      </div>
+    }
+  </section>
+
   @if (loading) {
 <ui-loading-spinner text="Loading payroll monitoring data..." size="lg"></ui-loading-spinner>
 }
