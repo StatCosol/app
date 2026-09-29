@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsNumberString, IsUUID } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsNumberString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
 
 /** GET /payroll/summary, GET /payroll/dashboard — currently unused but kept for forward compat */
 export class PayrollSummaryQueryDto {
@@ -67,6 +74,32 @@ export class ClientPayrollPeriodQueryDto {
   @IsOptional() @IsNumberString() periodYear?: string;
   @IsOptional() @IsNumberString() periodMonth?: string;
   @IsOptional() @IsString() status?: string;
+}
+
+/** GET /client/payroll/employee-records and payslip pack */
+export class ClientPayrollEmployeeRecordsQueryDto {
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsNumberString() periodYear?: string;
+  @IsOptional() @IsNumberString() periodMonth?: string;
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : String(value),
+  )
+  @IsString()
+  search?: string;
+}
+
+export class ClientPayslipDownloadQueryDto {
+  @IsUUID() runId: string;
+
+  @Transform(({ value }) =>
+    value === undefined || value === null ? value : String(value).trim(),
+  )
+  @IsString()
+  @MaxLength(50)
+  employeeCode: string;
 }
 
 /** GET /client/payroll/registers-records, download-pack */

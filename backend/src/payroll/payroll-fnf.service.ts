@@ -643,6 +643,26 @@ export class PayrollFnfService {
     // PD-H2: ignore caller-supplied override values entirely. The PDF must
     // reflect the persisted F&F record (settlementBreakup / settlementAmount)
     // so that what is downloaded equals what was approved by Payroll.
+    void _override;
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F case not found');
+    await this.scope.assertPayrollAccessToClient(user, fnf.clientId, {
+      allowReadOnly: true,
+    });
+    return this.renderFnfDocumentPdf(fnfId, docType);
+  }
+
+  /**
+   * Render an F&F PDF from the persisted case. The caller must already have
+   * authorized this user for the client. Portal downloads also require a
+   * finalized case before calling this.
+   */
+  async renderFnfDocumentPdf(
+    fnfId: string,
+    docType: string,
+  ): Promise<{ buffer: Buffer; filename: string; mimeType: string }> {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F case not found');
     const override: {
       pendingSalary?: number;
       leaveEncashment?: number;
@@ -651,12 +671,6 @@ export class PayrollFnfService {
       recoveries?: number;
       settlementAmount?: number;
     } = {};
-    void _override;
-    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
-    if (!fnf) throw new BadRequestException('F&F case not found');
-    await this.scope.assertPayrollAccessToClient(user, fnf.clientId, {
-      allowReadOnly: true,
-    });
 
     const allowed = [
       'SETTLEMENT_STATEMENT',

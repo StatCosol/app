@@ -60,6 +60,7 @@ import { PayrollRegistersService } from './payroll-registers.service';
 import { PayrollInputService } from './payroll-input.service';
 import { PayrollRunsService } from './payroll-runs.service';
 import { PayrollPayslipsService } from './payroll-payslips.service';
+import { ClientPayrollDocumentsService } from './client-payroll-documents.service';
 import { PayrollQueryService } from './payroll-query.service';
 import { PayrollSetupService } from './payroll-setup.service';
 import { PayrollProcessingService } from './payroll-processing.service';
@@ -250,6 +251,7 @@ import { AccessModule } from '../access/access.module';
     PayrollInputService,
     PayrollRunsService,
     PayrollPayslipsService,
+    ClientPayrollDocumentsService,
     ClientPayrollToggleGuard,
     PayrollSetupService,
     PayrollProcessingService,

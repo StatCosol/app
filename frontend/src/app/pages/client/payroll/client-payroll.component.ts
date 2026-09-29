@@ -9,9 +9,20 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, of } from 'rxjs';
-import { catchError, finalize, takeUntil } from 'rxjs/operators';
+import { catchError, finalize, map, switchMap, takeUntil } from 'rxjs/operators';
 
-import { ClientPayrollService } from '../../../core/client-payroll.service';
+import {
+  ClientPayrollService,
+  EmployeePayrollRecord,
+  EmployeePayrollRecordsResponse,
+} from '../../../core/client-payroll.service';
+
+interface EmployeeRecordsScope {
+  periodYear: number;
+  periodMonth: number;
+  branchId?: string;
+  search?: string;
+}
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
@@ -122,6 +133,14 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
   selectedInput: PayrollInputItem | null = null;
   statusHistory: StatusHistoryItem[] = [];
   inputFiles: InputFileItem[] = [];
+  employeeRecordsLoading = false;
+  employeeRecords: EmployeePayrollRecord[] = [];
+  selectedEmployeeRecord: EmployeePayrollRecord | null = null;
+  bulkPayslipAvailable = false;
+  documentDownloadBusy = false;
+  /** Scope of the records currently on screen; the bulk download targets this, not the live filters. */
+  private employeeRecordsScope: EmployeeRecordsScope | null = null;
+  private readonly employeeRecordsRequest$ = new Subject<EmployeeRecordsScope | null>();
 
   filters = {
     periodYear: new Date().getFullYear(),
@@ -203,10 +222,26 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
         this.newInput.periodYear = this.filters.periodYear;
         this.newInput.periodMonth = this.filters.periodMonth;
         this.recomputeWorkspace();
+        this.loadEmployeeRecords();
       }
     });
+    this.employeeRecordsRequest$
+      .pipe(
+        switchMap((scope) => {
+          if (!scope) return of({ scope, res: null, error: null });
+          this.employeeRecordsLoading = true;
+          this.cdr.markForCheck();
+          return this.payrollSvc.listEmployeeRecords(scope).pipe(
+            map((res) => ({ scope, res, error: null })),
+            catchError((error) => of({ scope, res: null, error })),
+          );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(({ scope, res, error }) => this.applyEmployeeRecords(scope, res, error));
     this.loadBranches();
     this.loadInputs();
+    this.loadEmployeeRecords();
   }
 
   ngOnDestroy(): void {
@@ -263,6 +298,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
 
   onFiltersChanged(): void {
     this.recomputeWorkspace();
+    this.loadEmployeeRecords();
   }
 
   clearFilters(): void {
@@ -274,6 +310,116 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       search: '',
     };
     this.recomputeWorkspace();
+    this.loadEmployeeRecords();
+  }
+
+  loadEmployeeRecords(): void {
+    const periodMonth = Number(this.filters.periodMonth);
+    this.employeeRecordsRequest$.next(
+      periodMonth
+        ? {
+            periodYear: Number(this.filters.periodYear),
+            periodMonth,
+            branchId: this.filters.branchId || undefined,
+            search: this.filters.search?.trim() || undefined,
+          }
+        : null,
+    );
+  }
+
+  private applyEmployeeRecords(
+    scope: EmployeeRecordsScope | null,
+    res: EmployeePayrollRecordsResponse | null,
+    error: any,
+  ): void {
+    this.employeeRecordsLoading = false;
+    if (!scope || error) {
+      this.employeeRecords = [];
+      this.selectedEmployeeRecord = null;
+      this.bulkPayslipAvailable = false;
+      this.employeeRecordsScope = null;
+      if (error) {
+        this.toast.error(error?.error?.message || 'Could not load employee payroll records.');
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.employeeRecords = res?.records || [];
+    this.bulkPayslipAvailable = !!res?.bulkPayslipAvailable;
+    this.employeeRecordsScope = scope;
+    const selected = this.selectedEmployeeRecord;
+    this.selectedEmployeeRecord = selected
+      ? this.employeeRecords.find(
+          (row) =>
+            row.employeeCode === selected.employeeCode &&
+            row.runId === selected.runId &&
+            row.fnfId === selected.fnfId,
+        ) || null
+      : null;
+    this.cdr.markForCheck();
+  }
+
+  selectEmployeeRecord(row: EmployeePayrollRecord): void {
+    this.selectedEmployeeRecord = row;
+    this.cdr.markForCheck();
+  }
+
+  downloadEmployeePayslip(row: EmployeePayrollRecord): void {
+    if (!row.payslipAvailable || !row.runId || this.documentDownloadBusy) return;
+    this.downloadProtectedFile(
+      this.payrollSvc.payslipFileUrl(row.runId, row.employeeCode),
+      `payslip_${row.employeeCode}.pdf`,
+      'Could not download payslip.',
+    );
+  }
+
+  downloadPayslipPack(): void {
+    const scope = this.employeeRecordsScope;
+    if (!this.bulkPayslipAvailable || !scope || this.documentDownloadBusy) return;
+    this.downloadProtectedFile(
+      this.payrollSvc.payslipPackUrl({
+        periodYear: scope.periodYear,
+        periodMonth: scope.periodMonth,
+        branchId: scope.branchId,
+      }),
+      `payslips_${scope.periodYear}_${String(scope.periodMonth).padStart(2, '0')}.zip`,
+      'Could not download payslips.',
+    );
+  }
+
+  downloadSettlement(row: EmployeePayrollRecord): void {
+    if (!row.settlementAvailable || !row.fnfId || this.documentDownloadBusy) return;
+    this.downloadProtectedFile(
+      this.payrollSvc.fnfDocumentUrl(row.fnfId, 'SETTLEMENT_STATEMENT'),
+      `settlement_${row.employeeCode}.pdf`,
+      'Could not download the settlement statement.',
+    );
+  }
+
+  downloadRelievingLetter(row: EmployeePayrollRecord): void {
+    if (!row.relievingAvailable || !row.fnfId || this.documentDownloadBusy) return;
+    this.downloadProtectedFile(
+      this.payrollSvc.fnfDocumentUrl(row.fnfId, 'RELIEVING_LETTER'),
+      `relieving_${row.employeeCode}.pdf`,
+      'Could not download the relieving letter.',
+    );
+  }
+
+  private downloadProtectedFile(url: string, fileName: string, errorMessage: string): void {
+    this.documentDownloadBusy = true;
+    this.protectedFiles
+      .download(url, fileName)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.documentDownloadBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        error: () => this.toast.error(errorMessage),
+      });
   }
 
   createInput(): void {
