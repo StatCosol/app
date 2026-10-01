@@ -5,8 +5,8 @@ import { ActivatedRoute } from '@angular/router';
 
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { FormsModule } from '@angular/forms';
-import { Subject, of } from 'rxjs';
-import { catchError, debounceTime, finalize, map, switchMap, takeUntil, tap, timeout } from 'rxjs/operators';
+import { Subject, of, forkJoin, timer } from 'rxjs';
+import { catchError, distinctUntilChanged, finalize, map, startWith, switchMap, takeUntil, tap, timeout } from 'rxjs/operators';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { PayrollRegistersService, RegisterRecordRow, BranchTemplateInfo } from './payroll-registers.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
@@ -67,6 +67,10 @@ const STATE_NAMES: Record<string, string> = {
           </ui-button>
         </div>
       </ui-page-header>
+
+      @if (optionsError) {
+        <div role="alert" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{{ optionsError }}</div>
+      }
 
       <!-- ═══════ Generate & Download Panel ═══════ -->
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
@@ -213,7 +217,7 @@ const STATE_NAMES: Record<string, string> = {
 <ui-empty-state
 
         title="No Registers Found"
-        description="No statutory registers match the selected filters. Select a branch, month, and year above to generate registers.">
+        description="No saved registers match these filters. Payroll approval does not prepare registers. Select the branch and month, then choose the Act and register to prepare it from reviewed records.">
       </ui-empty-state>
 }
 
@@ -307,6 +311,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   rows: RegisterRecordRow[] = [];
   loading = false;
   error = '';
+  optionsError = '';
   clientOptions: SelectOption[] = [{ value: null, label: 'All Clients' }];
 
   private reload$ = new Subject<void>();
@@ -508,7 +513,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
   ) {}
 
-  private initialLoadDone = false;
+
 
   ngOnInit(): void {
     // Build year list
@@ -534,74 +539,39 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
       },
     });
 
-    // Load branches filtered by client
-    if (routeClientId) {
-      this.payrollApi.getOptionBranches(routeClientId).pipe(takeUntil(this.destroy$)).subscribe({
-        next: (branches) => {
-          this.genBranches = (branches || []).map((b: any) => ({
-            id: b.id,
-            branchName: b.branchName || b.branchname || b.name || '',
-            branchType: b.branchType || b.branchtype || b.type || '',
-            stateCode: b.stateCode || b.statecode || '',
-          }));
-          this.cdr.markForCheck();
-        },
-      });
-    }
+    this.reload$.pipe(
+      startWith(undefined),
+      switchMap(() => timer(150).pipe(switchMap(() => {
+        this.loading = true; this.error = ''; this.cdr.markForCheck();
+        return this.fetchRegisters$();
+      }))),
+      takeUntil(this.destroy$),
+    ).subscribe(rows => { this.rows = rows || []; this.cdr.markForCheck(); });
 
-    // Load runs for matching
-    this.api.getPayrollRuns(routeClientId || undefined).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (runs) => {
-        this.allRuns = runs || [];
-        this.cdr.markForCheck();
-      },
-    });
-
-    // Subject-driven reload for user filter changes
-    this.reload$
-      .pipe(
-        debounceTime(150),
-        tap(() => {
-          if (!this.initialLoadDone) return;
-          this.loading = true; this.error = '';
-          this.cdr.markForCheck();
-        }),
-        switchMap(() => {
-          if (!this.initialLoadDone) return of(null);
-          return this.fetchRegisters$();
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (rows) => {
-          if (rows !== null) {
-            this.rows = rows || [];
-            this.loading = false;
-            this.cdr.detectChanges();
-          }
-        },
-        error: () => {
-          this.loading = false;
-          this.rows = [];
-          this.cdr.detectChanges();
-        },
-      });
-
-    // Direct initial load
-    this.loading = true;
-    this.fetchRegisters$().pipe(takeUntil(this.destroy$)).subscribe({
-      next: (rows) => {
-        this.rows = rows || [];
-        this.loading = false;
-        this.cdr.detectChanges();
-        setTimeout(() => { this.initialLoadDone = true; });
-      },
-      error: () => {
-        this.loading = false;
-        this.rows = [];
-        this.cdr.detectChanges();
-        setTimeout(() => { this.initialLoadDone = true; });
-      },
+    this.route.paramMap.pipe(
+      map(params => params.get('clientId') || ''), distinctUntilChanged(),
+      tap(clientId => {
+        this.q.clientId = clientId || null; this.optionsError = '';
+        this.genBranchId = ''; this.genBranches = []; this.allRuns = []; this.matchedRun = null;
+        this.filterAct = ''; this.filterRegisterType = ''; this.registerBuilderOpen = false;
+        this.genResult = ''; this.rows = []; this.reload();
+      }),
+      switchMap(clientId => forkJoin({
+        branches: (clientId ? this.payrollApi.getOptionBranches(clientId) : of([])).pipe(catchError(() => {
+          this.optionsError += 'Branch options could not be loaded. ';
+          this.cdr.markForCheck(); return of([]);
+        })),
+        runs: this.api.getPayrollRuns(clientId || undefined).pipe(catchError(() => {
+          this.optionsError += 'Payroll runs could not be loaded. ';
+          this.cdr.markForCheck(); return of([]);
+        })),
+      })), takeUntil(this.destroy$),
+    ).subscribe(({ branches, runs }) => {
+      this.genBranches = (branches || []).map((b: any) => ({
+        id: b.id, branchName: b.branchName || b.branchname || b.name || '',
+        branchType: b.branchType || b.branchtype || b.type || '', stateCode: b.stateCode || b.statecode || '',
+      }));
+      this.allRuns = runs || []; this.matchRun();
     });
   }
 
@@ -671,7 +641,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
       (r) =>
         Number(r.periodMonth) === this.selMonth &&
         Number(r.periodYear) === this.selYear &&
-        r.status === 'APPROVED' && (!r.branchId || r.branchId === this.genBranchId),
+        r.status === 'APPROVED' && (!this.q.clientId || r.clientId === this.q.clientId) && (!r.branchId || r.branchId === this.genBranchId),
     );
     const match = candidates.find(r=>r.branchId === this.genBranchId) || candidates.find(r=>!r.branchId);
     if (match) {
