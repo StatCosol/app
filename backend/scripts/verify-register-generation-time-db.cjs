@@ -91,12 +91,20 @@ async function main() {
     assert.ok(masterRows.every(row => row.clientId === clientId));
     const branchUser = { ...user, userType: 'BRANCH' };
     assert.deepEqual(await service.clientListRegistersRecords(branchUser, query), []);
+    assert.deepEqual(await service.clientRegistersAvailability(branchUser, query), { total: 2, approved: 0, pending: 2, rejected: 0 });
+    assert.deepEqual(await service.clientRegistersAvailability(branchUser, { ...query, periodMonth: 4 }), { total: 0, approved: 0, pending: 0, rejected: 0 });
+    assert.deepEqual(await service.clientRegistersAvailability({ ...branchUser, branchIds: [randomUUID()] }, query), { total: 0, approved: 0, pending: 0, rejected: 0 });
     // Approval changes only this disposable test database.
     await repo.update(historical.id, { approvalStatus: 'APPROVED' });
     const branchRows = await service.clientListRegistersRecords(branchUser, query);
     assert.deepEqual(branchRows.map(row => row.id), [historical.id]);
     assert.deepEqual(await service.clientListRegistersRecords(branchUser, { ...query, periodMonth: 4 }), []);
     assert.deepEqual(await service.clientListRegistersRecords({ ...branchUser, branchIds: [randomUUID()] }, query), []);
+    assert.deepEqual(await service.clientRegistersAvailability(branchUser, query), { total: 2, approved: 1, pending: 1, rejected: 0 });
+    assert.deepEqual(await service.clientRegistersAvailability(branchUser, { ...query, sourceType: 'MANUAL' }),
+      { total: 6, approved: 0, pending: 6, rejected: 0 });
+    await require('./verify-register-roundtrip-db.cjs')(ds);
+    console.log('PASS: scoped preparation/approval counts match filters while pending files stay out of branch lists');
     console.log('PASS: historical generated files agree in SQL/API classification; client, branch, month and approval scope are enforced');
     console.log('PASS: legacy schema migration is idempotent; replacement saves generation time while preserving record identity and creation history');
   } finally {

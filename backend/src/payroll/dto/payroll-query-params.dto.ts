@@ -4,6 +4,9 @@ import {
   IsNumberString,
   IsUUID,
   MaxLength,
+  IsArray,
+  ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -31,6 +34,17 @@ export class PayslipsQueryDto {
 }
 
 /** GET /payroll/registers-records, GET /payroll/registers */
+export class RegistersPackSelectionDto {
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',') : value,
+  )
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(300)
+  @IsUUID('all', { each: true })
+  registerIds: string[];
+}
+
 export class RegistersQueryDto {
   @IsOptional() @IsUUID() clientId?: string;
   @IsOptional() @IsUUID() branchId?: string;

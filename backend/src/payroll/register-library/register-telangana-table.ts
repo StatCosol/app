@@ -30,9 +30,9 @@ export function addTelanganaRegisterTable(
   );
   banner(
     'Establishment: ' +
-      (context.establishment || input?.particulars?.establishmentName || '') +
+      (input?.particulars?.establishmentName || context.establishment || '') +
       ' | Address: ' +
-      (context.address || input?.particulars?.establishmentAddress || ''),
+      (input?.particulars?.establishmentAddress || context.address || ''),
   );
   banner(
     'Period: ' +
@@ -85,7 +85,9 @@ export function addTelanganaRegisterTable(
             : f.type === 'money'
               ? '0.00'
               : f.type === 'number'
-                ? '0.##'
+                ? Number.isInteger(Number(record[f.key]))
+                  ? '0'
+                  : '0.00'
                 : '@'),
     );
   }
@@ -125,7 +127,12 @@ export function addTelanganaRegisterTable(
     'A1:' + sheet.getColumn(width).letter + sheet.rowCount;
   sheet.headerFooter.oddHeader =
     '&LForm III | ' +
-    String(context.establishment || input?.employer || '').replace(/&/g, '&&') +
+    String(
+      input?.particulars?.establishmentName ||
+        context.establishment ||
+        input?.employer ||
+        '',
+    ).replace(/&/g, '&&') +
     '&R' +
     period;
   sheet.headerFooter.oddFooter =

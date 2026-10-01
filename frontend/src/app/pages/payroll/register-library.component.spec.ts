@@ -17,6 +17,26 @@ describe('Register library Act selection', () => {
     component.ngOnDestroy();
     http.verify();
   });
+  it('shows a configuration blocker and clears it on branch changes', () => {
+    component.branchId = 'unconfigured';
+    component.loadBranch();
+    http
+      .expectOne((r) => r.url.endsWith('/branch-context'))
+      .flush({
+        branchId: 'unconfigured',
+        stateCode: 'TS',
+        branchName: 'BRM',
+        centralRulesAvailable: false,
+        preparationNotice: 'Set the governing authority in branch applicability.',
+      });
+    http
+      .expectOne((r) => r.params.get('jurisdiction') === 'TS')
+      .flush({ forms: [], jurisdiction: { code: 'TS' } });
+    expect(component.preparationNotice).toContain('governing authority');
+    component.branchId = '';
+    component.loadBranch();
+    expect(component.preparationNotice).toBe('');
+  });
   it('keeps identically numbered forms under their selected Act', () => {
     component.forms = [
       {

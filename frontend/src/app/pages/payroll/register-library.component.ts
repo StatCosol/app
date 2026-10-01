@@ -1,4 +1,7 @@
-import { RegisterPreparationComponent } from './register-preparation.component';
+import {
+  RegisterPreparationComponent,
+  RegisterGeneratedScope,
+} from './register-preparation.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -65,6 +68,14 @@ interface Jurisdiction {
         <p class="text-sm">
           Branch: <strong>{{ branchName }}</strong> · State code:
           <strong>{{ branchStateCode }}</strong>
+        </p>
+      }
+      @if (preparationNotice) {
+        <p
+          role="status"
+          class="text-amber-800 border border-amber-300 bg-amber-50 rounded p-3 my-3"
+        >
+          {{ preparationNotice }}
         </p>
       }
       @if (!branchId) {
@@ -160,7 +171,7 @@ interface Jurisdiction {
             }
             @if (selectedForm?.id === form.id) {
               <app-register-preparation
-                (generated)="generated.emit()"
+                (generated)="generated.emit($event)"
                 [formId]="form.id"
                 [branchId]="branchId"
                 [runId]="runId"
@@ -219,7 +230,7 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
   private readonly destroyed = new Subject<void>();
   private readonly scopeChanged = new Subject<void>();
   private readonly base = environment.apiBaseUrl + '/api/v1/payroll/register-library';
-  @Output() generated = new EventEmitter<void>();
+  @Output() generated = new EventEmitter<RegisterGeneratedScope>();
   @Input() expanded = false;
   @Input() branchId = '';
   @Input() runId = '';
@@ -233,6 +244,7 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
   branchStateCode = '';
   branchName = '';
   centralRulesAvailable = false;
+  preparationNotice = '';
   query = '';
   forms: LibraryForm[] = [];
   info: Jurisdiction | null = null;
@@ -281,6 +293,7 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
     this.branchStateCode = '';
     this.branchName = '';
     this.centralRulesAvailable = false;
+    this.preparationNotice = '';
     this.loading = false;
     this.error = '';
     if (!this.branchId) return;
@@ -291,6 +304,7 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
         branchName: string;
         stateCode: string;
         centralRulesAvailable: boolean;
+        preparationNotice?: string | null;
       }>(this.base + '/branch-context', { params: new HttpParams().set('branchId', this.branchId) })
       .pipe(takeUntil(this.scopeChanged), takeUntil(this.destroyed))
       .subscribe({
@@ -299,6 +313,7 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
           this.branchStateCode = context.stateCode;
           this.branchName = context.branchName;
           this.centralRulesAvailable = context.centralRulesAvailable;
+          this.preparationNotice = context.preparationNotice || '';
           this.jurisdiction = context.stateCode;
           this.load();
         },

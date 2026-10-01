@@ -67,6 +67,11 @@ export class RegisterBuilderService {
       branchName: branch.branchName,
       stateCode,
       centralRulesAvailable: facts?.government === 'CENTRAL',
+      preparationNotice: !facts
+        ? 'Register generation needs branch applicability to be configured and reviewed.'
+        : !['STATE', 'CENTRAL'].includes(facts.government)
+          ? 'Register generation is blocked: set the governing authority in branch applicability, then recompute and review the applicable Acts.'
+          : null,
     };
   }
 
@@ -79,7 +84,9 @@ export class RegisterBuilderService {
   ) {
     const { form, layout } = definition(id);
     if (
-      !/^[0-9a-f-]{36}$/i.test(branchId || '') ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        branchId || '',
+      ) ||
       !Number.isInteger(year) ||
       year < 2000 ||
       year > 2100 ||
@@ -113,7 +120,7 @@ export class RegisterBuilderService {
     }
     if (
       form.jurisdiction !== 'CENTRAL' &&
-      form.jurisdiction !== branch.stateCode?.toUpperCase()
+      form.jurisdiction !== branch.stateCode?.trim().toUpperCase()
     ) {
       throw new BadRequestException(
         'This form belongs to a different state from the selected branch',
@@ -148,7 +155,10 @@ export class RegisterBuilderService {
         'Branch facts changed. Recompute and review applicability before generating registers.',
       );
     }
-    if (decision.factState?.toUpperCase() !== branch.stateCode?.toUpperCase()) {
+    if (
+      decision.factState?.trim().toUpperCase() !==
+      branch.stateCode?.trim().toUpperCase()
+    ) {
       throw new BadRequestException(
         'Branch state and applicability facts disagree. Correct the branch profile first.',
       );
@@ -301,8 +311,26 @@ export class RegisterBuilderService {
       throw new BadRequestException(
         'Choose a payroll batch containing 1 to 500 branch employees',
       );
+    const storedDeductions = await this.ds.query(
+      `SELECT cv.run_employee_id AS "employeeId", cv.component_code AS code, cv.amount
+       FROM payroll_run_component_values cv
+       JOIN payroll_run_employees re ON re.id=cv.run_employee_id
+       WHERE re.run_id=$1 AND cv.run_id=$1 AND re.client_id=$2 AND re.branch_id=$3
+         AND cv.component_code IN ('PF_EMP','ESI_EMP')`,
+      [runId, run.clientId, branchId],
+    );
+    const deductionsByEmployee = new Map<string, Record<string, string>>();
+    for (const value of storedDeductions) {
+      if (!value.employeeId || value.amount == null) continue;
+      const amounts = deductionsByEmployee.get(value.employeeId) || {};
+      amounts[value.code] = String(value.amount);
+      deductionsByEmployee.set(value.employeeId, amounts);
+    }
     const allowed = new Set(context.layout.fields.map((f) => f.key));
     const rows: RegisterRow[] = employees.map((e, i) => {
+      const amounts = deductionsByEmployee.get(e.id) || {};
+      const pf = e.pfEmployee ?? amounts.PF_EMP;
+      const esi = e.esiEmployee ?? amounts.ESI_EMP;
       const values: RegisterRow = {
         serial: i + 1,
         employeeCode: e.employeeCode,
@@ -323,6 +351,8 @@ export class RegisterBuilderService {
         gross: e.grossEarnings,
         deductions: e.totalDeductions,
         net: e.netPay,
+        ...(pf != null ? { pf } : {}),
+        ...(esi != null ? { esi } : {}),
       };
       for (const key of context.layout.omitPrefillFields || [])
         delete values[key];
@@ -408,6 +438,7 @@ export class RegisterBuilderService {
             input.contractorUserId || '',
             input.supportingReference || '',
           ],
+          establishment: [ctx.branch.branchName, ctx.branch.address],
           rows: canonicalRows,
           ...(ctx.layout.capacityRequired
             ? { actingCapacity: input.actingCapacity }
@@ -493,7 +524,7 @@ export class RegisterBuilderService {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           fileSize: String(buffer.length),
           registerType: 'LEGAL_' + legalHash,
-          stateCode: ctx.branch.stateCode,
+          stateCode: ctx.branch.stateCode?.trim().toUpperCase(),
           generatedAt: new Date(),
           approvalStatus: 'PENDING',
           approvedAt: null,

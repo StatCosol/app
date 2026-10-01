@@ -47,12 +47,13 @@ import {
   ClientUpdatePayrollSettingsDto,
   PayrollUploadRegisterRecordDto,
 } from './dto/client-payroll-input.dto';
-import { RejectRegisterDto } from './dto/payroll-setup.dto';
+import { RejectRegisterDto, ReviewRegisterDto } from './dto/payroll-setup.dto';
 import {
   PayrollSummaryQueryDto,
   PayrollEmployeesQueryDto,
   PayslipsQueryDto,
   RegistersQueryDto,
+  RegistersPackSelectionDto,
   PayrollRunsQueryDto,
   QueriesListQueryDto,
   FnfListQueryDto,
@@ -268,6 +269,22 @@ export class PayrollController {
     await this.svc.streamPayrollRegistersPack(user, q, res);
   }
 
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Download selected registers (ZIP)' })
+  @Post('registers/download-pack')
+  async downloadSelectedRegistersPack(
+    @CurrentUser() user: ReqUser,
+    @Query() q: RegistersQueryDto,
+    @Body() selection: RegistersPackSelectionDto,
+    @Res() res: Response,
+  ) {
+    await this.svc.streamPayrollRegistersPack(
+      user,
+      { ...q, registerIds: selection.registerIds },
+      res,
+    );
+  }
+
   // Alias: GET /api/payroll/registers-records/:id/download
   @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @ApiOperation({ summary: 'Download Register Record' })
@@ -290,8 +307,12 @@ export class PayrollController {
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Approve Register' })
   @Patch('registers/:id/approve')
-  approveRegister(@CurrentUser() user: ReqUser, @Param('id') id: string) {
-    return this.svc.approveRegister(user, id);
+  approveRegister(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body() body: ReviewRegisterDto,
+  ) {
+    return this.svc.approveRegister(user, id, body.reviewVersion);
   }
 
   // Reject register: PATCH /api/payroll/registers/:id/reject
@@ -303,7 +324,7 @@ export class PayrollController {
     @Param('id') id: string,
     @Body() body: RejectRegisterDto,
   ) {
-    return this.svc.rejectRegister(user, id, body?.reason);
+    return this.svc.rejectRegister(user, id, body?.reason, body.reviewVersion);
   }
 
   // Frontend expects: GET /api/payroll/runs
@@ -1047,6 +1068,15 @@ export class ClientRegistersRecordsController {
     return this.svc.clientListRegistersRecords(user, q);
   }
 
+  @ApiOperation({ summary: 'Scoped register preparation and approval counts' })
+  @Get('availability')
+  availability(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientRegistersQueryDto,
+  ) {
+    return this.svc.clientRegistersAvailability(user, q);
+  }
+
   @ApiOperation({ summary: 'Download Registers Pack' })
   @Get('download-pack')
   async downloadPack(
@@ -1055,6 +1085,21 @@ export class ClientRegistersRecordsController {
     @Res() res: Response,
   ) {
     await this.svc.streamClientRegistersPack(user, q, res);
+  }
+
+  @ApiOperation({ summary: 'Download selected registers as a complete pack' })
+  @Post('download-pack')
+  async downloadSelectedPack(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientRegistersQueryDto,
+    @Body() selection: RegistersPackSelectionDto,
+    @Res() res: Response,
+  ) {
+    await this.svc.streamClientRegistersPack(
+      user,
+      { ...q, registerIds: selection.registerIds },
+      res,
+    );
   }
 
   @ApiOperation({ summary: 'File Interceptor' })

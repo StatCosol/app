@@ -1,10 +1,11 @@
+import { downloadErrorMessage } from '../../../shared/files/utils/download-error';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Subject } from 'rxjs';
-import { finalize, map, takeUntil, timeout } from 'rxjs/operators';
+import { Subject, forkJoin, of, timer } from 'rxjs';
+import { catchError, finalize, map, switchMap, takeUntil, timeout } from 'rxjs/operators';
 
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/auth.service';
@@ -22,6 +23,8 @@ import {
   ProtectedFileHandle,
   ProtectedFileService,
 } from '../../../shared/files/services/protected-file.service';
+
+type RegisterAvailability = { total: number; approved: number; pending: number; rejected: number };
 
 type SourceType = 'GENERATED' | 'MANUAL';
 
@@ -62,7 +65,7 @@ type RegisterRow = {
     <div class="page">
       <ui-page-header
         title="Registers Download Center"
-        [subtitle]="isBranch ? 'Approved branch registers with preview and bulk download' : 'Preview and download payroll registers by period and branch'">
+        [subtitle]="isBranch ? 'Track register preparation and approval, and download approved branch files' : 'Preview and download payroll registers by period and branch'">
         <div class="actions">
           <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()">Refresh</ui-button>
           <ui-button
@@ -74,20 +77,38 @@ type RegisterRow = {
         </div>
       </ui-page-header>
 
+      @if (!loading && !error && availability) {
+        <section class="card mb-4" aria-live="polite">
+          <div class="section-title">Register status for the selected filters</div>
+          <div class="quick-meta">
+            <span>Saved: {{ availability.total }}</span>
+            <span>Approved: {{ availability.approved }}</span>
+            <span>Awaiting approval: {{ availability.pending }}</span>
+            @if (availability.rejected) { <span>Needs correction: {{ availability.rejected }}</span> }
+          </div>
+          @if (availability.pending) {
+            <p class="meta mt-3">{{ availability.pending }} saved {{ availability.pending === 1 ? 'file awaits' : 'files await' }} Payroll approval. Branch Desk downloads become available after approval.</p>
+          }
+        </section>
+      }
+      @if (!loading && !error && availabilityError) {
+        <div class="card mb-4" role="status">Register approval status could not be loaded. Refresh to retry.</div>
+      }
+
       <section class="card mb-6">
         <div class="section-title">Filters</div>
         <div class="filter-grid">
           <label>
             <span>Year</span>
-            <input autocomplete="off" type="number" id="reg-year" name="periodYear" [(ngModel)]="q.periodYear" placeholder="2026" />
+            <input autocomplete="off" type="number" id="reg-year" name="periodYear" [(ngModel)]="q.periodYear" (ngModelChange)="onFiltersChange()" placeholder="2026" />
           </label>
           <label>
             <span>Month</span>
-            <input autocomplete="off" type="number" id="reg-month" name="periodMonth" [(ngModel)]="q.periodMonth" placeholder="1-12" />
+            <input autocomplete="off" type="number" id="reg-month" name="periodMonth" [(ngModel)]="q.periodMonth" (ngModelChange)="onFiltersChange()" placeholder="1-12" />
           </label>
           <label>
             <span>Category</span>
-            <select id="reg-category" name="category" [(ngModel)]="q.category">
+            <select id="reg-category" name="category" [(ngModel)]="q.category" (ngModelChange)="onFiltersChange()">
               <option value="">All Categories</option>
               <option value="REGISTER">REGISTER</option>
               <option value="RECORD">RECORD</option>
@@ -95,7 +116,7 @@ type RegisterRow = {
           </label>
           <label>
             <span>Branch</span>
-            <select id="reg-branch" name="branchId" [(ngModel)]="q.branchId">
+            <select id="reg-branch" name="branchId" [(ngModel)]="q.branchId" (ngModelChange)="onFiltersChange()">
               <option value="">All Branches</option>
               @for (b of branches; track b) {
 <option [value]="b.id">{{ b.branchCode ? b.branchCode + ' – ' : '' }}{{ b.name || b.branchName }}</option>
@@ -104,7 +125,7 @@ type RegisterRow = {
           </label>
           <label>
             <span>Source</span>
-            <select id="reg-source" name="sourceType" [(ngModel)]="q.sourceType" (ngModelChange)="applyLocalFilters()">
+            <select id="reg-source" name="sourceType" [(ngModel)]="q.sourceType" (ngModelChange)="onFiltersChange()">
               <option value="">All</option>
               <option value="GENERATED">Generated</option>
               <option value="MANUAL">Manual</option>
@@ -117,7 +138,7 @@ type RegisterRow = {
               id="reg-search"
               name="search"
               [(ngModel)]="q.search"
-              (ngModelChange)="applyLocalFilters()"
+              (ngModelChange)="onFiltersChange()"
               placeholder="Title, register type, branch, file name" />
           </label>
           <div class="actions">
@@ -145,8 +166,8 @@ type RegisterRow = {
       @if (!loading && !error && !filteredRows.length) {
 <ui-empty-state
        
-        title="No Registers Found"
-        [description]="isBranch ? 'No approved registers are available for these filters. Ask Payroll to check register preparation and approval for this branch and month.' : 'No registers match these filters. Try All Sources. Registers must be prepared for the selected month; payroll approval alone does not create them.'">
+        [title]="emptyTitle"
+        [description]="emptyDescription">
       </ui-empty-state>
 }
 
@@ -293,12 +314,15 @@ type RegisterRow = {
 })
 export class ClientRegistersComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private readonly reload$ = new Subject<boolean>();
 
   rows: RegisterRow[] = [];
   filteredRows: RegisterRow[] = [];
   loading = false;
   packDownloading = false;
   error = '';
+  availability: RegisterAvailability | null = null;
+  availabilityError = false;
   isBranch = false;
   branches: any[] = [];
 
@@ -335,6 +359,22 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.isBranch = this.auth.isBranchUser();
+    this.reload$.pipe(
+      switchMap(delayed => {
+        this.loading = true; this.error = ''; this.availability = null; this.availabilityError = false;
+        this.rows = []; this.filteredRows = []; this.cdr.markForCheck();
+        return (delayed ? timer(200) : of(0)).pipe(
+          switchMap(() => this.fetchRegisters$()),
+          finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
+        );
+      }),
+      takeUntil(this.destroy$),
+    ).subscribe(({ rows, availability }) => {
+      this.rows = rows;
+      this.availability = availability;
+      this.availabilityError = availability === null;
+      this.applyLocalFilters(); this.cdr.markForCheck();
+    });
     this.branchSvc.list().pipe(takeUntil(this.destroy$)).subscribe({
       next: (list) => { this.branches = list || []; this.cdr.markForCheck(); },
       error: () => {},
@@ -346,12 +386,28 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     this.releasePreviewHandle();
     this.destroy$.next();
     this.destroy$.complete();
+    this.reload$.complete();
   }
 
-  reload(): void {
-    this.loading = true;
-    this.error = '';
+  reload(): void { this.reload$.next(false); }
 
+  onFiltersChange(): void { this.reload$.next(true); }
+
+  get emptyTitle(): string {
+    if (this.isBranch && this.availability?.pending) return 'Registers Awaiting Payroll Approval';
+    if (this.isBranch && this.availability?.rejected) return 'Registers Need Correction';
+    return 'No Downloadable Registers';
+  }
+
+  get emptyDescription(): string {
+    if (!this.isBranch) return 'No registers match these filters. Registers must be prepared for the selected month; payroll approval alone does not create them.';
+    if (this.availability?.pending) return this.availability.pending + ' saved files await Payroll approval for these filters. Ask Payroll to review and approve them to enable Branch Desk downloads.';
+    if (this.availability?.rejected) return 'Saved registers need correction in Payroll before they can be approved and downloaded.';
+    if (this.availability?.total === 0) return 'No registers have been saved for these filters. Payroll must prepare the registers for this branch and period.';
+    return 'No approved registers were returned. Ask Payroll to check preparation and approval for this branch and period.';
+  }
+
+  private fetchRegisters$() {
     let params = new HttpParams();
     if (this.q.periodYear) params = params.set('periodYear', String(this.q.periodYear));
     if (this.q.periodMonth) params = params.set('periodMonth', String(this.q.periodMonth));
@@ -360,7 +416,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     if (this.q.sourceType) params = params.set('sourceType', this.q.sourceType);
     if (this.q.search.trim()) params = params.set('search', this.q.search.trim());
 
-    this.http.get<any>(this.base, { params }).pipe(
+    const rows$ = this.http.get<any>(this.base, { params }).pipe(
       takeUntil(this.destroy$),
       timeout(15000),
       map((res) => {
@@ -385,22 +441,23 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
           sourceType: r?.sourceType || (r?.legalIdentity || r?.payrollInputId ? 'GENERATED' : 'MANUAL'),
         }));
       }),
-      finalize(() => {
-        this.loading = false;
-        this.cdr.markForCheck();
+    );
+    const availability$ = this.http.get<RegisterAvailability>(this.base + '/availability', { params }).pipe(
+      map(value => {
+        if (!value || Array.isArray(value)) return null;
+        const counts = [value.total, value.approved, value.pending, value.rejected];
+        if (!counts.every(count => Number.isInteger(count) && count >= 0) ||
+          value.total < value.approved + value.pending + value.rejected) return null;
+        return value;
       }),
-    ).subscribe({
-      next: (rows) => {
-        this.rows = rows;
-        this.page = 1;
-        this.applyLocalFilters();
-      },
-      error: (err) => {
-        this.rows = [];
-        this.filteredRows = [];
+      timeout(10000), catchError(() => of(null)),
+    );
+    return forkJoin({ rows: rows$, availability: availability$ }).pipe(
+      timeout(15000), catchError(err => {
         this.error = err?.error?.message || 'Failed to load registers';
-      },
-    });
+        return of({ rows: [] as RegisterRow[], availability: null });
+      }),
+    );
   }
 
   applyLocalFilters(): void {
@@ -412,6 +469,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
         row.title.toLowerCase().includes(text) ||
         String(row.registerType || '').toLowerCase().includes(text) ||
         String(row.branchId || '').toLowerCase().includes(text) ||
+        String(row.stateCode || '').toLowerCase().includes(text) ||
         String(row.fileName || '').toLowerCase().includes(text)
       );
     });
@@ -485,7 +543,11 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
   }
 
   downloadPack(): void {
-    if (!this.filteredRows.length) return;
+    if (this.loading || this.packDownloading || !this.filteredRows.length) return;
+    if (this.filteredRows.length > 300) {
+      this.toast.error('Select a narrower branch or period to download up to 300 registers at once.');
+      return;
+    }
     this.packDownloading = true;
     let params = new HttpParams();
     if (this.q.periodYear) params = params.set('periodYear', String(this.q.periodYear));
@@ -494,10 +556,10 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     if (this.q.branchId.trim()) params = params.set('branchId', this.q.branchId.trim());
     if (this.q.sourceType) params = params.set('sourceType', this.q.sourceType);
     if (this.q.search.trim()) params = params.set('search', this.q.search.trim());
-    params = params.set('limit', '180');
+    const registerIds = this.filteredRows.map(row => row.id);
 
     this.http
-      .get(`${this.base}/download-pack`, {
+      .post(`${this.base}/download-pack`, { registerIds }, {
         params,
         observe: 'response',
         responseType: 'blob',
@@ -506,6 +568,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.packDownloading = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({
@@ -522,8 +585,8 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
           a.click();
           setTimeout(() => URL.revokeObjectURL(url), 1200);
         },
-        error: (err) => {
-          this.toast.error(err?.error?.message || 'Could not generate pack.');
+        error: async (err) => {
+          this.toast.error(await downloadErrorMessage(err, 'Could not generate pack.'));
         },
       });
   }

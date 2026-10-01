@@ -46,7 +46,9 @@ describe('All implemented register record grouping', () => {
           : rows;
         expected.forEach((row, i) =>
           layout.fields.forEach((field, col) => {
-            expect(sheet.getCell(i + 6, col + 1).value).toBe(row[field.key]);
+            const cell = sheet.getCell(i + 6, col + 1);
+            expect(cell.value).toBe(row[field.key]);
+            if (field.type === 'number') expect(cell.numFmt).toBe('0');
           }),
         );
       } else {

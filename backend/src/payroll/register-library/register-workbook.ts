@@ -41,7 +41,7 @@ export function definition(id: string) {
     leaveCalculationAvailable:
       form.sourceId === 'osh' && layout.baseFormNumber === 'LEAVE',
     schemaVersion: createHash('sha256')
-      .update(JSON.stringify({ form, layout }))
+      .update(JSON.stringify({ form, layout, workbookFormatVersion: 3 }))
       .digest('hex'),
   };
 }
@@ -603,7 +603,19 @@ export async function registerWorkbook(
       (f) => !f.label.startsWith('Form III.'),
     )) {
       const value = input?.particulars?.[field.key] ?? '';
-      const row = particulars.addRow([field.label, value]);
+      const numeric = field.type === 'number' || field.type === 'money';
+      const row = particulars.addRow([
+        field.label,
+        numeric && value !== '' ? Number(value) : value,
+      ]);
+      row.getCell(2).numFmt =
+        field.type === 'money'
+          ? '0.00'
+          : field.type === 'number'
+            ? Number.isInteger(Number(value))
+              ? '0'
+              : '0.00'
+            : '@';
       row.height = Math.max(
         28,
         Math.ceil(field.label.length / 55) * 15,
@@ -672,18 +684,23 @@ export async function registerWorkbook(
       r.getCell(1).value = text;
       r.font = { bold: true, size: 11 };
       r.alignment = { wrapText: true };
-      r.height = layout.particulars
-        ? Math.max(
-            32,
-            Math.ceil(text.length / (layout.individual ? 110 : 160)) * 16,
-          )
-        : 32;
+      r.height = Math.max(
+        32,
+        Math.ceil(text.length / (layout.individual ? 95 : 145)) * 16,
+      );
+      if (layout.particulars)
+        r.height = Math.max(
+          32,
+          Math.ceil(text.length / (layout.individual ? 110 : 160)) * 16,
+        );
     };
     banner('FORM ' + form.formNumber + ' — ' + form.title);
     banner(source.title + ' | ' + form.ruleReference);
     banner(
       'Establishment: ' +
         (context.establishment || '') +
+        ' | Address: ' +
+        (context.address || '') +
         ' | Employer: ' +
         (input?.employer || ''),
     );
@@ -790,7 +807,14 @@ export async function registerWorkbook(
           Math.ceil(String(row[f.key] ?? '').length / 58) * 15,
         );
         r.alignment = { wrapText: true, vertical: 'top' };
-        r.getCell(2).numFmt = f.type === 'money' ? '0.00' : '@';
+        r.getCell(2).numFmt =
+          f.type === 'money'
+            ? '0.00'
+            : f.type === 'number'
+              ? Number.isInteger(Number(row[f.key]))
+                ? '0'
+                : '0.00'
+              : '@';
       }
     } else {
       Array.from({ length: Math.ceil(layout.fields.length / 8) }, (_, i) =>
@@ -822,7 +846,14 @@ export async function registerWorkbook(
         values.alignment = { wrapText: true, vertical: 'top' };
         fields.forEach(
           (f, c) =>
-            (values.getCell(c + 1).numFmt = f.type === 'money' ? '0.00' : '@'),
+            (values.getCell(c + 1).numFmt =
+              f.type === 'money'
+                ? '0.00'
+                : f.type === 'number'
+                  ? Number.isInteger(Number(row[f.key]))
+                    ? '0'
+                    : '0.00'
+                  : '@'),
         );
       });
     }

@@ -9,6 +9,10 @@ const LEGAL_ACT_GROUPS: Readonly<Record<string, string>> = {
   CLRA_1970: 'CLRA',
 };
 
+export function registerActGroup(actCode: string): string {
+  return LEGAL_ACT_GROUPS[actCode] || actCode;
+}
+
 export function matchesRegisterAct(
   row: { registerType?: string | null; legalIdentity?: { actCode?: string } | null },
   selectedAct: string,
@@ -16,7 +20,7 @@ export function matchesRegisterAct(
 ): boolean {
   if (!selectedAct) return true;
   if (row.legalIdentity?.actCode) {
-    return LEGAL_ACT_GROUPS[row.legalIdentity.actCode] === selectedAct;
+    return registerActGroup(row.legalIdentity.actCode) === selectedAct;
   }
   return legacyTypes.has(row.registerType || '');
 }

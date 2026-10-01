@@ -35,6 +35,7 @@ describe('Selected branch register context', () => {
       branchName: 'Hyderabad',
       stateCode: 'TS',
       centralRulesAvailable: false,
+      preparationNotice: null,
     });
     expect(findOneBy).toHaveBeenCalledWith({
       id: branchId,
@@ -44,6 +45,16 @@ describe('Selected branch register context', () => {
     expect(access.assertBranchAllowed).toHaveBeenCalled();
     expect(access.assertCcoBranchAllowed).toHaveBeenCalled();
     expect(access.assertClientAllowed).toHaveBeenCalledWith({}, 'client-one');
+  });
+  it('explains missing branch applicability and governing authority before form selection', async () => {
+    facts = null;
+    expect(
+      (await builder.branchContext(branchId, {} as any)).preparationNotice,
+    ).toContain('configured');
+    facts = { stateCode: 'TS', government: null };
+    expect(
+      (await builder.branchContext(branchId, {} as any)).preparationNotice,
+    ).toContain('governing authority');
   });
   it.each(['', 'UNKNOWN', 'CENTRAL'])(
     'rejects a missing or invalid branch state %s',

@@ -65,6 +65,54 @@ function sample(id: string): RegisterInput {
   };
 }
 describe('State Shops Act records', () => {
+  it('keeps the reviewed Form II worksite name and address consistent in Form III', async () => {
+    const input = sample(ts);
+    input.particulars!.establishmentName = 'Reviewed customer worksite';
+    input.particulars!.establishmentAddress = 'Reviewed worksite road';
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(
+      (await registerWorkbook(ts, input, {
+        establishment: 'Administrative branch',
+        address: 'Branch office road',
+      })) as any,
+    );
+    const heading = book.getWorksheet('Form III')!.getCell('C2').text;
+    expect(heading).toContain('Reviewed customer worksite');
+    expect(heading).toContain('Reviewed worksite road');
+    expect(heading).not.toContain('Administrative branch');
+    expect(book.getWorksheet('Form III')!.headerFooter.oddHeader).toContain(
+      'Reviewed customer worksite',
+    );
+    expect(
+      JSON.stringify(
+        book.getWorksheet('Identity and review')!.getSheetValues(),
+      ),
+    ).toContain('Administrative branch');
+  });
+  it('stores Form II worker counts as numbers and telephone identifiers as text', async () => {
+    const input = sample(ts);
+    input.particulars!.regularWorkers = '003';
+    input.particulars!.telephone = '001234567890';
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load((await registerWorkbook(ts, input)) as any);
+    const sheet = book.getWorksheet('Form II')!;
+    const fields = definition(ts).layout.particulars!.filter(
+      (f) => !f.label.startsWith('Form III.'),
+    );
+    const count = sheet.getCell(
+      fields.findIndex((f) => f.key === 'regularWorkers') + 3,
+      2,
+    );
+    const phone = sheet.getCell(
+      fields.findIndex((f) => f.key === 'telephone') + 3,
+      2,
+    );
+    expect(count.value).toBe(3);
+    expect(count.numFmt).toBe('0');
+    expect(phone.value).toBe('001234567890');
+    expect(phone.numFmt).toBe('@');
+  });
+
   it('lists Telangana employees in serial order on one Form III sheet with all 26 columns', async () => {
     const input = sample(ts);
     input.rows = [3, 1, 2].map((serial) => ({

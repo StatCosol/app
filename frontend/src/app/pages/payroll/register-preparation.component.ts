@@ -16,6 +16,12 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
+export interface RegisterGeneratedScope {
+  branchId: string;
+  year: number;
+  month: number;
+}
+
 interface Field {
   key: string;
   label: string;
@@ -232,7 +238,7 @@ interface Field {
   `,
 })
 export class RegisterPreparationComponent implements OnChanges, OnDestroy {
-  @Output() generated = new EventEmitter<void>();
+  @Output() generated = new EventEmitter<RegisterGeneratedScope>();
   @Input() formId = '';
   @Input() branchId = '';
   @Input() runId = '';
@@ -492,7 +498,12 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
         this.notice = body
           ? 'Register saved for review and downloaded.'
           : 'Blank format downloaded.';
-        if (body) this.generated.emit();
+        if (body && this.year && this.periodMonth)
+          this.generated.emit({
+            branchId: this.branchId,
+            year: this.year,
+            month: this.periodMonth,
+          });
         this.cdr.markForCheck();
       },
       error: (e) => this.fail(e),
