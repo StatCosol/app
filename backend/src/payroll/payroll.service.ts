@@ -695,6 +695,10 @@ export class PayrollService {
     return this.registersService.clientListRegistersRecords(user, q);
   }
 
+  async clientRegistersAvailability(user: ReqUser, q: Record<string, any>) {
+    return this.registersService.clientRegistersAvailability(user, q);
+  }
+
   async streamClientRegistersPack(
     user: ReqUser,
     q: Record<string, any>,

@@ -111,6 +111,26 @@ export class PayrollRegistersService {
     }));
   }
 
+  async clientRegistersAvailability(user: ReqUser, q: Record<string, any>) {
+    // Expose scoped counts only; pending evidence stays out of lists and downloads.
+    const qb = await this.buildClientRegistersQuery(user, q, false);
+    const counts = await qb
+      .select('r.approval_status', 'status')
+      .addSelect('COUNT(*)::int', 'count')
+      .groupBy('r.approval_status')
+      .orderBy()
+      .getRawMany<{ status: string; count: number }>();
+    const availability = { total: 0, approved: 0, pending: 0, rejected: 0 };
+    for (const row of counts) {
+      const count = Number(row.count);
+      availability.total += count;
+      if (row.status === 'APPROVED') availability.approved += count;
+      else if (row.status === 'PENDING') availability.pending += count;
+      else if (row.status === 'REJECTED') availability.rejected += count;
+    }
+    return availability;
+  }
+
   async streamClientRegistersPack(
     user: ReqUser,
     q: Record<string, any>,
@@ -159,6 +179,7 @@ export class PayrollRegistersService {
   private async buildClientRegistersQuery(
     user: ReqUser,
     q: Record<string, any>,
+    approvedOnly = true,
   ) {
     this.ensureClientOrBranchUser(user);
     const qb = this.rrRepo
@@ -185,7 +206,8 @@ export class PayrollRegistersService {
           enabledBranches: toggles.payrollAllowedBranchIds,
         });
       }
-      qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
+      if (approvedOnly)
+        qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
       if (!toggles.allowBranchWageRegisters) {
         qb.andWhere(
           `NOT (LOWER(r.title) LIKE '%wage%' OR LOWER(COALESCE(r.register_type,'')) LIKE '%wage%')`,

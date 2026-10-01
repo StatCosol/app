@@ -1047,6 +1047,15 @@ export class ClientRegistersRecordsController {
     return this.svc.clientListRegistersRecords(user, q);
   }
 
+  @ApiOperation({ summary: 'Scoped register preparation and approval counts' })
+  @Get('availability')
+  availability(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientRegistersQueryDto,
+  ) {
+    return this.svc.clientRegistersAvailability(user, q);
+  }
+
   @ApiOperation({ summary: 'Download Registers Pack' })
   @Get('download-pack')
   async downloadPack(

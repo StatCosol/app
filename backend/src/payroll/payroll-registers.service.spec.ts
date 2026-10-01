@@ -50,9 +50,20 @@ describe('Register downloads in LegitX and BranchDesk', () => {
       ...changes,
     };
     const qb: any = {};
-    for (const method of ['where', 'andWhere', 'orderBy', 'limit'])
+    for (const method of [
+      'where',
+      'andWhere',
+      'orderBy',
+      'limit',
+      'select',
+      'addSelect',
+      'groupBy',
+    ])
       qb[method] = jest.fn(() => qb);
     qb.getMany = jest.fn(async () => [row]);
+    qb.getRawMany = jest.fn(async () => [
+      { status: row.approvalStatus, count: 1 },
+    ]);
     const repo = {
       findOne: jest.fn(async () => row),
       createQueryBuilder: jest.fn(() => qb),
@@ -192,6 +203,92 @@ describe('Register downloads in LegitX and BranchDesk', () => {
         filePath: path.join(fixtureDir, 'missing.xlsx'),
       }).service.downloadRegisterForClient(user(), 'register-a'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+  it.each(['MASTER', 'BRANCH'])(
+    'returns status counts without pending evidence details for %s',
+    async (userType) => {
+      const { service, qb } = setup();
+      qb.getRawMany.mockResolvedValue([
+        { status: 'APPROVED', count: 3 },
+        { status: 'PENDING', count: 16 },
+        { status: 'REJECTED', count: 2 },
+      ]);
+      expect(
+        await service.clientRegistersAvailability(user(userType), {}),
+      ).toEqual({ total: 21, approved: 3, pending: 16, rejected: 2 });
+      expect(qb.getMany).not.toHaveBeenCalled();
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        'r.approval_status = :approved',
+        expect.anything(),
+      );
+      expect(qb.orderBy).toHaveBeenLastCalledWith();
+    },
+  );
+  it('keeps status counts within client, assigned/enabled branch and selected period/source', async () => {
+    const { service, qb } = setup(
+      {},
+      { payrollBranchScope: 'SELECTED', payrollAllowedBranchIds: [branchId] },
+    );
+    await service.clientRegistersAvailability(user(), {
+      branchId,
+      category: 'REGISTER',
+      periodYear: 2026,
+      periodMonth: 3,
+      sourceType: 'GENERATED',
+      search: 'wages',
+    });
+    expect(qb.where).toHaveBeenCalledWith('r.client_id = :cid', {
+      cid: clientId,
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'r.branch_id IN (:...userBranches)',
+      { userBranches: [branchId] },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'r.branch_id IN (:...enabledBranches)',
+      { enabledBranches: [branchId] },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith('r.branch_id = :b', {
+      b: branchId,
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('r.period_month = :m', { m: 3 });
+    expect(qb.andWhere).toHaveBeenCalledWith('r.period_year = :y', { y: 2026 });
+    expect(qb.andWhere).toHaveBeenCalledWith('r.category = :cat', {
+      cat: 'REGISTER',
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining("'LEGAL_'"),
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('ILIKE :s'),
+      { s: '%wages%' },
+    );
+  });
+  it('does not allow request flags to disable approval for branch lists', async () => {
+    const { service, qb } = setup();
+    await service.clientListRegistersRecords(user(), {
+      approvedOnly: false,
+      includeUnapproved: true,
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('r.approval_status = :approved', {
+      approved: 'APPROVED',
+    });
+  });
+  it.each([
+    { allowBranchPayrollAccess: false },
+    { payrollBranchScope: 'SELECTED', payrollAllowedBranchIds: [] },
+  ])('enforces branch access for approval counts: %j', async (settings) => {
+    await expect(
+      setup({}, settings).service.clientRegistersAvailability(user(), {}),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('requires assigned branches for approval counts', async () => {
+    await expect(
+      setup().service.clientRegistersAvailability(
+        { ...user(), branchIds: [] },
+        {},
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
   it('produces a readable ZIP with generated source labels and original evidence bytes', async () => {
     const { service } = setup();
