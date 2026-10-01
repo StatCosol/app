@@ -4,6 +4,8 @@ const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const { DataSource } = require('typeorm');
 const { PGlite } = require('./auditxpert-test-db.cjs');
+const { GENERATED_REGISTER_SQL, registerSourceType } = require('../dist/src/payroll/register-provenance');
+const { PayrollRegistersService } = require('../dist/src/payroll/payroll-registers.service');
 const { RegistersRecordEntity } = require('../dist/src/payroll/entities/registers-record.entity');
 
 async function main() {
@@ -47,6 +49,55 @@ async function main() {
     // Re-running the deployment migration must not alter replacement evidence.
     await ds.query(migration);
     assert.equal((await repo.findOneByOrFail({ id })).generatedAt.toISOString(), generatedAt.toISOString());
+    // Synthetic historical files exercise real PostgreSQL source and approval filters.
+    const clientId = randomUUID(), branchId = randomUUID();
+    const base = { clientId, branchId, category: 'REGISTER', title: 'Historical wages register',
+      preparedByUserId: randomUUID(), payrollInputId: null, registerType: 'WAGE_REGISTER',
+      periodYear: 2026, periodMonth: 3, fileName: 'wages.xlsx', fileType: 'application/octet-stream',
+      fileSize: '10', approvalStatus: 'PENDING',
+      filePath: '/app/uploads/registers/' + clientId + '/wages.xlsx' };
+    const historical = await repo.save(repo.create(base));
+    const fixtures = [
+      { ...base, filePath: 'C:\\app\\uploads\\registers\\' + clientId + '\\wages.xlsx' },
+      { ...base, filePath: '/app/uploads/registers-records/123_wages.xlsx' },
+      { ...base, registerType: null, filePath: '' },
+      { ...base, filePath: '/app/uploads/registers/' + randomUUID() + '/wages.xlsx' },
+      { ...base, filePath: '/app/uploads/registers/' + clientId + '/other.xlsx' },
+      { ...base, category: 'RECORD', registerType: 'ECR', filePath: '/app/uploads/pf-ecr/123_wages.xlsx' },
+      { ...base, category: 'RECORD', registerType: 'ESI', filePath: '/app/uploads/esi/123_wages.xlsx' },
+      { ...base, category: 'RECORD', registerType: 'ECR', filePath: '/app/uploads/pf-ecr/manual_wages.xlsx' },
+      { ...base, category: 'RECORD', registerType: 'ESI', filePath: '/app/uploads/pf-ecr/123_wages.xlsx' },
+      { ...base, fileName: '../wages.xlsx' },
+      { ...base, filePath: '/app/myuploads/registers/' + clientId + '/wages.xlsx' },
+      { ...base, category: 'RECORD' },
+      { ...base, clientId: randomUUID() },
+    ];
+    await repo.save(fixtures.map(row => repo.create(row)));
+    const all = await repo.find();
+    for (const source of ['GENERATED', 'MANUAL']) {
+      const actual = await repo.createQueryBuilder('r')
+        .where(source === 'GENERATED' ? GENERATED_REGISTER_SQL : 'NOT ' + GENERATED_REGISTER_SQL).getMany();
+      const expected = all.filter(row => registerSourceType(row) === source);
+      assert.deepEqual(actual.map(row => row.id).sort(), expected.map(row => row.id).sort());
+    }
+    const service = new PayrollRegistersService(repo, {}, {}, {}, {
+      findOne: async () => ({ settings: { allowBranchPayrollAccess: true,
+        allowBranchWageRegisters: true, allowBranchSalaryRegisters: true } }),
+    }, {});
+    const user = { id: randomUUID(), roleCode: 'CLIENT', clientId, userType: 'MASTER', branchIds: [branchId] };
+    const query = { sourceType: 'GENERATED', category: 'REGISTER', periodYear: 2026, periodMonth: 3 };
+    const masterRows = await service.clientListRegistersRecords(user, query);
+    assert.ok(masterRows.some(row => row.id === historical.id && row.sourceType === 'GENERATED'));
+    assert.ok(masterRows.every(row => row.clientId === clientId));
+    const branchUser = { ...user, userType: 'BRANCH' };
+    assert.deepEqual(await service.clientListRegistersRecords(branchUser, query), []);
+    // Approval changes only this disposable test database.
+    await repo.update(historical.id, { approvalStatus: 'APPROVED' });
+    const branchRows = await service.clientListRegistersRecords(branchUser, query);
+    assert.deepEqual(branchRows.map(row => row.id), [historical.id]);
+    assert.deepEqual(await service.clientListRegistersRecords(branchUser, { ...query, periodMonth: 4 }), []);
+    assert.deepEqual(await service.clientListRegistersRecords({ ...branchUser, branchIds: [randomUUID()] }, query), []);
+    console.log('PASS: historical generated files agree in SQL/API classification; client, branch, month and approval scope are enforced');
     console.log('PASS: legacy schema migration is idempotent; replacement saves generation time while preserving record identity and creation history');
   } finally {
     if (ds?.isInitialized) await ds.destroy();

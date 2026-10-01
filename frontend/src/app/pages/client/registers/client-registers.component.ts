@@ -146,7 +146,7 @@ type RegisterRow = {
 <ui-empty-state
        
         title="No Registers Found"
-        [description]="isBranch ? 'No approved registers available for your branch and filters.' : 'No registers match the current filters.'">
+        [description]="isBranch ? 'No approved registers are available for these filters. Ask Payroll to check register preparation and approval for this branch and month.' : 'No registers match these filters. Try All Sources. Registers must be prepared for the selected month; payroll approval alone does not create them.'">
       </ui-empty-state>
 }
 

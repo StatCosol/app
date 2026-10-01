@@ -1,3 +1,7 @@
+import {
+  GENERATED_REGISTER_SQL,
+  registerSourceType,
+} from './register-provenance';
 import { registerIdentity } from './register-library/register-identity';
 import * as fs from 'fs';
 import archiver from 'archiver';
@@ -201,13 +205,9 @@ export class PayrollRegistersService {
     if (q?.periodMonth)
       qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
     if (q?.sourceType === 'GENERATED') {
-      qb.andWhere(
-        "(r.payroll_input_id IS NOT NULL OR LEFT(COALESCE(r.register_type,''),6) = 'LEGAL_')",
-      );
+      qb.andWhere(GENERATED_REGISTER_SQL);
     } else if (q?.sourceType === 'MANUAL') {
-      qb.andWhere(
-        "r.payroll_input_id IS NULL AND LEFT(COALESCE(r.register_type,''),6) <> 'LEGAL_'",
-      );
+      qb.andWhere(`NOT ${GENERATED_REGISTER_SQL}`);
     }
 
     const search = String(q?.search || '').trim();
@@ -676,9 +676,7 @@ export class PayrollRegistersService {
   }
 
   private registerSource(row: RegistersRecordEntity): 'GENERATED' | 'MANUAL' {
-    return row.payrollInputId || row.registerType?.startsWith('LEGAL_')
-      ? 'GENERATED'
-      : 'MANUAL';
+    return registerSourceType(row);
   }
 
   private readRegisterFile(filePath: string): Buffer {
