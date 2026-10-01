@@ -450,15 +450,26 @@ export class RegisterBuilderService {
         branchId: ctx.branch.id,
         fileName,
       });
-      if (existing)
-        return {
-          buffer: await fs.readFile(existing.filePath),
-          recordId: existing.id,
-        };
+      if (existing) {
+        try {
+          return {
+            buffer: await fs.readFile(existing.filePath),
+            recordId: existing.id,
+          };
+        } catch (error) {
+          if (
+            !['ENOENT', 'ENOTDIR'].includes(
+              (error as NodeJS.ErrnoException).code || '',
+            )
+          )
+            throw error;
+        }
+      }
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(filePath, buffer, { flag: 'wx' });
       const record = await repo.save(
         repo.create({
+          ...(existing ? { id: existing.id } : {}),
           clientId: ctx.branch.clientId,
           branchId: ctx.branch.id,
           payrollInputId: null,
@@ -484,12 +495,16 @@ export class RegisterBuilderService {
           registerType: 'LEGAL_' + legalHash,
           stateCode: ctx.branch.stateCode,
           approvalStatus: 'PENDING',
+          approvedAt: null,
+          approvedByUserId: null,
         }),
       );
-      await manager.query(
-        'INSERT INTO register_preparation_scopes(register_id,contractor_user_id) VALUES ($1,$2)',
-        [record.id, input.contractorUserId || null],
-      );
+      if (!existing) {
+        await manager.query(
+          'INSERT INTO register_preparation_scopes(register_id,contractor_user_id) VALUES ($1,$2)',
+          [record.id, input.contractorUserId || null],
+        );
+      }
       return { buffer, recordId: record.id };
     });
   }

@@ -158,6 +158,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'documents', loadComponent: BranchDocumentsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'reports', loadComponent: BranchReportsComponent, canActivate: [moduleAccessGuard(['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'])] },
       { path: 'payroll', loadComponent: BranchPayrollComponent, canActivate: [moduleAccessGuard('PAYROLL'), branchPayrollAccessGuard] },
+      { path: 'registers', loadComponent: () => import('../client/registers/client-registers-download-page.component').then(m => m.ClientRegistersDownloadPageComponent), canActivate: [moduleAccessGuard('PAYROLL'), branchPayrollAccessGuard] },
       { path: 'branch-ctc', loadComponent: BranchCtcComponent, canActivate: [moduleAccessGuard('PAYROLL')] },
       { path: 'attendance', loadComponent: BranchAttendanceReviewComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },
       { path: 'attendance/mark', loadComponent: BranchMarkAttendanceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_ATTENDANCE')] },

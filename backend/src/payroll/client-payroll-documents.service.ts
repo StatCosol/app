@@ -204,7 +204,7 @@ export class ClientPayrollDocumentsService {
     );
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', (err) => {
-      throw err;
+      res.destroy(err);
     });
     archive.pipe(res);
     for (const file of files) {

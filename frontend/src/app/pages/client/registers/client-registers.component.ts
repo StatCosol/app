@@ -380,7 +380,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
           approvalStatus: String(r?.approvalStatus || 'PENDING'),
           approvedAt: r?.approvedAt || null,
           createdAt: r?.createdAt || null,
-          sourceType: r?.payrollInputId ? 'GENERATED' : 'MANUAL',
+          sourceType: r?.sourceType || (r?.legalIdentity || r?.payrollInputId ? 'GENERATED' : 'MANUAL'),
         }));
       }),
       finalize(() => {

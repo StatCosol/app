@@ -1,7 +1,8 @@
 <div class="page-wrap">
   <ui-page-header
     title="Client Payroll Monitoring"
-    subtitle="Track cycle progress, branch status, exceptions, and approval queue from one workspace.">
+    subtitle="Track payroll progress and download payslips, full and final statements, relieving letters, and registers.">
+    <a [routerLink]="registersRoute" class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Registers Download</a>
     <ui-button variant="secondary" (clicked)="loadInputs()" [disabled]="loading">Refresh</ui-button>
   </ui-page-header>
 
@@ -87,6 +88,9 @@
     <div class="section-head">
       <h3>Employee payroll records</h3>
       <span class="muted">{{ filters.periodMonth ? periodLabel(filters) : 'Select a month' }}</span>
+      @if (bulkPayslipAvailable) {
+        <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy || employeeRecordsLoading" (clicked)="downloadPayslipPack()">Download payslips for this month</ui-button>
+      }
     </div>
     @if (employeeRecordsLoading) {
       <ui-loading-spinner text="Loading employee payroll records..."></ui-loading-spinner>
@@ -136,9 +140,6 @@
         <div class="record-actions">
           @if (selectedEmployeeRecord.payslipAvailable) {
             <ui-button size="sm" variant="primary" [disabled]="documentDownloadBusy" (clicked)="downloadEmployeePayslip(selectedEmployeeRecord)">Download payslip</ui-button>
-          }
-          @if (bulkPayslipAvailable) {
-            <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadPayslipPack()">Download payslips for this month</ui-button>
           }
           @if (selectedEmployeeRecord.settlementAvailable) {
             <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadSettlement(selectedEmployeeRecord)">Download settlement statement</ui-button>

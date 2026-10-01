@@ -599,6 +599,63 @@ describe('Register preparation branch and Act eligibility', () => {
     ).rejects.toThrow(/approved daily attendance/);
     expect(employeeRepo.find).not.toHaveBeenCalled();
   });
+  it.each(['ENOENT', 'ENOTDIR'])(
+    'repairs missing register evidence (%s) on the same record and requires approval again',
+    async (code) => {
+      const existing = {
+        id: 'record-1',
+        filePath: '/missing.xlsx',
+        approvalStatus: 'APPROVED',
+      };
+      const repo = {
+        findOneBy: jest.fn(async () => existing),
+        create: jest.fn((row) => row),
+        save: jest.fn(async (row) => row),
+      };
+      const manager = { query: jest.fn(), getRepository: () => repo };
+      ds.transaction = async (fn: any) => fn(manager);
+      jest
+        .mocked(fs.readFile)
+        .mockRejectedValueOnce(Object.assign(new Error('Missing'), { code }));
+      const result = await builder.generate(id('apw', 'V'), validSlip(), {
+        id: 'preparer',
+      } as any);
+      expect(result.recordId).toBe(existing.id);
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: existing.id,
+          approvalStatus: 'PENDING',
+          approvedAt: null,
+          approvedByUserId: null,
+        }),
+      );
+      expect(repo.save.mock.calls[0][0].filePath).not.toBe(existing.filePath);
+      expect(manager.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO register_preparation_scopes'),
+        expect.anything(),
+      );
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(result.buffer as any);
+      expect(workbook.worksheets.length).toBeGreaterThan(0);
+    },
+  );
+  it('does not overwrite inaccessible evidence on a permission error', async () => {
+    const repo = {
+      findOneBy: jest.fn(async () => ({
+        id: 'existing',
+        filePath: '/denied.xlsx',
+      })),
+      save: jest.fn(),
+    };
+    ds.transaction = async (fn: any) =>
+      fn({ query: jest.fn(), getRepository: () => repo });
+    const error = Object.assign(new Error('Denied'), { code: 'EACCES' });
+    jest.mocked(fs.readFile).mockRejectedValueOnce(error);
+    await expect(
+      builder.generate(id('apw', 'V'), validSlip(), { id: 'preparer' } as any),
+    ).rejects.toBe(error);
+    expect(repo.save).not.toHaveBeenCalled();
+  });
   it('saves new content for approval and reuses identical approved evidence without overwriting it', async () => {
     const records: any[] = [];
     const repo = {
