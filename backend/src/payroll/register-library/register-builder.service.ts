@@ -1,3 +1,4 @@
+import { RegisterIneligibleException } from './register-ineligible.exception';
 import { registerStatusAttendance } from './register-status-attendance';
 import {
   registerContractors,
@@ -103,7 +104,7 @@ export class RegisterBuilderService {
     if (!branch) throw new BadRequestException('Active branch not found');
     await this.access.assertClientAllowed(user, branch.clientId);
     if (layout.periodKind === 'ANNUAL' && month !== 12)
-      throw new BadRequestException(
+      throw new RegisterIneligibleException(
         'Annual registers must use the year-end reporting period',
       );
     const periodStart =
@@ -112,7 +113,7 @@ export class RegisterBuilderService {
       (layout.periodKind === 'ANNUAL' ? '01' : String(month).padStart(2, '0')) +
       '-01';
     if (form.effectiveFrom && periodStart < form.effectiveFrom) {
-      throw new BadRequestException(
+      throw new RegisterIneligibleException(
         'This rule version does not cover the full selected ' +
           (layout.periodKind === 'ANNUAL' ? 'year' : 'month') +
           '. Select the applicable earlier version or split the transition period.',
@@ -122,7 +123,7 @@ export class RegisterBuilderService {
       form.jurisdiction !== 'CENTRAL' &&
       form.jurisdiction !== branch.stateCode?.trim().toUpperCase()
     ) {
-      throw new BadRequestException(
+      throw new RegisterIneligibleException(
         'This form belongs to a different state from the selected branch',
       );
     }
@@ -138,7 +139,7 @@ export class RegisterBuilderService {
       [branchId, form.actCode],
     );
     if (decisions.length !== 1 || decisions[0].applicable !== true) {
-      throw new BadRequestException(
+      throw new RegisterIneligibleException(
         'Confirm ' +
           form.actCode +
           ' applicability in the branch applicability screen before generating registers.',
@@ -151,7 +152,7 @@ export class RegisterBuilderService {
       new Date(decision.computedAt).getTime() <
         new Date(decision.factsUpdatedAt).getTime()
     ) {
-      throw new BadRequestException(
+      throw new RegisterIneligibleException(
         'Branch facts changed. Recompute and review applicability before generating registers.',
       );
     }
@@ -159,14 +160,14 @@ export class RegisterBuilderService {
       decision.factState?.trim().toUpperCase() !==
       branch.stateCode?.trim().toUpperCase()
     ) {
-      throw new BadRequestException(
+      throw new RegisterIneligibleException(
         'Branch state and applicability facts disagree. Correct the branch profile first.',
       );
     }
     const requiredGovernment =
       form.jurisdiction === 'CENTRAL' ? 'CENTRAL' : 'STATE';
     if (decision.government !== requiredGovernment) {
-      throw new BadRequestException(
+      throw new RegisterIneligibleException(
         'Set the appropriate government to ' +
           requiredGovernment +
           ' in branch applicability facts, then recompute and review applicability.',
@@ -177,7 +178,7 @@ export class RegisterBuilderService {
       !['FACTORY', 'BOTH'].includes(decision.establishmentType) &&
       decision.isBocwProject !== true
     ) {
-      throw new BadRequestException(
+      throw new RegisterIneligibleException(
         'This register applies only to factories or building/construction work. Review the branch establishment facts before generating it.',
       );
     }

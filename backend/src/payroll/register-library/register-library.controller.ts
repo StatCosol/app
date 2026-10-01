@@ -1,3 +1,4 @@
+import { RegisterIneligibleException } from './register-ineligible.exception';
 import {
   statutoryLeaveCalculation,
   StatutoryLeaveInput,
@@ -137,26 +138,33 @@ export class RegisterLibraryController {
     @Query('month') month: string,
     @CurrentUser() user: ReqUser,
   ) {
-    const context = await this.builder.context(
-      id,
-      branchId,
-      Number(year),
-      Number(month),
-      user,
-    );
-    return {
-      eligible: true,
-      branchName: context.branch.branchName,
-      usage: context.layout.payrollPrefill
-        ? 'PAYROLL'
-        : context.layout.baseFormNumber === 'IX'
-          ? 'ATTENDANCE'
-          : context.layout.baseFormNumber === 'EVENT'
-            ? 'INCIDENT_RECORD'
-            : context.layout.baseFormNumber === 'LEAVE'
-              ? 'LEAVE_RECORD'
-              : 'EMPLOYEE_MASTER',
-    };
+    try {
+      const context = await this.builder.context(
+        id,
+        branchId,
+        Number(year),
+        Number(month),
+        user,
+      );
+      return {
+        eligible: true,
+        branchName: context.branch.branchName,
+        usage: context.layout.payrollPrefill
+          ? 'PAYROLL'
+          : context.layout.baseFormNumber === 'IX'
+            ? 'ATTENDANCE'
+            : context.layout.baseFormNumber === 'EVENT'
+              ? 'INCIDENT_RECORD'
+              : context.layout.baseFormNumber === 'LEAVE'
+                ? 'LEAVE_RECORD'
+                : 'EMPLOYEE_MASTER',
+      };
+    } catch (error) {
+      if (error instanceof RegisterIneligibleException) {
+        return { eligible: false, reason: error.message };
+      }
+      throw error;
+    }
   }
 
   @Get(':id/reuse')

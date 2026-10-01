@@ -43,6 +43,9 @@ interface Field {
       @if (error) {
         <p role="alert" class="text-red-700 whitespace-pre-line">{{ error }}</p>
       }
+      @if (eligibilityReason) {
+        <p role="status" class="text-amber-800 text-sm my-2">{{ eligibilityReason }}</p>
+      }
       @if (notice) {
         <p role="status" class="text-sm my-2">{{ notice }}</p>
       }
@@ -270,6 +273,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   notice = '';
   busy = false;
   eligible = false;
+  eligibilityReason = '';
   recordSource = 'EMPLOYEES';
   contractorId = '';
   contractors: { id: string; name: string }[] = [];
@@ -305,6 +309,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.error = '';
     this.notice = '';
     this.eligible = false;
+    this.eligibilityReason = '';
     this.busy = false;
     this.canPrefill = false;
     this.recordSource = 'EMPLOYEES';
@@ -357,11 +362,14 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   private checkEligibility() {
     if (this.branchId && this.year && this.periodMonth) {
       this.http
-        .get<any>(this.url('/eligibility'), { params: this.params() })
+        .get<{ eligible: boolean; reason?: string }>(this.url('/eligibility'), { params: this.params() })
         .pipe(takeUntil(this.changed), takeUntil(this.destroyed))
         .subscribe({
-          next: () => {
-            this.eligible = true;
+          next: (result) => {
+            this.eligible = result.eligible === true;
+            this.eligibilityReason = this.eligible
+              ? ''
+              : result.reason || 'This register is not available for the selected branch and period.';
             this.cdr.markForCheck();
           },
           error: (e) => this.fail(e),
@@ -434,6 +442,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     }
   }
   prefill() {
+    if (!this.eligible) return;
     this.busy = true;
     this.error = '';
     this.http
@@ -458,6 +467,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.fetchFile('/template');
   }
   generate() {
+    if (!this.eligible) return;
     if (this.recordSource === 'CONTRACTOR' && !this.contractorId) {
       this.error = 'Select the assigned contractor';
       return;
