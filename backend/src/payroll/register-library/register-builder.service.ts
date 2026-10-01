@@ -67,6 +67,11 @@ export class RegisterBuilderService {
       branchName: branch.branchName,
       stateCode,
       centralRulesAvailable: facts?.government === 'CENTRAL',
+      preparationNotice: !facts
+        ? 'Register generation needs branch applicability to be configured and reviewed.'
+        : !['STATE', 'CENTRAL'].includes(facts.government)
+          ? 'Register generation is blocked: set the governing authority in branch applicability, then recompute and review the applicable Acts.'
+          : null,
     };
   }
 

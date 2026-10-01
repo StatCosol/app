@@ -36,3 +36,7 @@ Regression coverage includes every implemented format's three-record grouping, s
 - Branch wage restrictions now recognize wage-bearing legal layouts (including integrated Telangana forms) in list, download and ZIP queries, rather than relying solely on title text.
 
 - Integrated Form III now repeats the reviewed worksite name/address entered in Form II; branch office details previously overrode them and could make the two required parts disagree. The authorised branch remains identified on the review sheet.
+
+## Live preparation blocker found in the deeper check
+
+A read-only check of live revision statcompy-backend--0001135 found Logiq BRM classified as FACTORY, with appropriate_government unset. Current decisions for TS_SHOPS_1988, WAGES_2019, OSH_2020 and SOCIAL_SECURITY_2020 are false. These are all Acts with implemented forms available for TS/Central in the deployed catalogue, so no such form can currently pass preparation eligibility. Branch context now exposes missing applicability/authority setup before form selection. Correcting the business configuration requires confirmation of the actual worksite relationship and governing authority; the audit does not infer or change them.
