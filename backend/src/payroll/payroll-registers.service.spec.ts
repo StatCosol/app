@@ -197,6 +197,23 @@ describe('Register downloads in LegitX and BranchDesk', () => {
       ).service.downloadRegisterForClient(user(), 'register-a'),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
+  it('restricts an integrated legal wage form even when its title omits wage', async () => {
+    const integratedType = legalRegisterType(
+      REGISTER_FORMS.find((f) => f.actCode === 'TS_SHOPS_1988')!.id,
+    );
+    const { service, qb } = setup(
+      { title: 'Integrated register', registerType: integratedType },
+      { allowBranchWageRegisters: false },
+    );
+    await expect(
+      service.downloadRegisterForClient(user(), 'register-a'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await service.clientListRegistersRecords(user(), {});
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      "COALESCE(r.register_type,'') NOT IN (:...restrictedWageTypes)",
+      { restrictedWageTypes: expect.arrayContaining([integratedType]) },
+    );
+  });
   it('reports a missing file as unavailable, with regeneration instructions', async () => {
     await expect(
       setup({

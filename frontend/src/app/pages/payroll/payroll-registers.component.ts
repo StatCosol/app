@@ -1,3 +1,4 @@
+import { downloadErrorMessage } from '../../shared/files/utils/download-error';
 import { matchesRegisterAct, registerActGroup } from '../../shared/utils/register-act-filter';
 import type { RegisterGeneratedScope } from './register-preparation.component';
 import { RegisterLibraryComponent } from './register-library.component';
@@ -683,7 +684,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   }
 
   downloadAll(): void {
-    if (this.loading || !this.rows.length) return;
+    if (this.loading || this.downloading || !this.rows.length) return;
     if (this.rows.length > 300) {
       this.error = 'Select a narrower branch or period to download up to 300 registers at once.';
       this.cdr.markForCheck(); return;
@@ -705,8 +706,8 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
         const period = this.selMonth && this.selYear ? `${this.selYear}-${String(this.selMonth).padStart(2, '0')}` : 'all';
         this.api.saveBlob(blob, `registers_${period}.zip`);
       },
-      error: (e) => {
-        this.error = e?.error?.message || 'Download pack failed';
+      error: async (e) => {
+        this.error = await downloadErrorMessage(e, 'Download pack failed');
         this.cdr.markForCheck();
       },
     });
@@ -721,9 +722,9 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
       { confirmText: 'Approve' },
     );
     if (!ok) return;
-    this.api.approveRegister(r.id).pipe(takeUntil(this.destroy$)).subscribe({
+    this.api.approveRegister(r.id, r.reviewVersion).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.reload(),
-      error: (e) => { this.error = e?.error?.message || 'Approve failed'; },
+      error: (e) => { this.error = e?.error?.message || 'Approve failed'; this.cdr.markForCheck(); },
     });
   }
 
@@ -731,9 +732,9 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     const result = await this.dialog.prompt('Reject Register', 'Rejection reason (optional):', { placeholder: 'Reason' });
     if (!result.confirmed) return;
     const reason = result.value ?? '';
-    this.api.rejectRegister(r.id, reason).pipe(takeUntil(this.destroy$)).subscribe({
+    this.api.rejectRegister(r.id, reason, r.reviewVersion).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.reload(),
-      error: (e) => { this.error = e?.error?.message || 'Reject failed'; },
+      error: (e) => { this.error = e?.error?.message || 'Reject failed'; this.cdr.markForCheck(); },
     });
   }
 

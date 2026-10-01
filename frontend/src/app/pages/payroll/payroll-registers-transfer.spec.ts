@@ -4,6 +4,17 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { PayrollRegistersService } from './payroll-registers.service';
 
 describe('Register ZIP transfer request', () => {
+  it('sends the displayed evidence version when approving or rejecting', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const service = TestBed.inject(PayrollRegistersService), http = TestBed.inject(HttpTestingController);
+    service.approveRegister('record', 'reviewed-version').subscribe();
+    const approval = http.expectOne(r => r.url.endsWith('/record/approve'));
+    expect(approval.request.body).toEqual({ reviewVersion: 'reviewed-version' }); approval.flush({});
+    service.rejectRegister('record', 'Correction needed', 'reviewed-version').subscribe();
+    const rejection = http.expectOne(r => r.url.endsWith('/record/reject'));
+    expect(rejection.request.body).toEqual({ reason: 'Correction needed', reviewVersion: 'reviewed-version' }); rejection.flush({});
+    http.verify();
+  });
   it('posts a 300-file selection without expanding the URL and retains branch/period scope', () => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
     const service = TestBed.inject(PayrollRegistersService);

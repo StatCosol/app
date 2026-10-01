@@ -41,7 +41,7 @@ export function definition(id: string) {
     leaveCalculationAvailable:
       form.sourceId === 'osh' && layout.baseFormNumber === 'LEAVE',
     schemaVersion: createHash('sha256')
-      .update(JSON.stringify({ form, layout, workbookFormatVersion: 2 }))
+      .update(JSON.stringify({ form, layout, workbookFormatVersion: 3 }))
       .digest('hex'),
   };
 }
@@ -603,7 +603,19 @@ export async function registerWorkbook(
       (f) => !f.label.startsWith('Form III.'),
     )) {
       const value = input?.particulars?.[field.key] ?? '';
-      const row = particulars.addRow([field.label, value]);
+      const numeric = field.type === 'number' || field.type === 'money';
+      const row = particulars.addRow([
+        field.label,
+        numeric && value !== '' ? Number(value) : value,
+      ]);
+      row.getCell(2).numFmt =
+        field.type === 'money'
+          ? '0.00'
+          : field.type === 'number'
+            ? Number.isInteger(Number(value))
+              ? '0'
+              : '0.00'
+            : '@';
       row.height = Math.max(
         28,
         Math.ceil(field.label.length / 55) * 15,

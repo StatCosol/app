@@ -47,7 +47,7 @@ import {
   ClientUpdatePayrollSettingsDto,
   PayrollUploadRegisterRecordDto,
 } from './dto/client-payroll-input.dto';
-import { RejectRegisterDto } from './dto/payroll-setup.dto';
+import { RejectRegisterDto, ReviewRegisterDto } from './dto/payroll-setup.dto';
 import {
   PayrollSummaryQueryDto,
   PayrollEmployeesQueryDto,
@@ -307,8 +307,12 @@ export class PayrollController {
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Approve Register' })
   @Patch('registers/:id/approve')
-  approveRegister(@CurrentUser() user: ReqUser, @Param('id') id: string) {
-    return this.svc.approveRegister(user, id);
+  approveRegister(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body() body: ReviewRegisterDto,
+  ) {
+    return this.svc.approveRegister(user, id, body.reviewVersion);
   }
 
   // Reject register: PATCH /api/payroll/registers/:id/reject
@@ -320,7 +324,7 @@ export class PayrollController {
     @Param('id') id: string,
     @Body() body: RejectRegisterDto,
   ) {
-    return this.svc.rejectRegister(user, id, body?.reason);
+    return this.svc.rejectRegister(user, id, body?.reason, body.reviewVersion);
   }
 
   // Frontend expects: GET /api/payroll/runs
@@ -1081,6 +1085,21 @@ export class ClientRegistersRecordsController {
     @Res() res: Response,
   ) {
     await this.svc.streamClientRegistersPack(user, q, res);
+  }
+
+  @ApiOperation({ summary: 'Download selected registers as a complete pack' })
+  @Post('download-pack')
+  async downloadSelectedPack(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientRegistersQueryDto,
+    @Body() selection: RegistersPackSelectionDto,
+    @Res() res: Response,
+  ) {
+    await this.svc.streamClientRegistersPack(
+      user,
+      { ...q, registerIds: selection.registerIds },
+      res,
+    );
   }
 
   @ApiOperation({ summary: 'File Interceptor' })

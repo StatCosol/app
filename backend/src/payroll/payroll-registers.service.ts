@@ -2,11 +2,16 @@ import {
   GENERATED_REGISTER_SQL,
   registerSourceType,
 } from './register-provenance';
-import { registerIdentity } from './register-library/register-identity';
+import {
+  registerIdentity,
+  LEGAL_WAGE_REGISTER_TYPES,
+} from './register-library/register-identity';
 import * as fs from 'fs';
+import { createHash } from 'crypto';
 import archiver from 'archiver';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -137,18 +142,12 @@ export class PayrollRegistersService {
     res: Response,
   ) {
     const qb = await this.buildClientRegistersQuery(user, q);
-    const maxRows = Math.min(300, Math.max(1, Number(q?.limit) || 120));
-    const rows = await qb.limit(maxRows).getMany();
+    const rows = await qb.limit(301).getMany();
     if (!rows.length) {
       throw new BadRequestException('No registers found for selected filters');
     }
 
-    const available = rows.filter(
-      (r) => r.filePath && fs.existsSync(r.filePath),
-    );
-    if (!available.length) {
-      throw new BadRequestException('No register files available for download');
-    }
+    this.assertCompletePack(rows, q.registerIds);
 
     const now = new Date();
     const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
@@ -162,10 +161,12 @@ export class PayrollRegistersService {
     archive.on('error', (err) => {
       res.destroy(err);
     });
+    // A file lost after preflight must fail the transfer, not produce a partial ZIP.
+    archive.on('warning', (err) => res.destroy(err));
     archive.pipe(res);
 
     const used = new Set<string>();
-    for (const row of available) {
+    for (const row of rows) {
       const period = `${row.periodYear || 'na'}-${row.periodMonth ? String(row.periodMonth).padStart(2, '0') : 'na'}`;
       const source = this.registerSource(row).toLowerCase();
       const rawName = `${period}_${source}_${row.title || 'register'}_${row.fileName || row.id}`;
@@ -210,6 +211,10 @@ export class PayrollRegistersService {
         qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
       if (!toggles.allowBranchWageRegisters) {
         qb.andWhere(
+          "COALESCE(r.register_type,'') NOT IN (:...restrictedWageTypes)",
+          { restrictedWageTypes: LEGAL_WAGE_REGISTER_TYPES },
+        );
+        qb.andWhere(
           `NOT (LOWER(r.title) LIKE '%wage%' OR LOWER(COALESCE(r.register_type,'')) LIKE '%wage%')`,
         );
       }
@@ -220,6 +225,8 @@ export class PayrollRegistersService {
       }
     }
 
+    if (q?.registerIds)
+      qb.andWhere('r.id IN (:...registerIds)', { registerIds: q.registerIds });
     if (q?.branchId) qb.andWhere('r.branch_id = :b', { b: q.branchId });
     if (q?.category) qb.andWhere('r.category = :cat', { cat: q.category });
     if (q?.periodYear)
@@ -247,23 +254,64 @@ export class PayrollRegistersService {
     return qb;
   }
 
+  private assertCompletePack(
+    rows: RegistersRecordEntity[],
+    requestedIds?: string[],
+  ) {
+    if (rows.length > 300)
+      throw new BadRequestException(
+        'Select a narrower branch or period to download up to 300 registers at once.',
+      );
+    if (
+      requestedIds &&
+      new Set(requestedIds.map((id) => id.toLowerCase())).size !== rows.length
+    )
+      throw new BadRequestException(
+        'Some selected registers are no longer available in this scope. Refresh the list and retry.',
+      );
+    for (const row of rows) this.assertRegisterFileAvailable(row.filePath);
+  }
+
+  private assertRegisterFileAvailable(filePath: string) {
+    try {
+      if (!filePath || !fs.statSync(filePath).isFile())
+        throw new NotFoundException(
+          'A register file is missing. Regenerate it or upload it again.',
+        );
+      fs.accessSync(filePath, fs.constants.R_OK);
+    } catch (error) {
+      if (
+        ['ENOENT', 'ENOTDIR'].includes(
+          (error as NodeJS.ErrnoException).code || '',
+        )
+      )
+        throw new NotFoundException(
+          'A register file is missing. Regenerate it or upload it again.',
+        );
+      throw error;
+    }
+  }
+
   private sanitizeZipName(value: string): string {
     const out = String(value || '')
       .replace(/[\\/:*?"<>|]+/g, '_')
       .replace(/\s+/g, ' ')
       .trim();
-    return out ? out.slice(0, 140) : 'register';
+    return out || 'register';
   }
 
   private uniqueZipFileName(rawName: string, used: Set<string>): string {
     const safe = this.sanitizeZipName(rawName);
     const dot = safe.lastIndexOf('.');
     const stem = dot > 0 ? safe.slice(0, dot) : safe;
-    const ext = dot > 0 ? safe.slice(dot) : '';
-    let name = safe;
+    const ext = dot > 0 && safe.length - dot <= 12 ? safe.slice(dot) : '';
+    const base = ext ? stem : safe;
+    const bounded = (suffix: string) =>
+      base.slice(0, 140 - ext.length - suffix.length) + suffix + ext;
+    let name = bounded('');
     let idx = 2;
     while (used.has(name.toLowerCase())) {
-      name = `${stem}_${idx}${ext}`;
+      name = bounded(`_${idx}`);
       idx += 1;
     }
     used.add(name.toLowerCase());
@@ -401,17 +449,12 @@ export class PayrollRegistersService {
     }
     const { ids } = scope;
     const qb = this.buildPayrollRegistersQb(ids, q);
-    const rows = await qb.limit(300).getMany();
+    const rows = await qb.limit(301).getMany();
     if (!rows.length) {
       throw new BadRequestException('No registers found for selected filters');
     }
 
-    const available = rows.filter(
-      (r) => r.filePath && fs.existsSync(r.filePath),
-    );
-    if (!available.length) {
-      throw new BadRequestException('No register files available for download');
-    }
+    this.assertCompletePack(rows, q.registerIds);
 
     const now = new Date();
     const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
@@ -425,10 +468,12 @@ export class PayrollRegistersService {
     archive.on('error', (err) => {
       res.destroy(err);
     });
+    // A file lost after preflight must fail the transfer, not produce a partial ZIP.
+    archive.on('warning', (err) => res.destroy(err));
     archive.pipe(res);
 
     const used = new Set<string>();
-    for (const row of available) {
+    for (const row of rows) {
       const period = `${row.periodYear || 'na'}-${row.periodMonth ? String(row.periodMonth).padStart(2, '0') : 'na'}`;
       const rawName = `${period}_${row.registerType || row.category || 'register'}_${row.fileName || row.id}`;
       const zipName = this.uniqueZipFileName(rawName, used);
@@ -465,6 +510,7 @@ export class PayrollRegistersService {
       createdAt: r.createdAt,
       generatedAt: r.generatedAt ?? r.createdAt,
       preparedByUserId: r.preparedByUserId ?? null,
+      reviewVersion: this.registerReviewVersion(r),
       downloadUrl: `/api/payroll/registers-records/${r.id}/download`,
     }));
   }
@@ -525,7 +571,9 @@ export class PayrollRegistersService {
 
       if (
         !toggles.allowBranchWageRegisters &&
-        (title.includes('wage') || rtype.includes('wage'))
+        (title.includes('wage') ||
+          rtype.includes('wage') ||
+          LEGAL_WAGE_REGISTER_TYPES.includes(row.registerType || ''))
       ) {
         throw new ForbiddenException(
           'Wage registers are restricted for branch users',
@@ -550,7 +598,11 @@ export class PayrollRegistersService {
   /**
    * Approve a register. PAYROLL or ADMIN only.
    */
-  async approveRegister(user: ReqUser, registerId: string) {
+  async approveRegister(
+    user: ReqUser,
+    registerId: string,
+    reviewVersion?: string,
+  ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
       throw new ForbiddenException(
@@ -561,10 +613,23 @@ export class PayrollRegistersService {
     if (!row) throw new BadRequestException('Register not found');
     await this.scope.assertPayrollAccessToClient(user, row.clientId);
 
+    this.assertReviewVersion(row, reviewVersion);
+    this.assertRegisterFileAvailable(row.filePath);
+    const approvedAt = new Date();
+    const result = await this.rrRepo.update(
+      {
+        id: row.id,
+        filePath: row.filePath,
+        approvalStatus: row.approvalStatus,
+      },
+      { approvalStatus: 'APPROVED', approvedByUserId: user.id, approvedAt },
+    );
+    if (result.affected !== 1)
+      throw new ConflictException(
+        'Register changed during review. Refresh and review the current file.',
+      );
     row.approvalStatus = 'APPROVED';
-    row.approvedByUserId = user.id;
-    row.approvedAt = new Date();
-    await this.rrRepo.save(row);
+    row.approvedAt = approvedAt;
     return {
       id: row.id,
       approvalStatus: row.approvalStatus,
@@ -575,7 +640,12 @@ export class PayrollRegistersService {
   /**
    * Reject a register. PAYROLL or ADMIN only.
    */
-  async rejectRegister(user: ReqUser, registerId: string, reason?: string) {
+  async rejectRegister(
+    user: ReqUser,
+    registerId: string,
+    reason?: string,
+    reviewVersion?: string,
+  ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
       throw new ForbiddenException(
@@ -586,10 +656,22 @@ export class PayrollRegistersService {
     if (!row) throw new BadRequestException('Register not found');
     await this.scope.assertPayrollAccessToClient(user, row.clientId);
 
+    this.assertReviewVersion(row, reviewVersion);
+    const approvedAt = new Date();
+    const result = await this.rrRepo.update(
+      {
+        id: row.id,
+        filePath: row.filePath,
+        approvalStatus: row.approvalStatus,
+      },
+      { approvalStatus: 'REJECTED', approvedByUserId: user.id, approvedAt },
+    );
+    if (result.affected !== 1)
+      throw new ConflictException(
+        'Register changed during review. Refresh and review the current file.',
+      );
     row.approvalStatus = 'REJECTED';
-    row.approvedByUserId = user.id;
-    row.approvedAt = new Date();
-    await this.rrRepo.save(row);
+    row.approvedAt = approvedAt;
     return {
       id: row.id,
       approvalStatus: row.approvalStatus,
@@ -697,6 +779,27 @@ export class PayrollRegistersService {
 
     const buffer = this.readRegisterFile(row.filePath);
     return { fileName: row.fileName, fileType: row.fileType, buffer };
+  }
+
+  private registerReviewVersion(row: RegistersRecordEntity): string {
+    return createHash('sha256')
+      .update(
+        JSON.stringify([
+          row.id,
+          row.filePath,
+          row.generatedAt || row.createdAt,
+          row.approvalStatus,
+          row.approvedAt,
+        ]),
+      )
+      .digest('hex');
+  }
+
+  private assertReviewVersion(row: RegistersRecordEntity, version?: string) {
+    if (!version || version !== this.registerReviewVersion(row))
+      throw new ConflictException(
+        'Register changed or review details expired. Refresh and review the current file.',
+      );
   }
 
   private registerSource(row: RegistersRecordEntity): 'GENERATED' | 'MANUAL' {

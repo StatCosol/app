@@ -103,6 +103,7 @@ async function main() {
     assert.deepEqual(await service.clientRegistersAvailability(branchUser, query), { total: 2, approved: 1, pending: 1, rejected: 0 });
     assert.deepEqual(await service.clientRegistersAvailability(branchUser, { ...query, sourceType: 'MANUAL' }),
       { total: 6, approved: 0, pending: 6, rejected: 0 });
+    await require('./verify-register-roundtrip-db.cjs')(ds);
     console.log('PASS: scoped preparation/approval counts match filters while pending files stay out of branch lists');
     console.log('PASS: historical generated files agree in SQL/API classification; client, branch, month and approval scope are enforced');
     console.log('PASS: legacy schema migration is idempotent; replacement saves generation time while preserving record identity and creation history');

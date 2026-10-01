@@ -1,3 +1,4 @@
+import { downloadErrorMessage } from '../../../shared/files/utils/download-error';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -542,7 +543,11 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
   }
 
   downloadPack(): void {
-    if (!this.filteredRows.length) return;
+    if (this.loading || this.packDownloading || !this.filteredRows.length) return;
+    if (this.filteredRows.length > 300) {
+      this.toast.error('Select a narrower branch or period to download up to 300 registers at once.');
+      return;
+    }
     this.packDownloading = true;
     let params = new HttpParams();
     if (this.q.periodYear) params = params.set('periodYear', String(this.q.periodYear));
@@ -551,10 +556,10 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     if (this.q.branchId.trim()) params = params.set('branchId', this.q.branchId.trim());
     if (this.q.sourceType) params = params.set('sourceType', this.q.sourceType);
     if (this.q.search.trim()) params = params.set('search', this.q.search.trim());
-    params = params.set('limit', '180');
+    const registerIds = this.filteredRows.map(row => row.id);
 
     this.http
-      .get(`${this.base}/download-pack`, {
+      .post(`${this.base}/download-pack`, { registerIds }, {
         params,
         observe: 'response',
         responseType: 'blob',
@@ -563,6 +568,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.packDownloading = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({
@@ -579,8 +585,8 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
           a.click();
           setTimeout(() => URL.revokeObjectURL(url), 1200);
         },
-        error: (err) => {
-          this.toast.error(err?.error?.message || 'Could not generate pack.');
+        error: async (err) => {
+          this.toast.error(await downloadErrorMessage(err, 'Could not generate pack.'));
         },
       });
   }

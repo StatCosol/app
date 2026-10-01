@@ -18,6 +18,7 @@ export type RegisterRecordRow = {
   fileName?: string | null;
   fileType?: string | null;
   approvalStatus?: string;
+  reviewVersion?: string;
   approvedAt?: string | null;
 };
 
@@ -78,6 +79,7 @@ export class PayrollRegistersService {
           fileType: r?.fileType ?? r?.file_type ?? null,
           approvalStatus: (r?.approvalStatus ?? r?.approval_status ?? 'PENDING').toUpperCase(),
           approvedAt: r?.approvedAt ?? r?.approved_at ?? null,
+          reviewVersion: r?.reviewVersion,
         })) as RegisterRecordRow[];
       }),
     );
@@ -104,12 +106,12 @@ export class PayrollRegistersService {
     return this.http.post(`${this.base}/registers/download-pack`, { registerIds: q.registerIds }, { params: p, responseType: 'blob' });
   }
 
-  approveRegister(id: string): Observable<any> {
-    return this.http.patch(`${this.base}/registers/${id}/approve`, {});
+  approveRegister(id: string, reviewVersion?: string): Observable<any> {
+    return this.http.patch(`${this.base}/registers/${id}/approve`, { reviewVersion });
   }
 
-  rejectRegister(id: string, reason?: string): Observable<any> {
-    return this.http.patch(`${this.base}/registers/${id}/reject`, { reason: reason ?? '' });
+  rejectRegister(id: string, reason?: string, reviewVersion?: string): Observable<any> {
+    return this.http.patch(`${this.base}/registers/${id}/reject`, { reason: reason ?? '', reviewVersion });
   }
 
   saveBlob(blob: Blob, fileName: string) {

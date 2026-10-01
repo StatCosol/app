@@ -1,7 +1,12 @@
+import 'reflect-metadata';
+import { ReviewRegisterDto } from './dto/payroll-setup.dto';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { RegistersPackSelectionDto } from './dto/payroll-query-params.dto';
-import { PayrollController } from './payroll.controller';
+import {
+  PayrollController,
+  ClientRegistersRecordsController,
+} from './payroll.controller';
 import { PayrollRegistersService } from './payroll-registers.service';
 
 describe('Payroll ZIP scope follows the displayed registers', () => {
@@ -51,6 +56,34 @@ describe('Payroll ZIP scope follows the displayed registers', () => {
         )!.value,
       ),
     ).toEqual(['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO']);
+  });
+  it('requires a valid review version and forwards client ZIP selections through the scoped service', async () => {
+    expect(
+      validateSync(plainToInstance(ReviewRegisterDto, {})),
+    ).not.toHaveLength(0);
+    expect(
+      validateSync(
+        plainToInstance(ReviewRegisterDto, { reviewVersion: 'a'.repeat(64) }),
+      ),
+    ).toEqual([]);
+    const svc = { streamClientRegistersPack: jest.fn() };
+    const controller = new ClientRegistersRecordsController(svc as any);
+    const user = { id: 'client-user', roleCode: 'CLIENT' } as any,
+      response = {} as any;
+    await controller.downloadSelectedPack(
+      user,
+      { branchId: id2 },
+      { registerIds: [id1] },
+      response,
+    );
+    expect(svc.streamClientRegistersPack).toHaveBeenCalledWith(
+      user,
+      { branchId: id2, registerIds: [id1] },
+      response,
+    );
+    expect(
+      Reflect.getMetadata('roles', ClientRegistersRecordsController),
+    ).toEqual(['CLIENT']);
   });
   it('intersects requested file IDs with tenant, branch, period and type restrictions', async () => {
     const qb: any = {};

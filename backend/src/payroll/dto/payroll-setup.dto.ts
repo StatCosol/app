@@ -9,6 +9,7 @@ import {
   IsIn,
   IsUUID,
   Max,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -147,6 +148,12 @@ export class SaveSlabsDto {
   slabs: SlabDto[];
 }
 
-export class RejectRegisterDto {
+export class ReviewRegisterDto {
+  @IsString()
+  @Matches(/^[a-f0-9]{64}$/)
+  reviewVersion: string;
+}
+
+export class RejectRegisterDto extends ReviewRegisterDto {
   @IsOptional() @IsString() reason?: string;
 }

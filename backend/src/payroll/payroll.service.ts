@@ -1280,12 +1280,30 @@ export class PayrollService {
     return this.payslipsService.listPayslips(_user, q);
   }
 
-  async approveRegister(user: ReqUser, registerId: string) {
-    return this.registersService.approveRegister(user, registerId);
+  async approveRegister(
+    user: ReqUser,
+    registerId: string,
+    reviewVersion?: string,
+  ) {
+    return this.registersService.approveRegister(
+      user,
+      registerId,
+      reviewVersion,
+    );
   }
 
-  async rejectRegister(user: ReqUser, registerId: string, reason?: string) {
-    return this.registersService.rejectRegister(user, registerId, reason);
+  async rejectRegister(
+    user: ReqUser,
+    registerId: string,
+    reason?: string,
+    reviewVersion?: string,
+  ) {
+    return this.registersService.rejectRegister(
+      user,
+      registerId,
+      reason,
+      reviewVersion,
+    );
   }
 
   async auditorListRegisters(user: ReqUser, q: Record<string, any>) {

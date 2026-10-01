@@ -60,9 +60,10 @@ const { REGISTER_FORMS } = require('../src/payroll/register-library/register-cat
     const repo=originalRepo(RegistersRecordEntity);
     const settings={findOne:async()=>({settings:{allowBranchPayrollAccess:true,allowBranchWageRegisters:true,payrollBranchScope:'ALL'}})};
     const service=new PayrollRegistersService(repo,null,null,null,settings,{assertPayrollAccessToClient:async()=>{}});
+    const reviewVersion=async id=>(await service.payrollListRegistersFormatted({id:actor,roleCode:'ADMIN'},{clientId})).find(r=>r.id===id).reviewVersion;
     const branchUser={id:actor,roleCode:'CLIENT',clientId,userType:'BRANCH',branchIds:['44444444-4444-4444-8444-444444444444',branchId]};
     await assert.rejects(service.downloadRegisterForClient(branchUser,results[0].recordId),/not yet approved/);
-    await service.approveRegister({id:actor,roleCode:'ADMIN'},results[0].recordId);
+    await service.approveRegister({id:actor,roleCode:'ADMIN'},results[0].recordId,await reviewVersion(results[0].recordId));
     const downloaded = await service.downloadRegisterForClient(branchUser,results[0].recordId);
     assert.deepEqual(downloaded.buffer,results[0].buffer);
     await assert.rejects(service.downloadRegisterForClient({...branchUser,branchIds:[]},results[0].recordId),/Not your branch/);
@@ -83,7 +84,7 @@ const { REGISTER_FORMS } = require('../src/payroll/register-library/register-cat
     const evidence=new RegisterEvidenceService(ds,builder);
     const central=await builder.generate(centralSlip,input,admin);
     assert.equal((await evidence.reuseOptions(oshSlip,branchId,2026,9,admin)).candidates.length,0);
-    await service.approveRegister(admin,central.recordId);
+    await service.approveRegister(admin,central.recordId,await reviewVersion(central.recordId));
     assert.equal((await evidence.reuseOptions(oshSlip,branchId,2026,9,admin)).candidates.length,1);
     await assert.rejects(evidence.requestReuse(oshSlip,{branchId,year:2026,month:9,sourceRegisterId:results[0].recordId,attestation:'Wrong jurisdiction source'},admin),/approved source/);
     const reuseBody={branchId,year:2026,month:9,sourceRegisterId:central.recordId,attestation:'Verified same workers, period and applicable Wages requirements'};
@@ -93,7 +94,7 @@ const { REGISTER_FORMS } = require('../src/payroll/register-library/register-cat
     await assert.rejects(evidence.approveReuse(oshSlip,reuse[0].id,{id:actor,roleCode:'CRM'}),/Only payroll/);
     await evidence.approveReuse(oshSlip,reuse[0].id,admin);
     assert.equal((await evidence.reuseOptions(oshSlip,branchId,2026,9,admin)).links[0].effective,true);
-    await service.rejectRegister(admin,central.recordId,'Test withdrawal');
+    await service.rejectRegister(admin,central.recordId,'Test withdrawal',await reviewVersion(central.recordId));
     assert.equal((await evidence.reuseOptions(oshSlip,branchId,2026,9,admin)).links[0].effective,false);
     const eventForm=REGISTER_FORMS.find(f=>f.sourceId==='osh'&&f.formNumber==='XIX').id;
     const event={...input,supportingReference:'Fictional incident 1',rows:[{eventDate:'2026-09-10',eventNature:'Fictional incident description'}]};
