@@ -68,6 +68,10 @@ const STATE_NAMES: Record<string, string> = {
         </div>
       </ui-page-header>
 
+      @if (optionsError) {
+        <div role="alert" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{{ optionsError }}</div>
+      }
+
       <!-- ═══════ Generate & Download Panel ═══════ -->
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
         <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -307,6 +311,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   rows: RegisterRecordRow[] = [];
   loading = false;
   error = '';
+  optionsError = '';
   clientOptions: SelectOption[] = [{ value: null, label: 'All Clients' }];
 
   private reload$ = new Subject<void>();
@@ -546,18 +551,21 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     this.route.paramMap.pipe(
       map(params => params.get('clientId') || ''), distinctUntilChanged(),
       tap(clientId => {
-        this.q.clientId = clientId || null;
+        this.q.clientId = clientId || null; this.optionsError = '';
         this.genBranchId = ''; this.genBranches = []; this.allRuns = []; this.matchedRun = null;
         this.filterAct = ''; this.filterRegisterType = ''; this.registerBuilderOpen = false;
         this.genResult = ''; this.rows = []; this.reload();
       }),
       switchMap(clientId => forkJoin({
-        branches: clientId ? this.payrollApi.getOptionBranches(clientId) : of([]),
-        runs: this.api.getPayrollRuns(clientId || undefined),
-      }).pipe(catchError(e => {
-        this.error = e?.error?.message || 'Unable to load branch and payroll options.';
-        this.cdr.markForCheck(); return of({ branches: [], runs: [] });
-      }))), takeUntil(this.destroy$),
+        branches: (clientId ? this.payrollApi.getOptionBranches(clientId) : of([])).pipe(catchError(() => {
+          this.optionsError += 'Branch options could not be loaded. ';
+          this.cdr.markForCheck(); return of([]);
+        })),
+        runs: this.api.getPayrollRuns(clientId || undefined).pipe(catchError(() => {
+          this.optionsError += 'Payroll runs could not be loaded. ';
+          this.cdr.markForCheck(); return of([]);
+        })),
+      })), takeUntil(this.destroy$),
     ).subscribe(({ branches, runs }) => {
       this.genBranches = (branches || []).map((b: any) => ({
         id: b.id, branchName: b.branchName || b.branchname || b.name || '',

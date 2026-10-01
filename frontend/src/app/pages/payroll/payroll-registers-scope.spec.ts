@@ -1,4 +1,4 @@
-import { BehaviorSubject, Subject, of } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { convertToParamMap } from '@angular/router';
 import { vi } from 'vitest';
 import { PayrollRegistersComponent } from './payroll-registers.component';
@@ -61,6 +61,26 @@ describe('Payroll register client and period refresh', () => {
     expect(listRegisters).toHaveBeenLastCalledWith(expect.objectContaining({ periodYear: 2026, periodMonth: 3 }));
     latest.next([{ id: 'march' }]); latest.complete();
     expect(c.rows.map(r => r.id)).toEqual(['march']); expect(c.loading).toBe(false);
+  });
+
+  it('keeps branch choices when payroll runs fail and preserves the warning after register loading', () => {
+    const { c, paramMap } = setup({ runs: vi.fn().mockReturnValueOnce(throwError(() => new Error('offline'))).mockReturnValue(of([])) });
+    expect(c.genBranches.map(b => b.id)).toEqual(['logiq-branch']);
+    expect(c.allRuns).toEqual([]);
+    vi.advanceTimersByTime(150);
+    expect(c.optionsError).toContain('Payroll runs could not be loaded');
+    paramMap.next(convertToParamMap({ clientId: 'another-client' }));
+    expect(c.optionsError).toBe('');
+  });
+
+  it('keeps approved payroll runs when branch options fail', () => {
+    const { c } = setup({
+      branches: vi.fn(() => throwError(() => new Error('offline'))),
+      runs: vi.fn(() => of([{ id: 'approved', clientId: 'logiq', branchId: null, status: 'APPROVED', periodYear: 2026, periodMonth: 3 }])),
+    });
+    expect(c.genBranches).toEqual([]);
+    expect(c.allRuns.map(r => r.id)).toEqual(['approved']);
+    expect(c.optionsError).toContain('Branch options could not be loaded');
   });
 
   it('cancels old client option requests before they can overwrite the new scope', () => {
