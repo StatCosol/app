@@ -494,6 +494,7 @@ export class RegisterBuilderService {
           fileSize: String(buffer.length),
           registerType: 'LEGAL_' + legalHash,
           stateCode: ctx.branch.stateCode,
+          generatedAt: new Date(),
           approvalStatus: 'PENDING',
           approvedAt: null,
           approvedByUserId: null,

@@ -93,6 +93,27 @@ describe('Register downloads in LegitX and BranchDesk', () => {
       ).toEqual(bytes);
     },
   );
+  it.each(['MASTER', 'BRANCH'])(
+    'exposes replacement generation time and falls back for legacy files (%s)',
+    async (userType) => {
+      const createdAt = new Date('2026-09-01T00:00:00Z');
+      const generatedAt = new Date('2026-10-01T08:30:00Z');
+      const replacement = (
+        await setup({
+          createdAt,
+          generatedAt,
+        }).service.clientListRegistersRecords(user(userType), {})
+      )[0];
+      expect(replacement).toMatchObject({ createdAt, generatedAt });
+      const legacy = (
+        await setup({
+          createdAt,
+          generatedAt: null,
+        }).service.clientListRegistersRecords(user(userType), {})
+      )[0];
+      expect(legacy).toMatchObject({ createdAt, generatedAt: createdAt });
+    },
+  );
   it('distinguishes manual uploads and legacy payroll-generated files', async () => {
     expect(
       (

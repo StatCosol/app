@@ -101,6 +101,7 @@ export class PayrollRegistersService {
       approvalStatus: r.approvalStatus,
       approvedAt: r.approvedAt ?? null,
       createdAt: r.createdAt,
+      generatedAt: r.generatedAt ?? r.createdAt,
       preparedByUserId: r.preparedByUserId ?? null,
       downloadUrl: `/api/client/payroll/registers-records/${r.id}/download`,
     }));
@@ -438,6 +439,7 @@ export class PayrollRegistersService {
       approvalStatus: r.approvalStatus,
       approvedAt: r.approvedAt ?? null,
       createdAt: r.createdAt,
+      generatedAt: r.generatedAt ?? r.createdAt,
       preparedByUserId: r.preparedByUserId ?? null,
       downloadUrl: `/api/payroll/registers-records/${r.id}/download`,
     }));
@@ -638,6 +640,7 @@ export class PayrollRegistersService {
       approvalStatus: r.approvalStatus,
       approvedAt: r.approvedAt ?? null,
       createdAt: r.createdAt,
+      generatedAt: r.generatedAt ?? r.createdAt,
       downloadUrl: `/api/auditor/registers/${r.id}/download`,
     }));
   }

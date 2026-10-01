@@ -605,6 +605,8 @@ describe('Register preparation branch and Act eligibility', () => {
       const existing = {
         id: 'record-1',
         filePath: '/missing.xlsx',
+        createdAt: new Date('2026-09-01T00:00:00Z'),
+        generatedAt: new Date('2026-09-01T00:00:00Z'),
         approvalStatus: 'APPROVED',
       };
       const repo = {
@@ -617,6 +619,7 @@ describe('Register preparation branch and Act eligibility', () => {
       jest
         .mocked(fs.readFile)
         .mockRejectedValueOnce(Object.assign(new Error('Missing'), { code }));
+      const before = Date.now();
       const result = await builder.generate(id('apw', 'V'), validSlip(), {
         id: 'preparer',
       } as any);
@@ -629,7 +632,12 @@ describe('Register preparation branch and Act eligibility', () => {
           approvedByUserId: null,
         }),
       );
-      expect(repo.save.mock.calls[0][0].filePath).not.toBe(existing.filePath);
+      const replacement = repo.save.mock.calls[0][0];
+      expect(replacement.filePath).not.toBe(existing.filePath);
+      expect(replacement.generatedAt.getTime()).toBeGreaterThanOrEqual(before);
+      expect(replacement.generatedAt.getTime()).toBeLessThanOrEqual(Date.now());
+      expect(replacement).not.toHaveProperty('createdAt');
+      expect(existing.createdAt.toISOString()).toBe('2026-09-01T00:00:00.000Z');
       expect(manager.query).not.toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO register_preparation_scopes'),
         expect.anything(),
@@ -680,6 +688,8 @@ describe('Register preparation branch and Act eligibility', () => {
       branchId,
       registerType: legalRegisterType(id('apw', 'V')),
     });
+    expect(records[0].generatedAt).toBeInstanceOf(Date);
+    const generatedAt = records[0].generatedAt;
     records[0].approvalStatus = 'APPROVED';
     const sameNumbers = validSlip();
     sameNumbers.rows[0].gross = 18000;
@@ -689,6 +699,7 @@ describe('Register preparation branch and Act eligibility', () => {
     expect(second.recordId).toBe(first.recordId);
     expect(second.buffer.toString()).toBe('existing approved evidence');
     expect(repo.save).toHaveBeenCalledTimes(1);
+    expect(records[0].generatedAt).toBe(generatedAt);
     expect(fs.writeFile).toHaveBeenCalledTimes(1);
     const revised = validSlip();
     revised.rows[0].designation = 'Supervisor';
