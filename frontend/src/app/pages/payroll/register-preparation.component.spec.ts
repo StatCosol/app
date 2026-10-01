@@ -83,6 +83,13 @@ describe('Register source selection and cancellation', () => {
     expect(component.periodMonth).toBe(12);
     expect(component.month).toBe(9);
     expect(component.canPrefill).toBe(false);
+    const generated: unknown[] = [];
+    component.generated.subscribe((scope) => generated.push(scope));
+    component.generate();
+    const saved = http.expectOne((r) => r.url.endsWith('/generate'));
+    expect(saved.request.body.month).toBe(12);
+    saved.flush(new Blob(['register']));
+    expect(generated).toEqual([{ branchId: 'branch', year: 2026, month: 12 }]);
     component.formId = 'monthly';
     component.ngOnChanges();
     http

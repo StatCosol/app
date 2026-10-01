@@ -12,6 +12,8 @@ Reviewed 2 October 2026. Scope: Payroll preparation, saved-register filters and 
 - A changed workbook renderer previously did not affect the preparation schema hash. Workbook format version 2 now invalidates reuse of older output when corrected formatting is generated, while identical evidence within a version remains reusable.
 - LegitX/Branch Desk counts distinguish pending, approved and rejected saved records; filter changes cancel stale list requests. Branch downloads retain the existing approval and assignment restrictions.
 
+- Annual register preparation saves its evidence under December. Its completion event now carries the saved branch/year/month through the library to Payroll, so the refreshed list opens the actual saved period and ignores stale branch events.
+
 ## Live Logiq evidence (read-only)
 
 All March–August 2026 approved payroll employee snapshots are linked to HYD-001 / BRM. Employee counts respectively: 32, 35, 26, 27, 29 and 28. March has copied statutory deduction fields on 31 employee rows. April–August do not have those copied fields, but do have stored payroll component snapshots, explaining the missing prefill source.

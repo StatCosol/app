@@ -1,4 +1,7 @@
-import { RegisterPreparationComponent } from './register-preparation.component';
+import {
+  RegisterPreparationComponent,
+  RegisterGeneratedScope,
+} from './register-preparation.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -160,7 +163,7 @@ interface Jurisdiction {
             }
             @if (selectedForm?.id === form.id) {
               <app-register-preparation
-                (generated)="generated.emit()"
+                (generated)="generated.emit($event)"
                 [formId]="form.id"
                 [branchId]="branchId"
                 [runId]="runId"
@@ -219,7 +222,7 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
   private readonly destroyed = new Subject<void>();
   private readonly scopeChanged = new Subject<void>();
   private readonly base = environment.apiBaseUrl + '/api/v1/payroll/register-library';
-  @Output() generated = new EventEmitter<void>();
+  @Output() generated = new EventEmitter<RegisterGeneratedScope>();
   @Input() expanded = false;
   @Input() branchId = '';
   @Input() runId = '';

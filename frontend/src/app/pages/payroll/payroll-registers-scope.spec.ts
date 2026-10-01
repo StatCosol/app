@@ -133,6 +133,14 @@ describe('Saved statutory format selection and transfer', () => {
     (c as any).fetchRegisters$().subscribe((rows: any) => c.rows = rows);
     expect(c.rows.map(r => r.id)).toEqual(['shops']); expect(c.savedRows).toHaveLength(3);
   });
+  it('opens December for an annual register and ignores stale branch events', () => {
+    const { c } = setup();
+    c.genBranchId = 'brm'; c.selYear = 2026; c.selMonth = 3;
+    c.onRegisterGenerated({ branchId: 'another', year: 2025, month: 12 });
+    expect(c.selMonth).toBe(3); expect(c.selYear).toBe(2026);
+    c.onRegisterGenerated({ branchId: 'brm', year: 2026, month: 12 });
+    expect(c.selMonth).toBe(12); expect(c.selYear).toBe(2026);
+  });
   it('clears obsolete form filters after generation and blocks stale or oversized ZIP downloads', () => {
     const { c, downloadRegistersPack } = setup();
     c.rows = saved; c.loading = true; c.downloadAll(); expect(downloadRegistersPack).not.toHaveBeenCalled();

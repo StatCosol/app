@@ -1,4 +1,5 @@
 import { matchesRegisterAct, registerActGroup } from '../../shared/utils/register-act-filter';
+import type { RegisterGeneratedScope } from './register-preparation.component';
 import { RegisterLibraryComponent } from './register-library.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -154,7 +155,7 @@ const STATE_NAMES: Record<string, string> = {
 
       </div>
 
-      <app-register-library (generated)="onRegisterGenerated()" [expanded]="registerBuilderOpen" [branchId]="genBranchId" [runId]="matchedRun?.id || ''" [year]="selYear" [month]="selMonth"></app-register-library>
+      <app-register-library (generated)="onRegisterGenerated($event)" [expanded]="registerBuilderOpen" [branchId]="genBranchId" [runId]="matchedRun?.id || ''" [year]="selYear" [month]="selMonth"></app-register-library>
       <!-- ═══════ Download & Filter Bar ═══════ -->
       <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
         <div class="flex flex-wrap items-end gap-4">
@@ -630,7 +631,11 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     this.reload$.next();
   }
 
-  onRegisterGenerated(): void {
+  onRegisterGenerated(scope?: RegisterGeneratedScope): void {
+    if (scope) {
+      if (scope.branchId !== this.genBranchId) return;
+      this.selYear = scope.year; this.selMonth = scope.month; this.matchRun();
+    }
     this.filterAct = ''; this.filterRegisterType = '';
     this.reload();
   }
