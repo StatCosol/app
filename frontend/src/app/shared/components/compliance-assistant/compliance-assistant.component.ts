@@ -5,6 +5,7 @@ import { Subscription, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 interface ActionPlan {
  mode: 'AI' | 'RULES'; note: string; coverage: string; generatedAt: string;
+ period?: {month:number; year:number}; scope?: {branchId:string|null};
  actions: Array<{id:string; title:string; status:string; branchName:string|null; dueDate:string|null; explanation:string; nextAction:string; route:string; queryParams:Record<string,string|number>}>;
 }
 @Component({selector:'app-compliance-assistant',standalone:true,imports:[RouterLink],changeDetection:ChangeDetectionStrategy.OnPush,
@@ -18,6 +19,7 @@ interface ActionPlan {
   @if(result(); as plan) {
    <p class="mt-3 text-sm text-slate-600" role="status">{{plan.note}}</p>
    <p class="text-xs text-slate-500">{{plan.coverage}}</p>
+   <a class="mt-2 inline-block text-sm font-medium text-indigo-700 underline" [routerLink]="statusRoute" [queryParams]="statusQueryParams">View compliance status</a>
    @for(action of plan.actions; track action.id) {
     <article class="mt-4 rounded-lg border border-slate-200 p-4">
      <div class="flex flex-wrap justify-between gap-2"><h3 class="font-semibold">{{action.title}}</h3><span class="text-sm font-medium">{{action.status}}</span></div>
@@ -25,14 +27,21 @@ interface ActionPlan {
      <p class="mt-2 text-sm">{{action.explanation}}</p><p class="mt-1 text-sm"><strong>Next step:</strong> {{action.nextAction}}</p>
      <a class="mt-2 inline-block font-medium text-indigo-700 underline" [routerLink]="action.route" [queryParams]="action.queryParams">Open compliance tasks</a>
     </article>
-   } @empty { <p class="mt-3 text-sm">No open tasks were returned for this period and scope. This does not confirm that every compliance obligation is complete.</p> }
+   } @empty { <p class="mt-3 text-sm">No open tasks were found. Check the selected month and branch, then review Compliance Status. This does not confirm that every compliance obligation is complete.</p> }
   }
  </section>`})
 export class ComplianceAssistantComponent implements OnChanges, OnDestroy {
+ @Input() portal: 'client' | 'branch' = 'client';
  @Input() month = new Date().getMonth()+1;
  @Input() year = new Date().getFullYear();
  @Input() branchId: string | number | null = null;
  constructor(private readonly http: HttpClient) {}
+ get statusRoute() { return this.portal === 'branch' ? '/branch/compliance/status' : '/client/compliance/status'; }
+ get statusQueryParams() {
+  const plan = this.result();
+  const branchId = plan?.scope?.branchId ?? this.branchId;
+  return {month:plan?.period?.month ?? this.month,year:plan?.period?.year ?? this.year,branchId:branchId && branchId !== 'ALL' ? String(branchId) : undefined};
+ }
  private request?: Subscription;
  readonly loading=signal(false); readonly error=signal(''); readonly result=signal<ActionPlan|null>(null);
  ngOnChanges(){this.request?.unsubscribe();this.result.set(null);this.error.set('');this.loading.set(false);}

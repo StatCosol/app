@@ -161,12 +161,13 @@ describe('Compliance assistant', () => {
       .fn()
       .mockImplementation(async (p) => (p.status === 'OVERDUE' ? [task] : []));
     const completeWithTracking = jest.fn().mockResolvedValue({ content });
+    const isReady = jest.fn(async () => ready);
     const service = new LegitxAssistantService(
       { resolve } as any,
       { getTasks } as any,
-      { isReady: async () => ready, completeWithTracking } as any,
+      { isReady, completeWithTracking } as any,
     );
-    return { service, resolve, getTasks, completeWithTracking };
+    return { service, resolve, getTasks, completeWithTracking, isReady };
   }
   it('returns factual actions without calling an unconfigured provider', async () => {
     const { service, completeWithTracking, getTasks } = setup();
@@ -184,6 +185,78 @@ describe('Compliance assistant', () => {
     );
     expect(completeWithTracking).not.toHaveBeenCalled();
   });
+  it('does not claim AI is unavailable when there are no open tasks', async () => {
+    const { service, resolve, getTasks, completeWithTracking, isReady } =
+      setup(true);
+    resolve.mockResolvedValue({
+      clientId: 'c',
+      branchId: 'b2',
+      allowedBranchIds: ['b1', 'b2'],
+    });
+    getTasks.mockResolvedValue([]);
+    const result = await service.plan(user, {
+      month: 8,
+      year: 2026,
+      branchId: 'b2',
+    });
+    expect(result.actions).toEqual([]);
+    expect(result.note).not.toContain('unavailable');
+    expect(result.coverage).not.toContain('Prioritized sample');
+    expect(isReady).not.toHaveBeenCalled();
+    expect(completeWithTracking).not.toHaveBeenCalled();
+    expect(getTasks).toHaveBeenCalledTimes(5);
+    for (const [params] of getTasks.mock.calls)
+      expect(params).toMatchObject({
+        month: 8,
+        year: 2026,
+        clientId: 'c',
+        branchId: 'b2',
+        allowedBranchIds: ['b1', 'b2'],
+      });
+  });
+  it.each(['BRANCH', 'MASTER'])(
+    'includes submitted tasks awaiting review with appropriate next steps (%s)',
+    async (userType) => {
+      const { service, getTasks } = setup();
+      getTasks.mockImplementation(async (p) =>
+        p.status === 'SUBMITTED'
+          ? [
+              {
+                taskId: 2,
+                title: 'Submitted evidence',
+                status: 'SUBMITTED',
+                branchId: 'b2',
+                branchName: 'Branch Two',
+                dueDate: '2026-09-20',
+              },
+            ]
+          : [],
+      );
+      const result = await service.plan(
+        { ...user, userType },
+        { month: 9, year: 2026 },
+      );
+      expect(result.actions).toHaveLength(1);
+      expect(result.actions[0]).toMatchObject({
+        status: 'SUBMITTED',
+        explanation: 'Evidence has been submitted and is awaiting review.',
+        route:
+          userType === 'BRANCH'
+            ? '/branch/compliance/status'
+            : '/client/compliance/status',
+        queryParams: {
+          month: 9,
+          year: 2026,
+          branchId: 'b2',
+          status: 'SUBMITTED',
+        },
+      });
+      expect(result.actions[0].nextAction).not.toContain('submit');
+      expect(result.actions[0].nextAction).toContain(
+        userType === 'BRANCH' ? 'reviewer feedback' : 'responsible reviewer',
+      );
+    },
+  );
   it('uses AI explanations only for known IDs and never trusts model routes', async () => {
     const { service, completeWithTracking } = setup(
       true,
