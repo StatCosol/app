@@ -25,8 +25,8 @@ export class LegitxAssistantService {
     const params = { ...scope, month, year, limit: 10, offset: 0 };
     // Load each actionable state independently so reviewed/approved rows cannot crowd out gaps.
     const groups = await Promise.all(
-      ['OVERDUE', 'REJECTED', 'PENDING', 'IN_PROGRESS'].map((status) =>
-        this.compliance.getTasks({ ...params, status }),
+      ['OVERDUE', 'REJECTED', 'PENDING', 'IN_PROGRESS', 'SUBMITTED'].map(
+        (status) => this.compliance.getTasks({ ...params, status }),
       ),
     );
     const unique = new Map(
@@ -50,12 +50,19 @@ export class LegitxAssistantService {
           ? 'The recorded due date has passed and this task remains open.'
           : task.status === 'REJECTED'
             ? 'The submitted evidence was rejected and needs correction.'
-            : 'This task is awaiting completion or review.',
-      nextAction: branch
-        ? task.status === 'REJECTED'
-          ? 'Read the reviewer remarks, correct the evidence and resubmit for review.'
-          : 'Open the compliance task, confirm the required evidence and submit it for review.'
-        : 'Open the compliance task, review the gap with the responsible branch and track its submission.',
+            : task.status === 'SUBMITTED'
+              ? 'Evidence has been submitted and is awaiting review.'
+              : 'This task is awaiting completion or review.',
+      nextAction:
+        task.status === 'SUBMITTED'
+          ? branch
+            ? 'Track reviewer feedback and respond if corrections are requested.'
+            : 'Follow up with the responsible reviewer and track the review outcome.'
+          : branch
+            ? task.status === 'REJECTED'
+              ? 'Read the reviewer remarks, correct the evidence and resubmit for review.'
+              : 'Open the compliance task, confirm the required evidence and submit it for review.'
+            : 'Open the compliance task, review the gap with the responsible branch and track its submission.',
       route: branch ? '/branch/compliance/status' : '/client/compliance/status',
       queryParams: {
         month,
@@ -123,12 +130,14 @@ export class LegitxAssistantService {
         assignedBranchesOnly: scope.allowedBranchIds !== 'ALL',
       },
       actions,
-      note:
-        mode === 'AI'
+      note: !actions.length
+        ? 'No open compliance tasks were found for this selection.'
+        : mode === 'AI'
           ? 'AI-assisted explanations. Verify each suggestion against the task before acting.'
           : 'Evidence-based action plan. AI explanations are currently unavailable.',
-      coverage:
-        'Prioritized sample of up to 12 open tasks for the selected period; open compliance status for the complete list.',
+      coverage: actions.length
+        ? 'Prioritized sample of up to 12 open tasks for the selected period; open compliance status for the complete list.'
+        : 'Based on recorded compliance tasks for the selected period and authorized branch scope.',
     };
   }
 }
