@@ -53,6 +53,7 @@ import {
   PayrollEmployeesQueryDto,
   PayslipsQueryDto,
   RegistersQueryDto,
+  RegistersPackSelectionDto,
   PayrollRunsQueryDto,
   QueriesListQueryDto,
   FnfListQueryDto,
@@ -266,6 +267,22 @@ export class PayrollController {
     @Res() res: Response,
   ) {
     await this.svc.streamPayrollRegistersPack(user, q, res);
+  }
+
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Download selected registers (ZIP)' })
+  @Post('registers/download-pack')
+  async downloadSelectedRegistersPack(
+    @CurrentUser() user: ReqUser,
+    @Query() q: RegistersQueryDto,
+    @Body() selection: RegistersPackSelectionDto,
+    @Res() res: Response,
+  ) {
+    await this.svc.streamPayrollRegistersPack(
+      user,
+      { ...q, registerIds: selection.registerIds },
+      res,
+    );
   }
 
   // Alias: GET /api/payroll/registers-records/:id/download

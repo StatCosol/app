@@ -1,4 +1,4 @@
-import { matchesRegisterAct } from '../../shared/utils/register-act-filter';
+import { matchesRegisterAct, registerActGroup } from '../../shared/utils/register-act-filter';
 import { RegisterLibraryComponent } from './register-library.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -154,7 +154,7 @@ const STATE_NAMES: Record<string, string> = {
 
       </div>
 
-      <app-register-library (generated)="reload()" [expanded]="registerBuilderOpen" [branchId]="genBranchId" [runId]="matchedRun?.id || ''" [year]="selYear" [month]="selMonth"></app-register-library>
+      <app-register-library (generated)="onRegisterGenerated()" [expanded]="registerBuilderOpen" [branchId]="genBranchId" [runId]="matchedRun?.id || ''" [year]="selYear" [month]="selMonth"></app-register-library>
       <!-- ═══════ Download & Filter Bar ═══════ -->
       <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
         <div class="flex flex-wrap items-end gap-4">
@@ -181,7 +181,7 @@ const STATE_NAMES: Record<string, string> = {
           <div class="flex gap-2">
             <button
               class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              [disabled]="downloading || rows.length === 0"
+              [disabled]="loading || downloading || rows.length === 0"
               (click)="downloadAll()">
               @if (!downloading) {
 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -309,6 +309,7 @@ const STATE_NAMES: Record<string, string> = {
 export class PayrollRegistersComponent implements OnInit, OnDestroy {
   clients: PayrollClient[] = [];
   rows: RegisterRecordRow[] = [];
+  savedRows: RegisterRecordRow[] = [];
   loading = false;
   error = '';
   optionsError = '';
@@ -472,16 +473,25 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   ];
 
   get filteredRegisterTypes() {
-    // Show only PAYROLL-type registers in the Payroll Portal
-    let filtered = this.registerTypes.filter(rt => rt.portalType === 'PAYROLL');
-    if (!this.filterAct) return filtered;
-    return filtered.filter(rt => rt.act === this.filterAct);
+    const types = new Map(this.registerTypes.map(rt => [rt.value, rt]));
+    for (const row of this.savedRows) {
+      if (row.registerType && row.legalIdentity) types.set(row.registerType, {
+        value: row.registerType, label: row.legalIdentity.label,
+        act: registerActGroup(row.legalIdentity.actCode), portalType: 'PAYROLL',
+      });
+    }
+    return [...types.values()].filter(rt => !this.filterAct || rt.act === this.filterAct);
   }
 
   get filteredActs() {
-    // Show only acts that have PAYROLL-type registers
-    const payrollActs = new Set(this.registerTypes.filter(rt => rt.portalType === 'PAYROLL').map(rt => rt.act));
-    return this.acts.filter(act => payrollActs.has(act.value) || act.value === 'OSH_CODE');
+    const acts = new Map(this.acts.map(act => [act.value, act]));
+    for (const row of this.savedRows) {
+      if (row.legalIdentity) {
+        const value = registerActGroup(row.legalIdentity.actCode);
+        if (!acts.has(value)) acts.set(value, { value, label: row.legalIdentity.actCode.replace(/_/g, ' ') });
+      }
+    }
+    return [...acts.values()];
   }
 
   columns: TableColumn[] = [
@@ -554,7 +564,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
         this.q.clientId = clientId || null; this.optionsError = '';
         this.genBranchId = ''; this.genBranches = []; this.allRuns = []; this.matchedRun = null;
         this.filterAct = ''; this.filterRegisterType = ''; this.registerBuilderOpen = false;
-        this.genResult = ''; this.rows = []; this.reload();
+        this.genResult = ''; this.rows = []; this.savedRows = []; this.reload();
       }),
       switchMap(clientId => forkJoin({
         branches: (clientId ? this.payrollApi.getOptionBranches(clientId) : of([])).pipe(catchError(() => {
@@ -582,13 +592,12 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
         branchId: this.genBranchId || undefined,
         periodYear: this.selYear ?? this.q.periodYear ?? undefined,
         periodMonth: this.selMonth ?? this.q.periodMonth ?? undefined,
-        registerType: this.filterRegisterType || undefined,
       })
       .pipe(
         map((rows) => {
-          // Client-side act filter: when an act is selected but no specific registerType,
-          // filter rows to only those whose registerType belongs to the selected act
-          if (this.filterAct && !this.filterRegisterType) {
+          this.savedRows = rows || [];
+          if (this.filterRegisterType) return this.savedRows.filter(r => r.registerType === this.filterRegisterType);
+          if (this.filterAct) {
             const actTypes = new Set(this.registerTypes.filter(rt => rt.act === this.filterAct).map(rt => rt.value));
             return (rows || []).filter(r => matchesRegisterAct(r, this.filterAct, actTypes));
           }
@@ -617,7 +626,13 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   }
 
   reload(): void {
+    this.rows = []; this.savedRows = [];
     this.reload$.next();
+  }
+
+  onRegisterGenerated(): void {
+    this.filterAct = ''; this.filterRegisterType = '';
+    this.reload();
   }
 
   /* ── Generate panel methods ── */
@@ -663,6 +678,11 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   }
 
   downloadAll(): void {
+    if (this.loading || !this.rows.length) return;
+    if (this.rows.length > 300) {
+      this.error = 'Select a narrower branch or period to download up to 300 registers at once.';
+      this.cdr.markForCheck(); return;
+    }
     this.downloading = true;
     this.cdr.markForCheck();
     this.api.downloadRegistersPack({
@@ -671,6 +691,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
       periodYear: this.selYear ?? undefined,
       periodMonth: this.selMonth ?? undefined,
       registerType: this.filterRegisterType || undefined,
+      registerIds: this.rows.map(r => r.id),
     }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.downloading = false; this.cdr.markForCheck(); }),

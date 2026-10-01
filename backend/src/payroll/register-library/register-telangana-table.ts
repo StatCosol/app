@@ -85,7 +85,9 @@ export function addTelanganaRegisterTable(
             : f.type === 'money'
               ? '0.00'
               : f.type === 'number'
-                ? '0.##'
+                ? Number.isInteger(Number(record[f.key]))
+                  ? '0'
+                  : '0.00'
                 : '@'),
     );
   }

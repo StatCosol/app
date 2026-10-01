@@ -88,6 +88,7 @@ export class PayrollRegistersService {
   }
 
   downloadRegistersPack(q: {
+    registerIds: string[];
     clientId?: string;
     branchId?: string;
     periodYear?: number;
@@ -100,7 +101,7 @@ export class PayrollRegistersService {
     if (q.periodYear) p = p.set('periodYear', String(q.periodYear));
     if (q.periodMonth) p = p.set('periodMonth', String(q.periodMonth));
     if (q.registerType) p = p.set('registerType', q.registerType);
-    return this.http.get(`${this.base}/registers/download-pack`, { params: p, responseType: 'blob' });
+    return this.http.post(`${this.base}/registers/download-pack`, { registerIds: q.registerIds }, { params: p, responseType: 'blob' });
   }
 
   approveRegister(id: string): Observable<any> {

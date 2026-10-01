@@ -384,6 +384,8 @@ export class PayrollRegistersService {
     if (q?.registerType)
       qb.andWhere('r.register_type = :rt', { rt: q.registerType });
 
+    if (q?.registerIds)
+      qb.andWhere('r.id IN (:...registerIds)', { registerIds: q.registerIds });
     qb.orderBy('r.created_at', 'DESC');
     return qb;
   }

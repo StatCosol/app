@@ -10,6 +10,8 @@ describe('register Act filtering', () => {
     ['SHOPS_2017', 'SHOPS_ESTABLISHMENTS'],
     ['FACTORIES_1948', 'FACTORIES_ACT'],
     ['CLRA_1970', 'CLRA'],
+    ['MULTI_ACT', 'MULTI_ACT'],
+    ['IR_2020', 'IR_2020'],
   ])('includes hashed %s records only in %s', (actCode, group) => {
     const row = { registerType: 'LEGAL_a1b2c3', legalIdentity: { actCode } };
     expect(matchesRegisterAct(row, group, new Set())).toBe(true);

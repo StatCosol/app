@@ -95,3 +95,50 @@ describe('Payroll register client and period refresh', () => {
     expect(c.genBranches.map(b => b.id)).toEqual(['new-branch']); expect(c.allRuns).toEqual([]);
   });
 });
+
+describe('Saved statutory format selection and transfer', () => {
+  const saved = [
+    { id: 'wages', registerType: 'LEGAL_wages', legalIdentity: { actCode: 'WAGES_2019', label: 'AP · Form IV · Wages' } },
+    { id: 'shops', registerType: 'LEGAL_shops', legalIdentity: { actCode: 'TS_SHOPS_1988', label: 'TS · Form II + III · Integrated register' } },
+    { id: 'accident', registerType: 'ACCIDENT_REGISTER' },
+  ] as any;
+  function setup() {
+    const downloadRegistersPack = vi.fn(() => of(new Blob(['zip'])));
+    const saveBlob = vi.fn();
+    const c = new PayrollRegistersComponent({} as any,
+      { listRegisters: () => of(saved), downloadRegistersPack, saveBlob } as any,
+      { markForCheck: vi.fn() } as any, {} as any, {} as any);
+    return { c, downloadRegistersPack };
+  }
+  it('offers exact saved legal forms and event registers in their Act menu', () => {
+    const { c } = setup(); c.savedRows = saved;
+    c.filterAct = 'SHOPS_ESTABLISHMENTS';
+    expect(c.filteredRegisterTypes).toContainEqual(expect.objectContaining({ value: 'LEGAL_shops', label: expect.stringContaining('II + III') }));
+    expect(c.filteredRegisterTypes.map(r => r.value)).not.toContain('LEGAL_wages');
+    c.filterAct = 'FACTORIES_ACT';
+    expect(c.filteredRegisterTypes.map(r => r.value)).toContain('ACCIDENT_REGISTER');
+  });
+  it('downloads only the displayed Act records in the chosen branch and month', () => {
+    const { c, downloadRegistersPack } = setup();
+    c.q.clientId = 'logiq'; c.genBranchId = 'brm'; c.selYear = 2026; c.selMonth = 3;
+    c.filterAct = 'SHOPS_ESTABLISHMENTS';
+    (c as any).fetchRegisters$().subscribe((rows: any) => c.rows = rows);
+    expect(c.rows.map(r => r.id)).toEqual(['shops']);
+    expect(c.savedRows).toHaveLength(3);
+    c.downloadAll();
+    expect(downloadRegistersPack).toHaveBeenCalledWith(expect.objectContaining({
+      clientId: 'logiq', branchId: 'brm', periodYear: 2026, periodMonth: 3, registerIds: ['shops'],
+    }));
+    c.filterRegisterType = 'LEGAL_shops';
+    (c as any).fetchRegisters$().subscribe((rows: any) => c.rows = rows);
+    expect(c.rows.map(r => r.id)).toEqual(['shops']); expect(c.savedRows).toHaveLength(3);
+  });
+  it('clears obsolete form filters after generation and blocks stale or oversized ZIP downloads', () => {
+    const { c, downloadRegistersPack } = setup();
+    c.rows = saved; c.loading = true; c.downloadAll(); expect(downloadRegistersPack).not.toHaveBeenCalled();
+    c.loading = false; c.rows = Array(301).fill(saved[0]); c.downloadAll();
+    expect(downloadRegistersPack).not.toHaveBeenCalled(); expect(c.error).toContain('300');
+    c.filterAct = 'OLD_ACT'; c.filterRegisterType = 'OLD_FORM'; c.onRegisterGenerated();
+    expect(c.filterAct).toBe(''); expect(c.filterRegisterType).toBe(''); expect(c.rows).toEqual([]);
+  });
+});

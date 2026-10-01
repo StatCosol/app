@@ -82,6 +82,26 @@ function annualLeave(): RegisterInput {
 }
 
 describe('Act-specific register preparation', () => {
+  it('prints the authorised branch address on individual forms and retains fractional attendance as numeric', async () => {
+    const input = validSlip();
+    input.rows[0].daysWorked = '29.5';
+    const address = 'Sample road '.repeat(30);
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(
+      (await registerWorkbook(id('apw', 'V'), input, {
+        establishment: 'Sample Branch',
+        address,
+      })) as any,
+    );
+    const sheet = book.getWorksheet('Form V')!;
+    expect(sheet.getCell('A3').text).toContain(address);
+    expect(sheet.getRow(3).height).toBeGreaterThan(32);
+    const field = definition(id('apw', 'V')).layout.fields.findIndex(
+      (f) => f.key === 'daysWorked',
+    );
+    expect(sheet.getCell(field + 7, 2).value).toBe(29.5);
+    expect(sheet.getCell(field + 7, 2).numFmt).toBe('0.00');
+  });
   it('reconciles annual leave credits, uses, encashment and worked-day totals', async () => {
     const input = annualLeave();
     expect(validateRegister(id('laosh', '19'), input)).toEqual([]);
@@ -417,6 +437,8 @@ describe('Register preparation branch and Act eligibility', () => {
           grossEarnings: '18000',
           totalDeductions: '2070',
           netPay: '15930',
+          pfEmployee: '1800.00',
+          esiEmployee: '120.00',
         },
       ]),
     };
@@ -519,6 +541,39 @@ describe('Register preparation branch and Act eligibility', () => {
       builder.prefill(id('apw', 'V'), branchId, run.id, 2026, 9, {} as any),
     ).rejects.toThrow(/does not belong/);
   });
+  it('fills approved component deductions for historical runs without employee-row copies', async () => {
+    employeeRepo.find.mockResolvedValueOnce([
+      {
+        id: 'EMP1',
+        employeeCode: 'E1',
+        employeeName: 'Sample',
+        daysPresent: 30,
+        otHours: 0,
+        grossEarnings: '18000',
+        totalDeductions: '2070',
+        netPay: '15930',
+        pfEmployee: null,
+        esiEmployee: null,
+      },
+    ]);
+    ds.query.mockResolvedValueOnce([decision]).mockResolvedValueOnce([
+      { employeeId: 'EMP1', code: 'PF_EMP', amount: '1800.00' },
+      { employeeId: 'EMP1', code: 'ESI_EMP', amount: '120.00' },
+    ]);
+    const result = await builder.prefill(
+      id('apw', 'V'),
+      branchId,
+      run.id,
+      2026,
+      9,
+      {} as any,
+    );
+    expect(result.rows[0]).toMatchObject({ pf: '1800.00', esi: '120.00' });
+    expect(ds.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('re.branch_id=$3'),
+      [run.id, run.clientId, branchId],
+    );
+  });
   it('requires confirmed Act applicability and the appropriate government', async () => {
     decision.applicable = false;
     await expect(
@@ -587,6 +642,32 @@ describe('Register preparation branch and Act eligibility', () => {
     expect(access.assertBranchAllowed).toHaveBeenCalled();
     expect(access.assertCcoBranchAllowed).toHaveBeenCalled();
     expect(result.rows[0].basicRate).toBeUndefined();
+    expect(result.rows[0]).toMatchObject({ pf: '1800.00', esi: '120.00' });
+  });
+  it('preserves zero statutory deductions and leaves unknown amounts for review', async () => {
+    employeeRepo.find.mockResolvedValueOnce([
+      {
+        employeeCode: 'E1',
+        employeeName: 'Sample',
+        daysPresent: 30,
+        otHours: 0,
+        grossEarnings: '18000',
+        totalDeductions: '0',
+        netPay: '18000',
+        pfEmployee: '0.00',
+        esiEmployee: null,
+      },
+    ]);
+    const result = await builder.prefill(
+      id('apw', 'V'),
+      branchId,
+      run.id,
+      2026,
+      9,
+      {} as any,
+    );
+    expect(result.rows[0].pf).toBe('0.00');
+    expect(result.rows[0]).not.toHaveProperty('esi');
   });
   it('routes master and muster forms to operational records, not payroll totals', async () => {
     ds.query.mockResolvedValueOnce([decision]).mockResolvedValueOnce([]);
@@ -708,6 +789,11 @@ describe('Register preparation branch and Act eligibility', () => {
     expect(records[0].approvalStatus).toBe('APPROVED');
     expect(records[1].approvalStatus).toBe('PENDING');
     expect(records[1].filePath).not.toBe(records[0].filePath);
+    branch.address = 'Corrected registered address';
+    await builder.generate(id('apw', 'V'), revised, { id: 'preparer' } as any);
+    expect(records).toHaveLength(3);
+    expect(records[2].fileName).not.toBe(records[1].fileName);
+    expect(records[0].approvalStatus).toBe('APPROVED');
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('pg_advisory_xact_lock'),
       expect.any(Array),
