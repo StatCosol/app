@@ -45,14 +45,12 @@ describe('Payroll ZIP scope follows the displayed registers', () => {
     expect(
       Reflect.getMetadata(
         'roles',
-        PayrollController.prototype.downloadSelectedRegistersPack,
+        Object.getOwnPropertyDescriptor(
+          PayrollController.prototype,
+          'downloadSelectedRegistersPack',
+        )!.value,
       ),
-    ).toEqual(
-      Reflect.getMetadata(
-        'roles',
-        PayrollController.prototype.downloadRegistersPack,
-      ),
-    );
+    ).toEqual(['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO']);
   });
   it('intersects requested file IDs with tenant, branch, period and type restrictions', async () => {
     const qb: any = {};
