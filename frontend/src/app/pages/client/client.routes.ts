@@ -174,7 +174,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'employees/:id', loadComponent: ClientEmployeeDetailComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees/:id/edit', loadComponent: ClientEmployeeFormComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'compliance/registrations', loadComponent: ClientRegistrationsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
-      { path: 'registers', loadComponent: ClientRegistersDownloadPageComponent, canActivate: [moduleAccessGuard('PAYROLL')] },
+      { path: 'registers', loadComponent: ClientRegistersDownloadPageComponent, canActivate: [moduleAccessGuard('PAYROLL'), branchPayrollAccessGuard] },
       { path: 'audits', loadComponent: ClientAuditsComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
       { path: 'audit-summaries', loadComponent: ClientAuditSummariesComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
       { path: 'renewals', loadComponent: ClientRenewalsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },

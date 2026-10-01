@@ -73,6 +73,10 @@ export class RegistersRecordEntity {
   @Column({ type: 'timestamptz', name: 'approved_at', nullable: true })
   approvedAt: Date | null;
 
+  // Time the current evidence file was written; creation history stays unchanged.
+  @Column({ type: 'timestamptz', name: 'generated_at', nullable: true })
+  generatedAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 }

@@ -617,7 +617,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
     if (route.startsWith('/branch/attendance/contractor')) return ['CONTRACTOR_ATTENDANCE'];
     if (route.startsWith('/branch/facedesk-enrollment')) return ['CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/branch/face-failures')) return ['CONTRACTOR_FACE_ATTENDANCE'];
-    if (route.startsWith('/branch/payroll') || route.startsWith('/branch/branch-ctc')) return ['PAYROLL'];
+    if (route.startsWith('/branch/payroll') || route.startsWith('/branch/branch-ctc') || route.startsWith('/branch/registers')) return ['PAYROLL'];
     if (route.startsWith('/branch/employees')) return ['EMPLOYEE_COMPLIANCE'];
     if (route.startsWith('/branch/attendance')) return ['EMPLOYEE_ATTENDANCE'];
     if (route.startsWith('/branch/appraisal') || route.startsWith('/branch/appraisals')) return ['APPRAISAL'];
@@ -772,6 +772,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         expanded: false,
         children: [
           { label: 'Payroll',       route: '/branch/payroll',     icon: this.svg('M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z') },
+          { label: 'Registers Download', route: '/branch/registers', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Branch CTC',    route: '/branch/branch-ctc',  icon: this.svg('M9 7h6m-5 4h4m-3 4h2M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z') },
         ],
       },

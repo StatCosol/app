@@ -98,6 +98,7 @@ jobs:
           node scripts/verify-audit-entry.cjs ./auditxpert-test-db.cjs
           node scripts/verify-auditor-dashboard.cjs ./auditxpert-test-db.cjs
           node scripts/verify-payslip-layout-db.cjs
+          node scripts/verify-register-generation-time-db.cjs
       - name: Helpdesk PostgreSQL regressions
         env:
           AUDITXPERT_TEST_PORT: 5432

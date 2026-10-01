@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -86,6 +87,7 @@ export class PayrollRegistersService {
       clientId: r.clientId,
       branchId: r.branchId ?? null,
       payrollInputId: r.payrollInputId ?? null,
+      sourceType: this.registerSource(r),
       category: r.category,
       title: r.title,
       registerType: r.registerType ?? null,
@@ -99,6 +101,7 @@ export class PayrollRegistersService {
       approvalStatus: r.approvalStatus,
       approvedAt: r.approvedAt ?? null,
       createdAt: r.createdAt,
+      generatedAt: r.generatedAt ?? r.createdAt,
       preparedByUserId: r.preparedByUserId ?? null,
       downloadUrl: `/api/client/payroll/registers-records/${r.id}/download`,
     }));
@@ -133,17 +136,14 @@ export class PayrollRegistersService {
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', (err) => {
-      throw err;
+      res.destroy(err);
     });
     archive.pipe(res);
 
     const used = new Set<string>();
     for (const row of available) {
       const period = `${row.periodYear || 'na'}-${row.periodMonth ? String(row.periodMonth).padStart(2, '0') : 'na'}`;
-      const source =
-        row.payrollInputId || registerIdentity(row.registerType)
-          ? 'generated'
-          : 'manual';
+      const source = this.registerSource(row).toLowerCase();
       const rawName = `${period}_${source}_${row.title || 'register'}_${row.fileName || row.id}`;
       const zipName = this.uniqueZipFileName(rawName, used);
       archive.file(row.filePath, { name: zipName });
@@ -399,7 +399,7 @@ export class PayrollRegistersService {
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', (err) => {
-      throw err;
+      res.destroy(err);
     });
     archive.pipe(res);
 
@@ -425,6 +425,7 @@ export class PayrollRegistersService {
       clientId: r.clientId,
       branchId: r.branchId ?? null,
       payrollInputId: r.payrollInputId ?? null,
+      sourceType: this.registerSource(r),
       category: r.category,
       title: r.title,
       registerType: r.registerType ?? null,
@@ -438,6 +439,7 @@ export class PayrollRegistersService {
       approvalStatus: r.approvalStatus,
       approvedAt: r.approvedAt ?? null,
       createdAt: r.createdAt,
+      generatedAt: r.generatedAt ?? r.createdAt,
       preparedByUserId: r.preparedByUserId ?? null,
       downloadUrl: `/api/payroll/registers-records/${r.id}/download`,
     }));
@@ -450,7 +452,7 @@ export class PayrollRegistersService {
     await this.scope.assertPayrollAccessToClient(user, row.clientId, {
       allowReadOnly: true,
     });
-    const buffer = fs.readFileSync(row.filePath);
+    const buffer = this.readRegisterFile(row.filePath);
     return { fileName: row.fileName, fileType: row.fileType, buffer };
   }
 
@@ -515,7 +517,7 @@ export class PayrollRegistersService {
       }
     }
     // Master users can download any status
-    const buffer = fs.readFileSync(row.filePath);
+    const buffer = this.readRegisterFile(row.filePath);
     return { fileName: row.fileName, fileType: row.fileType, buffer };
   }
 
@@ -638,6 +640,7 @@ export class PayrollRegistersService {
       approvalStatus: r.approvalStatus,
       approvedAt: r.approvedAt ?? null,
       createdAt: r.createdAt,
+      generatedAt: r.generatedAt ?? r.createdAt,
       downloadUrl: `/api/auditor/registers/${r.id}/download`,
     }));
   }
@@ -668,7 +671,30 @@ export class PayrollRegistersService {
       throw new ForbiddenException('No active payroll audit for this client');
     }
 
-    const buffer = fs.readFileSync(row.filePath);
+    const buffer = this.readRegisterFile(row.filePath);
     return { fileName: row.fileName, fileType: row.fileType, buffer };
+  }
+
+  private registerSource(row: RegistersRecordEntity): 'GENERATED' | 'MANUAL' {
+    return row.payrollInputId || row.registerType?.startsWith('LEGAL_')
+      ? 'GENERATED'
+      : 'MANUAL';
+  }
+
+  private readRegisterFile(filePath: string): Buffer {
+    try {
+      return fs.readFileSync(filePath);
+    } catch (error) {
+      if (
+        ['ENOENT', 'ENOTDIR'].includes(
+          (error as NodeJS.ErrnoException).code || '',
+        )
+      ) {
+        throw new NotFoundException(
+          'Register file is missing. Regenerate it or upload the file again.',
+        );
+      }
+      throw error;
+    }
   }
 }

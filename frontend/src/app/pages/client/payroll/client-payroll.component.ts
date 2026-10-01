@@ -1,4 +1,4 @@
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -102,6 +102,7 @@ interface CycleHistoryRow {
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     PageHeaderComponent,
     ActionButtonComponent,
     StatusBadgeComponent,
@@ -211,7 +212,12 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
     private readonly toast: ToastService,
     private readonly protectedFiles: ProtectedFileService,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
   ) {}
+
+  get registersRoute(): string {
+    return this.router.url.startsWith('/branch') ? '/branch/registers' : '/client/registers';
+  }
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {

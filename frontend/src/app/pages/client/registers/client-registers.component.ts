@@ -41,6 +41,7 @@ type RegisterRow = {
   approvalStatus: string;
   approvedAt: string | null;
   createdAt: string | null;
+  generatedAt: string | null;
   sourceType: SourceType;
 };
 
@@ -179,7 +180,7 @@ type RegisterRow = {
                   </span>
                 </td>
                 <td><ui-status-badge [status]="row.approvalStatus || 'PENDING'"></ui-status-badge></td>
-                <td>{{ row.createdAt | date:'dd MMM yyyy, hh:mm a' }}</td>
+                <td>{{ row.generatedAt | date:'dd MMM yyyy, hh:mm a' }}</td>
                 <td>
                   <div class="meta">{{ formatFileSize(row.fileSize) }} | {{ row.fileType || 'unknown' }}</div>
                   <div class="row-actions">
@@ -219,7 +220,7 @@ type RegisterRow = {
           <span>Period: {{ periodLabel(previewRow) }}</span>
           <span>Status: {{ previewRow.approvalStatus || 'PENDING' }}</span>
           <span>Size: {{ formatFileSize(previewRow.fileSize) }}</span>
-          <span>Generated: {{ previewRow.createdAt | date:'dd MMM yyyy, hh:mm a' }}</span>
+          <span>Generated: {{ previewRow.generatedAt | date:'dd MMM yyyy, hh:mm a' }}</span>
         </div>
 }
         
@@ -380,7 +381,8 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
           approvalStatus: String(r?.approvalStatus || 'PENDING'),
           approvedAt: r?.approvedAt || null,
           createdAt: r?.createdAt || null,
-          sourceType: r?.payrollInputId ? 'GENERATED' : 'MANUAL',
+          generatedAt: r?.generatedAt || r?.createdAt || null,
+          sourceType: r?.sourceType || (r?.legalIdentity || r?.payrollInputId ? 'GENERATED' : 'MANUAL'),
         }));
       }),
       finalize(() => {
