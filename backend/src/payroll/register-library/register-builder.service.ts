@@ -136,7 +136,7 @@ export class RegisterBuilderService {
        JOIN unit_compliance_master cm ON cm.id=uc.compliance_id AND cm.is_active=true
        JOIN unit_facts uf ON uf.branch_id=uc.branch_id
        WHERE uc.branch_id=$1 AND cm.code=$2`,
-      [branchId, form.actCode],
+      [branchId, form.applicabilityCode || form.actCode],
     );
     if (decisions.length !== 1 || decisions[0].applicable !== true) {
       throw new RegisterIneligibleException(
@@ -171,6 +171,14 @@ export class RegisterBuilderService {
         'Set the appropriate government to ' +
           requiredGovernment +
           ' in branch applicability facts, then recompute and review applicability.',
+      );
+    }
+    if (
+      layout.establishmentRequirement === 'FACTORY' &&
+      !['FACTORY', 'BOTH'].includes(decision.establishmentType)
+    ) {
+      throw new RegisterIneligibleException(
+        'This integrated register requires a factory. Review the branch establishment facts.',
       );
     }
     if (

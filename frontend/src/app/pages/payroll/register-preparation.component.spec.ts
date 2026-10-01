@@ -21,6 +21,29 @@ describe('Register source selection and cancellation', () => {
     component.ngOnDestroy();
     http.verify();
   });
+  it('prepares both factory integrated parts with explicit site capacity', () => {
+    component.formId = 'ts--factories-1948--ts-integrated-2019--ii---iii--tsi';
+    component.ngOnChanges();
+    http.expectOne(r => r.url.endsWith('/definition')).flush({
+      form: { actCode: 'FACTORIES_1948', sourceId: 'tsi' },
+      layout: { fields: [], baseFormNumber: 'STATE', manualOnly: true, capacityRequired: true,
+        particulars: [{ key: 'establishmentName', label: 'Name', type: 'text', required: true }] },
+    });
+    http.expectOne(r => r.url.endsWith('/eligibility')).flush({ eligible: true });
+    expect(component.supportsContractor).toBe(true);
+    expect(component.canPrefill).toBe(false);
+    component.generate();
+    http.expectNone(r => r.url.endsWith('/generate'));
+    expect(component.error).toContain('company capacity');
+    component.actingCapacity = 'DIRECT_EMPLOYER';
+    component.particulars = { establishmentName: 'Factory site' };
+    component.rows = [{ name: 'Worker' }];
+    component.generate();
+    const request = http.expectOne(r => r.url.includes('ts--factories-1948') && r.url.endsWith('/generate'));
+    expect(request.request.body.particulars.establishmentName).toBe('Factory site');
+    expect(request.request.body.actingCapacity).toBe('DIRECT_EMPLOYER');
+    request.flush(new Blob(['{"message":"Complete the register details"}'], { type: 'application/json' }), { status: 400, statusText: 'Bad Request' });
+  });
   it('shows an ineligible result and prevents preparation requests', () => {
     component.ngOnChanges();
     http.expectOne((r) => r.url.endsWith('/definition'))

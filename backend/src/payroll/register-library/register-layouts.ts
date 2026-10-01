@@ -26,7 +26,7 @@ export interface RegisterLayout {
   omitPrefillFields?: string[];
   periodKind?: 'ANNUAL';
   manualOnly?: boolean;
-  establishmentRequirement?: 'FACTORY_OR_CONSTRUCTION';
+  establishmentRequirement?: 'FACTORY' | 'FACTORY_OR_CONSTRUCTION';
   individual: boolean;
   payrollPrefill: boolean;
 }

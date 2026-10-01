@@ -13,14 +13,16 @@ const { RegistersRecordEntity } = require('../dist/src/payroll/entities/register
 const { REGISTER_FORMS } = require('../dist/src/payroll/register-library/register-catalogue');
 const { definition } = require('../dist/src/payroll/register-library/register-workbook');
 
-module.exports = async function verifyRegisterRoundtrip(ds) {
+module.exports = async function verifyRegisterRoundtrip(ds, factory = false) {
   const previousDirectory = process.cwd();
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'register-roundtrip-'));
   try {
     process.chdir(temporary);
     await ds.query('CREATE TABLE IF NOT EXISTS register_preparation_scopes (register_id uuid PRIMARY KEY, contractor_user_id uuid)');
     const clientId = randomUUID(), branchId = randomUUID();
-    const form = REGISTER_FORMS.find(f => f.sourceId === 'apw' && f.formNumber === 'V');
+    const form = REGISTER_FORMS.find(f => factory
+      ? f.id === 'ts--factories-1948--ts-integrated-2019--ii---iii--tsi'
+      : f.sourceId === 'apw' && f.formNumber === 'V');
     const input = {
       branchId, year: 2026, month: 9, employer: 'Fictional employer', owner: 'Fictional owner',
       employerPan: 'ABCDE1234F', registrationNumber: 'TEST-LIN', issueDate: '2026-09-30',
@@ -30,6 +32,16 @@ module.exports = async function verifyRegisterRoundtrip(ds) {
         overtime: '0', gross: '18000', deductions: '2070', pf: '1800', esi: '120',
         otherDeductions: '150', net: '15930' }],
     };
+    if (factory) {
+      const layout = definition(form.id).layout;
+      const values = fields => Object.fromEntries(fields.filter(f => f.required).map(f =>
+        [f.key, ['number', 'money'].includes(f.type) ? 0 : 'Reviewed fictional evidence']));
+      input.actingCapacity = 'DIRECT_EMPLOYER';
+      input.supportingReference = 'Reviewed source records and period applicability';
+      input.particulars = { ...values(layout.particulars), regularWorkers: 1, categoryPermanentMale: 1,
+        categoryTotalMale: 1, classSkilledMale: 1, classTotalMale: 1 };
+      input.rows = [{ ...values(layout.fields), serial: 1, name: 'Factory worker', sex: 'M', gross: 1000, net: 1000 }];
+    }
     const preparer = { id: randomUUID(), roleCode: 'PAYROLL' };
     const reviewer = { id: randomUUID(), roleCode: 'ADMIN' };
     const master = { id: randomUUID(), roleCode: 'CLIENT', userType: 'MASTER', clientId, branchIds: [branchId] };
@@ -37,7 +49,7 @@ module.exports = async function verifyRegisterRoundtrip(ds) {
     const scope = { branchId, periodYear: 2026, periodMonth: 9, sourceType: 'GENERATED', category: 'REGISTER' };
     const builder = new RegisterBuilderService(ds, {});
     builder.context = async () => ({
-      ...definition(form.id), branch: { id: branchId, clientId, stateCode: 'AP', branchName: 'Fictional branch', address: 'Fictional road' },
+      ...definition(form.id), branch: { id: branchId, clientId, stateCode: factory ? 'TS' : 'AP', branchName: 'Fictional branch', address: 'Fictional road' },
       applicabilityEvidence: [{ applicable: true, computedAt: '2026-09-01T00:00:00Z' }],
     });
     const repo = ds.getRepository(RegistersRecordEntity);
@@ -51,7 +63,12 @@ module.exports = async function verifyRegisterRoundtrip(ds) {
     assert.deepEqual(fs.readFileSync(original.filePath), generated.buffer);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(generated.buffer);
-    assert.ok(JSON.stringify(workbook.getWorksheet('Form V').getSheetValues()).includes(input.rows[0].bankAccount));
+    if (factory) {
+      assert.deepEqual(workbook.worksheets.map(s => s.name), ['Identity and review', 'Form II', 'Form III']);
+      assert.equal(workbook.getWorksheet('Form III').getCell('B6').value, 'Factory worker');
+    } else {
+      assert.ok(JSON.stringify(workbook.getWorksheet('Form V').getSheetValues()).includes(input.rows[0].bankAccount));
+    }
     assert.deepEqual((await service.clientListRegistersRecords(master, scope)).map(r => r.id), [generated.recordId]);
     assert.deepEqual(await service.clientListRegistersRecords(branch, scope), []);
     await service.approveRegister(reviewer, generated.recordId, await reviewVersion(generated.recordId));
@@ -88,11 +105,12 @@ module.exports = async function verifyRegisterRoundtrip(ds) {
     assert.equal(replacement.approvedAt, null);
     assert.deepEqual(await service.clientListRegistersRecords(branch, scope), []);
     assert.equal(await repo.countBy({ clientId }), 1);
-    console.log('PASS: generated XLSX persists, appears in master, transfers to branch only after approval, downloads byte-for-byte in ZIP, and missing-file repair resets review while preserving identity');
+    console.log('PASS ' + form.id + ': generated XLSX persists, appears in master, transfers to branch only after approval, downloads byte-for-byte in ZIP, and missing-file repair resets review while preserving identity');
   } finally {
     process.chdir(previousDirectory);
     const resolved = path.resolve(temporary);
     assert.ok(resolved.startsWith(path.resolve(os.tmpdir()) + path.sep + 'register-roundtrip-'));
     fs.rmSync(resolved, { recursive: true, force: true });
   }
+  if (!factory) await verifyRegisterRoundtrip(ds, true);
 };

@@ -203,7 +203,7 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Telangana',
     sourceUrl:
       'https://ipass.telangana.gov.in/viewpdf.aspx?filepathnew=D%3A%2FTS-iPASSFinal%2Fdocs%2F2019LETF_MS6+%282%29.PDF',
-    note: 'Integrated Forms II and III support the separate Shops Act binding, with explicit site capacity and both parts required. Other Act/Code bindings require their own applicability and transition review; this does not suppress contract-labour records.',
+    note: 'Integrated Forms II and III have separate Shops and Factories entries. Choose the entry matching the branch applicability; both parts and reviewed site capacity are required. Confirm period-specific rules and Code transition before authentication. Other Act/Code and contract-labour obligations remain separate.',
     coverage: 'PARTIAL',
     reviewedOn: '2026-09-14',
   },
