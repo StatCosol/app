@@ -21,6 +21,40 @@ describe('Register source selection and cancellation', () => {
     component.ngOnDestroy();
     http.verify();
   });
+  it('shows an ineligible result and prevents preparation requests', () => {
+    component.ngOnChanges();
+    http.expectOne((r) => r.url.endsWith('/definition'))
+      .flush({ layout: { fields: [], baseFormNumber: 'I', payrollPrefill: true } });
+    const reason = 'Confirm TS_SHOPS_1988 applicability before generating registers.';
+    http.expectOne((r) => r.url.endsWith('/eligibility'))
+      .flush({ eligible: false, reason });
+    expect(component.eligible).toBe(false);
+    expect(component.eligibilityReason).toBe(reason);
+    component.notice = 'Blank format downloaded.';
+    expect(component.eligibilityReason).toBe(reason);
+    expect(component.error).toBe('');
+    component.generate();
+    component.prefill();
+    http.expectNone((r) => /\/(generate|prefill)$/.test(r.url));
+    component.ngOnChanges();
+    expect(component.eligibilityReason).toBe('');
+    http.expectOne((r) => r.url.endsWith('/definition'))
+      .flush({ layout: { fields: [], baseFormNumber: 'I' } });
+    http.expectOne((r) => r.url.endsWith('/eligibility')).flush({ eligible: true });
+    expect(component.eligible).toBe(true);
+    expect(component.eligibilityReason).toBe('');
+  });
+
+  it('keeps transport and access errors visible without enabling generation', () => {
+    component.ngOnChanges();
+    http.expectOne((r) => r.url.endsWith('/definition'))
+      .flush({ layout: { fields: [], baseFormNumber: 'I' } });
+    http.expectOne((r) => r.url.endsWith('/eligibility'))
+      .flush({ message: 'Access denied' }, { status: 403, statusText: 'Forbidden' });
+    expect(component.eligible).toBe(false);
+    expect(component.error).toBe('Access denied');
+  });
+
   it('keeps client-as-contractor capacity separate from the vendor selector and resets site particulars', () => {
     component.ngOnChanges();
     http
@@ -126,6 +160,7 @@ describe('Register source selection and cancellation', () => {
     expect(component.rows).toEqual([{ employee_1: 'E1' }]);
   });
   it('cancels an old source request and clears its rows when the branch changes', () => {
+    component.eligible = true;
     component.prefill();
     const old = http.expectOne((r) => r.url.endsWith('/prefill'));
     component.branchId = 'new-branch';
@@ -139,6 +174,7 @@ describe('Register source selection and cancellation', () => {
     expect(component.prefillLabel).toContain('daily attendance');
   });
   it('cancels stale vendor data when the selected contractor changes', () => {
+    component.eligible = true;
     component.recordSource = 'CONTRACTOR';
     component.changeSource();
     http
