@@ -13,11 +13,7 @@ export async function integratedRegisterDraft(
   run: PayrollRunEntity,
   employees: PayrollRunEmployeeEntity[],
 ) {
-  const client = await ds.getRepository(ClientEntity).findOneBy({
-    id: branch.clientId,
-    isActive: true,
-    isDeleted: false,
-  });
+  const defaults = await integratedRegisterDefaults(ds, branch);
   const profiles = await ds.query(
     `SELECT re.id AS "runEmployeeId", e.date_of_birth::text AS "birthDate",
             e.gender, e.father_name AS "relativeName"
@@ -51,20 +47,9 @@ export async function integratedRegisterDraft(
       }).filter(([, value]) => value != null && value !== ''),
     );
   });
-  const present = (values: Record<string, any>) =>
-    Object.fromEntries(
-      Object.entries(values).filter(
-        ([, value]) => value != null && value !== '',
-      ),
-    );
   return {
     rows,
-    metadata: present({ employer: client?.clientName }),
-    particulars: present({
-      establishmentName: branch.branchName,
-      establishmentAddress: branch.address,
-      location: branch.address,
-    }),
+    ...defaults,
     sourceRunId: run.id,
     sourceApprovedAt: run.approvedAt,
     sourceReference:
@@ -79,5 +64,30 @@ export async function integratedRegisterDraft(
       'Loaded ' +
       rows.length +
       ' workers from approved payroll. Review current profile details for this historical period. Complete the remaining establishment, leave, wage-rate, deduction and event evidence before generation. Headcounts and missing events are not inferred from this payroll batch.',
+  };
+}
+
+export async function integratedRegisterDefaults(
+  ds: DataSource,
+  branch: BranchEntity,
+) {
+  const client = await ds.getRepository(ClientEntity).findOneBy({
+    id: branch.clientId,
+    isActive: true,
+    isDeleted: false,
+  });
+  const present = (values: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(values).filter(
+        ([, value]) => value != null && value !== '',
+      ),
+    );
+  return {
+    metadata: present({ employer: client?.clientName }),
+    particulars: present({
+      establishmentName: branch.branchName,
+      establishmentAddress: branch.address,
+      location: branch.address,
+    }),
   };
 }

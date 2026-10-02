@@ -5,7 +5,10 @@ import {
   assertRegisterContractor,
   contractorRegisterSource,
 } from './register-contractor-source';
-import { integratedRegisterDraft } from './register-integrated-draft';
+import {
+  integratedRegisterDraft,
+  integratedRegisterDefaults,
+} from './register-integrated-draft';
 import { registerOperationalSource } from './register-operational-source';
 import {
   BadRequestException,
@@ -272,18 +275,23 @@ export class RegisterBuilderService {
         month,
       );
     }
-    if (contractorId)
-      return scopeRows(
-        await contractorRegisterSource(
-          this.ds,
-          context.layout,
-          context.branch.clientId,
-          branchId,
-          contractorId,
-          year,
-          month,
-        ),
+    if (contractorId) {
+      const source = await contractorRegisterSource(
+        this.ds,
+        context.layout,
+        context.branch.clientId,
+        branchId,
+        contractorId,
+        year,
+        month,
       );
+      return scopeRows({
+        ...(context.layout.payrollDraftPrefill
+          ? await integratedRegisterDefaults(this.ds, context.branch)
+          : {}),
+        ...source,
+      });
+    }
     if (!context.layout.payrollPrefill && !context.layout.payrollDraftPrefill)
       return scopeRows(
         await registerOperationalSource(

@@ -163,6 +163,53 @@ describe('Integrated register HTTP preparation', () => {
       expect(query).toHaveBeenCalledTimes(1);
     },
   );
+  it('loads the same employer and branch defaults for assigned contractor drafts', async () => {
+    const contractorId = '11111111-1111-4111-8111-111111111111';
+    query.mockImplementation(async (sql: string) => {
+      if (sql.includes('unit_applicable_compliance'))
+        return [
+          {
+            applicable: true,
+            computedAt: '2026-10-02',
+            factsUpdatedAt: '2026-10-01',
+            government: 'STATE',
+            factState: 'TS',
+            establishmentType: 'FACTORY',
+          },
+        ];
+      if (sql.includes('branch_contractor'))
+        return [{ id: contractorId, name: 'Assigned vendor' }];
+      if (sql.includes('contractor_payroll_versions'))
+        return [
+          {
+            id: 'published',
+            rows_snapshot: [
+              {
+                employeeCode: 'C1',
+                employeeName: 'Contract worker',
+                matchStatus: 'MATCHED',
+                totalEarnings: 1000,
+                netSalary: 900,
+                pfDeduction: 100,
+                esiDeduction: 0,
+              },
+            ],
+          },
+        ];
+      throw Error('Unexpected employee profile lookup for contractor');
+    });
+    const result = await request(app.getHttpServer())
+      .get(url() + '/prefill')
+      .query({ branchId, contractorId, year: 2026, month: 3 })
+      .expect(200);
+    expect(result.body.metadata.employer).toBe('Test Employer');
+    expect(result.body.particulars.establishmentAddress).toBe(
+      'Test site address',
+    );
+    expect(result.body.rows[0].name).toBe('Contract worker — C1');
+    expect(result.body.sourceReference).toBe('Published payroll published');
+    expect(employeeRepo.find).not.toHaveBeenCalled();
+  });
   it('retains every missing-field error through the production exception filter', async () => {
     const response = await request(app.getHttpServer())
       .post(url() + '/generate')
