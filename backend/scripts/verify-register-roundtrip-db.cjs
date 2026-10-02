@@ -54,6 +54,7 @@ module.exports = async function verifyRegisterRoundtrip(ds, factory = false, sel
       if(layout.fields.some(f=>f.key==='serial'))row.serial=1;
       if(layout.fields.some(f=>f.key==='sex'))row.sex='M';
       for(let d=1;d<=30;d++)if(layout.fields.some(f=>f.key==='day'+d+'Status'))row['day'+d+'Status']=['tns','tn'].includes(form.sourceId)?'LOP':'A';
+      if('day1Status' in row && ['tns','tn'].includes(form.sourceId)) row.lopDays=30;
       input.rows=[row];
     }
     const preparer = { id: randomUUID(), roleCode: 'PAYROLL' };

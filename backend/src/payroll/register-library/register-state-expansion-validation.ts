@@ -304,6 +304,25 @@ export function validateExpandedState(
         if (day > maxDays && (v || shift))
           fail('day ' + day + ' does not exist in this month');
       }
+      if (source === 'tns' || source === 'tn') {
+        const entries = Array.from({ length: maxDays }, (_, day) =>
+          String(row['day' + (day + 1) + 'Status'] ?? '').trim(),
+        );
+        const hours = entries
+          .filter((v) => /^\d+(\.\d{1,2})?$/.test(v))
+          .map(Number);
+        const totalHours = hours.reduce((n, v) => n + Math.round(v * 100), 0);
+        if (
+          Math.abs(totalHours - Math.round(Number(row.hoursWorked) * 100)) > 1
+        )
+          fail('total hours worked does not reconcile with daily hours');
+        if (Number(row.daysWorked) !== hours.filter((v) => v > 0).length)
+          fail(
+            'total days worked does not reconcile with days containing work hours',
+          );
+        if (Number(row.lopDays) !== entries.filter((v) => v === 'LOP').length)
+          fail('loss-of-pay days does not reconcile with daily LOP entries');
+      }
       for (const k of ['daysWorked', 'payableDays', 'lopDays'])
         if (Number(row[k]) > maxDays) fail(k + ' exceeds calendar days');
     }

@@ -43,6 +43,8 @@ function fixture(id: string): RegisterInput {
       row['day' + d + 'Status'] = ['tns', 'tn'].includes(findSource(id))
         ? 'LOP'
         : 'A';
+  if ('day1Status' in row && ['tns', 'tn'].includes(findSource(id)))
+    row.lopDays = 31;
   return {
     branchId: '94ad1c42-ea05-460e-b494-0a7e634de127',
     year: 2026,
@@ -171,6 +173,9 @@ describe('Seven-state register expansion', () => {
       const id = find(source, number).id,
         input = fixture(id);
       input.rows[0].day1Status = '8.5';
+      input.rows[0].hoursWorked = 8.5;
+      input.rows[0].daysWorked = 1;
+      input.rows[0].lopDays = 30;
       if (source === 'tn') {
         expect(validateRegister(id, input).join(' ')).toContain('actual shift');
         input.rows[0].day1Shift = 'First shift';
@@ -196,6 +201,30 @@ describe('Seven-state register expansion', () => {
     expect(validateRegister(id, input).join(' ')).toContain(
       'after the issue date',
     );
+  });
+  it('reconciles Tamil Nadu hours and work/LOP days with daily evidence', () => {
+    for (const [source, number] of [
+      ['tns', 'V'],
+      ['tn', '25'],
+    ]) {
+      const id = find(source, number).id,
+        input = fixture(id);
+      input.rows[0].day1Status = '8';
+      if (source === 'tn') input.rows[0].day1Shift = 'First';
+      expect(validateRegister(id, input).join(' ')).toContain(
+        'total hours worked does not reconcile',
+      );
+      input.rows[0].hoursWorked = 8;
+      expect(validateRegister(id, input).join(' ')).toContain(
+        'total days worked does not reconcile',
+      );
+      input.rows[0].daysWorked = 1;
+      expect(validateRegister(id, input).join(' ')).toContain(
+        'loss-of-pay days does not reconcile',
+      );
+      input.rows[0].lopDays = 30;
+      expect(validateRegister(id, input)).toEqual([]);
+    }
   });
   it('reconciles Haryana monthly overtime with daily entries', () => {
     const id = find('hrs', 'C').id,
@@ -255,6 +284,16 @@ describe('Seven-state register expansion', () => {
       await expect(
         builder.context(id, branch.id, 2026, 3, {} as any),
       ).resolves.toBeDefined();
+      if (form.sourceId === 'tn') {
+        expect(form.effectiveFrom).toBe('2021-03-24');
+        for (const month of [2, 3])
+          await expect(
+            builder.context(id, branch.id, 2021, month, {} as any),
+          ).rejects.toThrow(/full selected month/);
+        await expect(
+          builder.context(id, branch.id, 2021, 4, {} as any),
+        ).resolves.toBeDefined();
+      }
       expect(query).toHaveBeenCalledWith(expect.any(String), [
         branch.id,
         form.applicabilityCode || form.actCode,

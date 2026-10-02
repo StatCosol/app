@@ -2032,7 +2032,7 @@ export const REGISTER_FORMS: readonly RegisterForm[] = [
     notes:
       'Factory binding only. Retain all parts and establishment details. Complete from reviewed HR, attendance and payment evidence; confirm rules, exemptions and Code transition for the selected period. No automatic NIL declarations or signatures.',
     verifiedOn: '2026-09-14',
-    effectiveFrom: null,
+    effectiveFrom: '2021-03-24',
     applicability: 'REVIEW_REQUIRED',
     generation: 'REFERENCE_ONLY',
   },
@@ -2053,7 +2053,7 @@ export const REGISTER_FORMS: readonly RegisterForm[] = [
     notes:
       'Factory binding only. Retain all parts and establishment details. Complete from reviewed HR, attendance and payment evidence; confirm rules, exemptions and Code transition for the selected period. No automatic NIL declarations or signatures.',
     verifiedOn: '2026-09-14',
-    effectiveFrom: null,
+    effectiveFrom: '2021-03-24',
     applicability: 'REVIEW_REQUIRED',
     generation: 'REFERENCE_ONLY',
   },
@@ -2074,7 +2074,7 @@ export const REGISTER_FORMS: readonly RegisterForm[] = [
     notes:
       'Factory binding only. Retain all parts and establishment details. Complete from reviewed HR, attendance and payment evidence; confirm rules, exemptions and Code transition for the selected period. No automatic NIL declarations or signatures.',
     verifiedOn: '2026-09-14',
-    effectiveFrom: null,
+    effectiveFrom: '2021-03-24',
     applicability: 'REVIEW_REQUIRED',
     generation: 'REFERENCE_ONLY',
   },
