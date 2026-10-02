@@ -10,7 +10,8 @@ export const LEGAL_WAGE_REGISTER_TYPES = REGISTER_FORMS.filter((form) => {
   const layout = registerLayout(form.sourceId, form.formNumber, form.actCode);
   return (
     layout &&
-    (layout.payrollPrefill ||
+    (layout.containsWages ||
+      layout.payrollPrefill ||
       layout.fields.some((field) => ['gross', 'net'].includes(field.key)))
   );
 }).map((form) => legalRegisterType(form.id));

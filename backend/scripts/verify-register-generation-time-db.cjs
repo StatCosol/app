@@ -19,6 +19,16 @@ async function main() {
       database: db.name, synchronize: true, entities: [RegistersRecordEntity],
     });
     await ds.initialize();
+    // The new state bindings must be selectable for review, never enabled by the package.
+    await ds.query(`CREATE TABLE unit_compliance_master (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),code text UNIQUE,name text,category text,state_code text,frequency text,applies_to text,is_active boolean);
+      CREATE TABLE compliance_package (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),code text);
+      CREATE TABLE package_compliance (package_id uuid,compliance_id uuid,included_by_default boolean DEFAULT true,PRIMARY KEY(package_id,compliance_id));
+      INSERT INTO compliance_package(code) VALUES ('DEFAULT_INDIA');`);
+    const stateMigration=readFileSync(path.join(__dirname,'../migrations/20261002_seven_state_register_applicability.sql'),'utf8');
+    await ds.query(stateMigration);await ds.query(stateMigration);
+    assert.equal(Number((await ds.query('SELECT count(*) AS n FROM unit_compliance_master'))[0].n),5);
+    assert.equal(Number((await ds.query('SELECT count(*) AS n FROM package_compliance WHERE included_by_default'))[0].n),0);
+    console.log('PASS: seven-state applicability migration is idempotent and requires review');
     // Model the existing production schema, with an approved historical record.
     await ds.query('ALTER TABLE registers_records DROP COLUMN generated_at');
     const id = randomUUID();

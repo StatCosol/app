@@ -11,16 +11,17 @@ const { RegisterBuilderService } = require('../dist/src/payroll/register-library
 const { PayrollRegistersService } = require('../dist/src/payroll/payroll-registers.service');
 const { RegistersRecordEntity } = require('../dist/src/payroll/entities/registers-record.entity');
 const { REGISTER_FORMS } = require('../dist/src/payroll/register-library/register-catalogue');
+const { LEGAL_WAGE_REGISTER_TYPES, legalRegisterType } = require('../dist/src/payroll/register-library/register-identity');
 const { definition } = require('../dist/src/payroll/register-library/register-workbook');
 
-module.exports = async function verifyRegisterRoundtrip(ds, factory = false) {
+module.exports = async function verifyRegisterRoundtrip(ds, factory = false, selectedForm = null) {
   const previousDirectory = process.cwd();
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'register-roundtrip-'));
   try {
     process.chdir(temporary);
     await ds.query('CREATE TABLE IF NOT EXISTS register_preparation_scopes (register_id uuid PRIMARY KEY, contractor_user_id uuid)');
     const clientId = randomUUID(), branchId = randomUUID();
-    const form = REGISTER_FORMS.find(f => factory
+    const form = selectedForm || REGISTER_FORMS.find(f => factory
       ? f.id === 'ts--factories-1948--ts-integrated-2019--ii---iii--tsi'
       : f.sourceId === 'apw' && f.formNumber === 'V');
     const input = {
@@ -42,6 +43,19 @@ module.exports = async function verifyRegisterRoundtrip(ds, factory = false) {
         categoryTotalMale: 1, classSkilledMale: 1, classTotalMale: 1 };
       input.rows = [{ ...values(layout.fields), serial: 1, name: 'Factory worker', sex: 'M', gross: 1000, net: 1000 }];
     }
+    if(selectedForm) {
+      const layout=definition(form.id).layout;
+      const values=fields=>Object.fromEntries(fields.filter(f=>f.required).map(f=>[f.key,
+        f.type==='date'?'2026-09-01':['number','money'].includes(f.type)?0:'Reviewed fictional evidence']));
+      input.supportingReference='Reviewed fictional state register evidence';
+      input.particulars=values(layout.particulars);
+      const row=values(layout.fields);
+      if(layout.fields.some(f=>f.key==='leaveType'))row.leaveType='PRIVILEGE';
+      if(layout.fields.some(f=>f.key==='serial'))row.serial=1;
+      if(layout.fields.some(f=>f.key==='sex'))row.sex='M';
+      for(let d=1;d<=30;d++)if(layout.fields.some(f=>f.key==='day'+d+'Status'))row['day'+d+'Status']=['tns','tn'].includes(form.sourceId)?'LOP':'A';
+      input.rows=[row];
+    }
     const preparer = { id: randomUUID(), roleCode: 'PAYROLL' };
     const reviewer = { id: randomUUID(), roleCode: 'ADMIN' };
     const master = { id: randomUUID(), roleCode: 'CLIENT', userType: 'MASTER', clientId, branchIds: [branchId] };
@@ -49,7 +63,7 @@ module.exports = async function verifyRegisterRoundtrip(ds, factory = false) {
     const scope = { branchId, periodYear: 2026, periodMonth: 9, sourceType: 'GENERATED', category: 'REGISTER' };
     const builder = new RegisterBuilderService(ds, {});
     builder.context = async () => ({
-      ...definition(form.id), branch: { id: branchId, clientId, stateCode: factory ? 'TS' : 'AP', branchName: 'Fictional branch', address: 'Fictional road' },
+      ...definition(form.id), branch: { id: branchId, clientId, stateCode: form.jurisdiction, branchName: 'Fictional branch', address: 'Fictional road' },
       applicabilityEvidence: [{ applicable: true, computedAt: '2026-09-01T00:00:00Z' }],
     });
     const repo = ds.getRepository(RegistersRecordEntity);
@@ -63,7 +77,10 @@ module.exports = async function verifyRegisterRoundtrip(ds, factory = false) {
     assert.deepEqual(fs.readFileSync(original.filePath), generated.buffer);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(generated.buffer);
-    if (factory) {
+    if(selectedForm) {
+      assert.ok(workbook.getWorksheet('Establishment details'));
+      assert.ok(JSON.stringify(workbook.worksheets.map(s=>s.getSheetValues())).includes(form.actCode));
+    } else if (factory) {
       assert.deepEqual(workbook.worksheets.map(s => s.name), ['Identity and review', 'Form II', 'Form III']);
       assert.equal(workbook.getWorksheet('Form III').getCell('B6').value, 'Factory worker');
     } else {
@@ -88,9 +105,11 @@ module.exports = async function verifyRegisterRoundtrip(ds, factory = false) {
     const restricted = new PayrollRegistersService(repo, {}, {}, {}, {
       findOne: async () => ({ settings: { allowBranchPayrollAccess: true, allowBranchWageRegisters: false, allowBranchSalaryRegisters: true } }),
     }, {});
+    if (LEGAL_WAGE_REGISTER_TYPES.includes(legalRegisterType(form.id))) {
     assert.deepEqual(await restricted.clientListRegistersRecords(branch, scope), []);
     await assert.rejects(restricted.downloadRegisterForClient(branch, original.id), /restricted/);
     await assert.rejects(restricted.streamClientRegistersPack(branch, { ...scope, registerIds: [original.id] }, {}), /No registers/);
+    }
     const oldGenerationTime = new Date('2026-09-01T00:00:00Z');
     await repo.update(original.id, { generatedAt: oldGenerationTime });
     fs.unlinkSync(original.filePath);
@@ -112,5 +131,9 @@ module.exports = async function verifyRegisterRoundtrip(ds, factory = false) {
     assert.ok(resolved.startsWith(path.resolve(os.tmpdir()) + path.sep + 'register-roundtrip-'));
     fs.rmSync(resolved, { recursive: true, force: true });
   }
-  if (!factory) await verifyRegisterRoundtrip(ds, true);
+  if (!factory && !selectedForm) {
+    await verifyRegisterRoundtrip(ds, true);
+    for(const form of REGISTER_FORMS.filter(f=>['aps','kas','tns','hrs','wbs','tn'].includes(f.sourceId)))
+      await verifyRegisterRoundtrip(ds, false, form);
+  }
 };

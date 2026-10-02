@@ -170,7 +170,7 @@ interface Field {
           @if (particularFields.length) {
             <h5 class="font-semibold my-3">{{ particularsTitle }}</h5>
             <p class="text-sm">
-              Enter these once. Both required parts are included in the downloaded workbook.
+              Enter these once. Retain the establishment details and every register sheet together.
             </p>
             <div class="grid sm:grid-cols-2 gap-3 my-3">
               @for (field of particularFields; track field.key) {
