@@ -22,10 +22,40 @@ const database = (data: unknown[]) => ({
 
 describe('Contractor register sources', () => {
   it('loads a partial integrated draft from published contractor wages without inventing missing evidence', async () => {
-    const ds = database([{ id: 'published', rows_snapshot: [{ employeeCode: 'C001', employeeName: 'Sample', matchStatus: 'MATCHED', totalEarnings: 1000, netSalary: 900, pfDeduction: 100, esiDeduction: 0, daysWorked: 26 }] }]);
-    const layout = definition('ts--factories-1948--ts-integrated-2019--ii---iii--tsi').layout;
-    const result = await contractorRegisterSource(ds as any, layout, 'client', 'branch', vendor, 2026, 9);
-    expect(result.rows[0]).toMatchObject({ name: 'Sample — C001', gross: 1000, net: 900 });
+    const ds = database([
+      {
+        id: 'published',
+        rows_snapshot: [
+          {
+            employeeCode: 'C001',
+            employeeName: 'Sample',
+            matchStatus: 'MATCHED',
+            totalEarnings: 1000,
+            netSalary: 900,
+            pfDeduction: 100,
+            esiDeduction: 0,
+            daysWorked: 26,
+          },
+        ],
+      },
+    ]);
+    const layout = definition(
+      'ts--factories-1948--ts-integrated-2019--ii---iii--tsi',
+    ).layout;
+    const result = await contractorRegisterSource(
+      ds as any,
+      layout,
+      'client',
+      'branch',
+      vendor,
+      2026,
+      9,
+    );
+    expect(result.rows[0]).toMatchObject({
+      name: 'Sample — C001',
+      gross: 1000,
+      net: 900,
+    });
     expect(result.rows[0]).not.toHaveProperty('otherDeductions');
     expect(result.rows[0]).not.toHaveProperty('fine');
     expect(result.rows[0]).not.toHaveProperty('otHours');
