@@ -42,14 +42,42 @@ describe('Payroll register client and period refresh', () => {
     c.genBranchId = 'logiq-branch'; c.selYear = 2026; c.selMonth = 3; c.onPeriodChange();
     expect(c.matchedRun).toBe(null);
     pendingRuns.next([
-      { id: 'other', clientId: 'other', branchId: null, status: 'APPROVED', periodYear: 2026, periodMonth: 3 },
+      { id: 'other', clientId: 'other', branchId: null, status: 'APPROVED', approvedAt: '2026-04-01', periodYear: 2026, periodMonth: 3 },
       { id: 'draft', clientId: 'logiq', branchId: null, status: 'DRAFT', periodYear: 2026, periodMonth: 3 },
-      { id: 'approved', clientId: 'logiq', branchId: null, status: 'APPROVED', periodYear: 2026, periodMonth: 3 },
+      { id: 'approved', clientId: 'logiq', branchId: null, status: 'APPROVED', approvedAt: '2026-04-01', periodYear: 2026, periodMonth: 3 },
     ]); pendingRuns.complete();
     expect(c.matchedRun?.id).toBe('approved'); expect(c.canGenerate).toBe(true);
     c.selMonth = 4; c.onPeriodChange(); expect(c.matchedRun).toBe(null);
   });
 
+  it('requires an explicit choice between matching approved runs and rejects other branches', () => {
+    const make = (id: string, branchId: string | null) => ({ id, branchId, clientId: 'logiq', status: 'APPROVED', approvedAt: '2026-04-01', periodYear: 2026, periodMonth: 3 });
+    const { c } = setup({ runs: vi.fn(() => of([make('other', 'another-branch'), make('branch', 'logiq-branch'), make('whole-client', null)])) });
+    c.genBranchId = 'logiq-branch'; c.selYear = 2026; c.selMonth = 3; c.onPeriodChange();
+    expect(c.payrollRunOptions.map(r => r.id)).toEqual(['branch', 'whole-client']);
+    expect(c.matchedRun).toBeNull();
+    c.selectedRunId = 'branch'; c.selectRun(); expect(c.matchedRun?.id).toBe('branch');
+    c.selectedRunId = 'other'; c.selectRun(); expect(c.matchedRun).toBeNull();
+    c.genBranchId = 'another-branch'; c.onBranchChange(); expect(c.selectedRunId).toBe('');
+  });
+  it('refreshes newly approved source runs without navigating away and keeps branch scope', () => {
+    const getRuns = vi.fn().mockReturnValueOnce(of([])).mockReturnValueOnce(of([{ id: 'newly-approved', clientId: 'logiq', branchId: 'logiq-branch', status: 'APPROVED', approvedAt: '2026-04-01', periodYear: 2026, periodMonth: 3 }]));
+    const { c } = setup({ runs: getRuns });
+    c.genBranchId = 'logiq-branch'; c.selYear = 2026; c.selMonth = 3; c.onPeriodChange();
+    expect(c.matchedRun).toBeNull();
+    c.refresh();
+    expect(c.matchedRun?.id).toBe('newly-approved');
+    expect(c.genBranchId).toBe('logiq-branch');
+    expect(getRuns).toHaveBeenCalledTimes(2);
+  });
+  it('does not treat an omitted branch scope or missing approval timestamp as a company-wide source', () => {
+    const { c } = setup({ runs: vi.fn(() => of([
+      { id: 'omitted', clientId: 'logiq', status: 'APPROVED', approvedAt: '2026-04-01', periodYear: 2026, periodMonth: 3 },
+      { id: 'no-approval', clientId: 'logiq', branchId: null, status: 'APPROVED', periodYear: 2026, periodMonth: 3 },
+    ])) });
+    c.genBranchId = 'logiq-branch'; c.selYear = 2026; c.selMonth = 3; c.onPeriodChange();
+    expect(c.payrollRunOptions).toEqual([]); expect(c.matchedRun).toBeNull();
+  });
   it('cancels the initial request immediately when filters change and loads the newest period', () => {
     const initial = new Subject<any>(), latest = new Subject<any>();
     const list = vi.fn().mockReturnValueOnce(initial).mockReturnValueOnce(latest);
@@ -76,7 +104,7 @@ describe('Payroll register client and period refresh', () => {
   it('keeps approved payroll runs when branch options fail', () => {
     const { c } = setup({
       branches: vi.fn(() => throwError(() => new Error('offline'))),
-      runs: vi.fn(() => of([{ id: 'approved', clientId: 'logiq', branchId: null, status: 'APPROVED', periodYear: 2026, periodMonth: 3 }])),
+      runs: vi.fn(() => of([{ id: 'approved', clientId: 'logiq', branchId: null, status: 'APPROVED', approvedAt: '2026-04-01', periodYear: 2026, periodMonth: 3 }])),
     });
     expect(c.genBranches).toEqual([]);
     expect(c.allRuns.map(r => r.id)).toEqual(['approved']);

@@ -574,6 +574,47 @@ describe('Register preparation branch and Act eligibility', () => {
       [run.id, run.clientId, branchId],
     );
   });
+  it.each(['24', '0'])(
+    'uses stored worked days %s instead of payable days',
+    async (worked) => {
+      employeeRepo.find.mockResolvedValueOnce([
+        {
+          id: 'EMP1',
+          employeeCode: 'E1',
+          employeeName: 'Sample',
+          daysPresent: 30,
+          otHours: 0,
+          grossEarnings: '1000',
+          netPay: '1000',
+        },
+      ]);
+      ds.query
+        .mockResolvedValueOnce([decision])
+        .mockResolvedValueOnce([
+          { employeeId: 'EMP1', code: 'WORKED_DAYS', amount: worked },
+        ]);
+      const result = await builder.prefill(
+        id('apw', 'V'),
+        branchId,
+        run.id,
+        2026,
+        9,
+        {} as any,
+      );
+      expect(result.rows[0].daysWorked).toBe(worked);
+    },
+  );
+  it('does not substitute payable days when worked-day evidence is absent', async () => {
+    const result = await builder.prefill(
+      id('apw', 'V'),
+      branchId,
+      run.id,
+      2026,
+      9,
+      {} as any,
+    );
+    expect(result.rows[0]).not.toHaveProperty('daysWorked');
+  });
   it('requires confirmed Act applicability and the appropriate government', async () => {
     decision.applicable = false;
     await expect(

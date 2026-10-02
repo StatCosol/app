@@ -16,10 +16,12 @@ export async function integratedRegisterDraft(
   const defaults = await integratedRegisterDefaults(ds, branch);
   const profiles = await ds.query(
     `SELECT re.id AS "runEmployeeId", e.date_of_birth::text AS "birthDate",
-            e.gender, e.father_name AS "relativeName"
+            e.gender, e.father_name AS "relativeName", worked.amount AS "workedDays"
        FROM payroll_run_employees re
-       JOIN employees e ON e.id=re.employee_id AND e.client_id=re.client_id
+       LEFT JOIN employees e ON e.id=re.employee_id AND e.client_id=re.client_id
          AND e.branch_id=re.branch_id AND e.approval_status='APPROVED'
+       LEFT JOIN payroll_run_component_values worked ON worked.run_employee_id=re.id
+         AND worked.run_id=re.run_id AND worked.component_code='WORKED_DAYS'
        WHERE re.run_id=$1 AND re.client_id=$2 AND re.branch_id=$3`,
     [run.id, branch.clientId, branch.id],
   );
@@ -40,7 +42,7 @@ export async function integratedRegisterDraft(
         ageOrBirthDate: p?.birthDate,
         relativeName: p?.relativeName,
         sex,
-        daysWorked: e.daysPresent,
+        daysWorked: p?.workedDays,
         otHours: e.otHours,
         gross: e.grossEarnings,
         net: e.netPay,

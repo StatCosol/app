@@ -111,6 +111,7 @@ export class PayrollRunsService {
       id: r.id,
       clientId: r.clientId,
       branchId: r.branchId ?? null,
+      title: r.title ?? null,
       periodYear: r.periodYear,
       periodMonth: r.periodMonth,
       title: r.title ?? `Payroll Run`,
@@ -269,6 +270,8 @@ export class PayrollRunsService {
       .innerJoin(ClientEntity, 'c', 'c.id = r.client_id')
       .select('r.id', 'id')
       .addSelect('r.client_id', 'clientId')
+      .addSelect('r.branch_id', 'branchId')
+      .addSelect('r.title', 'title')
       .addSelect('c.client_name', 'clientName')
       .addSelect('r.period_year', 'periodYear')
       .addSelect('r.period_month', 'periodMonth')
@@ -292,6 +295,8 @@ export class PayrollRunsService {
 
     interface PayrollRunRaw {
       id: string;
+      branchId: string | null;
+      title: string | null;
       clientId: string;
       clientName: string | null;
       periodYear: string;
@@ -322,6 +327,7 @@ export class PayrollRunsService {
     return rows.map((r) => ({
       id: r.id,
       clientId: r.clientId,
+      branchId: r.branchId ?? null,
       clientName: r.clientName ?? null,
       periodYear: Number(r.periodYear),
       periodMonth: Number(r.periodMonth),

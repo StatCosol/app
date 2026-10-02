@@ -56,6 +56,7 @@ describe('Integrated register HTTP preparation', () => {
             {
               runEmployeeId: 'worker',
               birthDate: '1990-01-01',
+              workedDays: '24',
               gender: 'MALE',
               relativeName: 'Fictional Parent',
             },
@@ -128,6 +129,7 @@ describe('Integrated register HTTP preparation', () => {
       sex: 'M',
       ageOrBirthDate: '1990-01-01',
       otHours: '0',
+      daysWorked: '24',
     });
     for (const key of [
       'fine',
@@ -244,5 +246,6 @@ describe('Integrated register HTTP preparation', () => {
     const result = await load().expect(200);
     expect(result.body.rows).toHaveLength(1);
     expect(result.body.rows[0]).not.toHaveProperty('sex');
+    expect(result.body.rows[0]).not.toHaveProperty('daysWorked');
   });
 });

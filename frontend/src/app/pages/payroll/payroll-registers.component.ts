@@ -64,7 +64,7 @@ const STATE_NAMES: Record<string, string> = {
         subtitle="Generate, download, approve, and manage statutory registers for this client">
         <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
         <div slot="actions" class="flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()">
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="refresh()">
             Refresh
           </ui-button>
         </div>
@@ -142,13 +142,24 @@ const STATE_NAMES: Record<string, string> = {
           </div>
         </div>
 
+        @if (payrollRunOptions.length > 1) {
+          <label class="block text-sm mt-3">Approved payroll source
+            <select class="block border rounded p-2 w-full" [(ngModel)]="selectedRunId" (ngModelChange)="selectRun()">
+              <option value="">Select the approved payroll run to prepare</option>
+              @for (run of payrollRunOptions; track run.id) {
+                <option [value]="run.id">{{ runLabel(run) }}</option>
+              }
+            </select>
+          </label>
+          <p class="text-sm mt-2">Several approved payroll runs match this period. Select the intended batch; each draft contains only that run's workers in this branch.</p>
+        }
         <!-- Matched payroll run info -->
         @if (matchedRun) {
 <div class="mt-3 text-xs text-gray-500">
           Payroll Run: <span class="font-medium text-gray-700">{{ matchedRun.label }}</span>
         </div>
 }
-        @if (genBranchId && selMonth && selYear && !matchedRun && !generating) {
+        @if (genBranchId && selMonth && selYear && !payrollRunOptions.length && !generating) {
 <div class="mt-3 text-xs text-amber-600">
           No approved payroll run found for this period. Employee, attendance and incident registers can still be prepared from their own records.
         </div>
@@ -318,6 +329,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   clientOptions: SelectOption[] = [{ value: null, label: 'All Clients' }];
 
   private reload$ = new Subject<void>();
+  private optionsReload$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
   // ── Generate panel state ──
@@ -327,6 +339,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   genBranchId = '';
   selMonth: number | null = null;
   selYear: number | null = null;
+  selectedRunId = '';
   matchedRun: { id: string; label: string } | null = null;
   generating = false;
   genResult = '';
@@ -564,11 +577,11 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
       map(params => params.get('clientId') || ''), distinctUntilChanged(),
       tap(clientId => {
         this.q.clientId = clientId || null; this.optionsError = '';
-        this.genBranchId = ''; this.genBranches = []; this.allRuns = []; this.matchedRun = null;
+        this.genBranchId = ''; this.genBranches = []; this.allRuns = []; this.matchedRun = null; this.selectedRunId = '';
         this.filterAct = ''; this.filterRegisterType = ''; this.registerBuilderOpen = false;
         this.genResult = ''; this.rows = []; this.savedRows = []; this.reload();
       }),
-      switchMap(clientId => forkJoin({
+      switchMap(clientId => this.optionsReload$.pipe(startWith(undefined), switchMap(() => forkJoin({
         branches: (clientId ? this.payrollApi.getOptionBranches(clientId) : of([])).pipe(catchError(() => {
           this.optionsError += 'Branch options could not be loaded. ';
           this.cdr.markForCheck(); return of([]);
@@ -577,7 +590,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
           this.optionsError += 'Payroll runs could not be loaded. ';
           this.cdr.markForCheck(); return of([]);
         })),
-      })), takeUntil(this.destroy$),
+      })))), takeUntil(this.destroy$),
     ).subscribe(({ branches, runs }) => {
       this.genBranches = (branches || []).map((b: any) => ({
         id: b.id, branchName: b.branchName || b.branchname || b.name || '',
@@ -619,11 +632,18 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.reload$.complete();
+    this.optionsReload$.complete();
   }
 
   onActChange(): void {
     // Reset register type when act changes, since old selection may not belong to new act
     this.filterRegisterType = '';
+    this.reload();
+  }
+
+  refresh(): void {
+    this.optionsError = '';
+    this.optionsReload$.next();
     this.reload();
   }
 
@@ -644,33 +664,37 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   /* ── Generate panel methods ── */
 
   onBranchChange(): void {
+    this.selectedRunId = '';
     this.genResult = '';
     this.matchRun();
     this.reload();
   }
 
   onPeriodChange(): void {
+    this.selectedRunId = '';
     this.genResult = '';
     this.matchRun();
     this.reload();
   }
 
+  get payrollRunOptions(): any[] {
+    if (!this.genBranchId || !this.q.clientId || !this.selMonth || !this.selYear) return [];
+    return this.allRuns.filter(r => Number(r.periodMonth) === this.selMonth &&
+      Number(r.periodYear) === this.selYear && r.status === 'APPROVED' && !!r.approvedAt &&
+      r.clientId === this.q.clientId && (r.branchId === null || r.branchId === this.genBranchId));
+  }
+  runLabel(run: any): string {
+    return [run.title || run.clientName || 'Approved payroll', String(run.periodMonth).padStart(2, '0') + '/' + run.periodYear,
+      run.branchId ? 'Branch payroll' : 'Company-wide payroll',
+      run.employeeCount == null ? '' : run.employeeCount + ' workers in run',
+      run.approvedAt ? 'Approved ' + new Date(run.approvedAt).toLocaleString() : ''].filter(Boolean).join(' — ');
+  }
+  selectRun(): void { this.matchRun(); }
   private matchRun(): void {
-    this.matchedRun = null;
-    if (!this.selMonth || !this.selYear) return;
-    const candidates = this.allRuns.filter(
-      (r) =>
-        Number(r.periodMonth) === this.selMonth &&
-        Number(r.periodYear) === this.selYear &&
-        r.status === 'APPROVED' && (!this.q.clientId || r.clientId === this.q.clientId) && (!r.branchId || r.branchId === this.genBranchId),
-    );
-    const match = candidates.find(r=>r.branchId === this.genBranchId) || candidates.find(r=>!r.branchId);
-    if (match) {
-      this.matchedRun = {
-        id: match.id,
-        label: `${match.clientName || ''} — ${String(match.periodMonth).padStart(2, '0')}/${match.periodYear} (${match.status})`,
-      };
-    }
+    const options = this.payrollRunOptions;
+    const match = options.find(r => r.id === this.selectedRunId) || (options.length === 1 ? options[0] : undefined);
+    this.selectedRunId = match?.id || '';
+    this.matchedRun = match ? { id: match.id, label: this.runLabel(match) } : null;
     this.cdr.markForCheck();
   }
 

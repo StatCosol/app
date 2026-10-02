@@ -343,7 +343,7 @@ export class RegisterBuilderService {
        FROM payroll_run_component_values cv
        JOIN payroll_run_employees re ON re.id=cv.run_employee_id
        WHERE re.run_id=$1 AND cv.run_id=$1 AND re.client_id=$2 AND re.branch_id=$3
-         AND cv.component_code IN ('PF_EMP','ESI_EMP')`,
+         AND cv.component_code IN ('PF_EMP','ESI_EMP','WORKED_DAYS')`,
       [runId, run.clientId, branchId],
     );
     const deductionsByEmployee = new Map<string, Record<string, string>>();
@@ -373,7 +373,9 @@ export class RegisterBuilderService {
           String(month).padStart(2, '0') +
           '-' +
           new Date(Date.UTC(year, month, 0)).getUTCDate(),
-        daysWorked: String(e.daysPresent),
+        ...(amounts.WORKED_DAYS != null
+          ? { daysWorked: amounts.WORKED_DAYS }
+          : {}),
         otHours: String(e.otHours),
         gross: e.grossEarnings,
         deductions: e.totalDeductions,
