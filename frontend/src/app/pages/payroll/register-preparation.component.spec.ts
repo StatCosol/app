@@ -21,6 +21,41 @@ describe('Register source selection and cancellation', () => {
     component.ngOnDestroy();
     http.verify();
   });
+  it('automatically loads a Telangana draft and preserves reviewed details on repeated loading', () => {
+    component.runId = 'approved-run';
+    component.ngOnChanges();
+    http.expectOne(r => r.url.endsWith('/definition')).flush({ layout: {
+      fields: [{ key: 'name', label: 'Name', required: true, type: 'text' }, { key: 'gross', label: 'Gross', required: true, type: 'money' }],
+      particulars: [{ key: 'establishmentName', label: 'Establishment', required: true, type: 'text' }],
+      baseFormNumber: 'STATE', manualOnly: true, payrollDraftPrefill: true,
+    }});
+    http.expectOne(r => r.url.endsWith('/eligibility')).flush({ eligible: true });
+    const load = http.expectOne(r => r.url.endsWith('/prefill') && r.params.get('runId') === 'approved-run');
+    component.meta['employer'] = 'Reviewed employer';
+    load.flush({ rows: [{ name: 'Worker', gross: 0 }], metadata: { employer: 'Saved employer' }, particulars: { establishmentName: 'Saved branch' }, sourceReference: 'Approved payroll reference' });
+    expect(component.rows[0]['gross']).toBe(0);
+    expect(component.meta['employer']).toBe('Reviewed employer');
+    expect(component.particulars['establishmentName']).toBe('Saved branch');
+    expect(component.missingDetails).toContain('Owner name');
+    expect(component.missingDetails.some(d => d.includes('Gross'))).toBe(false);
+    component.rows[0]['name'] = 'Reviewed worker';
+    component.prefill();
+    http.expectNone(r => r.url.endsWith('/prefill'));
+    component.generate();
+    http.expectNone(r => r.url.endsWith('/generate'));
+    expect(component.error).toContain('Owner name');
+    for (const f of component.metadataFields) component.meta[f.key] ||= 'Reviewed evidence';
+    component.generate();
+    const saved = http.expectOne(r => r.url.endsWith('/generate'));
+    expect(saved.request.body.rows[0].name).toBe('Reviewed worker');
+    saved.flush(new Blob(['workbook']));
+  });
+  it('shows field errors returned as Nest validation message arrays', () => {
+    component.eligible = true;
+    component.prefill();
+    http.expectOne(r => r.url.endsWith('/prefill')).flush({ message: ['Select a valid branch', 'Select a valid month'] }, { status: 400, statusText: 'Bad Request' });
+    expect(component.error).toContain('Select a valid month');
+  });
   it('prepares both factory integrated parts with explicit site capacity', () => {
     component.formId = 'ts--factories-1948--ts-integrated-2019--ii---iii--tsi';
     component.ngOnChanges();
@@ -195,6 +230,28 @@ describe('Register source selection and cancellation', () => {
       .flush({ layout: { fields: [], baseFormNumber: 'IX', payrollPrefill: false } });
     http.expectOne((r) => r.url.endsWith('/eligibility')).flush({ eligible: true });
     expect(component.prefillLabel).toContain('daily attendance');
+  });
+  it('automatically loads a selected contractor draft and cancels it when returning to company employees', () => {
+    component.eligible = true;
+    component.draftPrefill = true;
+    component.runId = 'approved-company-run';
+    component.recordSource = 'CONTRACTOR';
+    component.changeSource();
+    http.expectOne(r => r.url.endsWith('/contractors')).flush([{ id: 'vendor', name: 'Example vendor' }]);
+    http.expectNone(r => r.url.endsWith('/prefill'));
+    component.contractorId = 'vendor';
+    component.changeContractor();
+    const vendor = http.expectOne(r => r.url.endsWith('/prefill') && r.params.get('contractorId') === 'vendor');
+    expect(component.workerSourceLabel).toBe('Example vendor');
+    component.recordSource = 'EMPLOYEES';
+    component.changeSource();
+    expect(vendor.cancelled).toBe(true);
+    http.expectOne(r => r.url.endsWith('/prefill') && r.params.get('contractorId') === '' && r.params.get('runId') === 'approved-company-run')
+      .flush({ rows: [{ name: 'Company employee' }], metadata: { employer: 'Example company' } });
+    expect(component.rows).toEqual([{ name: 'Company employee' }]);
+    expect(component.draftLoaded).toBe(true);
+    expect(component.contractorId).toBe('');
+    expect(component.actingCapacity).toBe('');
   });
   it('cancels stale vendor data when the selected contractor changes', () => {
     component.eligible = true;

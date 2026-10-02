@@ -33,9 +33,15 @@ interface Field {
   standalone: true,
   imports: [FormsModule, RegisterEvidenceComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`
+    .register-record-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 640px) { .register-record-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1024px) { .register-record-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  `],
   template: `
     <section class="border p-4 my-4 bg-gray-50">
-      <h4 class="font-semibold">Prepare selected register</h4>
+      <h4 class="font-semibold text-lg">3. Prepare and review details</h4>
+      <p class="text-sm mt-2">{{ annual ? 'Calendar year ' + year : 'Period: ' + month + '/' + year }} · {{ rows.length }} {{ rows.length === 1 ? 'record' : 'records' }}</p>
       <p class="text-sm my-2">
         Use the branch and period selected above. Fields marked * are required. Prepared files need
         review and authentication before use.
@@ -60,40 +66,27 @@ interface Field {
         </p>
       }
       @if (fields.length) {
-        @if (eligible && capacityRequired) {
-          <label class="block text-sm my-3"
-            >Company capacity for this register *
-            <select class="block border rounded p-2 w-full" [(ngModel)]="actingCapacity">
-              <option value="">Select the work relationship</option>
-              <option value="DIRECT_EMPLOYER">Direct employer at this site</option>
-              <option value="PRINCIPAL_EMPLOYER">Principal employer engaging contractors</option>
-              <option value="CONTRACTOR">Our company is a contractor to another company</option>
-            </select>
-          </label>
-          <p class="text-sm">
-            This is the site's work relationship, separate from your Client login. For your
-            company's own deployed workers, select Company employees below. Enter the other
-            company's name/address under principal employer and retain the work-order reference.
-            Other applicable registers remain separate.
-          </p>
-        }
+        @if (eligible) { <h5 class="font-semibold mt-4 mb-2">Data source and company role</h5> }
         @if (eligible && supportsContractor) {
+          <details class="border rounded bg-white p-3 my-3" [open]="recordSource === 'CONTRACTOR'">
+            <summary class="cursor-pointer text-sm">Workers: <strong>{{ workerSourceLabel }}</strong> · Change worker source</summary>
+            <p class="text-sm my-2">Use your company’s employees for staff on your payroll, including staff deployed to customers. Choose an assigned contractor only for that contractor’s workers.</p>
           <label class="block text-sm my-2"
-            >Records for
+            >Whose workers should be loaded?
             <select
-              class="border rounded p-2 ml-2"
+              class="block border rounded p-2 w-full mt-1"
               [(ngModel)]="recordSource"
               (ngModelChange)="changeSource()"
             >
-              <option value="EMPLOYEES">Company employees</option>
-              <option value="CONTRACTOR">Contract labour</option>
+              <option value="EMPLOYEES">Your company’s employees</option>
+              <option value="CONTRACTOR">An assigned contractor’s workers</option>
             </select>
           </label>
           @if (recordSource === 'CONTRACTOR') {
             <label class="block text-sm my-2"
               >Assigned contractor
               <select
-                class="border rounded p-2 ml-2"
+                class="block border rounded p-2 w-full mt-1"
                 [(ngModel)]="contractorId"
                 (ngModelChange)="changeContractor()"
               >
@@ -104,6 +97,21 @@ interface Field {
               </select>
             </label>
           }
+          </details>
+        }
+        @if (eligible && capacityRequired) {
+          <label class="block text-sm my-3"
+            >Your company’s responsibility at this site *
+            <select class="block border rounded p-2 w-full" [(ngModel)]="actingCapacity">
+              <option value="">Select the work relationship</option>
+              <option value="DIRECT_EMPLOYER">Direct employer at this site</option>
+              <option value="PRINCIPAL_EMPLOYER">Principal employer engaging contractors</option>
+              <option value="CONTRACTOR">Our company is a contractor to another company</option>
+            </select>
+          </label>
+          <p class="text-sm">
+            Choose the responsibility held by your company at this site. If your company supplies its own employees as a contractor, choose the contractor role; the worker source remains Your company’s employees.
+          </p>
         }
         <label class="block text-sm my-2"
           >Supporting record reference
@@ -114,9 +122,9 @@ interface Field {
             placeholder="Incident report, source document or ledger reference"
           />
         </label>
-        <div class="flex gap-3 my-3">
+        <div class="flex flex-wrap gap-3 my-3">
           <button type="button" class="underline" (click)="blank()" [disabled]="busy">
-            Download blank format
+            Download empty template (no worker data)
           </button>
           @if (canPrefill) {
             <button
@@ -124,21 +132,35 @@ interface Field {
               class="underline"
               (click)="prefill()"
               [disabled]="
-                busy ||
+                busy || (draftPrefill && draftLoaded) ||
                 (recordSource === 'EMPLOYEES' && requiresPayroll && !runId) ||
                 (recordSource === 'CONTRACTOR' && !contractorId) ||
                 !eligible
               "
             >
               {{
-                recordSource === 'CONTRACTOR'
-                  ? 'Fill from selected contractor records'
+                draftPrefill && draftLoaded ? 'Saved records loaded' : recordSource === 'CONTRACTOR'
+                  ? 'Load selected contractor records'
                   : prefillLabel
               }}
             </button>
           }
         </div>
         @if (eligible) {
+          @if (draftPrefill) {
+            @if (!runId && recordSource === 'EMPLOYEES') {
+              <p role="status" class="text-amber-800 my-2">Select an approved payroll run for this branch and month to load the worker details.</p>
+            }
+            @if (busy) { <p role="status">Preparing register details…</p> }
+            @if (missingDetails.length) {
+              <details class="border p-3 my-3">
+                <summary>Review remaining required details</summary>
+                <ul class="list-disc pl-5">
+                  @for (detail of missingDetails; track $index) { <li>{{ detail }}</li> }
+                </ul>
+              </details>
+            }
+          }
           @if ((reuseAvailable || operational) && (recordSource === 'EMPLOYEES' || contractorId)) {
             <app-register-evidence
               [formId]="formId"
@@ -156,6 +178,7 @@ interface Field {
               (sourceSelected)="useSource($event)"
             ></app-register-evidence>
           }
+          <h5 class="font-semibold mt-5 mb-3">Employer and issue details</h5>
           <div class="grid sm:grid-cols-2 gap-3">
             @for (item of metadataFields; track item.key) {
               <label class="text-sm"
@@ -170,10 +193,15 @@ interface Field {
           @if (particularFields.length) {
             <h5 class="font-semibold my-3">{{ particularsTitle }}</h5>
             <p class="text-sm">
-              Enter these once. Retain the establishment details and every register sheet together.
+              Complete these details for this register. Retain the establishment details and every register sheet together.
             </p>
+            @for (group of particularGroups; track group.title) {
+              <details class="border rounded bg-white p-3 my-3" [open]="particularGroups.length === 1">
+                <summary class="cursor-pointer font-medium">{{ group.title }}
+                  <span class="font-normal text-sm ml-2">{{ missingFields(group.fields, particulars) }} required fields remaining</span>
+                </summary>
             <div class="grid sm:grid-cols-2 gap-3 my-3">
-              @for (field of particularFields; track field.key) {
+              @for (field of group.fields; track field.key) {
                 <label class="text-sm"
                   >{{ field.label }}{{ field.required ? ' *' : '' }}
                   <textarea
@@ -184,6 +212,8 @@ interface Field {
                 </label>
               }
             </div>
+              </details>
+            }
           }
           @if (isMaternity) {
             <p class="text-sm my-3">
@@ -193,12 +223,15 @@ interface Field {
               with supporting evidence.
             </p>
           }
+          <h5 class="font-semibold mt-5 mb-2">{{ isEvent ? 'Event records' : 'Worker records' }}</h5>
+          <p class="text-sm mb-3">Open each record to review loaded values and complete missing details.</p>
           @for (row of rows; track $index; let i = $index) {
             <details class="border my-3 p-3" [open]="rows.length === 1">
               <summary class="cursor-pointer">
                 Record {{ i + 1 }} — {{ row['name'] || row['employee_2'] || 'New record' }}
+                <span class="text-sm ml-2">{{ missingFields(fields, row) }} required fields remaining</span>
               </summary>
-              <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 my-3">
+              <div class="register-record-grid gap-3 my-3">
                 @for (field of fields; track field.key) {
                   <label class="text-sm"
                     >{{ field.label }}{{ field.required ? ' *' : '' }}
@@ -207,6 +240,7 @@ interface Field {
                       [type]="field.type === 'date' ? 'date' : 'text'"
                       [(ngModel)]="row[field.key]"
                       [readonly]="field.key === 'inspectorRemarks'"
+                      [disabled]="busy"
                       maxlength="2000"
                     />
                   </label>
@@ -217,7 +251,9 @@ interface Field {
               </button>
             </details>
           }
-          <div class="flex gap-4 my-3">
+          <h5 class="font-semibold mt-5">Review and generate</h5>
+          <p class="text-sm my-2">Generation saves a file for Payroll review and downloads a copy. Branch Desk access follows approval.</p>
+          <div class="flex flex-wrap gap-4 my-3">
             <button
               type="button"
               class="underline"
@@ -232,7 +268,7 @@ interface Field {
               (click)="generate()"
               [disabled]="busy || !rows.length"
             >
-              Generate Excel register
+              Generate and save register
             </button>
           </div>
         }
@@ -288,6 +324,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   reuseAvailable = false;
   reuseBasis = '';
   leaveCalculationAvailable = false;
+  draftPrefill = false;
+  draftLoaded = false;
   canPrefill = false;
   requiresPayroll = true;
   prefillLabel = 'Prefill from approved payroll';
@@ -312,6 +350,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.eligibilityReason = '';
     this.busy = false;
     this.canPrefill = false;
+    this.draftPrefill = false;
+    this.draftLoaded = false;
     this.recordSource = 'EMPLOYEES';
     this.contractorId = '';
     this.contractors = [];
@@ -341,13 +381,14 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
           this.reuseAvailable = !!d.reuseRule;
           this.reuseBasis = d.reuseRule?.basis || '';
           this.leaveCalculationAvailable = d.leaveCalculationAvailable === true;
-          this.canPrefill = !this.isEvent && !this.isMaternity && !d.layout.manualOnly;
+          this.draftPrefill = d.layout.payrollDraftPrefill === true;
+          this.canPrefill = !this.isEvent && !this.isMaternity && (!d.layout.manualOnly || this.draftPrefill);
           this.supportsContractor =
             ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber) ||
             (d.form?.sourceId === 'tsi' && d.layout.capacityRequired === true) ||
             d.form?.actCode === 'TS_SHOPS_1988';
-          this.requiresPayroll = d.layout.payrollPrefill;
-          this.prefillLabel = d.layout.payrollPrefill
+          this.requiresPayroll = d.layout.payrollPrefill || this.draftPrefill;
+          this.prefillLabel = this.requiresPayroll
             ? 'Prefill from approved payroll'
             : d.layout.baseFormNumber === 'I'
               ? 'Prefill approved employee records'
@@ -371,6 +412,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
             this.eligibilityReason = this.eligible
               ? ''
               : result.reason || 'This register is not available for the selected branch and period.';
+            if (this.eligible && this.draftPrefill && this.runId) this.prefill();
             this.cdr.markForCheck();
           },
           error: (e) => this.fail(e),
@@ -412,7 +454,12 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       .set('year', String(this.year))
       .set('month', String(this.periodMonth));
   }
+  get workerSourceLabel(): string {
+    if (this.recordSource === 'EMPLOYEES') return 'Your company’s employees';
+    return this.contractors.find(c => c.id === this.contractorId)?.name || 'Select an assigned contractor';
+  }
   changeContractor() {
+    this.draftLoaded = false;
     this.revision++;
     this.changed.next();
     this.rows = [{}];
@@ -422,6 +469,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.error = '';
     this.notice = '';
     this.busy = false;
+    if (this.eligible && this.draftPrefill &&
+        (this.recordSource === 'EMPLOYEES' ? !!this.runId : !!this.contractorId)) this.prefill();
   }
   changeSource() {
     this.contractorId = '';
@@ -443,7 +492,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     }
   }
   prefill() {
-    if (!this.eligible) return;
+    if (!this.eligible || this.busy || (this.draftPrefill && this.draftLoaded)) return;
     this.busy = true;
     this.error = '';
     this.http
@@ -456,13 +505,54 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       .subscribe({
         next: (d) => {
           this.rows = d.rows;
-          if (d.sourceReference) this.meta['supportingReference'] = d.sourceReference;
+          for (const [key, value] of Object.entries(d.metadata || {})) {
+            if (!String(this.meta[key] ?? '').trim()) this.meta[key] = String(value);
+          }
+          for (const [key, value] of Object.entries(d.particulars || {})) {
+            if (!String(this.particulars[key] ?? '').trim()) this.particulars[key] = String(value);
+          }
+          if (d.sourceReference && !this.meta['supportingReference']) this.meta['supportingReference'] = d.sourceReference;
+          this.draftLoaded = true;
           this.notice = d.notice;
           this.busy = false;
           this.cdr.markForCheck();
         },
         error: (e) => this.fail(e),
       });
+  }
+  missingFields(fields: Field[], values: Record<string, string | number>): number {
+    return fields.filter(field => field.required && (values[field.key] == null || String(values[field.key]).trim() === '')).length;
+  }
+  get particularGroups(): { title: string; fields: Field[] }[] {
+    const groups = new Map<string, Field[]>();
+    for (const field of this.particularFields) {
+      const key = field.key;
+      const title = /^(category|class|headcount|adolescent)/.test(key) || ['regularWorkers', 'contractWorkers'].includes(key)
+        ? 'Workforce totals'
+        : ['cleaning', 'inspections', 'inspectors', 'accidents', 'injured', 'deceased'].includes(key)
+          ? 'Inspections, safety and maintenance'
+          : /Signatory|Signature|Designation$/.test(key) || key === 'managerAddress' || key === 'manager'
+            ? 'Responsible persons and authentication'
+            : ['wageOrder', 'registrations', 'principalEmployer', 'contractors'].includes(key)
+              ? 'Registrations and work arrangements'
+              : 'Establishment and contact details';
+      if (!groups.has(title)) groups.set(title, []);
+      groups.get(title)!.push(field);
+    }
+    return [...groups].map(([title, fields]) => ({ title, fields }));
+  }
+  get missingDetails(): string[] {
+    const missing = (value: unknown) => value == null || String(value).trim() === '';
+    const result = this.metadataFields.filter(f => missing(this.meta[f.key])).map(f => f.label);
+    if (this.manualOnly && missing(this.meta['supportingReference'])) result.push('Supporting record reference');
+    if (this.capacityRequired && !this.actingCapacity) result.push('Company capacity at this site');
+    result.push(...this.particularFields.filter(f => f.required && missing(this.particulars[f.key])).map(f => f.label));
+    if (!this.rows.length) result.push('At least one worker record');
+    for (const [index, row] of this.rows.entries()) {
+      const fields = this.fields.filter(f => f.required && missing(row[f.key]));
+      if (fields.length) result.push('Record ' + (index + 1) + ': ' + fields.map(f => f.label).join(', '));
+    }
+    return result;
   }
   blank() {
     this.fetchFile('/template');
@@ -475,6 +565,12 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     }
     if (this.capacityRequired && !this.actingCapacity) {
       this.error = 'Select the company capacity at this site';
+      return;
+    }
+    if (this.busy) return;
+    if (this.draftPrefill && this.missingDetails.length) {
+      this.error = 'Complete the remaining required details before generation:\n' + this.missingDetails.join('\n');
+      this.cdr.markForCheck();
       return;
     }
     this.fetchFile('/generate', {
@@ -534,6 +630,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     if (revision !== this.revision) return;
     this.error = Array.isArray(detail?.errors)
       ? detail.errors.join('\n')
+      : Array.isArray(detail?.message)
+        ? detail.message.join('\n')
       : typeof detail?.message === 'string'
         ? detail.message
         : 'Could not prepare this register. Please retry.';

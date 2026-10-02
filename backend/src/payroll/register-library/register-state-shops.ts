@@ -27,6 +27,7 @@ export function stateShopsLayout(
       individual: false,
       payrollPrefill: false,
       manualOnly: true,
+      payrollDraftPrefill: true,
       particularsTitle:
         'Form II — Integrated register: establishment particulars',
       capacityRequired: true,

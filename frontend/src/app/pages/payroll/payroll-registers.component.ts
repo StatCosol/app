@@ -64,7 +64,7 @@ const STATE_NAMES: Record<string, string> = {
         subtitle="Generate, download, approve, and manage statutory registers for this client">
         <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
         <div slot="actions" class="flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()">
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="refresh()">
             Refresh
           </ui-button>
         </div>
@@ -81,15 +81,15 @@ const STATE_NAMES: Record<string, string> = {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Select Branch &amp; Period
+          1. Select branch and period
         </h3>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div class="register-scope-grid gap-4 items-end">
           <!-- Branch -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="register-branch">Branch</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="genBranchId" (ngModelChange)="onBranchChange()">
+              id="register-branch" [(ngModel)]="genBranchId" (ngModelChange)="onBranchChange()">
               <option value="">-- Select Branch --</option>
               @for (b of genBranches; track b) {
 <option [value]="b.id">
@@ -100,9 +100,9 @@ const STATE_NAMES: Record<string, string> = {
           </div>
           <!-- Month -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="register-month">Month</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="selMonth" (ngModelChange)="onPeriodChange()">
+              id="register-month" [(ngModel)]="selMonth" (ngModelChange)="onPeriodChange()">
               <option [ngValue]="null">-- Select Month --</option>
               @for (m of months; track m) {
 <option [ngValue]="m.value">{{ m.label }}</option>
@@ -111,9 +111,9 @@ const STATE_NAMES: Record<string, string> = {
           </div>
           <!-- Year -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="register-year">Year</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="selYear" (ngModelChange)="onPeriodChange()">
+              id="register-year" [(ngModel)]="selYear" (ngModelChange)="onPeriodChange()">
               <option [ngValue]="null">-- Select Year --</option>
               @for (y of years; track y) {
 <option [ngValue]="y">{{ y }}</option>
@@ -125,7 +125,7 @@ const STATE_NAMES: Record<string, string> = {
             <button
               class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
               [disabled]="!genBranchId || !selMonth || !selYear"
-              (click)="registerBuilderOpen = true">
+              (click)="openRegisterBuilder()">
               @if (!generating) {
 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -137,18 +137,29 @@ const STATE_NAMES: Record<string, string> = {
                 <path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
 }
-              Choose Act and Register
+              Continue to register formats
             </button>
           </div>
         </div>
 
+        @if (payrollRunOptions.length > 1) {
+          <label class="block text-sm mt-3">Approved payroll source
+            <select class="block border rounded p-2 w-full" [(ngModel)]="selectedRunId" (ngModelChange)="selectRun()">
+              <option value="">Select the approved payroll run to prepare</option>
+              @for (run of payrollRunOptions; track run.id) {
+                <option [value]="run.id">{{ runLabel(run) }}</option>
+              }
+            </select>
+          </label>
+          <p class="text-sm mt-2">Several approved payroll runs match this period. Select the intended batch; each draft contains only that run's workers in this branch.</p>
+        }
         <!-- Matched payroll run info -->
         @if (matchedRun) {
 <div class="mt-3 text-xs text-gray-500">
           Payroll Run: <span class="font-medium text-gray-700">{{ matchedRun.label }}</span>
         </div>
 }
-        @if (genBranchId && selMonth && selYear && !matchedRun && !generating) {
+        @if (genBranchId && selMonth && selYear && !payrollRunOptions.length && !generating) {
 <div class="mt-3 text-xs text-amber-600">
           No approved payroll run found for this period. Employee, attendance and incident registers can still be prepared from their own records.
         </div>
@@ -157,13 +168,18 @@ const STATE_NAMES: Record<string, string> = {
       </div>
 
       <app-register-library (generated)="onRegisterGenerated($event)" [expanded]="registerBuilderOpen" [branchId]="genBranchId" [runId]="matchedRun?.id || ''" [year]="selYear" [month]="selMonth"></app-register-library>
-      <!-- ═══════ Download & Filter Bar ═══════ -->
-      <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
-        <div class="flex flex-wrap items-end gap-4">
+      <!-- Saved files are separate from preparation choices. -->
+      <section id="saved-registers" tabindex="-1" aria-labelledby="saved-registers-heading" class="scroll-mt-24 bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+        <h3 id="saved-registers-heading" class="text-lg font-semibold mb-2">4. Saved registers — review and download</h3>
+        <p class="text-sm text-gray-600 mb-4">These filters apply to saved files. Branch Desk can download a file after Payroll approval.</p>
+        @if (genResult) { <p role="status" class="text-emerald-800 mb-3">{{ genResult }}</p> }
+        <details class="mb-4" [open]="!!filterAct || !!filterRegisterType">
+          <summary class="cursor-pointer text-sm font-medium">Filter saved files (optional){{ filterAct || filterRegisterType ? ' — filters active' : '' }}</summary>
+        <div class="flex flex-wrap items-end gap-4 mt-3">
           <div class="flex-1 min-w-[180px]">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Filter by Act</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="saved-register-act">Act for saved files</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="filterAct" (ngModelChange)="onActChange()">
+              id="saved-register-act" [(ngModel)]="filterAct" (ngModelChange)="onActChange()">
               <option value="">All Acts</option>
               @for (a of filteredActs; track a) {
 <option [value]="a.value">{{ a.label }}</option>
@@ -171,15 +187,17 @@ const STATE_NAMES: Record<string, string> = {
             </select>
           </div>
           <div class="flex-1 min-w-[180px]">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Filter by Register Type</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="saved-register-type">Saved register type</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="filterRegisterType" (ngModelChange)="reload()">
+              id="saved-register-type" [(ngModel)]="filterRegisterType" (ngModelChange)="reload()">
               <option value="">{{ filterAct ? 'All under this Act' : 'All Registers' }}</option>
               @for (rt of filteredRegisterTypes; track rt) {
 <option [value]="rt.value">{{ rt.label }}</option>
 }
             </select>
           </div>
+        </div>
+        </details>
           <div class="flex gap-2">
             <button
               class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
@@ -199,8 +217,7 @@ const STATE_NAMES: Record<string, string> = {
               {{ downloading ? 'Preparing ZIP...' : 'Download All as ZIP' }}
             </button>
           </div>
-        </div>
-      </div>
+      </section>
 
       @if (error) {
 <div class="mb-6">
@@ -304,6 +321,9 @@ const STATE_NAMES: Record<string, string> = {
   styles: [
     `
       .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
+      .register-scope-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+      @media (min-width: 640px) { .register-scope-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (min-width: 1024px) { .register-scope-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -318,6 +338,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   clientOptions: SelectOption[] = [{ value: null, label: 'All Clients' }];
 
   private reload$ = new Subject<void>();
+  private optionsReload$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
   // ── Generate panel state ──
@@ -327,6 +348,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   genBranchId = '';
   selMonth: number | null = null;
   selYear: number | null = null;
+  selectedRunId = '';
   matchedRun: { id: string; label: string } | null = null;
   generating = false;
   genResult = '';
@@ -564,11 +586,11 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
       map(params => params.get('clientId') || ''), distinctUntilChanged(),
       tap(clientId => {
         this.q.clientId = clientId || null; this.optionsError = '';
-        this.genBranchId = ''; this.genBranches = []; this.allRuns = []; this.matchedRun = null;
+        this.genBranchId = ''; this.genBranches = []; this.allRuns = []; this.matchedRun = null; this.selectedRunId = '';
         this.filterAct = ''; this.filterRegisterType = ''; this.registerBuilderOpen = false;
         this.genResult = ''; this.rows = []; this.savedRows = []; this.reload();
       }),
-      switchMap(clientId => forkJoin({
+      switchMap(clientId => this.optionsReload$.pipe(startWith(undefined), switchMap(() => forkJoin({
         branches: (clientId ? this.payrollApi.getOptionBranches(clientId) : of([])).pipe(catchError(() => {
           this.optionsError += 'Branch options could not be loaded. ';
           this.cdr.markForCheck(); return of([]);
@@ -577,7 +599,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
           this.optionsError += 'Payroll runs could not be loaded. ';
           this.cdr.markForCheck(); return of([]);
         })),
-      })), takeUntil(this.destroy$),
+      })))), takeUntil(this.destroy$),
     ).subscribe(({ branches, runs }) => {
       this.genBranches = (branches || []).map((b: any) => ({
         id: b.id, branchName: b.branchName || b.branchname || b.name || '',
@@ -619,6 +641,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.reload$.complete();
+    this.optionsReload$.complete();
   }
 
   onActChange(): void {
@@ -627,9 +650,22 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     this.reload();
   }
 
+  refresh(): void {
+    this.optionsError = '';
+    this.optionsReload$.next();
+    this.reload();
+  }
+
   reload(): void {
     this.rows = []; this.savedRows = [];
     this.reload$.next();
+  }
+
+  openRegisterBuilder(): void {
+    this.registerBuilderOpen = true;
+    const heading = document.getElementById('register-formats-heading');
+    heading?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    heading?.focus({ preventScroll: true });
   }
 
   onRegisterGenerated(scope?: RegisterGeneratedScope): void {
@@ -637,6 +673,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
       if (scope.branchId !== this.genBranchId) return;
       this.selYear = scope.year; this.selMonth = scope.month; this.matchRun();
     }
+    this.genResult = 'Register saved for review. Check the file below and approve it when ready for Branch Desk.';
     this.filterAct = ''; this.filterRegisterType = '';
     this.reload();
   }
@@ -644,33 +681,37 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   /* ── Generate panel methods ── */
 
   onBranchChange(): void {
+    this.selectedRunId = '';
     this.genResult = '';
     this.matchRun();
     this.reload();
   }
 
   onPeriodChange(): void {
+    this.selectedRunId = '';
     this.genResult = '';
     this.matchRun();
     this.reload();
   }
 
+  get payrollRunOptions(): any[] {
+    if (!this.genBranchId || !this.q.clientId || !this.selMonth || !this.selYear) return [];
+    return this.allRuns.filter(r => Number(r.periodMonth) === this.selMonth &&
+      Number(r.periodYear) === this.selYear && r.status === 'APPROVED' && !!r.approvedAt &&
+      r.clientId === this.q.clientId && (r.branchId === null || r.branchId === this.genBranchId));
+  }
+  runLabel(run: any): string {
+    return [run.title || run.clientName || 'Approved payroll', String(run.periodMonth).padStart(2, '0') + '/' + run.periodYear,
+      run.branchId ? 'Branch payroll' : 'Company-wide payroll',
+      run.employeeCount == null ? '' : run.employeeCount + ' workers in run',
+      run.approvedAt ? 'Approved ' + new Date(run.approvedAt).toLocaleString() : ''].filter(Boolean).join(' — ');
+  }
+  selectRun(): void { this.matchRun(); }
   private matchRun(): void {
-    this.matchedRun = null;
-    if (!this.selMonth || !this.selYear) return;
-    const candidates = this.allRuns.filter(
-      (r) =>
-        Number(r.periodMonth) === this.selMonth &&
-        Number(r.periodYear) === this.selYear &&
-        r.status === 'APPROVED' && (!this.q.clientId || r.clientId === this.q.clientId) && (!r.branchId || r.branchId === this.genBranchId),
-    );
-    const match = candidates.find(r=>r.branchId === this.genBranchId) || candidates.find(r=>!r.branchId);
-    if (match) {
-      this.matchedRun = {
-        id: match.id,
-        label: `${match.clientName || ''} — ${String(match.periodMonth).padStart(2, '0')}/${match.periodYear} (${match.status})`,
-      };
-    }
+    const options = this.payrollRunOptions;
+    const match = options.find(r => r.id === this.selectedRunId) || (options.length === 1 ? options[0] : undefined);
+    this.selectedRunId = match?.id || '';
+    this.matchedRun = match ? { id: match.id, label: this.runLabel(match) } : null;
     this.cdr.markForCheck();
   }
 

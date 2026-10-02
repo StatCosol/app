@@ -124,7 +124,7 @@ export async function contractorRegisterSource(
         'Branch-approved contractor totals only. This attendance snapshot does not retain approved In/Out times; complete every daily timing or absence/holiday entry from supporting attendance evidence before generation. Missing overtime is not assumed to be zero.',
     };
   }
-  if (!layout.payrollPrefill)
+  if (!layout.payrollPrefill && !layout.payrollDraftPrefill)
     throw new BadRequestException(
       'This form does not support contractor payroll as a source',
     );
@@ -173,7 +173,9 @@ export async function contractorRegisterSource(
     const values: RegisterRow = {
       serial: i + 1,
       employeeCode: r.employeeCode,
-      name: r.employeeName,
+      name: layout.payrollDraftPrefill
+        ? [r.employeeName, r.employeeCode].filter(Boolean).join(' — ')
+        : r.employeeName,
       designation: r.calculationSnapshot?.designation ?? '',
       uan: r.calculationSnapshot?.uan ?? '',
       frequency: 'Monthly',
