@@ -81,15 +81,15 @@ const STATE_NAMES: Record<string, string> = {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Select Branch &amp; Period
+          1. Select branch and period
         </h3>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div class="register-scope-grid gap-4 items-end">
           <!-- Branch -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="register-branch">Branch</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="genBranchId" (ngModelChange)="onBranchChange()">
+              id="register-branch" [(ngModel)]="genBranchId" (ngModelChange)="onBranchChange()">
               <option value="">-- Select Branch --</option>
               @for (b of genBranches; track b) {
 <option [value]="b.id">
@@ -100,9 +100,9 @@ const STATE_NAMES: Record<string, string> = {
           </div>
           <!-- Month -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="register-month">Month</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="selMonth" (ngModelChange)="onPeriodChange()">
+              id="register-month" [(ngModel)]="selMonth" (ngModelChange)="onPeriodChange()">
               <option [ngValue]="null">-- Select Month --</option>
               @for (m of months; track m) {
 <option [ngValue]="m.value">{{ m.label }}</option>
@@ -111,9 +111,9 @@ const STATE_NAMES: Record<string, string> = {
           </div>
           <!-- Year -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="register-year">Year</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="selYear" (ngModelChange)="onPeriodChange()">
+              id="register-year" [(ngModel)]="selYear" (ngModelChange)="onPeriodChange()">
               <option [ngValue]="null">-- Select Year --</option>
               @for (y of years; track y) {
 <option [ngValue]="y">{{ y }}</option>
@@ -125,7 +125,7 @@ const STATE_NAMES: Record<string, string> = {
             <button
               class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
               [disabled]="!genBranchId || !selMonth || !selYear"
-              (click)="registerBuilderOpen = true">
+              (click)="openRegisterBuilder()">
               @if (!generating) {
 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -137,7 +137,7 @@ const STATE_NAMES: Record<string, string> = {
                 <path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
 }
-              Choose Act and Register
+              Continue to register formats
             </button>
           </div>
         </div>
@@ -168,13 +168,16 @@ const STATE_NAMES: Record<string, string> = {
       </div>
 
       <app-register-library (generated)="onRegisterGenerated($event)" [expanded]="registerBuilderOpen" [branchId]="genBranchId" [runId]="matchedRun?.id || ''" [year]="selYear" [month]="selMonth"></app-register-library>
-      <!-- ═══════ Download & Filter Bar ═══════ -->
-      <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+      <!-- Saved files are separate from preparation choices. -->
+      <section id="saved-registers" tabindex="-1" aria-labelledby="saved-registers-heading" class="scroll-mt-24 bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+        <h3 id="saved-registers-heading" class="text-lg font-semibold mb-2">4. Saved registers — review and download</h3>
+        <p class="text-sm text-gray-600 mb-4">These filters apply to saved files. Branch Desk can download a file after Payroll approval.</p>
+        @if (genResult) { <p role="status" class="text-emerald-800 mb-3">{{ genResult }}</p> }
         <div class="flex flex-wrap items-end gap-4">
           <div class="flex-1 min-w-[180px]">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Filter by Act</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="saved-register-act">Act for saved files</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="filterAct" (ngModelChange)="onActChange()">
+              id="saved-register-act" [(ngModel)]="filterAct" (ngModelChange)="onActChange()">
               <option value="">All Acts</option>
               @for (a of filteredActs; track a) {
 <option [value]="a.value">{{ a.label }}</option>
@@ -182,9 +185,9 @@ const STATE_NAMES: Record<string, string> = {
             </select>
           </div>
           <div class="flex-1 min-w-[180px]">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Filter by Register Type</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="saved-register-type">Saved register type</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
-              [(ngModel)]="filterRegisterType" (ngModelChange)="reload()">
+              id="saved-register-type" [(ngModel)]="filterRegisterType" (ngModelChange)="reload()">
               <option value="">{{ filterAct ? 'All under this Act' : 'All Registers' }}</option>
               @for (rt of filteredRegisterTypes; track rt) {
 <option [value]="rt.value">{{ rt.label }}</option>
@@ -211,7 +214,7 @@ const STATE_NAMES: Record<string, string> = {
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
       @if (error) {
 <div class="mb-6">
@@ -315,6 +318,9 @@ const STATE_NAMES: Record<string, string> = {
   styles: [
     `
       .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
+      .register-scope-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+      @media (min-width: 640px) { .register-scope-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (min-width: 1024px) { .register-scope-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -652,11 +658,19 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     this.reload$.next();
   }
 
+  openRegisterBuilder(): void {
+    this.registerBuilderOpen = true;
+    const heading = document.getElementById('register-formats-heading');
+    heading?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    heading?.focus({ preventScroll: true });
+  }
+
   onRegisterGenerated(scope?: RegisterGeneratedScope): void {
     if (scope) {
       if (scope.branchId !== this.genBranchId) return;
       this.selYear = scope.year; this.selMonth = scope.month; this.matchRun();
     }
+    this.genResult = 'Register saved for review. Check the file below and approve it when ready for Branch Desk.';
     this.filterAct = ''; this.filterRegisterType = '';
     this.reload();
   }

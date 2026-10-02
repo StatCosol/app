@@ -55,18 +55,24 @@ interface Jurisdiction {
   standalone: true,
   imports: [FormsModule, RegisterPreparationComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`
+    .register-choice-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 640px) { .register-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1024px) { .register-choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  `],
   template: `
-    <details [open]="expanded" class="border rounded-lg p-4 mb-6 bg-white">
-      <summary class="cursor-pointer text-lg font-semibold">
-        Register formats by State, Act and Form
-      </summary>
+    <section class="border rounded-lg p-4 mb-6 bg-white" aria-labelledby="register-formats-heading">
+      <div class="flex flex-wrap justify-between gap-3">
+        <h3 id="register-formats-heading" tabindex="-1" class="scroll-mt-24 text-lg font-semibold">2. Choose Act and register format</h3>
+        <button type="button" class="text-sm underline self-center" (click)="viewSavedRegisters()">View saved registers</button>
+      </div>
       <p class="text-sm text-gray-600 my-3">
         The selected branch supplies its state code. Employee, attendance and payroll records are
         restricted to that branch. Select the Act to see its register formats.
       </p>
       @if (branchName) {
         <p class="text-sm">
-          Branch: <strong>{{ branchName }}</strong> · State code:
+          Branch: <strong>{{ branchName }}</strong> · State:
           <strong>{{ branchStateCode }}</strong>
         </p>
       }
@@ -81,13 +87,13 @@ interface Jurisdiction {
       @if (!branchId) {
         <p class="text-sm my-3">Select a branch above to load its register formats.</p>
       }
-      <div class="flex flex-wrap gap-3 my-3">
-        <label
+      <div class="register-choice-grid gap-3 my-3">
+        <label class="min-w-0 text-sm"
           >State / applicable rules
           <select
             aria-label="Register jurisdiction"
             [disabled]="loading || availableJurisdictions.length < 2"
-            class="border rounded p-2 block"
+            class="border rounded p-2 block w-full mt-1"
             [(ngModel)]="jurisdiction"
             (ngModelChange)="load()"
           >
@@ -96,10 +102,11 @@ interface Jurisdiction {
             }
           </select>
         </label>
-        <label
+        <label class="min-w-0 text-sm"
           >Act<select
             aria-label="Select Act for registers"
-            class="border rounded p-2 block"
+            [disabled]="loading || !branchId || !acts.length"
+            class="border rounded p-2 block w-full mt-1"
             [(ngModel)]="actCode"
             (ngModelChange)="changeAct()"
           >
@@ -109,21 +116,14 @@ interface Jurisdiction {
             }
           </select></label
         >
-        <button
-          type="button"
-          class="border rounded px-4 py-2 self-end bg-blue-700 text-white"
-          (click)="submitAct()"
-          [disabled]="loading || !actCode"
-        >
-          Show registers
-        </button>
-        <label
+        <label class="min-w-0 text-sm"
           >Find a register in the selected Act
           <input
-            aria-label="Find an Act or form"
-            class="border rounded p-2 block"
+            aria-label="Find a register in the selected Act"
+            [disabled]="!submittedActCode || loading"
+            class="border rounded p-2 block w-full mt-1"
             [(ngModel)]="query"
-            placeholder="For example: CLRA or XII"
+            placeholder="For example: wages or Form XII"
           />
         </label>
       </div>
@@ -140,13 +140,16 @@ interface Jurisdiction {
       @if (info && !loading && !error) {
         <p class="text-sm mb-3">{{ info.note }}</p>
         <p class="text-sm text-amber-800 mb-3">
-          Select the Act and choose Show registers to see only that Act’s formats and their usage.
+          Choose a format below to prepare a register.
           Preparation is enabled only for implemented formats and confirmed branch applicability.
           Other formats remain available as source references.
         </p>
         @for (form of visibleForms; track form.id) {
           <article class="border-t py-4">
             <h4 class="font-semibold">Form {{ form.formNumber }} — {{ form.title }}</h4>
+            <p class="text-sm text-gray-600">{{ kindLabel(form.kind) }} · {{ form.preparationAvailable ? 'Available for preparation after branch checks' : 'Reference only' }}</p>
+            <details class="my-3 text-sm">
+              <summary class="cursor-pointer underline">Requirements and legal source</summary>
             <p class="text-sm">{{ form.source.title }}</p>
             <p class="text-sm text-gray-600">
               {{ form.ruleReference }} · {{ form.source.notification }} ·
@@ -160,13 +163,16 @@ interface Jurisdiction {
               · {{ kindLabel(form.kind) }}
             </p>
             <p class="text-sm my-2">{{ form.notes }} Usage: {{ form.usage }}</p>
+            </details>
             @if (form.preparationAvailable) {
               <button
                 type="button"
                 class="border rounded px-3 py-2 my-2"
                 (click)="selectedForm = form"
+                [attr.aria-pressed]="selectedForm?.id === form.id"
+                [disabled]="selectedForm?.id === form.id"
               >
-                Prepare this register
+                {{ selectedForm?.id === form.id ? 'Selected — complete the details below' : 'Prepare this register' }}
               </button>
             }
             @if (selectedForm?.id === form.id) {
@@ -179,7 +185,9 @@ interface Jurisdiction {
                 [month]="month"
               ></app-register-preparation>
             }
-            <div class="flex gap-4 text-sm">
+            <details class="text-sm mt-3">
+              <summary class="cursor-pointer underline">Reference downloads</summary>
+            <div class="flex flex-wrap gap-4 text-sm mt-2">
               <a
                 class="underline"
                 [href]="sourceUrl(form)"
@@ -209,11 +217,12 @@ interface Jurisdiction {
                 </button>
               }
             </div>
+            </details>
           </article>
         } @empty {
           <p class="py-4">
             @if (!submittedActCode) {
-              Select an Act and choose Show registers.
+              Select an Act to see its register formats.
             } @else {
               No reviewed form matches this selection. A format from another Act or state will not
               be substituted.
@@ -221,7 +230,7 @@ interface Jurisdiction {
           </p>
         }
       }
-    </details>
+    </section>
   `,
 })
 export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
@@ -383,10 +392,14 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
       name: names[code] || code,
     }));
   }
+  viewSavedRegisters(): void {
+    const saved = document.getElementById('saved-registers');
+    saved?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    saved?.focus({ preventScroll: true });
+  }
   changeAct() {
-    this.submittedActCode = '';
-    this.selectedForm = null;
     this.query = '';
+    this.submitAct();
   }
   submitAct() {
     this.selectedForm = null;

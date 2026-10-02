@@ -33,9 +33,15 @@ interface Field {
   standalone: true,
   imports: [FormsModule, RegisterEvidenceComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`
+    .register-record-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 640px) { .register-record-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1024px) { .register-record-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  `],
   template: `
     <section class="border p-4 my-4 bg-gray-50">
-      <h4 class="font-semibold">Prepare selected register</h4>
+      <h4 class="font-semibold text-lg">3. Prepare and review details</h4>
+      <p class="text-sm mt-2">{{ annual ? 'Calendar year ' + year : 'Period: ' + month + '/' + year }} · {{ rows.length }} {{ rows.length === 1 ? 'record' : 'records' }}</p>
       <p class="text-sm my-2">
         Use the branch and period selected above. Fields marked * are required. Prepared files need
         review and authentication before use.
@@ -60,9 +66,10 @@ interface Field {
         </p>
       }
       @if (fields.length) {
+        @if (eligible) { <h5 class="font-semibold mt-4 mb-2">Data source and company role</h5> }
         @if (eligible && capacityRequired) {
           <label class="block text-sm my-3"
-            >Company capacity for this register *
+            >Your company’s role at this site *
             <select class="block border rounded p-2 w-full" [(ngModel)]="actingCapacity">
               <option value="">Select the work relationship</option>
               <option value="DIRECT_EMPLOYER">Direct employer at this site</option>
@@ -71,17 +78,14 @@ interface Field {
             </select>
           </label>
           <p class="text-sm">
-            This is the site's work relationship, separate from your Client login. For your
-            company's own deployed workers, select Company employees below. Enter the other
-            company's name/address under principal employer and retain the work-order reference.
-            Other applicable registers remain separate.
+            Choose the role your company performs at this site. Use Company employees for your own workers, including staff deployed to a customer. Use Contract labour for an assigned contractor’s workers.
           </p>
         }
         @if (eligible && supportsContractor) {
           <label class="block text-sm my-2"
             >Records for
             <select
-              class="border rounded p-2 ml-2"
+              class="block border rounded p-2 w-full mt-1"
               [(ngModel)]="recordSource"
               (ngModelChange)="changeSource()"
             >
@@ -93,7 +97,7 @@ interface Field {
             <label class="block text-sm my-2"
               >Assigned contractor
               <select
-                class="border rounded p-2 ml-2"
+                class="block border rounded p-2 w-full mt-1"
                 [(ngModel)]="contractorId"
                 (ngModelChange)="changeContractor()"
               >
@@ -114,9 +118,9 @@ interface Field {
             placeholder="Incident report, source document or ledger reference"
           />
         </label>
-        <div class="flex gap-3 my-3">
+        <div class="flex flex-wrap gap-3 my-3">
           <button type="button" class="underline" (click)="blank()" [disabled]="busy">
-            Download blank format
+            Download empty template (no worker data)
           </button>
           @if (canPrefill) {
             <button
@@ -131,8 +135,8 @@ interface Field {
               "
             >
               {{
-                recordSource === 'CONTRACTOR'
-                  ? 'Fill from selected contractor records'
+                draftPrefill && draftLoaded ? 'Saved records loaded' : recordSource === 'CONTRACTOR'
+                  ? 'Load selected contractor records'
                   : prefillLabel
               }}
             </button>
@@ -143,10 +147,10 @@ interface Field {
             @if (!runId && recordSource === 'EMPLOYEES') {
               <p role="status" class="text-amber-800 my-2">Select an approved payroll run for this branch and month to load the worker details.</p>
             }
-            @if (busy) { <p role="status">Loading register details…</p> }
+            @if (busy) { <p role="status">Preparing register details…</p> }
             @if (missingDetails.length) {
               <details class="border p-3 my-3">
-                <summary>{{ missingDetails.length }} required details still need review</summary>
+                <summary>Review remaining required details</summary>
                 <ul class="list-disc pl-5">
                   @for (detail of missingDetails; track $index) { <li>{{ detail }}</li> }
                 </ul>
@@ -170,6 +174,7 @@ interface Field {
               (sourceSelected)="useSource($event)"
             ></app-register-evidence>
           }
+          <h5 class="font-semibold mt-5 mb-3">Employer and issue details</h5>
           <div class="grid sm:grid-cols-2 gap-3">
             @for (item of metadataFields; track item.key) {
               <label class="text-sm"
@@ -184,10 +189,15 @@ interface Field {
           @if (particularFields.length) {
             <h5 class="font-semibold my-3">{{ particularsTitle }}</h5>
             <p class="text-sm">
-              Enter these once. Retain the establishment details and every register sheet together.
+              Complete these details for this register. Retain the establishment details and every register sheet together.
             </p>
+            @for (group of particularGroups; track group.title) {
+              <details class="border rounded bg-white p-3 my-3" [open]="particularGroups.length === 1">
+                <summary class="cursor-pointer font-medium">{{ group.title }}
+                  <span class="font-normal text-sm ml-2">{{ missingFields(group.fields, particulars) }} required fields remaining</span>
+                </summary>
             <div class="grid sm:grid-cols-2 gap-3 my-3">
-              @for (field of particularFields; track field.key) {
+              @for (field of group.fields; track field.key) {
                 <label class="text-sm"
                   >{{ field.label }}{{ field.required ? ' *' : '' }}
                   <textarea
@@ -198,6 +208,8 @@ interface Field {
                 </label>
               }
             </div>
+              </details>
+            }
           }
           @if (isMaternity) {
             <p class="text-sm my-3">
@@ -207,12 +219,15 @@ interface Field {
               with supporting evidence.
             </p>
           }
+          <h5 class="font-semibold mt-5 mb-2">{{ isEvent ? 'Event records' : 'Worker records' }}</h5>
+          <p class="text-sm mb-3">Open each record to review loaded values and complete missing details.</p>
           @for (row of rows; track $index; let i = $index) {
             <details class="border my-3 p-3" [open]="rows.length === 1">
               <summary class="cursor-pointer">
                 Record {{ i + 1 }} — {{ row['name'] || row['employee_2'] || 'New record' }}
+                <span class="text-sm ml-2">{{ missingFields(fields, row) }} required fields remaining</span>
               </summary>
-              <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 my-3">
+              <div class="register-record-grid gap-3 my-3">
                 @for (field of fields; track field.key) {
                   <label class="text-sm"
                     >{{ field.label }}{{ field.required ? ' *' : '' }}
@@ -232,7 +247,9 @@ interface Field {
               </button>
             </details>
           }
-          <div class="flex gap-4 my-3">
+          <h5 class="font-semibold mt-5">Review and generate</h5>
+          <p class="text-sm my-2">Generation saves a file for Payroll review and downloads a copy. Branch Desk access follows approval.</p>
+          <div class="flex flex-wrap gap-4 my-3">
             <button
               type="button"
               class="underline"
@@ -247,7 +264,7 @@ interface Field {
               (click)="generate()"
               [disabled]="busy || !rows.length"
             >
-              Generate Excel register
+              Generate and save register
             </button>
           </div>
         }
@@ -492,6 +509,27 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
         },
         error: (e) => this.fail(e),
       });
+  }
+  missingFields(fields: Field[], values: Record<string, string | number>): number {
+    return fields.filter(field => field.required && (values[field.key] == null || String(values[field.key]).trim() === '')).length;
+  }
+  get particularGroups(): { title: string; fields: Field[] }[] {
+    const groups = new Map<string, Field[]>();
+    for (const field of this.particularFields) {
+      const key = field.key;
+      const title = /^(category|class|headcount|adolescent)/.test(key) || ['regularWorkers', 'contractWorkers'].includes(key)
+        ? 'Workforce totals'
+        : ['cleaning', 'inspections', 'inspectors', 'accidents', 'injured', 'deceased'].includes(key)
+          ? 'Inspections, safety and maintenance'
+          : /Signatory|Signature|Designation$/.test(key) || key === 'managerAddress' || key === 'manager'
+            ? 'Responsible persons and authentication'
+            : ['wageOrder', 'registrations', 'principalEmployer', 'contractors'].includes(key)
+              ? 'Registrations and work arrangements'
+              : 'Establishment and contact details';
+      if (!groups.has(title)) groups.set(title, []);
+      groups.get(title)!.push(field);
+    }
+    return [...groups].map(([title, fields]) => ({ title, fields }));
   }
   get missingDetails(): string[] {
     const missing = (value: unknown) => value == null || String(value).trim() === '';

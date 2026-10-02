@@ -61,7 +61,7 @@ describe('Register library Act selection', () => {
     component.query = 'V';
     expect(component.visibleForms.map((f) => f.id)).toEqual(['a']);
   });
-  it('switches Shops and Contract Labour only after submission and clears the prior prepared form', () => {
+  it('switches Shops and Contract Labour immediately on selection and clears the prior prepared form', () => {
     component.forms = [
       {
         id: 'shops',
@@ -93,9 +93,7 @@ describe('Register library Act selection', () => {
     component.actCode = 'CLRA_1970';
     component.changeAct();
     expect(component.selectedForm).toBeNull();
-    expect(component.visibleForms).toEqual([]);
     expect(component.query).toBe('');
-    component.submitAct();
     expect(component.visibleForms.map((f) => f.id)).toEqual(['contract']);
     expect(component.acts.find((a) => a.code === 'TS_SHOPS_1988')?.name).toContain(
       'Shops and Establishments',
