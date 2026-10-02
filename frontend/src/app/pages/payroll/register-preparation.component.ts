@@ -9,10 +9,14 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   inject,
+  ViewChild,
+  ElementRef,
+  Injector,
+  afterNextRender,
 } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, TimeoutError, timeout } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
@@ -46,13 +50,13 @@ interface Field {
         Use the branch and period selected above. Fields marked * are required. Prepared files need
         review and authentication before use.
       </p>
-      @if (error) {
+      @if (error && (!generationAttempted || !eligible)) {
         <p role="alert" class="text-red-700 whitespace-pre-line">{{ error }}</p>
       }
       @if (eligibilityReason) {
         <p role="status" class="text-amber-800 text-sm my-2">{{ eligibilityReason }}</p>
       }
-      @if (notice) {
+      @if (notice && !generationAttempted) {
         <p role="status" class="text-sm my-2">{{ notice }}</p>
       }
       @if (!branchId || !year || !periodMonth) {
@@ -253,6 +257,23 @@ interface Field {
           }
           <h5 class="font-semibold mt-5">Review and generate</h5>
           <p class="text-sm my-2">Generation saves a file for Payroll review and downloads a copy. Branch Desk access follows approval.</p>
+          <div #generationFeedback data-testid="register-generation-feedback" aria-label="Register generation result" tabindex="-1" class="scroll-mt-24" [attr.aria-busy]="generating">
+            @if (generationAttempted && error) {
+              <p role="alert" class="border border-red-300 bg-red-50 rounded p-3 my-3 text-red-800 whitespace-pre-line max-h-72 overflow-y-auto">{{ error }}</p>
+            }
+            @if (busy && !generating) {
+              <p role="status" class="my-3">Loading source records. Please wait before generating.</p>
+            }
+            @if (!busy && !rows.length) {
+              <p role="status" class="my-3">Add at least one record before generating.</p>
+            }
+            @if (generating) {
+              <p role="status" class="border rounded p-3 my-3">Generating and saving your register. Please wait…</p>
+            }
+            @if (generationAttempted && notice) {
+              <p role="status" class="border border-emerald-300 bg-emerald-50 rounded p-3 my-3 text-emerald-900">{{ notice }}</p>
+            }
+          </div>
           <div class="flex flex-wrap gap-4 my-3">
             <button
               type="button"
@@ -268,7 +289,7 @@ interface Field {
               (click)="generate()"
               [disabled]="busy || !rows.length"
             >
-              Generate and save register
+              {{ generating ? 'Generating and saving…' : 'Generate and save register' }}
             </button>
           </div>
         }
@@ -285,6 +306,10 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   @Input() month: number | null = null;
   private readonly http = inject(HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly injector = inject(Injector);
+  @ViewChild('generationFeedback') private generationFeedback?: ElementRef<HTMLElement>;
+  generationAttempted = false;
+  generating = false;
   private readonly changed = new Subject<void>();
   private revision = 0;
   private readonly destroyed = new Subject<void>();
@@ -346,6 +371,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.actingCapacity = '';
     this.error = '';
     this.notice = '';
+    this.generationAttempted = false;
+    this.generating = false;
     this.eligible = false;
     this.eligibilityReason = '';
     this.busy = false;
@@ -468,6 +495,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.actingCapacity = '';
     this.error = '';
     this.notice = '';
+    this.generationAttempted = false;
+    this.generating = false;
     this.busy = false;
     if (this.eligible && this.draftPrefill &&
         (this.recordSource === 'EMPLOYEES' ? !!this.runId : !!this.contractorId)) this.prefill();
@@ -493,6 +522,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   }
   prefill() {
     if (!this.eligible || this.busy || (this.draftPrefill && this.draftLoaded)) return;
+    this.generationAttempted = false;
+    this.notice = '';
     this.busy = true;
     this.error = '';
     this.http
@@ -555,22 +586,26 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     return result;
   }
   blank() {
+    if (this.busy) return;
+    this.generationAttempted = false;
     this.fetchFile('/template');
   }
   generate() {
-    if (!this.eligible) return;
-    if (this.recordSource === 'CONTRACTOR' && !this.contractorId) {
-      this.error = 'Select the assigned contractor';
-      return;
-    }
-    if (this.capacityRequired && !this.actingCapacity) {
-      this.error = 'Select the company capacity at this site';
-      return;
-    }
     if (this.busy) return;
-    if (this.draftPrefill && this.missingDetails.length) {
+    this.generationAttempted = true;
+    this.error = '';
+    this.notice = '';
+    if (!this.eligible) {
+      this.error = this.eligibilityReason || 'This register is not available for the selected branch and period.';
+    } else if (this.recordSource === 'CONTRACTOR' && !this.contractorId) {
+      this.error = 'Select the assigned contractor under Change worker source.';
+    } else if (this.capacityRequired && !this.actingCapacity) {
+      this.error = 'Select your company’s responsibility at this site before generating.';
+    } else if (this.draftPrefill && this.missingDetails.length) {
       this.error = 'Complete the remaining required details before generation:\n' + this.missingDetails.join('\n');
-      this.cdr.markForCheck();
+    }
+    if (this.error) {
+      this.showGenerationFeedback();
       return;
     }
     this.fetchFile('/generate', {
@@ -584,41 +619,59 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       contractorUserId: this.recordSource === 'CONTRACTOR' ? this.contractorId : undefined,
     });
   }
+  private showGenerationFeedback() {
+    this.cdr.markForCheck();
+    if (!this.generationAttempted) return;
+    const revision = this.revision;
+    afterNextRender(() => {
+      if (revision !== this.revision || !this.generationAttempted) return;
+      const feedback = this.generationFeedback?.nativeElement;
+      feedback?.scrollIntoView({ block: 'nearest' });
+      feedback?.focus({ preventScroll: true });
+    }, { injector: this.injector });
+  }
   private fetchFile(suffix: string, body?: unknown) {
     this.busy = true;
+    this.generating = !!body;
     this.error = '';
+    this.notice = '';
+    this.showGenerationFeedback();
     const request = body
       ? this.http.post(this.url(suffix), body, { responseType: 'blob' })
       : this.http.get(this.url(suffix), { responseType: 'blob' });
-    request.pipe(takeUntil(this.changed), takeUntil(this.destroyed)).subscribe({
+    request.pipe(timeout(120000), takeUntil(this.changed), takeUntil(this.destroyed)).subscribe({
       next: (blob) => {
-        const url = URL.createObjectURL(blob),
-          a = document.createElement('a');
-        a.href = url;
-        a.download =
-          this.formId +
-          (body ? '-' + this.year + (this.annual ? '' : '-' + this.periodMonth) : '-blank') +
-          '.xlsx';
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
         this.busy = false;
-        this.notice = body
-          ? 'Register saved for review and downloaded.'
-          : 'Blank format downloaded.';
+        this.generating = false;
+        try {
+          const url = URL.createObjectURL(blob);
+          try {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = this.formId + (body ? '-' + this.year + (this.annual ? '' : '-' + this.periodMonth) : '-blank') + '.xlsx';
+            a.click();
+          } finally {
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          }
+          this.notice = body
+            ? 'Register saved for review. Download started. If it does not appear, use the saved registers below to download the file.'
+            : 'Blank format download started.';
+        } catch {
+          if (body) {
+            this.notice = 'Register saved for review, but the download could not start. Use the saved registers below to download the file.';
+          } else {
+            this.error = 'The template download could not start. Please try again.';
+          }
+        }
         if (body && this.year && this.periodMonth)
-          this.generated.emit({
-            branchId: this.branchId,
-            year: this.year,
-            month: this.periodMonth,
-          });
-        this.cdr.markForCheck();
+          this.generated.emit({ branchId: this.branchId, year: this.year, month: this.periodMonth });
+        this.showGenerationFeedback();
       },
       error: (e) => this.fail(e),
     });
   }
   private async fail(e: any) {
     const revision = this.revision;
-    this.busy = false;
     let detail = e?.error;
     if (detail instanceof Blob) {
       try {
@@ -628,14 +681,22 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       }
     }
     if (revision !== this.revision) return;
-    this.error = Array.isArray(detail?.errors)
+    this.busy = false;
+    this.generating = false;
+    this.error = e instanceof TimeoutError
+      ? (this.generationAttempted
+        ? 'The request timed out. Check saved registers before trying again; saving may have completed on the server.'
+        : 'The download request timed out. Please try again.')
+      : e?.status === 0 && this.generationAttempted
+        ? 'The connection was interrupted. Check saved registers before trying again; saving may have completed on the server.'
+      : Array.isArray(detail?.errors)
       ? detail.errors.join('\n')
       : Array.isArray(detail?.message)
         ? detail.message.join('\n')
       : typeof detail?.message === 'string'
         ? detail.message
         : 'Could not prepare this register. Please retry.';
-    this.cdr.markForCheck();
+    this.showGenerationFeedback();
   }
   ngOnDestroy() {
     this.revision++;

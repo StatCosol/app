@@ -69,7 +69,7 @@ describe('Register source selection and cancellation', () => {
     expect(component.canPrefill).toBe(false);
     component.generate();
     http.expectNone(r => r.url.endsWith('/generate'));
-    expect(component.error).toContain('company capacity');
+    expect(component.error).toContain('company’s responsibility');
     component.actingCapacity = 'DIRECT_EMPLOYER';
     component.particulars = { establishmentName: 'Factory site' };
     component.rows = [{ name: 'Worker' }];
@@ -135,7 +135,7 @@ describe('Register source selection and cancellation', () => {
     expect(component.canPrefill).toBe(false);
     expect(component.reuseAvailable).toBe(false);
     component.generate();
-    expect(component.error).toContain('company capacity');
+    expect(component.error).toContain('company’s responsibility');
     http.expectNone((r) => r.url.endsWith('/generate'));
     component.actingCapacity = 'CONTRACTOR';
     component.particulars = { principalEmployer: 'Other Company — customer site' };
