@@ -30,6 +30,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let status: number;
     let message: string | string[];
     let error: string;
+    let errors: string[] | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -41,6 +42,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const obj = body as Record<string, any>;
         message = obj.message ?? exception.message;
         error = obj.error ?? HttpStatus[status] ?? 'Error';
+        if ([400, 422].includes(status) && Array.isArray(obj.errors))
+          errors = obj.errors.filter(
+            (value: unknown): value is string => typeof value === 'string',
+          );
       }
     } else if (exception instanceof QueryFailedError) {
       const pg = exception.driverError as Record<string, unknown>;
@@ -95,6 +100,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     res.status(status).json({
       success: false,
       statusCode: status,
+      ...(errors?.length ? { errors } : {}),
       message,
       error,
       path: req.url,

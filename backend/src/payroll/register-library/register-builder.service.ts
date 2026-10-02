@@ -5,6 +5,7 @@ import {
   assertRegisterContractor,
   contractorRegisterSource,
 } from './register-contractor-source';
+import { integratedRegisterDraft } from './register-integrated-draft';
 import { registerOperationalSource } from './register-operational-source';
 import {
   BadRequestException,
@@ -235,7 +236,7 @@ export class RegisterBuilderService {
     contractorId?: string,
   ) {
     const context = await this.context(id, branchId, year, month, user);
-    if (context.layout.manualOnly)
+    if (context.layout.manualOnly && !context.layout.payrollDraftPrefill)
       throw new BadRequestException(
         context.layout.periodKind === 'ANNUAL'
           ? 'Complete this annual ledger from reviewed full-year HR records; monthly payroll or leave applications cannot establish annual balances'
@@ -283,7 +284,7 @@ export class RegisterBuilderService {
           month,
         ),
       );
-    if (!context.layout.payrollPrefill)
+    if (!context.layout.payrollPrefill && !context.layout.payrollDraftPrefill)
       return scopeRows(
         await registerOperationalSource(
           this.ds,
@@ -327,6 +328,8 @@ export class RegisterBuilderService {
       throw new BadRequestException(
         'Choose a payroll batch containing 1 to 500 branch employees',
       );
+    if (context.layout.payrollDraftPrefill)
+      return integratedRegisterDraft(this.ds, context.branch, run, employees);
     const storedDeductions = await this.ds.query(
       `SELECT cv.run_employee_id AS "employeeId", cv.component_code AS code, cv.amount
        FROM payroll_run_component_values cv

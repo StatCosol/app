@@ -19,6 +19,7 @@ async function main() {
       database: db.name, synchronize: true, entities: [RegistersRecordEntity],
     });
     await ds.initialize();
+    await require('./verify-register-draft-db.cjs')(ds);
     // The new state bindings must be selectable for review, never enabled by the package.
     await ds.query(`CREATE TABLE unit_compliance_master (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),code text UNIQUE,name text,category text,state_code text,frequency text,applies_to text,is_active boolean);
       CREATE TABLE compliance_package (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),code text);

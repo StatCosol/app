@@ -124,7 +124,7 @@ interface Field {
               class="underline"
               (click)="prefill()"
               [disabled]="
-                busy ||
+                busy || (draftPrefill && draftLoaded) ||
                 (recordSource === 'EMPLOYEES' && requiresPayroll && !runId) ||
                 (recordSource === 'CONTRACTOR' && !contractorId) ||
                 !eligible
@@ -139,6 +139,20 @@ interface Field {
           }
         </div>
         @if (eligible) {
+          @if (draftPrefill) {
+            @if (!runId && recordSource === 'EMPLOYEES') {
+              <p role="status" class="text-amber-800 my-2">Select an approved payroll run for this branch and month to load the worker details.</p>
+            }
+            @if (busy) { <p role="status">Loading register details…</p> }
+            @if (missingDetails.length) {
+              <details class="border p-3 my-3">
+                <summary>{{ missingDetails.length }} required details still need review</summary>
+                <ul class="list-disc pl-5">
+                  @for (detail of missingDetails; track $index) { <li>{{ detail }}</li> }
+                </ul>
+              </details>
+            }
+          }
           @if ((reuseAvailable || operational) && (recordSource === 'EMPLOYEES' || contractorId)) {
             <app-register-evidence
               [formId]="formId"
@@ -207,6 +221,7 @@ interface Field {
                       [type]="field.type === 'date' ? 'date' : 'text'"
                       [(ngModel)]="row[field.key]"
                       [readonly]="field.key === 'inspectorRemarks'"
+                      [disabled]="busy"
                       maxlength="2000"
                     />
                   </label>
@@ -288,6 +303,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
   reuseAvailable = false;
   reuseBasis = '';
   leaveCalculationAvailable = false;
+  draftPrefill = false;
+  draftLoaded = false;
   canPrefill = false;
   requiresPayroll = true;
   prefillLabel = 'Prefill from approved payroll';
@@ -312,6 +329,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.eligibilityReason = '';
     this.busy = false;
     this.canPrefill = false;
+    this.draftPrefill = false;
+    this.draftLoaded = false;
     this.recordSource = 'EMPLOYEES';
     this.contractorId = '';
     this.contractors = [];
@@ -341,13 +360,14 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
           this.reuseAvailable = !!d.reuseRule;
           this.reuseBasis = d.reuseRule?.basis || '';
           this.leaveCalculationAvailable = d.leaveCalculationAvailable === true;
-          this.canPrefill = !this.isEvent && !this.isMaternity && !d.layout.manualOnly;
+          this.draftPrefill = d.layout.payrollDraftPrefill === true;
+          this.canPrefill = !this.isEvent && !this.isMaternity && (!d.layout.manualOnly || this.draftPrefill);
           this.supportsContractor =
             ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber) ||
             (d.form?.sourceId === 'tsi' && d.layout.capacityRequired === true) ||
             d.form?.actCode === 'TS_SHOPS_1988';
-          this.requiresPayroll = d.layout.payrollPrefill;
-          this.prefillLabel = d.layout.payrollPrefill
+          this.requiresPayroll = d.layout.payrollPrefill || this.draftPrefill;
+          this.prefillLabel = this.requiresPayroll
             ? 'Prefill from approved payroll'
             : d.layout.baseFormNumber === 'I'
               ? 'Prefill approved employee records'
@@ -371,6 +391,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
             this.eligibilityReason = this.eligible
               ? ''
               : result.reason || 'This register is not available for the selected branch and period.';
+            if (this.eligible && this.draftPrefill && this.runId) this.prefill();
             this.cdr.markForCheck();
           },
           error: (e) => this.fail(e),
@@ -413,6 +434,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       .set('month', String(this.periodMonth));
   }
   changeContractor() {
+    this.draftLoaded = false;
     this.revision++;
     this.changed.next();
     this.rows = [{}];
@@ -443,7 +465,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     }
   }
   prefill() {
-    if (!this.eligible) return;
+    if (!this.eligible || this.busy || (this.draftPrefill && this.draftLoaded)) return;
     this.busy = true;
     this.error = '';
     this.http
@@ -456,13 +478,33 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       .subscribe({
         next: (d) => {
           this.rows = d.rows;
-          if (d.sourceReference) this.meta['supportingReference'] = d.sourceReference;
+          for (const [key, value] of Object.entries(d.metadata || {})) {
+            if (!String(this.meta[key] ?? '').trim()) this.meta[key] = String(value);
+          }
+          for (const [key, value] of Object.entries(d.particulars || {})) {
+            if (!String(this.particulars[key] ?? '').trim()) this.particulars[key] = String(value);
+          }
+          if (d.sourceReference && !this.meta['supportingReference']) this.meta['supportingReference'] = d.sourceReference;
+          this.draftLoaded = true;
           this.notice = d.notice;
           this.busy = false;
           this.cdr.markForCheck();
         },
         error: (e) => this.fail(e),
       });
+  }
+  get missingDetails(): string[] {
+    const missing = (value: unknown) => value == null || String(value).trim() === '';
+    const result = this.metadataFields.filter(f => missing(this.meta[f.key])).map(f => f.label);
+    if (this.manualOnly && missing(this.meta['supportingReference'])) result.push('Supporting record reference');
+    if (this.capacityRequired && !this.actingCapacity) result.push('Company capacity at this site');
+    result.push(...this.particularFields.filter(f => f.required && missing(this.particulars[f.key])).map(f => f.label));
+    if (!this.rows.length) result.push('At least one worker record');
+    for (const [index, row] of this.rows.entries()) {
+      const fields = this.fields.filter(f => f.required && missing(row[f.key]));
+      if (fields.length) result.push('Record ' + (index + 1) + ': ' + fields.map(f => f.label).join(', '));
+    }
+    return result;
   }
   blank() {
     this.fetchFile('/template');
@@ -475,6 +517,12 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     }
     if (this.capacityRequired && !this.actingCapacity) {
       this.error = 'Select the company capacity at this site';
+      return;
+    }
+    if (this.busy) return;
+    if (this.draftPrefill && this.missingDetails.length) {
+      this.error = 'Complete the remaining required details before generation:\n' + this.missingDetails.join('\n');
+      this.cdr.markForCheck();
       return;
     }
     this.fetchFile('/generate', {
@@ -534,6 +582,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     if (revision !== this.revision) return;
     this.error = Array.isArray(detail?.errors)
       ? detail.errors.join('\n')
+      : Array.isArray(detail?.message)
+        ? detail.message.join('\n')
       : typeof detail?.message === 'string'
         ? detail.message
         : 'Could not prepare this register. Please retry.';
