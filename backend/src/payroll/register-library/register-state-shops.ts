@@ -8,15 +8,22 @@ const f = (
 ): RegisterField => ({ key, label, type, required });
 
 // Keep source column numbers, including the numbering error printed in TS III.
-// The Shops binding does not assert that repealed Acts share this current obligation.
+// Act-specific bindings share the prescribed layout, not applicability decisions.
 export function stateShopsLayout(
   source: string,
   number: string,
   act?: string,
 ): RegisterLayout | null {
-  if (source === 'tsi' && number === 'II + III' && act === 'TS_SHOPS_1988') {
+  if (
+    source === 'tsi' &&
+    number === 'II + III' &&
+    ['TS_SHOPS_1988', 'FACTORIES_1948'].includes(act || '')
+  ) {
     return {
       baseFormNumber: 'STATE',
+      ...(act === 'FACTORIES_1948'
+        ? { establishmentRequirement: 'FACTORY' as const }
+        : {}),
       individual: false,
       payrollPrefill: false,
       manualOnly: true,

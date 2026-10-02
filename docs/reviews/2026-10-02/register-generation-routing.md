@@ -40,3 +40,30 @@ Regression coverage includes every implemented format's three-record grouping, s
 ## Live preparation blocker found in the deeper check
 
 A read-only check of live revision statcompy-backend--0001135 found Logiq BRM classified as FACTORY, with appropriate_government unset. Current decisions for TS_SHOPS_1988, WAGES_2019, OSH_2020 and SOCIAL_SECURITY_2020 are false. These are all Acts with implemented forms available for TS/Central in the deployed catalogue, so no such form can currently pass preparation eligibility. Branch context now exposes missing applicability/authority setup before form selection. Correcting the business configuration requires confirmation of the actual worksite relationship and governing authority; the audit does not infer or change them.
+
+## Telangana factory binding and supplied template review
+
+Following confirmation that BRM is a factory under State authority, its live facts were updated to STATE through the facts service and applicability was recomputed with audit records. The FACTORY classification and other facts were preserved. The FACTORIES decision remains applicable; TS_SHOPS_1988 remains inapplicable.
+
+The catalogue now has a separate Factories Act identity for Telangana integrated Forms II and III. It resolves the existing FACTORIES compliance-master decision and requires a Telangana factory under State authority with current applicability evidence. It shares the prescribed workbook layout with the separate Shops entry, without sharing applicability. The MULTI_ACT references remain reference-only. Preparation requires reviewed supporting records, both parts and explicit site capacity; an approved payroll month alone does not create this manual register.
+
+### Sources and comparison
+
+Official source: [Telangana G.O.Ms.No.6, 2 March 2019](https://ipass.telangana.gov.in/viewpdf.aspx?filepathnew=D:/TS-iPASSFinal/docs/2019LETF_MS6+(2).PDF), paragraph 4(9), notification paragraphs 2–3, and PDF pages 12–13. This is the existing-rules source; the selected period's applicable rules and Labour Code transition still require review before authentication.
+
+The user-supplied blank workbook, Integrated registers.xlsx, was inspected read-only on 2 October 2026. It has Form-II, Form-III and an empty Sheet3, with no formulas. It is a customised working layout, not an exact copy of the prescribed form.
+
+| Area | Supplied workbook | Prescribed output retained |
+| --- | --- | --- |
+| Form II establishment particulars | Main establishment, employer, contractor, registration, inspection and accident fields present | Same particulars, with separate male/female category, skill-class and adolescent counts |
+| Form III columns | 30 columns, including Actual Gross; Basic+VDA/allowance/total breakdown; separate ESI/PF | 26 numbered source columns, including total earnings and all other deductions |
+| Other earnings | Advance Bonus only | Other amount with description, allowing relevant earnings beyond bonus |
+| Other deductions | ESI and PF headings | EPF, ESI, Welfare Fund and other applicable deductions remain representable |
+| Authentication | Employer/contractor signature and signatory name | Also principal-employer certification, representative name, designation and signature when acting as contractor |
+| Calculations | Blank template with no formulas; Actual Gross versus earned total and repeated allowances are not defined | Reviewed amounts; no guessed mapping or double-counting of the extra working columns |
+
+The application's statutory sheets therefore retain the prescribed fields. The supplied 30-column working layout has not replaced the statutory layout or been given invented calculation rules. The source's printed net-pay cross-reference is not executed as a payroll formula.
+
+### Factory-specific verification
+
+Local checks passed: 207 backend tests across 12 register suites, 17 frontend register preparation/library tests, backend build, targeted frontend/backend lint and diff validation. The disposable PostgreSQL roundtrip fixture now also covers the factory form: both parts, persistence, LegitX master visibility, Branch Desk visibility after approval, individual/ZIP byte equality, wage-access restrictions and missing-file replacement resetting review. Its context is synthetic; eligibility decisions have separate regression tests. CI must execute the database fixture before release.

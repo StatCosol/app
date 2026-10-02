@@ -344,6 +344,7 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
           this.canPrefill = !this.isEvent && !this.isMaternity && !d.layout.manualOnly;
           this.supportsContractor =
             ['I', 'IV', 'V', 'IX'].includes(d.layout.baseFormNumber) ||
+            (d.form?.sourceId === 'tsi' && d.layout.capacityRequired === true) ||
             d.form?.actCode === 'TS_SHOPS_1988';
           this.requiresPayroll = d.layout.payrollPrefill;
           this.prefillLabel = d.layout.payrollPrefill

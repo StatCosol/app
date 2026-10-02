@@ -217,6 +217,8 @@ export interface RegisterForm {
   id: string;
   jurisdiction: string;
   actCode: string;
+  /** Exact compliance-master identity when it differs from the legal Act label. */
+  applicabilityCode?: string;
   rulesCode: string;
   formNumber: string;
   title: string;
@@ -256,6 +258,27 @@ export const REGISTER_FORMS: readonly RegisterForm[] = [
     notes:
       'Shops Act binding only. Both Forms II and III must be maintained together. Separately review annual Form I obligation. Confirm establishment exemptions, including G.O.Rt.No.383 of 23 September 2025. This entry does not establish current CLRA, Factories or Labour Code equivalence. Form III column 24 contains a printed cross-reference error; use supporting wage and deduction evidence, never that printed arithmetic as a payroll formula.',
     verifiedOn: '2026-09-14',
+    effectiveFrom: '2019-03-02',
+    applicability: 'REVIEW_REQUIRED',
+    generation: 'REFERENCE_ONLY',
+  },
+  {
+    id: 'ts--factories-1948--ts-integrated-2019--ii---iii--tsi',
+    jurisdiction: 'TS',
+    actCode: 'FACTORIES_1948',
+    applicabilityCode: 'FACTORIES',
+    rulesCode: 'TS_INTEGRATED_2019',
+    formNumber: 'II + III',
+    title: 'Integrated register — Factories (both parts)',
+    ruleReference: 'G.O.Ms.No.6, paragraph 4(9) and notification 2–3',
+    kind: 'REGISTER',
+    sourceId: 'tsi',
+    sourceStatus: 'EXISTING_RULES',
+    sourcePage: 12,
+    layoutId: 'ts-integrated-factories',
+    notes:
+      'Factory binding under the existing Telangana integrated-register order. Maintain Forms II and III together and separately review annual Form I. Confirm the rules and Labour Code transition applicable to the selected period before authentication. This entry does not establish equivalence for other Acts or replace separate safety, incident or contractor records. Use supporting earnings and deduction evidence for Form III column 24; do not use its printed cross-reference as a payroll formula.',
+    verifiedOn: '2026-10-02',
     effectiveFrom: '2019-03-02',
     applicability: 'REVIEW_REQUIRED',
     generation: 'REFERENCE_ONLY',
