@@ -180,5 +180,40 @@
     "sha256": "3a0dc6849c5cfe6ef335730ae0b59f3348356604152140f83f4b2c2cf3c6eeb9",
     "bytes": 1471370,
     "reviewedOn": "2026-09-14"
+  },
+  {
+    "sourceId": "aps",
+    "file": "aps.pdf",
+    "sha256": "6c1624894c7f2d71baa9ec60d76fab37d4f18b55b0102c61fffe412d6918aaf3",
+    "bytes": 337779,
+    "reviewedOn": "2026-10-02"
+  },
+  {
+    "sourceId": "kas",
+    "file": "kas.pdf",
+    "sha256": "d824ddc83e632534250c1a98578a64cef723a5654897a395cf9a5a2102aae903",
+    "bytes": 1559547,
+    "reviewedOn": "2026-10-02"
+  },
+  {
+    "sourceId": "tns",
+    "file": "tns.pdf",
+    "sha256": "70006dbfcca047f2ff4686b63e13647f43b147cced795811ed947df00a608acc",
+    "bytes": 151406,
+    "reviewedOn": "2026-10-02"
+  },
+  {
+    "sourceId": "hrs",
+    "file": "hrs.pdf",
+    "sha256": "7899ed757e22cfbabb6c41735b3a407e01a51a7aa850c4cce481d668e811bb71",
+    "bytes": 705282,
+    "reviewedOn": "2026-10-02"
+  },
+  {
+    "sourceId": "wbs",
+    "file": "wbs.pdf",
+    "sha256": "0f0eda8e62c4a1df8f94335d34a2ccfc43fc3bfea8a32937d8bb66fb66c12937",
+    "bytes": 1860617,
+    "reviewedOn": "2026-10-02"
   }
 ]

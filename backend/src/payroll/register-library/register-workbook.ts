@@ -1,3 +1,4 @@
+import { validateExpandedState } from './register-state-expansion-validation';
 import { addSharedRegisterTable } from './register-shared-table';
 import { addTelanganaRegisterTable } from './register-telangana-table';
 import { registerReuseRule } from './register-reuse-rule';
@@ -90,7 +91,17 @@ export function validateRegister(id: string, input: RegisterInput): string[] {
   if (!validDate(input.issueDate))
     errors.push('Issue date must be a valid YYYY-MM-DD date');
   errors.push(
-    ...validateStateShops(form.sourceId, form.formNumber, layout, input),
+    ...validateStateShops(
+      form.sourceId,
+      form.formNumber,
+      layout.particularsMode === 'COMMON'
+        ? { ...layout, baseFormNumber: 'I', particulars: undefined }
+        : layout,
+      layout.particularsMode === 'COMMON'
+        ? { ...input, particulars: undefined }
+        : input,
+    ),
+    ...validateExpandedState(form.sourceId, form.formNumber, layout, input),
   );
   if (
     !Array.isArray(input.rows) ||
@@ -518,6 +529,7 @@ export async function registerWorkbook(
   context: Record<string, string> = {},
 ): Promise<Buffer> {
   const { form, layout, schemaVersion } = definition(id);
+  const integrated = form.sourceId === 'tsi' && !!layout.particulars;
   const periodLabel = input
     ? layout.periodKind === 'ANNUAL'
       ? 'Calendar year ' + input.year + ' (January–December)'
@@ -549,17 +561,19 @@ export async function registerWorkbook(
     'Source page': String(form.sourcePage || ''),
     'Source-specific requirements': form.notes || '',
     'Data purpose':
-      layout.baseFormNumber === 'MATERNITY'
-        ? 'Women employee and maternity evidence — authorised HR records'
-        : layout.baseFormNumber === 'EVENT'
-          ? 'Accident/dangerous-occurrence evidence'
-          : layout.baseFormNumber === 'LEAVE'
-            ? 'Leave with wages records'
-            : layout.baseFormNumber === 'IX'
-              ? 'Daily attendance — not reconstructed from payroll totals'
-              : layout.baseFormNumber === 'I'
-                ? 'Employee master — not a monthly payroll subset'
-                : 'Monthly wages / payment',
+      layout.particularsMode === 'COMMON'
+        ? form.title + ' — reviewed supporting records'
+        : layout.baseFormNumber === 'MATERNITY'
+          ? 'Women employee and maternity evidence — authorised HR records'
+          : layout.baseFormNumber === 'EVENT'
+            ? 'Accident/dangerous-occurrence evidence'
+            : layout.baseFormNumber === 'LEAVE'
+              ? 'Leave with wages records'
+              : layout.baseFormNumber === 'IX'
+                ? 'Daily attendance — not reconstructed from payroll totals'
+                : layout.baseFormNumber === 'I'
+                  ? 'Employee master — not a monthly payroll subset'
+                  : 'Monthly wages / payment',
     'Required review':
       'Confirm jurisdiction, applicability, supporting records and signatures before use. No automatic NIL declaration.',
     ...context,
@@ -595,7 +609,9 @@ export async function registerWorkbook(
   };
   guide.pageSetup.printArea = 'A1:B' + guide.rowCount;
   if (layout.particulars?.length) {
-    const particulars = book.addWorksheet('Form II');
+    const particulars = book.addWorksheet(
+      integrated ? 'Form II' : 'Establishment details',
+    );
     particulars.columns = [{ width: 60 }, { width: 70 }];
     particulars.addRow([layout.particularsTitle, periodLabel]);
     particulars.addRow(['Legal identity', form.id]);
@@ -632,11 +648,12 @@ export async function registerWorkbook(
       printTitlesRow: '1:2',
     };
     particulars.pageSetup.printArea = 'A1:B' + particulars.rowCount;
-    particulars.headerFooter.oddFooter =
-      'Form II — retain with Form III | Page &P of &N';
+    particulars.headerFooter.oddFooter = integrated
+      ? 'Form II — retain with Form III | Page &P of &N'
+      : 'Retain with all register sheets | Page &P of &N';
   }
   if (layout.employeeRows === 'TABLE') {
-    if (layout.particulars)
+    if (integrated)
       addTelanganaRegisterTable(
         book,
         layout,
@@ -645,7 +662,18 @@ export async function registerWorkbook(
         context,
         periodLabel,
       );
-    else
+    else if (layout.tableParts) {
+      for (const part of layout.tableParts)
+        addSharedRegisterTable(
+          book,
+          { ...layout, fields: part.fields, tableParts: undefined },
+          rows,
+          input,
+          context,
+          periodLabel,
+          { ...form, formNumber: part.formNumber, title: part.title },
+        );
+    } else
       addSharedRegisterTable(
         book,
         layout,
@@ -665,7 +693,7 @@ export async function registerWorkbook(
   rows.forEach((row, index) => {
     const sheet = book.addWorksheet(
       'Form ' +
-        (layout.particulars ? 'III' : form.formNumber) +
+        (integrated ? 'III' : form.formNumber) +
         (index ? ' - ' + (index + 1) : ''),
     );
     const width = isAttendance ? 22 : layout.individual ? 2 : 8;
@@ -688,7 +716,7 @@ export async function registerWorkbook(
         32,
         Math.ceil(text.length / (layout.individual ? 95 : 145)) * 16,
       );
-      if (layout.particulars)
+      if (integrated)
         r.height = Math.max(
           32,
           Math.ceil(text.length / (layout.individual ? 110 : 160)) * 16,
@@ -726,7 +754,7 @@ export async function registerWorkbook(
         ' | ' +
         String(row.name || row.employee_2 || ''),
     );
-    if (layout.particulars) {
+    if (integrated) {
       banner(
         'Form III | Retain together with Form II establishment particulars.',
       );
@@ -820,7 +848,7 @@ export async function registerWorkbook(
       Array.from({ length: Math.ceil(layout.fields.length / 8) }, (_, i) =>
         layout.fields.slice(i * 8, (i + 1) * 8),
       ).forEach((fields, i) => {
-        const groupsPerPage = layout.particulars ? 2 : 3;
+        const groupsPerPage = integrated ? 2 : 3;
         if (i > 0 && i % groupsPerPage === 0)
           sheet.getRow(sheet.rowCount).addPageBreak();
         banner('Part ' + (i + 1));
@@ -857,7 +885,7 @@ export async function registerWorkbook(
         );
       });
     }
-    if (layout.particulars) {
+    if (integrated) {
       banner(
         'Employer/contractor signatory: ' +
           (input?.particulars?.employerSignatory || '') +
@@ -909,7 +937,7 @@ export async function registerWorkbook(
           .slice(0, 100)
           .replace(/&/g, '&&') +
         '&RForm ' +
-        (layout.particulars ? 'III' : form.formNumber);
+        (integrated ? 'III' : form.formNumber);
     }
     sheet.headerFooter.oddFooter =
       'Form ' +

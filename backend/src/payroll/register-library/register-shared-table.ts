@@ -19,8 +19,8 @@ export function addSharedRegisterTable(
         ? 8
         : ['name', 'injuredName', 'employeeCode'].includes(f.key)
           ? 24
-          : /^day\d+Status$/.test(f.key)
-            ? 8
+          : /^day\d+(Status|Shift)$/.test(f.key)
+            ? 13
             : 17,
   }));
   // Keep banners outside the repeating identity columns on printed panels.
@@ -28,7 +28,19 @@ export function addSharedRegisterTable(
     const n = sheet.rowCount + 1;
     sheet.mergeCells(n, 3, n, Math.min(12, layout.fields.length));
     sheet.getCell(n, 3).value = text;
-    sheet.getRow(n).height = Math.max(28, Math.ceil(text.length / 110) * 15);
+    const available =
+      Array.from({ length: Math.min(12, layout.fields.length) - 2 }, (_, i) =>
+        Number(sheet.getColumn(i + 3).width || 17),
+      ).reduce((a, b) => a + b, 0) * 0.85;
+    sheet.getRow(n).height = Math.max(
+      28,
+      text
+        .split('\n')
+        .reduce(
+          (n, line) => n + Math.max(1, Math.ceil(line.length / available)),
+          0,
+        ) * 15,
+    );
     sheet.getRow(n).alignment = { wrapText: true, vertical: 'middle' };
   };
   banner(
@@ -57,7 +69,17 @@ export function addSharedRegisterTable(
       (input?.supportingReference || ''),
   );
   const heading = sheet.addRow(layout.fields.map((f) => f.label));
-  heading.height = 115;
+  heading.height = Math.max(
+    115,
+    ...layout.fields.map(
+      (field, i) =>
+        Math.ceil(
+          field.label.length / (Number(sheet.getColumn(i + 1).width) - 3),
+        ) *
+          14 +
+        12,
+    ),
+  );
   heading.font = { bold: true, size: 10 };
   heading.alignment = { wrapText: true, vertical: 'middle' };
   const ordered = layout.fields.some((f) => f.key === 'serial')
@@ -95,6 +117,15 @@ export function addSharedRegisterTable(
                 : '0.00'
               : '@'),
     );
+  }
+  if (layout.particularsMode === 'COMMON') {
+    banner(
+      'Retain with the Establishment details sheet, supporting evidence and employer authentication.',
+    );
+    if (layout.declaration) banner(layout.declaration);
+    for (const field of layout.particulars || []) {
+      banner(field.label + ': ' + (input?.particulars?.[field.key] ?? ''));
+    }
   }
   sheet.eachRow((row) =>
     row.eachCell({ includeEmpty: true }, (cell) => {

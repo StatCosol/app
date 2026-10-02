@@ -35,9 +35,20 @@ describe('All implemented register record grouping', () => {
       const sheets = book.worksheets.filter(
         (s) =>
           s.name !== 'Identity and review' &&
-          !(layout.particulars && s.name === 'Form II'),
+          !(
+            layout.particulars &&
+            ['Form II', 'Establishment details'].includes(s.name)
+          ),
       );
-      if (layout.employeeRows === 'TABLE') {
+      if (layout.tableParts) {
+        expect(sheets).toHaveLength(layout.tableParts.length);
+        layout.tableParts.forEach((part, i) => {
+          expect(sheets[i].getRow(5).cellCount).toBe(part.fields.length);
+          part.fields.forEach((field, c) =>
+            expect(sheets[i].getCell(6, c + 1).value).toBe(rows[1][field.key]),
+          );
+        });
+      } else if (layout.employeeRows === 'TABLE') {
         expect(sheets).toHaveLength(1);
         const sheet = sheets[0];
         expect(sheet.getRow(5).cellCount).toBe(layout.fields.length);

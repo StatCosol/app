@@ -372,6 +372,11 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
       TS_SHOPS_1988: 'Telangana Shops and Establishments Act, 1988',
       SHOPS_2017: 'Maharashtra Shops and Establishments Act, 2017',
       FACTORIES_1948: 'Factories Act, 1948',
+      AP_SHOPS_1988: 'Andhra Pradesh Shops and Establishments Act, 1988',
+      KA_SHOPS_1961: 'Karnataka Shops and Commercial Establishments Act, 1961',
+      TN_SHOPS_1947: 'Tamil Nadu Shops and Establishments Act, 1947',
+      HR_SHOPS_1958: 'Haryana Shops and Commercial Establishments Act, 1958',
+      WB_SHOPS_1963: 'West Bengal Shops and Establishments Act, 1963',
     };
     return [...new Set(this.forms.map((f) => f.actCode))].map((code) => ({
       code,

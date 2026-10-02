@@ -4,9 +4,9 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Andhra Pradesh',
     sourceUrl:
       'https://www.ricago.com/assets/front/base/file/file_management/6536.pdf',
-    note: 'Wages final Gazette 328, 29 June 2026 inspected (government document hosted by Ricago). Final OSH Gazette 432, 7 August 2026: employee VIII, attendance VIII(A), wages IX, leave X and accident XI implemented. Other Acts and specialist schedules remain pending.',
+    note: 'Existing Wages, OSH and social-security layouts remain available. Added Shops Forms X, XI, XII and XXIII from separate state rules; each requires reviewed Shops applicability. Other Acts and specialist schedules remain pending.',
     coverage: 'PARTIAL',
-    reviewedOn: '2026-09-14',
+    reviewedOn: '2026-10-02',
   },
   {
     code: 'AR',
@@ -64,9 +64,9 @@ export const REGISTER_JURISDICTIONS = [
     code: 'HR',
     name: 'Haryana',
     sourceUrl: 'https://hrylabour.gov.in/',
-    note: 'Prescribed schedules and latest amendments require verification.',
+    note: 'Shops Forms C, D and E support reviewed preparation from the Haryana-adapted Rules. C is a daily ledger for one employee per workbook. Review subsequent amendments and exemptions; Factory and other Act schedules remain pending.',
     coverage: 'PARTIAL',
-    reviewedOn: '2026-09-14',
+    reviewedOn: '2026-10-02',
   },
   {
     code: 'HP',
@@ -90,9 +90,9 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Karnataka',
     sourceUrl:
       'https://klwb.karnataka.gov.in/storage/pdf-files/NewLabourDept_English_Final_2%2C2025-26.pdf',
-    note: 'LWF compendium located; do not derive current contribution rates from historical form examples.',
+    note: 'Shops Form T supports reviewed preparation with all 38 numbered groups and actual daily attendance. Review period-specific coverage and claimed cross-Act substitutions. Factory, annual-return and specialist schedules remain pending.',
     coverage: 'PARTIAL',
-    reviewedOn: '2026-09-14',
+    reviewedOn: '2026-10-02',
   },
   {
     code: 'KL',
@@ -194,9 +194,9 @@ export const REGISTER_JURISDICTIONS = [
     name: 'Tamil Nadu',
     sourceUrl:
       'https://dish.tn.gov.in/assets/pdf/Amendment%20of%20Rules%20for%20Maintenance%20of%20registers.pdf',
-    note: '2021 Factories amendment inspected; supplied Shops and holiday forms belong to Tamil Nadu.',
+    note: 'Shops U, V, W and X use the final 30 March 2022 amendment. Factory 12, 15 (both parts) and 25 use the separate 2021 amendment. Choose the branch Act and review current coverage and exemptions.',
     coverage: 'PARTIAL',
-    reviewedOn: '2026-09-14',
+    reviewedOn: '2026-10-02',
   },
   {
     code: 'TS',
@@ -238,9 +238,9 @@ export const REGISTER_JURISDICTIONS = [
     code: 'WB',
     name: 'West Bengal',
     sourceUrl: 'https://lwf.wblabour.gov.in/wblabour/Admin/form_h',
-    note: 'Official LWF Form H indexed; website currently redirects to maintenance. Current schedule verification pending.',
+    note: 'Shops Forms I, J, M, U and W support reviewed preparation. I is a daily register; M retains payment certification and two witnesses. J retains separate employee and leave-category pages. Factory and other Act schedules remain pending.',
     coverage: 'PARTIAL',
-    reviewedOn: '2026-09-14',
+    reviewedOn: '2026-10-02',
   },
   {
     code: 'AN',

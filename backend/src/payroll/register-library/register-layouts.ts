@@ -1,3 +1,4 @@
+import { expandedStateLayout } from './register-state-expansion';
 import { stateShopsLayout } from './register-state-shops';
 
 export interface RegisterField {
@@ -18,6 +19,14 @@ export interface RegisterLayout {
     | 'STATE';
   fields: RegisterField[];
   particulars?: RegisterField[];
+  particularsMode?: 'COMMON';
+  containsWages?: boolean;
+  declaration?: string;
+  tableParts?: Array<{
+    formNumber: string;
+    title: string;
+    fields: RegisterField[];
+  }>;
   particularsTitle?: string;
   capacityRequired?: boolean;
   employeeRows?: 'TABLE';
@@ -26,7 +35,7 @@ export interface RegisterLayout {
   omitPrefillFields?: string[];
   periodKind?: 'ANNUAL';
   manualOnly?: boolean;
-  establishmentRequirement?: 'FACTORY' | 'FACTORY_OR_CONSTRUCTION';
+  establishmentRequirement?: 'FACTORY' | 'FACTORY_OR_CONSTRUCTION' | 'SHOPS';
   individual: boolean;
   payrollPrefill: boolean;
 }
@@ -1121,7 +1130,9 @@ export function registerLayout(
   formNumber: string,
   actCode?: string,
 ): RegisterLayout | null {
-  const layout = sourceRegisterLayout(sourceId, formNumber, actCode);
+  const layout =
+    expandedStateLayout(sourceId, formNumber) ||
+    sourceRegisterLayout(sourceId, formNumber, actCode);
   if (!layout) return null;
   const shared =
     layout.baseFormNumber === 'EVENT' ||

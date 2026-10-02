@@ -174,6 +174,13 @@ export class RegisterBuilderService {
       );
     }
     if (
+      layout.establishmentRequirement === 'SHOPS' &&
+      !['ESTABLISHMENT', 'BOTH'].includes(decision.establishmentType)
+    )
+      throw new RegisterIneligibleException(
+        'This Shops register requires establishment coverage. Review the branch establishment facts.',
+      );
+    if (
       layout.establishmentRequirement === 'FACTORY' &&
       !['FACTORY', 'BOTH'].includes(decision.establishmentType)
     ) {
