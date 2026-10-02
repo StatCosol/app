@@ -561,17 +561,19 @@ export async function registerWorkbook(
     'Source page': String(form.sourcePage || ''),
     'Source-specific requirements': form.notes || '',
     'Data purpose':
-      layout.baseFormNumber === 'MATERNITY'
-        ? 'Women employee and maternity evidence — authorised HR records'
-        : layout.baseFormNumber === 'EVENT'
-          ? 'Accident/dangerous-occurrence evidence'
-          : layout.baseFormNumber === 'LEAVE'
-            ? 'Leave with wages records'
-            : layout.baseFormNumber === 'IX'
-              ? 'Daily attendance — not reconstructed from payroll totals'
-              : layout.baseFormNumber === 'I'
-                ? 'Employee master — not a monthly payroll subset'
-                : 'Monthly wages / payment',
+      layout.particularsMode === 'COMMON'
+        ? form.title + ' — reviewed supporting records'
+        : layout.baseFormNumber === 'MATERNITY'
+          ? 'Women employee and maternity evidence — authorised HR records'
+          : layout.baseFormNumber === 'EVENT'
+            ? 'Accident/dangerous-occurrence evidence'
+            : layout.baseFormNumber === 'LEAVE'
+              ? 'Leave with wages records'
+              : layout.baseFormNumber === 'IX'
+                ? 'Daily attendance — not reconstructed from payroll totals'
+                : layout.baseFormNumber === 'I'
+                  ? 'Employee master — not a monthly payroll subset'
+                  : 'Monthly wages / payment',
     'Required review':
       'Confirm jurisdiction, applicability, supporting records and signatures before use. No automatic NIL declaration.',
     ...context,
