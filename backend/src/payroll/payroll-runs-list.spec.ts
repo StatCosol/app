@@ -5,6 +5,7 @@ describe('Payroll source list branch identity', () => {
     const rows = [
       {
         id: 'branch-run',
+        title: 'March primary payroll',
         clientId: 'client',
         branchId: 'branch',
         periodYear: '2026',
@@ -59,6 +60,7 @@ describe('Payroll source list branch identity', () => {
     expect(runs.addSelect).toHaveBeenCalledWith('r.branch_id', 'branchId');
     expect(result.map((r) => r.branchId)).toEqual(['branch', null]);
     expect(result[0].employeeCount).toBe(2);
+    expect(result[0].title).toBe('March primary payroll');
     expect(runs.andWhere).toHaveBeenCalledWith('r.client_id = :cid', {
       cid: 'client',
     });
