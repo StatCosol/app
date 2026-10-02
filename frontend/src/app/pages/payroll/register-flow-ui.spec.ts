@@ -33,6 +33,8 @@ describe('Register preparation screen', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const root: HTMLElement = fixture.nativeElement;
+    expect(root.querySelector('[aria-label="Register jurisdiction"]')).toBeNull();
+    expect(root.textContent).toContain('Telangana');
     const act = root.querySelector<HTMLSelectElement>('[aria-label="Select Act for registers"]')!;
     act.value = 'FACTORIES_1948';
     act.dispatchEvent(new Event('change'));
@@ -40,6 +42,7 @@ describe('Register preparation screen', () => {
     fixture.detectChanges();
     expect(root.textContent).toContain('Integrated register — Factories');
     expect(root.textContent).not.toContain('Show registers');
+    expect(root.querySelector('[aria-label="Find a register in the selected Act"]')).toBeNull();
     [...root.querySelectorAll('button')].find(b => b.textContent?.includes('Prepare this register'))!.click();
     fixture.detectChanges();
     const particulars = [field('establishmentName', 'Name of establishment'), field('address', 'Address'),
@@ -63,6 +66,10 @@ describe('Register preparation screen', () => {
     const prep = fixture.debugElement.query(By.directive(RegisterPreparationComponent)).componentInstance as RegisterPreparationComponent;
     expect(prep.particularGroups.flatMap(g => g.fields).map(f => f.key).sort()).toEqual(particulars.map(f => f.key).sort());
     expect(root.textContent).toContain('Saved records loaded');
+    const sourceSummary = [...root.querySelectorAll('summary')].find(s => s.textContent?.includes('Change worker source'))!;
+    expect(sourceSummary.textContent).toContain('Your company’s employees');
+    expect((sourceSummary.parentElement as HTMLDetailsElement).open).toBe(false);
+    expect(prep.actingCapacity).toBe('');
     const summaries = [...root.querySelectorAll('summary')];
     const workforce = summaries.find(s => s.textContent?.includes('Workforce totals'))!;
     expect(workforce.textContent).toContain('0 required fields remaining');

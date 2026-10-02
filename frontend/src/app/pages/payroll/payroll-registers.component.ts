@@ -173,7 +173,9 @@ const STATE_NAMES: Record<string, string> = {
         <h3 id="saved-registers-heading" class="text-lg font-semibold mb-2">4. Saved registers — review and download</h3>
         <p class="text-sm text-gray-600 mb-4">These filters apply to saved files. Branch Desk can download a file after Payroll approval.</p>
         @if (genResult) { <p role="status" class="text-emerald-800 mb-3">{{ genResult }}</p> }
-        <div class="flex flex-wrap items-end gap-4">
+        <details class="mb-4" [open]="!!filterAct || !!filterRegisterType">
+          <summary class="cursor-pointer text-sm font-medium">Filter saved files (optional){{ filterAct || filterRegisterType ? ' — filters active' : '' }}</summary>
+        <div class="flex flex-wrap items-end gap-4 mt-3">
           <div class="flex-1 min-w-[180px]">
             <label class="block text-sm font-medium text-gray-700 mb-1" for="saved-register-act">Act for saved files</label>
             <select class="w-full rounded-lg border-gray-300 shadow-sm text-sm py-2 px-3 border focus:ring-brand-500 focus:border-brand-500"
@@ -194,6 +196,8 @@ const STATE_NAMES: Record<string, string> = {
 }
             </select>
           </div>
+        </div>
+        </details>
           <div class="flex gap-2">
             <button
               class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
@@ -213,7 +217,6 @@ const STATE_NAMES: Record<string, string> = {
               {{ downloading ? 'Preparing ZIP...' : 'Download All as ZIP' }}
             </button>
           </div>
-        </div>
       </section>
 
       @if (error) {

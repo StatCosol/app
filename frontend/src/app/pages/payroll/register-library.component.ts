@@ -73,7 +73,7 @@ interface Jurisdiction {
       @if (branchName) {
         <p class="text-sm">
           Branch: <strong>{{ branchName }}</strong> · State:
-          <strong>{{ branchStateCode }}</strong>
+          <strong>{{ branchStateName }}</strong>
         </p>
       }
       @if (preparationNotice) {
@@ -88,11 +88,12 @@ interface Jurisdiction {
         <p class="text-sm my-3">Select a branch above to load its register formats.</p>
       }
       <div class="register-choice-grid gap-3 my-3">
+        @if (availableJurisdictions.length > 1) {
         <label class="min-w-0 text-sm"
-          >State / applicable rules
+          >Rules to use
           <select
             aria-label="Register jurisdiction"
-            [disabled]="loading || availableJurisdictions.length < 2"
+            [disabled]="loading"
             class="border rounded p-2 block w-full mt-1"
             [(ngModel)]="jurisdiction"
             (ngModelChange)="load()"
@@ -102,6 +103,7 @@ interface Jurisdiction {
             }
           </select>
         </label>
+        }
         <label class="min-w-0 text-sm"
           >Act<select
             aria-label="Select Act for registers"
@@ -116,8 +118,9 @@ interface Jurisdiction {
             }
           </select></label
         >
+        @if (hasMultipleFormats) {
         <label class="min-w-0 text-sm"
-          >Find a register in the selected Act
+          >Find a register (optional)
           <input
             aria-label="Find a register in the selected Act"
             [disabled]="!submittedActCode || loading"
@@ -126,6 +129,7 @@ interface Jurisdiction {
             placeholder="For example: wages or Form XII"
           />
         </label>
+        }
       </div>
       @if (loading) {
         <p role="status">Loading formats…</p>
@@ -279,6 +283,12 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
   }
   ngOnChanges(changes: SimpleChanges) {
     if (changes['branchId']) this.loadBranch();
+  }
+  get branchStateName(): string {
+    return this.jurisdictions.find(j => j.code === this.branchStateCode)?.name || this.branchStateCode;
+  }
+  get hasMultipleFormats(): boolean {
+    return this.forms.filter(f => f.actCode === this.submittedActCode).length > 1;
   }
   get availableJurisdictions() {
     if (!this.branchStateCode) return [];

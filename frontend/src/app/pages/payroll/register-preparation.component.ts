@@ -67,30 +67,19 @@ interface Field {
       }
       @if (fields.length) {
         @if (eligible) { <h5 class="font-semibold mt-4 mb-2">Data source and company role</h5> }
-        @if (eligible && capacityRequired) {
-          <label class="block text-sm my-3"
-            >Your company’s role at this site *
-            <select class="block border rounded p-2 w-full" [(ngModel)]="actingCapacity">
-              <option value="">Select the work relationship</option>
-              <option value="DIRECT_EMPLOYER">Direct employer at this site</option>
-              <option value="PRINCIPAL_EMPLOYER">Principal employer engaging contractors</option>
-              <option value="CONTRACTOR">Our company is a contractor to another company</option>
-            </select>
-          </label>
-          <p class="text-sm">
-            Choose the role your company performs at this site. Use Company employees for your own workers, including staff deployed to a customer. Use Contract labour for an assigned contractor’s workers.
-          </p>
-        }
         @if (eligible && supportsContractor) {
+          <details class="border rounded bg-white p-3 my-3" [open]="recordSource === 'CONTRACTOR'">
+            <summary class="cursor-pointer text-sm">Workers: <strong>{{ workerSourceLabel }}</strong> · Change worker source</summary>
+            <p class="text-sm my-2">Use your company’s employees for staff on your payroll, including staff deployed to customers. Choose an assigned contractor only for that contractor’s workers.</p>
           <label class="block text-sm my-2"
-            >Records for
+            >Whose workers should be loaded?
             <select
               class="block border rounded p-2 w-full mt-1"
               [(ngModel)]="recordSource"
               (ngModelChange)="changeSource()"
             >
-              <option value="EMPLOYEES">Company employees</option>
-              <option value="CONTRACTOR">Contract labour</option>
+              <option value="EMPLOYEES">Your company’s employees</option>
+              <option value="CONTRACTOR">An assigned contractor’s workers</option>
             </select>
           </label>
           @if (recordSource === 'CONTRACTOR') {
@@ -108,6 +97,21 @@ interface Field {
               </select>
             </label>
           }
+          </details>
+        }
+        @if (eligible && capacityRequired) {
+          <label class="block text-sm my-3"
+            >Your company’s responsibility at this site *
+            <select class="block border rounded p-2 w-full" [(ngModel)]="actingCapacity">
+              <option value="">Select the work relationship</option>
+              <option value="DIRECT_EMPLOYER">Direct employer at this site</option>
+              <option value="PRINCIPAL_EMPLOYER">Principal employer engaging contractors</option>
+              <option value="CONTRACTOR">Our company is a contractor to another company</option>
+            </select>
+          </label>
+          <p class="text-sm">
+            Choose the responsibility held by your company at this site. If your company supplies its own employees as a contractor, choose the contractor role; the worker source remains Your company’s employees.
+          </p>
         }
         <label class="block text-sm my-2"
           >Supporting record reference
@@ -450,6 +454,10 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
       .set('year', String(this.year))
       .set('month', String(this.periodMonth));
   }
+  get workerSourceLabel(): string {
+    if (this.recordSource === 'EMPLOYEES') return 'Your company’s employees';
+    return this.contractors.find(c => c.id === this.contractorId)?.name || 'Select an assigned contractor';
+  }
   changeContractor() {
     this.draftLoaded = false;
     this.revision++;
@@ -461,6 +469,8 @@ export class RegisterPreparationComponent implements OnChanges, OnDestroy {
     this.error = '';
     this.notice = '';
     this.busy = false;
+    if (this.eligible && this.draftPrefill &&
+        (this.recordSource === 'EMPLOYEES' ? !!this.runId : !!this.contractorId)) this.prefill();
   }
   changeSource() {
     this.contractorId = '';

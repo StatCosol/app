@@ -231,6 +231,28 @@ describe('Register source selection and cancellation', () => {
     http.expectOne((r) => r.url.endsWith('/eligibility')).flush({ eligible: true });
     expect(component.prefillLabel).toContain('daily attendance');
   });
+  it('automatically loads a selected contractor draft and cancels it when returning to company employees', () => {
+    component.eligible = true;
+    component.draftPrefill = true;
+    component.runId = 'approved-company-run';
+    component.recordSource = 'CONTRACTOR';
+    component.changeSource();
+    http.expectOne(r => r.url.endsWith('/contractors')).flush([{ id: 'vendor', name: 'Example vendor' }]);
+    http.expectNone(r => r.url.endsWith('/prefill'));
+    component.contractorId = 'vendor';
+    component.changeContractor();
+    const vendor = http.expectOne(r => r.url.endsWith('/prefill') && r.params.get('contractorId') === 'vendor');
+    expect(component.workerSourceLabel).toBe('Example vendor');
+    component.recordSource = 'EMPLOYEES';
+    component.changeSource();
+    expect(vendor.cancelled).toBe(true);
+    http.expectOne(r => r.url.endsWith('/prefill') && r.params.get('contractorId') === '' && r.params.get('runId') === 'approved-company-run')
+      .flush({ rows: [{ name: 'Company employee' }], metadata: { employer: 'Example company' } });
+    expect(component.rows).toEqual([{ name: 'Company employee' }]);
+    expect(component.draftLoaded).toBe(true);
+    expect(component.contractorId).toBe('');
+    expect(component.actingCapacity).toBe('');
+  });
   it('cancels stale vendor data when the selected contractor changes', () => {
     component.eligible = true;
     component.recordSource = 'CONTRACTOR';
