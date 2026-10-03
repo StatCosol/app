@@ -461,7 +461,26 @@ export class PayrollProcessingService {
     const ws = wb.worksheets[0];
     if (!ws) throw new BadRequestException('Empty workbook');
 
-    const headers = this.readHeaderRow(ws);
+    // Exports may include a title or blank rows before the table.
+    let headerRow = 1;
+    for (let r = 1; r <= Math.min(ws.rowCount, 25); r++) {
+      const candidate = this.readHeaderRow(ws, r);
+      let candidateCodeCol = -1;
+      let candidateWorkingDaysCol = -1;
+      // Use the same precedence as the column matcher below: a single cell
+      // mentioning both labels cannot satisfy both required columns.
+      for (const [col, h] of candidate) {
+        if (/employee.*(code|id)|emp.*(code|id)/.test(h))
+          candidateCodeCol = col;
+        else if (/working.*days|work.*days|days.*worked/.test(h))
+          candidateWorkingDaysCol = col;
+      }
+      if (candidateCodeCol > 0 && candidateWorkingDaysCol > 0) {
+        headerRow = r;
+        break;
+      }
+    }
+    const headers = this.readHeaderRow(ws, headerRow);
 
     // Find required columns
     let codeCol = -1;
@@ -578,7 +597,7 @@ export class PayrollProcessingService {
       slDays: number;
     }> = [];
 
-    for (let r = 2; r <= ws.rowCount; r++) {
+    for (let r = headerRow + 1; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
       const empCode = this.cellStr(row.getCell(codeCol).value);
       if (!empCode) continue;
@@ -1518,9 +1537,12 @@ export class PayrollProcessingService {
    * column right and dropped the last one (F10). Removing the arithmetic
    * removes the class of bug, not just the instance.
    */
-  private readHeaderRow(sheet: ExcelJS.Worksheet): Map<number, string> {
+  private readHeaderRow(
+    sheet: ExcelJS.Worksheet,
+    rowNumber = 1,
+  ): Map<number, string> {
     const headers = new Map<number, string>();
-    sheet.getRow(1).eachCell((cell, colNum) => {
+    sheet.getRow(rowNumber).eachCell((cell, colNum) => {
       headers.set(colNum, this.normalizeHeader(cell.value));
     });
     return headers;
@@ -1528,15 +1550,22 @@ export class PayrollProcessingService {
 
   private normalizeHeader(value: unknown): string {
     if (value === null || value === undefined) return '';
-    const s =
-      typeof value === 'string' || typeof value === 'number'
-        ? String(value)
-        : '';
-    return s.replace(/\s+/g, ' ').trim().toLowerCase();
+    const s = this.cellStr(value);
+    return s
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
   }
 
   private cellStr(value: unknown): string {
     if (value && typeof value === 'object') {
+      if ('richText' in value && Array.isArray(value.richText)) {
+        return value.richText
+          .map((part: { text: string }) => part.text)
+          .join('')
+          .trim();
+      }
       if ('result' in value) {
         const r = (value as { result: unknown }).result;
         return typeof r === 'string' || typeof r === 'number' ? String(r) : '';
