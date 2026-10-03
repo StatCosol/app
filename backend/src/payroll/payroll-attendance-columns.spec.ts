@@ -104,6 +104,35 @@ describe('payroll attendance upload — column handling', () => {
     expect(valueOf(upserts, 'OT_HOURS')).toBe(10);
   });
 
+  it.each([26, 25.5, 23.5, 0])(
+    'accepts the attendance template with %s days and blank optional cells',
+    async (days) => {
+      const path = await writeSheet(
+        [
+          'Employee Code',
+          'Employee Name',
+          'Working Days',
+          'Payable Days',
+          'Approved Leave Days',
+          'PL Days',
+          'SL Days',
+          'OT Hours',
+          'Other Earnings',
+          'Arrears Attendance Bonus',
+          'Other Deductions',
+        ],
+        [['E001', 'Example', days, days, '', '', '', '', '', '', '']],
+      );
+      const { svc, upserts } = makeService();
+      const result = await svc.uploadAttendance('run-1', { path } as any);
+      expect(result.matched).toBe(1);
+      expect(result.unrecognisedHeaders).toEqual([]);
+      expect(valueOf(upserts, 'WORKED_DAYS')).toBe(days);
+      expect(valueOf(upserts, 'PAYABLE_DAYS')).toBe(days);
+      expect(valueOf(upserts, 'EL_PAID_LEAVE_DAYS')).toBe(0);
+    },
+  );
+
   it('derives LOP from the highest payable days in the sheet', async () => {
     const path = await writeSheet(
       ['Employee Code', 'Working Days', 'Payable Days'],
@@ -115,6 +144,47 @@ describe('payroll attendance upload — column handling', () => {
 
     // One row, so it is its own maximum and nothing is lost.
     expect(valueOf(upserts, 'LOP_DAYS')).toBe(0);
+  });
+
+  it('imports formatted Excel headers after a title and blank row', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Attendance');
+    ws.addRow(['Monthly Attendance']);
+    ws.addRow([]);
+    ws.addRow([
+      { richText: [{ text: 'Employee ' }, { text: 'Code' }] },
+      { richText: [{ text: 'Working ' }, { text: 'Days' }] },
+      'Payable Days',
+    ]);
+    ws.addRow(['E001', 25.5, 25.5]);
+    const path = join(dir, 'formatted-headers.xlsx');
+    await wb.xlsx.writeFile(path);
+    const { svc, upserts } = makeService();
+    expect((await svc.uploadAttendance('run-1', { path } as any)).matched).toBe(
+      1,
+    );
+    expect(valueOf(upserts, 'WORKED_DAYS')).toBe(25.5);
+  });
+
+  it('ignores invisible characters in header labels', async () => {
+    const path = await writeSheet(
+      ['Employee\u200B Code', 'Working\u200B Days'],
+      [['E001', 26]],
+    );
+    const { svc } = makeService();
+    expect((await svc.uploadAttendance('run-1', { path } as any)).matched).toBe(
+      1,
+    );
+  });
+
+  it('still rejects a sheet without an employee code header', async () => {
+    const path = await writeSheet(['Name', 'Working Days'], [['Example', 26]]);
+    const { svc } = makeService();
+    await expect(
+      svc.uploadAttendance('run-1', { path } as any),
+    ).rejects.toThrow(
+      'Column "Employee Code" / "Employee ID" not found in header',
+    );
   });
 
   it('keeps PL and SL out of the approved-leave column', async () => {
