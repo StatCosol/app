@@ -278,7 +278,7 @@
 
             @if (leaveValidationRows.length > 0) {
               <div class="lv-search">
-                <input
+                <input name="leaveValidationSearch"
                   type="text"
                   class="lv-search-input"
                   placeholder="Search employee by name or code..."
@@ -292,7 +292,7 @@
                 }
                 <span class="lv-bulk-spacer"></span>
                 <label class="lv-bulk-label">Bulk source:</label>
-                <select
+                <select name="bulkLeaveSource"
                   [(ngModel)]="bulkLeaveSource"
                   class="lv-select"
                   [disabled]="bulkResolvingLeave"
@@ -375,7 +375,7 @@
                           }
                         </td>
                         <td>
-                          <select
+                          <select [name]="'leaveSource-' + row.empCode"
                             [(ngModel)]="row.resolveSource"
                             class="lv-select"
                             [disabled]="!!row.resolving || !!row.resolved"
@@ -453,7 +453,7 @@
 
             @if (otValidationRows.length > 0) {
               <div class="lv-search">
-                <input
+                <input name="otValidationSearch"
                   type="text"
                   class="lv-search-input"
                   placeholder="Search employee by name or code..."
@@ -466,7 +466,7 @@
                 }
                 <span class="lv-bulk-spacer"></span>
                 <label class="lv-bulk-label">Bulk source:</label>
-                <select [(ngModel)]="bulkOtSource" class="lv-select" [disabled]="bulkResolvingOt">
+                <select name="bulkOtSource" [(ngModel)]="bulkOtSource" class="lv-select" [disabled]="bulkResolvingOt">
                   <option value="BRANCH">Branch / Client</option>
                   <option value="ESS">ESS</option>
                   <option value="SHEET">Sheet</option>
@@ -524,7 +524,7 @@
                         <td class="num">{{ row.essOt | number: '1.0-2' }}</td>
                         <td class="num lv-diff-pos">{{ row.maxDiff | number: '1.0-2' }}</td>
                         <td>
-                          <select
+                          <select [name]="'otSource-' + row.empCode"
                             [(ngModel)]="row.resolveSource"
                             class="lv-select"
                             [disabled]="!!row.resolving || !!row.resolved"
@@ -834,7 +834,7 @@
                     CSV file with employee codes in the first column (one per row)
                   </div>
                   <div class="add-emp-upload-row">
-                    <input type="file" accept=".csv,.txt" (change)="onAddEmpFileSelected($event)" />
+                    <input name="addEmployeeFile" type="file" accept=".csv,.txt" (change)="onAddEmpFileSelected($event)" />
                     <button
                       class="btn-confirm-add"
                       (click)="uploadAddEmpFile()"
@@ -859,7 +859,7 @@
                 <div class="add-emp-divider">OR pick existing registered employees</div>
 
                 <!-- Manual Search & Select -->
-                <input
+                <input name="addEmpSearch"
                   type="text"
                   class="add-emp-search"
                   placeholder="Search by name or code..."
@@ -879,7 +879,7 @@
                         class="add-emp-item"
                         [class.selected]="addEmpSelected.has(emp.employeeCode)"
                       >
-                        <input
+                        <input [name]="'selectEmployee-' + emp.employeeCode"
                           type="checkbox"
                           [checked]="addEmpSelected.has(emp.employeeCode)"
                           (change)="toggleAddEmpSelect(emp.employeeCode)"
@@ -913,7 +913,7 @@
             }
             @if (!loadingRunDetail && runEmployees.length) {
               <div class="emp-preview-search">
-                <input
+                <input name="runEmployeeSearch"
                   type="text"
                   class="emp-preview-search-input"
                   placeholder="Search employee by name or code..."
@@ -1345,7 +1345,7 @@
                               <div class="edit-emp-grid">
                                 <label>
                                   <span>Working Days</span>
-                                  <input
+                                  <input [name]="'edit-workingDays-' + row.empCode"
                                     type="number"
                                     min="0"
                                     step="0.5"
@@ -1354,7 +1354,7 @@
                                 </label>
                                 <label>
                                   <span>Payable Days</span>
-                                  <input
+                                  <input [name]="'edit-payableDays-' + row.empCode"
                                     type="number"
                                     min="0"
                                     step="0.5"
@@ -1363,7 +1363,7 @@
                                 </label>
                                 <label>
                                   <span>OT Hours</span>
-                                  <input
+                                  <input [name]="'edit-otHours-' + row.empCode"
                                     type="number"
                                     min="0"
                                     step="0.5"
@@ -1372,7 +1372,7 @@
                                 </label>
                                 <label>
                                   <span>Other Earnings</span>
-                                  <input
+                                  <input [name]="'edit-otherEarnings-' + row.empCode"
                                     type="number"
                                     min="0"
                                     step="1"
@@ -1381,7 +1381,7 @@
                                 </label>
                                 <label>
                                   <span>Other Earnings — Type / Note</span>
-                                  <input
+                                  <input [name]="'edit-otherEarningsNote-' + row.empCode"
                                     type="text"
                                     maxlength="120"
                                     placeholder="e.g. Festival bonus, Arrears Apr"
@@ -1390,7 +1390,7 @@
                                 </label>
                                 <label>
                                   <span>Arrears / Attendance Bonus</span>
-                                  <input
+                                  <input [name]="'edit-arrearAttBonus-' + row.empCode"
                                     type="number"
                                     min="0"
                                     step="1"
@@ -1399,7 +1399,7 @@
                                 </label>
                                 <label>
                                   <span>Other Deductions</span>
-                                  <input
+                                  <input [name]="'edit-otherDeductions-' + row.empCode"
                                     type="number"
                                     min="0"
                                     step="1"
@@ -1408,7 +1408,7 @@
                                 </label>
                                 <label>
                                   <span>Other Deductions — Type / Note</span>
-                                  <input
+                                  <input [name]="'edit-otherDeductionsNote-' + row.empCode"
                                     type="text"
                                     maxlength="120"
                                     placeholder="e.g. Loan recovery, Advance"
