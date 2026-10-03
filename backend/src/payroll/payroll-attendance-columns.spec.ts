@@ -149,7 +149,7 @@ describe('payroll attendance upload — column handling', () => {
   it('imports formatted Excel headers after a title and blank row', async () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Attendance');
-    ws.addRow(['Monthly Attendance']);
+    ws.addRow(['Employee Code and Working Days Report']);
     ws.addRow([]);
     ws.addRow([
       { richText: [{ text: 'Employee ' }, { text: 'Code' }] },

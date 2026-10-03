@@ -465,14 +465,17 @@ export class PayrollProcessingService {
     let headerRow = 1;
     for (let r = 1; r <= Math.min(ws.rowCount, 25); r++) {
       const candidate = this.readHeaderRow(ws, r);
-      if (
-        [...candidate.values()].some((h) =>
-          /employee.*(code|id)|emp.*(code|id)/.test(h),
-        ) &&
-        [...candidate.values()].some((h) =>
-          /working.*days|work.*days|days.*worked/.test(h),
-        )
-      ) {
+      let candidateCodeCol = -1;
+      let candidateWorkingDaysCol = -1;
+      // Use the same precedence as the column matcher below: a single cell
+      // mentioning both labels cannot satisfy both required columns.
+      for (const [col, h] of candidate) {
+        if (/employee.*(code|id)|emp.*(code|id)/.test(h))
+          candidateCodeCol = col;
+        else if (/working.*days|work.*days|days.*worked/.test(h))
+          candidateWorkingDaysCol = col;
+      }
+      if (candidateCodeCol > 0 && candidateWorkingDaysCol > 0) {
         headerRow = r;
         break;
       }
