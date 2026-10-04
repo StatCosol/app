@@ -89,6 +89,36 @@ describe('Readable approval labels', () => {
     await expect(controller.listStructureItems('missing')).rejects.toThrow();
   });
 
+  it('resolves contractor-employee deletion targets without changing action identifiers', async () => {
+    const request = {
+      id: 'request',
+      requestType: 'DELETE_CONTRACTOR_EMPLOYEE',
+      targetEntityType: 'CONTRACTOR_EMPLOYEE',
+      targetEntityId: 'employee',
+    };
+    const qb = query({
+      entities: [request],
+      raw: [{ targetName: 'Worker One — CE001' }],
+    });
+    const service = new AdminApprovalsService(
+      { createQueryBuilder: () => qb } as any,
+      {} as any,
+    );
+    expect(await service.list('PENDING')).toEqual([
+      { ...request, requesterName: null, targetName: 'Worker One — CE001' },
+    ]);
+    expect(qb.leftJoin).toHaveBeenCalledWith(
+      'contractor_employees',
+      'contractor_employee',
+      "contractor_employee.id = req.target_entity_id AND LOWER(req.target_entity_type) = 'contractor_employee'",
+    );
+    const targetProjection = qb.addSelect.mock.calls.find(
+      ([, alias]) => alias === 'targetName',
+    )[0];
+    expect(targetProjection).toContain('contractor_employee.name');
+    expect(targetProjection).toContain('contractor_employee.employee_code');
+  });
+
   it('keeps requests whose related record is missing and preserves the status filter', async () => {
     const qb = query({
       entities: [{ id: 'request', targetEntityId: 'deleted-branch' }],

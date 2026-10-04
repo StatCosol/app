@@ -32,12 +32,17 @@ export class AdminApprovalsService {
         "target_user.id = req.target_entity_id AND LOWER(req.target_entity_type) IN ('user', 'contractor')",
       )
       .leftJoin(
+        'contractor_employees',
+        'contractor_employee',
+        "contractor_employee.id = req.target_entity_id AND LOWER(req.target_entity_type) = 'contractor_employee'",
+      )
+      .leftJoin(
         'payroll_runs',
         'run',
         "run.id = req.target_entity_id AND LOWER(req.target_entity_type) = 'payroll_run'",
       )
       .addSelect(
-        "COALESCE(branch.branchname, branch.branch_code, target_user.name, target_user.email, run.title, CASE WHEN run.id IS NOT NULL THEN 'Payroll ' || run.period_month || '/' || run.period_year END)",
+        "COALESCE(branch.branchname, branch.branch_code, target_user.name, target_user.email, NULLIF(CONCAT_WS(' — ', NULLIF(BTRIM(contractor_employee.name), ''), NULLIF(BTRIM(contractor_employee.employee_code), '')), ''), run.title, CASE WHEN run.id IS NOT NULL THEN 'Payroll ' || run.period_month || '/' || run.period_year END)",
         'targetName',
       );
 
