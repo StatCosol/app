@@ -100,7 +100,7 @@ export class PayrollEngineApiService {
     return this.http.post(`${this.base}/runs/${runId}/process`, {});
   }
 
-  previewEmployee(body: { clientId: string; structureId?: string; employeeId?: string; branchId?: string; grossAmount: number; asOfDate: string }): Observable<Record<string, number>> {
+  previewEmployee(body: { clientId: string; structureId?: string; employeeId?: string; branchId?: string; grossAmount: number; asOfDate: string; workedDays?: number; payableDays?: number }): Observable<Record<string, number>> {
     return this.http.post<Record<string, number>>(`${this.base}/preview`, body);
   }
 

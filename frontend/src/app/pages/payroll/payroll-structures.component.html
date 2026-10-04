@@ -564,11 +564,20 @@
 }
         </select>
       </label>
+      <label>
+        Worked Days (sample)
+        <input id="ps-preview-worked-days" name="previewWorkedDays" type="number" min="0" max="31" step="0.5" [(ngModel)]="previewForm.workedDays" (ngModelChange)="clearPreview()" />
+      </label>
+      <label>
+        Payable Days (sample)
+        <input id="ps-preview-payable-days" name="previewPayableDays" type="number" min="0" max="31" step="0.5" [(ngModel)]="previewForm.payableDays" (ngModelChange)="clearPreview()" />
+      </label>
       <button type="button" class="btn btn-primary" [disabled]="previewLoading || !selectedStructure" (click)="runPreview()">
         {{ previewLoading ? 'Running...' : 'Run Preview' }}
       </button>
     </div>
 
+    <p>Enter sample attendance days to test attendance formulas. These values do not change employee attendance.</p>
     @if (previewError) { <p role="alert" class="text-red-700">{{ previewError }}</p> }
 
     @if (previewRows.length) {

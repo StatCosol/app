@@ -633,6 +633,8 @@ export class PayrollEngineService {
     branchId?: string | null;
     grossAmount: number;
     asOfDate: string;
+    workedDays?: number;
+    payableDays?: number;
   }): Promise<Record<string, number>> {
     const { clientId, employeeId, grossAmount, asOfDate } = params;
     let branchId = params.branchId;
@@ -654,7 +656,11 @@ export class PayrollEngineService {
       );
     }
 
-    const values: Record<string, number> = { ACTUAL_GROSS: grossAmount };
+    const values: Record<string, number> = {
+      ACTUAL_GROSS: grossAmount,
+      WORKED_DAYS: params.workedDays ?? 0,
+      PAYABLE_DAYS: params.payableDays ?? params.workedDays ?? 0,
+    };
 
     // Look up employee for structure scoping and state code
     let departmentId: string | null = null;

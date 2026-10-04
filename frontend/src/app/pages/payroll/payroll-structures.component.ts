@@ -152,11 +152,15 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     asOfDate: string;
     branchId: string;
     employeeId: string;
+    workedDays: number;
+    payableDays: number;
   } = {
     grossAmount: 25000,
     asOfDate: new Date().toISOString().slice(0, 10),
     branchId: '',
     employeeId: '',
+    workedDays: 0,
+    payableDays: 0,
   };
   previewRows: Array<{ component: string; amount: number }> = [];
   previewEarnings: Array<{ component: string; amount: number }> = [];
@@ -1226,6 +1230,10 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       this.toast.error('Select an as-of date for preview');
       return;
     }
+    if ([this.previewForm.workedDays, this.previewForm.payableDays].some(days => !Number.isFinite(days) || days < 0 || days > 31)) {
+      this.previewError = 'Enter worked and payable days between 0 and 31.';
+      return;
+    }
 
     this.previewLoading = true;
     this.engineApi
@@ -1236,6 +1244,8 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
         employeeId: this.previewForm.employeeId || undefined,
         grossAmount: Number(this.previewForm.grossAmount),
         asOfDate: this.previewForm.asOfDate,
+        workedDays: this.previewForm.workedDays,
+        payableDays: this.previewForm.payableDays,
       })
       .pipe(
         takeUntil(this.destroy$),

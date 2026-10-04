@@ -78,6 +78,31 @@ function fixture() {
 }
 
 describe('Saved salary structure preview', () => {
+  it.each([
+    [24, 25000],
+    [24.5, 25200],
+    [0, 25000],
+  ])(
+    'supplies sample attendance to formulas at %s worked days',
+    async (workedDays, expectedGross) => {
+      const { service, items } = fixture();
+      items[0].formula =
+        'ACTUAL_GROSS + IF(ACTUAL_GROSS <= 25000, IF(WORKED_DAYS >= 24.5, 200, 0), 0)';
+      const values = await service.previewEmployee({
+        ...scope,
+        structureId: 'draft',
+        grossAmount: 25000,
+        workedDays,
+        payableDays: 26,
+      });
+      expect(values).toMatchObject({
+        WORKED_DAYS: workedDays,
+        PAYABLE_DAYS: 26,
+        GROSS: expectedGross,
+      });
+    },
+  );
+
   it.each([null, 'other-branch'])(
     'rejects a requested branch when the employee branch is %s',
     async (employeeBranchId) => {
