@@ -64,7 +64,7 @@ describe('Selected structure calculation preview', () => {
   function previewSetup() {
     const fixture = setup();
     fixture.component.selectedStructure = fixture.component.editingStructure;
-    fixture.component.previewForm = { grossAmount: 25000, asOfDate: '2026-10-04', branchId: 'branch', employeeId: 'employee' };
+    fixture.component.previewForm = { grossAmount: 25000, asOfDate: '2026-10-04', branchId: 'branch', employeeId: 'employee', workedDays: 24.5, payableDays: 26 };
     fixture.component.components = [
       { code: 'BASIC', componentType: 'EARNING' },
       { code: 'CUSTOM_DEDUCTION', componentType: 'DEDUCTION' },
@@ -78,7 +78,7 @@ describe('Selected structure calculation preview', () => {
     const { component, http } = previewSetup();
     http.post.mockReturnValueOnce(of({ ACTUAL_GROSS: 25000, BASIC: 25000, MIN_WAGE: 13500, EPS_WAGES: 0, PF_EMP: 1800, CUSTOM_DEDUCTION: 200, CUSTOM_EMPLOYER: 500, GROSS: 25000, NET_PAY: 23000 }) as any);
     component.runPreview();
-    expect(http.post).toHaveBeenCalledWith(expect.stringMatching(/\/preview$/), expect.objectContaining({ structureId: 'structure', grossAmount: 25000 }));
+    expect(http.post).toHaveBeenCalledWith(expect.stringMatching(/\/preview$/), expect.objectContaining({ structureId: 'structure', grossAmount: 25000, workedDays: 24.5, payableDays: 26 }));
     expect(component.previewEarnings).toEqual([{ component: 'BASIC', amount: 25000 }]);
     expect(component.previewTotalEarnings).toBe(25000);
     expect(component.previewTotalDeductions).toBe(2000);

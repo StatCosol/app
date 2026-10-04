@@ -7,6 +7,8 @@ import {
   IsUUID,
   IsDateString,
   IsObject,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -19,6 +21,18 @@ export class PreviewEmployeeDto {
   @IsNumber()
   grossAmount: number;
   @IsString() asOfDate: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(31)
+  workedDays?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(31)
+  payableDays?: number;
 }
 
 export class CreateRuleSetDto {

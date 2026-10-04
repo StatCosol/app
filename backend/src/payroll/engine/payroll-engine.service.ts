@@ -633,6 +633,8 @@ export class PayrollEngineService {
     branchId?: string | null;
     grossAmount: number;
     asOfDate: string;
+    workedDays?: number;
+    payableDays?: number;
   }): Promise<Record<string, number>> {
     const { clientId, employeeId, grossAmount, asOfDate } = params;
     let branchId = params.branchId;
@@ -654,7 +656,11 @@ export class PayrollEngineService {
       );
     }
 
-    const values: Record<string, number> = { ACTUAL_GROSS: grossAmount };
+    const values: Record<string, number> = {
+      ACTUAL_GROSS: grossAmount,
+      WORKED_DAYS: params.workedDays ?? 0,
+      PAYABLE_DAYS: params.payableDays ?? params.workedDays ?? 0,
+    };
 
     // Look up employee for structure scoping and state code
     let departmentId: string | null = null;
@@ -769,6 +775,19 @@ export class PayrollEngineService {
     if (calculationErrors.length)
       throw new BadRequestException(calculationErrors.join('; '));
 
+    const [previewYear, previewMonth] = asOfDate.split('-').map(Number);
+    const divisor =
+      setup.wageBasisDays === 'CALENDAR_DAYS'
+        ? new Date(previewYear, previewMonth, 0).getDate()
+        : 26;
+    const payableDays = values['PAYABLE_DAYS'];
+    this.prorateEarnings(
+      values,
+      components,
+      payableDays,
+      payableDays / divisor,
+    );
+
     // Compute wage bases and store
     const { pfWage, esiWage, gross } = this.wageBase.computeWageBases({
       values,
@@ -835,6 +854,37 @@ export class PayrollEngineService {
     values['NET_PAY'] = this.computeNetPay(values, components);
 
     return values;
+  }
+
+  private prorateEarnings(
+    values: Record<string, number>,
+    components: PayrollComponentEntity[],
+    payableDays: number,
+    proRataFactor: number,
+  ): void {
+    const NON_PRORATA_CODES = new Set([
+      'ATT_BONUS',
+      'OTHER_EARNINGS',
+      'ARREAR_ATT_BONUS',
+      'OTHER_DEDUCTIONS',
+      'ACTUAL_GROSS',
+    ]);
+    for (const comp of components) {
+      if (
+        comp.componentType === 'EARNING' &&
+        !NON_PRORATA_CODES.has(comp.code) &&
+        values[comp.code] !== undefined
+      ) {
+        values[comp.code] = values[comp.code] * proRataFactor;
+      }
+    }
+    // When payable days = 0, also zero out the non-prorata earnings (ATT_BONUS,
+    // OTHER_EARNINGS, ARREAR_ATT_BONUS). ACTUAL_GROSS stays as a reference value.
+    if (payableDays === 0) {
+      for (const code of ['ATT_BONUS', 'OTHER_EARNINGS', 'ARREAR_ATT_BONUS']) {
+        if (values[code] !== undefined) values[code] = 0;
+      }
+    }
   }
 
   // ─── Private helpers ───────────────────────────────────────────────
@@ -1476,33 +1526,7 @@ export class PayrollEngineService {
         values['LOP_DAYS'] = emp.lopDays;
         values['NCP_DAYS'] = emp.ncpDays;
       }
-      const NON_PRORATA_CODES = new Set([
-        'ATT_BONUS',
-        'OTHER_EARNINGS',
-        'ARREAR_ATT_BONUS',
-        'OTHER_DEDUCTIONS',
-        'ACTUAL_GROSS',
-      ]);
-      for (const comp of components) {
-        if (
-          comp.componentType === 'EARNING' &&
-          !NON_PRORATA_CODES.has(comp.code) &&
-          values[comp.code] !== undefined
-        ) {
-          values[comp.code] = values[comp.code] * proRataFactor;
-        }
-      }
-      // When payable days = 0, also zero out the non-prorata earnings (ATT_BONUS,
-      // OTHER_EARNINGS, ARREAR_ATT_BONUS). ACTUAL_GROSS stays as a reference value.
-      if (payableDays === 0) {
-        for (const code of [
-          'ATT_BONUS',
-          'OTHER_EARNINGS',
-          'ARREAR_ATT_BONUS',
-        ]) {
-          if (values[code] !== undefined) values[code] = 0;
-        }
-      }
+      this.prorateEarnings(values, components, payableDays, proRataFactor);
 
       // Compute wage bases
       const { pfWage, esiWage, gross } = this.wageBase.computeWageBases({
