@@ -79,6 +79,52 @@ function fixture() {
 
 describe('Saved salary structure preview', () => {
   it.each([
+    ['FIXED_26', 13, 12700],
+    ['FIXED_26', 0, 0],
+    ['CALENDAR_DAYS', 15.5, 12700],
+  ])(
+    'prorates ordinary earnings using %s with %s payable days',
+    async (wageBasisDays, payableDays, expectedGross) => {
+      const { service, items } = fixture();
+      items.push({
+        ...items[0],
+        id: 'bonus-item',
+        componentId: 'bonus',
+        formula: '200',
+        priority: 2,
+      });
+      const statutory = jest.fn(({ values }) => {
+        expect(values.GROSS).toBe(expectedGross);
+        expect(values.BASIC).toBe(payableDays === 0 ? 0 : 12500);
+        expect(values.ATT_BONUS).toBe(payableDays === 0 ? 0 : 200);
+        return { values: {} };
+      });
+      Object.assign(service, {
+        setupRepo: { findOne: jest.fn().mockResolvedValue({ wageBasisDays }) },
+        compRepo: {
+          find: jest.fn().mockResolvedValue([
+            { id: 'basic', code: 'BASIC', componentType: 'EARNING' },
+            { id: 'bonus', code: 'ATT_BONUS', componentType: 'EARNING' },
+          ]),
+        },
+        statutory: { compute: statutory },
+      });
+      const values = await service.previewEmployee({
+        ...scope,
+        structureId: 'draft',
+        grossAmount: 25000,
+        payableDays: Number(payableDays),
+      });
+      expect(values).toMatchObject({
+        GROSS: expectedGross,
+        NET_PAY: expectedGross,
+        ACTUAL_GROSS: 25000,
+      });
+      expect(statutory).toHaveBeenCalled();
+    },
+  );
+
+  it.each([
     [24, 25000],
     [24.5, 25200],
     [0, 25000],
@@ -131,6 +177,7 @@ describe('Saved salary structure preview', () => {
       ...scope,
       structureId: 'draft',
       grossAmount: 25000,
+      payableDays: 26,
     });
     expect(values).toMatchObject({
       BASIC: 25000,
