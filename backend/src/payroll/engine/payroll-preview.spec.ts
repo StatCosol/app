@@ -78,6 +78,28 @@ function fixture() {
 }
 
 describe('Saved salary structure preview', () => {
+  it.each([null, 'other-branch'])(
+    'rejects a requested branch when the employee branch is %s',
+    async (employeeBranchId) => {
+      const { service, resolver } = fixture();
+      Object.assign(service, {
+        empRepo: {
+          findOne: jest.fn().mockResolvedValue({ branchId: employeeBranchId }),
+        },
+      });
+      const resolve = jest.spyOn(resolver, 'resolvePreview');
+      await expect(
+        service.previewEmployee({
+          ...scope,
+          employeeId: 'employee',
+          structureId: 'draft',
+          grossAmount: 25000,
+        }),
+      ).rejects.toThrow('Employee does not belong to the selected branch');
+      expect(resolve).not.toHaveBeenCalled();
+    },
+  );
+
   it('calculates a selected draft without changing its approval or activation state', async () => {
     const { service, structure } = fixture();
     const values = await service.previewEmployee({

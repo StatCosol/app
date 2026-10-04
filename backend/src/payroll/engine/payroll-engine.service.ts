@@ -666,7 +666,7 @@ export class PayrollEngineService {
       });
       if (!employee)
         throw new BadRequestException('Employee was not found for this client');
-      if (branchId && employee.branchId && branchId !== employee.branchId)
+      if (branchId && branchId !== employee.branchId)
         throw new BadRequestException(
           'Employee does not belong to the selected branch',
         );
