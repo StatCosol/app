@@ -57,6 +57,18 @@ export type SalaryStructure = {
   updatedAt: string;
 };
 
+export type CreateSalaryStructure = Pick<
+  SalaryStructure,
+  'clientId' | 'name' | 'scopeType' | 'effectiveFrom'
+> & Partial<Pick<
+  SalaryStructure,
+  'branchId' | 'departmentId' | 'gradeId' | 'employeeId' | 'ruleSetId' | 'effectiveTo'
+>>;
+
+export type UpdateSalaryStructure = Partial<
+  Omit<CreateSalaryStructure, 'clientId'> & Pick<SalaryStructure, 'isActive'>
+> & { clientId?: never };
+
 export type StructureItem = {
   componentName?: string | null;
   componentCode?: string | null;
@@ -167,10 +179,10 @@ export class PayrollEngineApiService {
   getStructure(id: string): Observable<SalaryStructure> {
     return this.http.get<SalaryStructure>(`${this.base}/structures/${id}`);
   }
-  createStructure(body: Partial<SalaryStructure>): Observable<SalaryStructure> {
+  createStructure(body: CreateSalaryStructure): Observable<SalaryStructure> {
     return this.http.post<SalaryStructure>(`${this.base}/structures`, body);
   }
-  updateStructure(id: string, body: Partial<SalaryStructure>): Observable<SalaryStructure> {
+  updateStructure(id: string, body: UpdateSalaryStructure): Observable<SalaryStructure> {
     return this.http.put<SalaryStructure>(`${this.base}/structures/${id}`, body);
   }
   deleteStructure(id: string): Observable<any> {

@@ -12,6 +12,7 @@ import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import {
   PayrollEngineApiService,
+  CreateSalaryStructure,
   RuleSet,
   SalaryStructure,
   StructureItem,
@@ -523,8 +524,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     }
 
     this.saving = true;
-    const payload: Partial<SalaryStructure> = {
-      clientId: this.selectedClientId,
+    const payload: Omit<CreateSalaryStructure, 'clientId'> = {
       name: this.structureForm.name.trim(),
       scopeType: this.structureForm.scopeType,
       branchId: this.structureForm.scopeType === 'BRANCH' ? this.structureForm.branchId.trim() : null,
@@ -539,7 +539,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
     const req$ = this.editingStructure
       ? this.engineApi.updateStructure(this.editingStructure.id, payload)
-      : this.engineApi.createStructure(payload);
+      : this.engineApi.createStructure({ ...payload, clientId: this.selectedClientId });
 
     req$
       .pipe(
