@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaySalaryStructureEntity } from '../entities/pay-salary-structure.entity';
@@ -69,6 +69,50 @@ export class StructureResolverService {
     }
 
     return null;
+  }
+
+  /** Read-only preview may inspect a saved draft without activating it. */
+  async resolvePreview(
+    params: ResolveParams,
+    structureId: string,
+  ): Promise<ResolveResult> {
+    const structure = await this.structureRepo.findOne({
+      where: { id: structureId, clientId: params.clientId },
+    });
+    if (!structure)
+      throw new BadRequestException(
+        'Selected structure was not found for this client',
+      );
+    if (
+      structure.effectiveFrom > params.asOfDate ||
+      (structure.effectiveTo && structure.effectiveTo < params.asOfDate)
+    ) {
+      throw new BadRequestException(
+        'Choose a preview date within the selected structure effective dates',
+      );
+    }
+    const targets = {
+      BRANCH: params.branchId,
+      EMPLOYEE: params.employeeId,
+      DEPARTMENT: params.departmentId,
+      GRADE: params.gradeId,
+    };
+    const structureTargets = {
+      BRANCH: structure.branchId,
+      EMPLOYEE: structure.employeeId,
+      DEPARTMENT: structure.departmentId,
+      GRADE: structure.gradeId,
+    };
+    if (
+      structure.scopeType !== 'TENANT' &&
+      (!targets[structure.scopeType] ||
+        targets[structure.scopeType] !== structureTargets[structure.scopeType])
+    ) {
+      throw new BadRequestException(
+        'Choose a branch or employee matching the selected structure scope',
+      );
+    }
+    return { structure, items: await this.loadItems(structure.id) };
   }
 
   private async findStructure(

@@ -628,21 +628,20 @@ export class PayrollEngineService {
 
   async previewEmployee(params: {
     clientId: string;
+    structureId?: string;
     employeeId?: string | null;
     branchId?: string | null;
     grossAmount: number;
     asOfDate: string;
   }): Promise<Record<string, number>> {
-    const { clientId, employeeId, branchId, grossAmount, asOfDate } = params;
+    const { clientId, employeeId, grossAmount, asOfDate } = params;
+    let branchId = params.branchId;
 
     const setup = await this.setupRepo.findOne({ where: { clientId } });
     if (!setup) {
-      // No setup configured — return a minimal preview with just gross = net
-      return {
-        ACTUAL_GROSS: grossAmount,
-        GROSS: grossAmount,
-        NET_PAY: grossAmount,
-      };
+      throw new BadRequestException(
+        'Configure payroll setup before running a preview',
+      );
     }
 
     const components = await this.compRepo.find({
@@ -650,12 +649,9 @@ export class PayrollEngineService {
       order: { displayOrder: 'ASC' },
     });
     if (!components.length) {
-      // No components configured — return gross = net
-      return {
-        ACTUAL_GROSS: grossAmount,
-        GROSS: grossAmount,
-        NET_PAY: grossAmount,
-      };
+      throw new BadRequestException(
+        'Configure active salary components before running a preview',
+      );
     }
 
     const values: Record<string, number> = { ACTUAL_GROSS: grossAmount };
@@ -666,8 +662,15 @@ export class PayrollEngineService {
     let employeeStateCode = '';
     if (employeeId) {
       const employee = await this.empRepo.findOne({
-        where: { id: employeeId },
+        where: { id: employeeId, clientId },
       });
+      if (!employee)
+        throw new BadRequestException('Employee was not found for this client');
+      if (branchId && employee.branchId && branchId !== employee.branchId)
+        throw new BadRequestException(
+          'Employee does not belong to the selected branch',
+        );
+      branchId = branchId || employee.branchId;
       if (employee) {
         departmentId = employee.departmentId ?? null;
         gradeId = employee.gradeId ?? null;
@@ -696,29 +699,50 @@ export class PayrollEngineService {
       clientId,
     );
 
-    const resolved = await this.structureResolver.resolve({
+    const scope = {
       clientId,
       employeeId: employeeId ?? null,
       branchId: branchId ?? null,
       departmentId,
       gradeId,
       asOfDate,
-    });
+    };
+    const resolved = params.structureId
+      ? await this.structureResolver.resolvePreview(scope, params.structureId)
+      : await this.structureResolver.resolve(scope);
 
     if (!resolved) {
-      // Minimal preview without structure — just statutory
-      values['GROSS'] = grossAmount;
-      const statResult = this.statutory.compute({
-        values,
-        setup,
-        components,
-        periodMonth: Number(asOfDate.split('-')[1]) || undefined,
-      });
-      Object.assign(values, statResult.values);
-      return values;
+      throw new BadRequestException(
+        'No approved active structure matches this date and scope. Select a saved structure to preview its draft.',
+      );
     }
 
     const { structure, items } = resolved;
+    if (!items.length)
+      throw new BadRequestException(
+        'Add enabled component mappings to the selected structure before previewing',
+      );
+    if (
+      items.some(
+        (item) =>
+          !components.some((component) => component.id === item.componentId),
+      )
+    )
+      throw new BadRequestException(
+        'Some mappings reference missing or inactive components. Update the component mappings before previewing',
+      );
+    if (
+      !items.some((item) =>
+        components.some(
+          (component) =>
+            component.id === item.componentId &&
+            component.componentType === 'EARNING',
+        ),
+      )
+    )
+      throw new BadRequestException(
+        'Add an earnings component mapping before previewing',
+      );
 
     let paramMap = new Map<string, number>();
     // Preview and processing resolve the same client-owned, effective rule set.
@@ -735,7 +759,15 @@ export class PayrollEngineService {
 
     const componentMap = this.buildComponentMap(components);
 
-    this.calculateItems(items, values, componentMap, paramMap, components);
+    const calculationErrors = this.calculateItems(
+      items,
+      values,
+      componentMap,
+      paramMap,
+      components,
+    );
+    if (calculationErrors.length)
+      throw new BadRequestException(calculationErrors.join('; '));
 
     // Compute wage bases and store
     const { pfWage, esiWage, gross } = this.wageBase.computeWageBases({

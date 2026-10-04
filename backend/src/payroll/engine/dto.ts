@@ -12,6 +12,7 @@ import { Type } from 'class-transformer';
 
 export class PreviewEmployeeDto {
   @IsUUID() clientId: string;
+  @IsOptional() @IsUUID() structureId?: string;
   @IsOptional() @IsString() employeeId?: string;
   @IsOptional() @IsString() branchId?: string;
   @Type(() => Number)

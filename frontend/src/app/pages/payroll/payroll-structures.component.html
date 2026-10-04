@@ -534,21 +534,21 @@
 <section class="card">
     <header class="section-head">
       <h2>Preview Calculation</h2>
-      <span>Engine preview for selected client and date context</span>
+      <span>Saved structure: {{ selectedStructure?.name || 'Select a structure' }} (preview only)</span>
     </header>
 
     <div class="preview-form">
       <label>
         Gross Amount
-        <input autocomplete="off" id="ps-gross-amount" type="number" name="grossAmount" [(ngModel)]="previewForm.grossAmount" min="1" />
+        <input autocomplete="off" id="ps-gross-amount" type="number" name="grossAmount" [(ngModel)]="previewForm.grossAmount" (ngModelChange)="clearPreview()" min="1" />
       </label>
       <label>
         As-of Date
-        <input autocomplete="off" id="ps-as-of-date" type="date" name="asOfDate" [(ngModel)]="previewForm.asOfDate" />
+        <input autocomplete="off" id="ps-as-of-date" type="date" name="asOfDate" [(ngModel)]="previewForm.asOfDate" (ngModelChange)="clearPreview()" />
       </label>
       <label>
         Branch (optional)
-        <select id="ps-branch-id" name="previewBranchId" [(ngModel)]="previewForm.branchId">
+        <select id="ps-branch-id" name="previewBranchId" [(ngModel)]="previewForm.branchId" (ngModelChange)="clearPreview()">
           <option value="">— None —</option>
           @for (b of branchOptions; track b) {
 <option [value]="b.id">{{ b.branchName }}</option>
@@ -557,17 +557,19 @@
       </label>
       <label>
         Employee (optional)
-        <select id="ps-employee-id" name="previewEmployeeId" [(ngModel)]="previewForm.employeeId">
+        <select id="ps-employee-id" name="previewEmployeeId" [(ngModel)]="previewForm.employeeId" (ngModelChange)="clearPreview()">
           <option value="">— None —</option>
           @for (e of employeeOptions; track e) {
 <option [value]="e.id">{{ e.label }}</option>
 }
         </select>
       </label>
-      <button type="button" class="btn btn-primary" [disabled]="previewLoading" (click)="runPreview()">
+      <button type="button" class="btn btn-primary" [disabled]="previewLoading || !selectedStructure" (click)="runPreview()">
         {{ previewLoading ? 'Running...' : 'Run Preview' }}
       </button>
     </div>
+
+    @if (previewError) { <p role="alert" class="text-red-700">{{ previewError }}</p> }
 
     @if (previewRows.length) {
 <div class="table-wrap">

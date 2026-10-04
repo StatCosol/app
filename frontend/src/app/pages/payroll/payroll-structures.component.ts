@@ -495,6 +495,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
   }
 
   selectStructure(structure: SalaryStructure): void {
+    this.clearPreview();
     this.selectedStructure = structure;
     this.compareVersionId = '';
     this.compareStateFilter = 'ALL';
@@ -1195,7 +1196,24 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       });
   }
 
+  previewError = '';
+  private previewRevision = 0;
+
+  clearPreview(): void {
+    this.previewRevision++;
+    this.previewError = '';
+    this.previewRows = []; this.previewEarnings = []; this.previewDeductions = []; this.previewEmployer = [];
+    this.previewTotal = 0; this.previewNetPay = 0; this.previewTotalEarnings = 0; this.previewTotalDeductions = 0;
+  }
+
   runPreview(): void {
+    if (this.previewLoading) return;
+    this.clearPreview();
+    const revision = this.previewRevision;
+    if (!this.selectedStructure) {
+      this.previewError = 'Select a saved structure to preview.';
+      return;
+    }
     if (!this.selectedClientId) {
       this.toast.error('Select a client first');
       return;
@@ -1213,6 +1231,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     this.engineApi
       .previewEmployee({
         clientId: this.selectedClientId,
+        structureId: this.selectedStructure.id,
         branchId: this.previewForm.branchId || undefined,
         employeeId: this.previewForm.employeeId || undefined,
         grossAmount: Number(this.previewForm.grossAmount),
@@ -1227,7 +1246,13 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (result) => {
+          if (revision !== this.previewRevision) return;
+          if (!Number.isFinite(result?.['GROSS']) || !Number.isFinite(result?.['NET_PAY'])) {
+            this.previewError = 'The preview did not return complete payroll totals. Check the structure mappings.';
+            return;
+          }
           const entries = Object.entries(result || {});
+          const componentTypes = new Map(this.components.map(component => [component.code, component.componentType]));
 
           // Hidden intermediate/info keys
           const hiddenKeys = new Set([
@@ -1246,16 +1271,17 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
           for (const [key, val] of entries) {
             const amount = Number(val || 0);
+            if (!Number.isFinite(amount)) continue;
             if (key === 'NET_PAY') {
               netPay = amount;
               continue;
             }
             if (hiddenKeys.has(key)) continue;
-            if (deductionKeys.has(key)) {
+            if (deductionKeys.has(key) || componentTypes.get(key) === 'DEDUCTION') {
               if (amount !== 0) deductions.push({ component: key, amount });
-            } else if (employerKeys.has(key)) {
+            } else if (employerKeys.has(key) || componentTypes.get(key) === 'EMPLOYER') {
               if (amount !== 0) employer.push({ component: key, amount });
-            } else {
+            } else if (componentTypes.get(key) === 'EARNING' || (amount !== 0 && ['OT_AMOUNT', 'HOLIDAY_DBL_AMOUNT'].includes(key))) {
               earnings.push({ component: key, amount });
             }
           }
@@ -1264,14 +1290,18 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
           this.previewDeductions = deductions.sort((a, b) => b.amount - a.amount);
           this.previewEmployer = employer.sort((a, b) => b.amount - a.amount);
           this.previewNetPay = netPay;
-          this.previewTotalEarnings = earnings.reduce((s, r) => s + r.amount, 0);
+          this.previewTotalEarnings = result['GROSS'];
           this.previewTotalDeductions = deductions.reduce((s, r) => s + r.amount, 0);
 
           // Also keep flat rows for backward compat
           this.previewRows = [...earnings, ...deductions, ...employer];
           this.previewTotal = netPay;
         },
-        error: (err) => this.toast.error(err?.error?.message || 'Preview calculation failed'),
+        error: (err) => {
+          if (revision !== this.previewRevision) return;
+          const message = err?.error?.message;
+          this.previewError = Array.isArray(message) ? message.join('; ') : message || 'Preview calculation failed';
+        },
       });
   }
 
