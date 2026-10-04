@@ -254,7 +254,8 @@ export async function generatePayslipPdfBuffer(
       doc.y = infoY;
 
       // ── Compute earnings breakdown ──
-      const basic = cv['BASIC'] ?? 0;
+      const isIntern = cv['STIPEND'] !== undefined;
+      const basic = isIntern ? cv['STIPEND'] : (cv['BASIC'] ?? 0);
       const hra = cv['HRA'] ?? 0;
       const others = cv['OTHERS'] ?? 0;
       const attBonus = cv['ATT_BONUS'] ?? 0;
@@ -347,7 +348,13 @@ export async function generatePayslipPdfBuffer(
       drawRow('Earnings', 'Amount', 'Deductions', 'Amount', tY, true);
       tY += rowHeight;
       // Basic / PF
-      drawRow('Basic', formatCurrency(basic), 'PF', formatCurrency(pfAmt), tY);
+      drawRow(
+        isIntern ? 'Stipend' : 'Basic',
+        formatCurrency(basic),
+        'PF',
+        formatCurrency(pfAmt),
+        tY,
+      );
       tY += rowHeight;
       // HRA / ESI
       drawRow('HRA', formatCurrency(hra), 'ESI', formatCurrency(esiAmt), tY);

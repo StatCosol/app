@@ -12,6 +12,11 @@ import { PayCalcTraceEntity } from '../entities/pay-calc-trace.entity';
 import { PaySalaryStructureItemEntity } from '../entities/pay-salary-structure-item.entity';
 import { EmployeeEntity } from '../../employees/entities/employee.entity';
 
+import {
+  payrollCategory,
+  componentsForCategory,
+  internProrationFactor,
+} from '../payroll-category';
 import { StructureResolverService } from './structure-resolver.service';
 import { RulesetResolverService } from './ruleset-resolver.service';
 import { RoundingService } from './rounding.service';
@@ -122,10 +127,11 @@ export class PayrollEngineService {
       );
     }
 
-    const components = await this.compRepo.find({
+    let components = await this.compRepo.find({
       where: { clientId: run.clientId, isActive: true },
       order: { displayOrder: 'ASC' },
     });
+    components = componentsForCategory(run.payrollCategory, components);
     if (!components.length) {
       throw new BadRequestException(
         `No payroll components configured for client ${run.clientId}`,
@@ -249,10 +255,11 @@ export class PayrollEngineService {
       );
     }
 
-    const components = await this.compRepo.find({
+    let components = await this.compRepo.find({
       where: { clientId: run.clientId, isActive: true },
       order: { displayOrder: 'ASC' },
     });
+    components = componentsForCategory(run.payrollCategory, components);
     if (!components.length) {
       throw new BadRequestException(
         `No payroll components configured for client ${run.clientId}`,
@@ -810,6 +817,14 @@ export class PayrollEngineService {
       const values: Record<string, number> = {};
       const uploadedCodes = new Set<string>();
       for (const row of uploadedRows) {
+        if (
+          run.payrollCategory === 'INTERN' &&
+          !Number.isFinite(Number(row.amount))
+        ) {
+          throw new BadRequestException(
+            'Intern payroll input amounts must be finite numbers',
+          );
+        }
         values[row.componentCode] = Number(row.amount) || 0;
         uploadedCodes.add(row.componentCode);
       }
@@ -820,6 +835,11 @@ export class PayrollEngineService {
         run.periodMonth,
         0,
       ).getDate();
+      const isIntern = run.payrollCategory === 'INTERN';
+      if (isIntern && !emp.employeeId)
+        throw new BadRequestException(
+          'Register the intern before processing payroll',
+        );
       const attendanceUploaded = emp.totalDays > 0; // means Excel was uploaded before processing
       // True when *any* attendance signal exists for this employee. When false the engine
       // treats the employee as having no payable days (gross/net = 0) instead of silently
@@ -893,7 +913,42 @@ export class PayrollEngineService {
         const masterEmp = await this.empRepo.findOne({
           where: { id: emp.employeeId },
         });
+        if (isIntern && !masterEmp)
+          throw new BadRequestException('Intern employee record not found');
         if (masterEmp) {
+          if (
+            payrollCategory(masterEmp.payrollCategory) !==
+            payrollCategory(run.payrollCategory)
+          ) {
+            throw new BadRequestException(
+              'Employee payroll category does not match this run. Remove the employee and use the correct cycle.',
+            );
+          }
+          if (isIntern) {
+            const duplicates = await qr.manager.query(
+              `SELECT r.id FROM payroll_run_employees e JOIN payroll_runs r ON r.id = e.run_id
+               WHERE e.employee_id = $1 AND r.client_id = $2 AND r.period_year = $3 AND r.period_month = $4
+                 AND r.id <> $5 AND r.status IN ('PROCESSED', 'SUBMITTED', 'APPROVED') LIMIT 1`,
+              [
+                masterEmp.id,
+                run.clientId,
+                run.periodYear,
+                run.periodMonth,
+                run.id,
+              ],
+            );
+            if (duplicates.length)
+              throw new BadRequestException(
+                'Intern already belongs to another processed payroll run for this month',
+              );
+            const stipend = Number(masterEmp.monthlyGross);
+            if (!Number.isFinite(stipend) || stipend <= 0)
+              throw new BadRequestException(
+                'Set a positive monthly stipend on the intern employee record',
+              );
+            values['ACTUAL_GROSS'] = stipend;
+            values['STIPEND'] = stipend;
+          }
           departmentId = masterEmp.departmentId ?? null;
           gradeId = masterEmp.gradeId ?? null;
           empPfApplicable = masterEmp.pfApplicable;
@@ -939,7 +994,14 @@ export class PayrollEngineService {
       if (values['WORKED_DAYS'] === undefined) {
         // No attendance uploaded for this employee → 0, NOT a full month.
         values['WORKED_DAYS'] = attendanceProvided
-          ? emp.daysPresent || WORKING_DAYS_IN_MONTH
+          ? isIntern
+            ? Number(emp.daysPresent ?? 0)
+            : emp.daysPresent || WORKING_DAYS_IN_MONTH
+          : 0;
+      }
+      if (isIntern && values['PAYABLE_DAYS'] === undefined) {
+        values['PAYABLE_DAYS'] = attendanceProvided
+          ? Number(emp.daysPresent ?? 0)
           : 0;
       }
       if (values['PAYABLE_DAYS'] === undefined && !attendanceProvided) {
@@ -1287,14 +1349,16 @@ export class PayrollEngineService {
         );
       }
 
-      const resolved = await this.structureResolver.resolve({
-        clientId: run.clientId,
-        employeeId: emp.employeeId ?? null,
-        branchId: emp.branchId ?? null,
-        departmentId,
-        gradeId,
-        asOfDate,
-      });
+      const resolved = isIntern
+        ? null
+        : await this.structureResolver.resolve({
+            clientId: run.clientId,
+            employeeId: emp.employeeId ?? null,
+            branchId: emp.branchId ?? null,
+            departmentId,
+            gradeId,
+            asOfDate,
+          });
 
       let structureId: string | null = null;
       let ruleSetId: string | null = null;
@@ -1336,7 +1400,18 @@ export class PayrollEngineService {
       // Default to 0 when missing so a blank attendance sheet does NOT silently
       // produce a full-month salary.
       const payableDays = values['PAYABLE_DAYS'] ?? 0;
-      const proRataFactor = payableDays / WORKING_DAYS_IN_MONTH;
+      const proRataFactor = isIntern
+        ? internProrationFactor(payableDays, WORKING_DAYS_IN_MONTH, daysInMonth)
+        : payableDays / WORKING_DAYS_IN_MONTH;
+      if (isIntern) {
+        emp.totalDays = WORKING_DAYS_IN_MONTH;
+        emp.daysPresent = payableDays;
+        emp.lopDays = Math.max(0, WORKING_DAYS_IN_MONTH - payableDays);
+        emp.ncpDays = emp.lopDays;
+        values['TOTAL_DAYS'] = WORKING_DAYS_IN_MONTH;
+        values['LOP_DAYS'] = emp.lopDays;
+        values['NCP_DAYS'] = emp.ncpDays;
+      }
       const NON_PRORATA_CODES = new Set([
         'ATT_BONUS',
         'OTHER_EARNINGS',

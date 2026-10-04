@@ -53,6 +53,14 @@ export class EmployeeEntity {
   @Column({ name: 'punch_code', type: 'varchar', length: 50, nullable: true })
   punchCode: string | null;
 
+  @Column({
+    name: 'payroll_category',
+    type: 'varchar',
+    length: 20,
+    default: 'REGULAR',
+  })
+  payrollCategory: 'REGULAR' | 'INTERN';
+
   @Column({ name: 'name', type: 'varchar', length: 250 })
   name: string;
 

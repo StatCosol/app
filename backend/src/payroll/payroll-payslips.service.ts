@@ -218,6 +218,24 @@ export class PayrollPayslipsService {
        ORDER BY display_order ASC, code ASC`,
       [run.clientId],
     );
+    if (run.payrollCategory === 'INTERN') {
+      for (let i = components.length - 1; i >= 0; i--) {
+        if (
+          components[i].code === 'STIPEND' ||
+          (components[i].component_type === 'EARNING' &&
+            !['OTHER_EARNINGS', 'ARREAR_ATT_BONUS'].includes(
+              components[i].code,
+            ))
+        )
+          components.splice(i, 1);
+      }
+      components.unshift({
+        code: 'STIPEND',
+        name: 'Stipend',
+        component_type: 'EARNING',
+        display_order: 0,
+      });
+    }
     const componentMeta = components.map((c: any) => ({
       code: c.code,
       name: c.name,

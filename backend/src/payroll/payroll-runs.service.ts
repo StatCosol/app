@@ -4,7 +4,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { payrollCategory } from './payroll-category';
 import { ReqUser } from '../access/access-scope.service';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
@@ -113,6 +114,7 @@ export class PayrollRunsService {
       branchId: r.branchId ?? null,
       periodYear: r.periodYear,
       periodMonth: r.periodMonth,
+      payrollCategory: payrollCategory(r.payrollCategory),
       title: r.title ?? `Payroll Run`,
       status: r.status,
       createdAt: r.createdAt,
@@ -137,16 +139,19 @@ export class PayrollRunsService {
     }
     await this.scope.assertPayrollAccessToClient(user, dto.clientId);
 
+    const category = payrollCategory(dto.payrollCategory);
     const existing = await this.runRepo.findOne({
       where: {
         clientId: dto.clientId,
         periodYear: Number(dto.periodYear),
         periodMonth: periodMonth,
+        branchId: dto.branchId ?? IsNull(),
+        payrollCategory: category,
       },
     });
     if (existing) {
       throw new BadRequestException(
-        'Payroll run already exists for this client and period',
+        'Payroll run already exists for this client, branch, period and category',
       );
     }
 
@@ -169,7 +174,8 @@ export class PayrollRunsService {
       periodMonth: periodMonth,
       status: 'DRAFT',
       sourcePayrollInputId: dto.sourcePayrollInputId ?? null,
-      title,
+      title: title || (category === 'INTERN' ? 'Intern Payroll' : null),
+      payrollCategory: category,
     });
     const savedRun = await this.runRepo.save(row);
 
@@ -177,6 +183,7 @@ export class PayrollRunsService {
     const whereClause: Record<string, any> = {
       clientId: dto.clientId,
       isActive: true,
+      payrollCategory: category,
     };
     if (dto.branchId) {
       whereClause.branchId = dto.branchId;
@@ -274,6 +281,7 @@ export class PayrollRunsService {
       .addSelect('c.client_name', 'clientName')
       .addSelect('r.period_year', 'periodYear')
       .addSelect('r.period_month', 'periodMonth')
+      .addSelect('r.payroll_category', 'payrollCategory')
       .addSelect('r.status', 'status')
       .addSelect('r.created_at', 'createdAt')
       .addSelect('r.submitted_at', 'submittedAt')
@@ -300,6 +308,7 @@ export class PayrollRunsService {
       clientName: string | null;
       periodYear: string;
       periodMonth: string;
+      payrollCategory: string;
       status: string | null;
       createdAt: string | null;
       submittedAt: string | null;
@@ -331,6 +340,7 @@ export class PayrollRunsService {
       clientName: r.clientName ?? null,
       periodYear: Number(r.periodYear),
       periodMonth: Number(r.periodMonth),
+      payrollCategory: payrollCategory(r.payrollCategory),
       status: r.status ?? 'DRAFT',
       employeeCount: mapCnt.get(r.id) ?? 0,
       createdAt: r.createdAt ?? null,

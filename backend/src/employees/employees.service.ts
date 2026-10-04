@@ -250,6 +250,15 @@ export class EmployeesService {
     // Previously was a hard block for < 18; now handled as a frontend warning only.
 
     // Check for duplicate phone within this client
+    if (
+      dto.payrollCategory === 'INTERN' &&
+      (!Number.isFinite(Number(dto.monthlyGross)) ||
+        Number(dto.monthlyGross) <= 0)
+    ) {
+      throw new BadRequestException(
+        'A positive monthly stipend is required for interns',
+      );
+    }
     const phoneNorm = dto.phone?.replace(/\s+/g, '') || null;
     if (phoneNorm) {
       const existingByPhone = await this.empRepo.findOne({
@@ -480,6 +489,15 @@ export class EmployeesService {
       ...safeDto
     } = dto as any;
     Object.assign(emp, safeDto);
+    if (
+      emp.payrollCategory === 'INTERN' &&
+      (!Number.isFinite(Number(emp.monthlyGross)) ||
+        Number(emp.monthlyGross) <= 0)
+    ) {
+      throw new BadRequestException(
+        'A positive monthly stipend is required for interns',
+      );
+    }
 
     // Statutory: re-check minimum wage when gross / branch / state / skill
     // changes. Uses the merged employee record so a partial update still

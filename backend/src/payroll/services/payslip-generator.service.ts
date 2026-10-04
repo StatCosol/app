@@ -501,7 +501,8 @@ export class PayslipGeneratorService {
     doc.y = infoY;
 
     // ── Compute earnings breakdown ──
-    const basic = valueMap.get('BASIC') ?? 0;
+    const isIntern = run.payrollCategory === 'INTERN';
+    const basic = valueMap.get(isIntern ? 'STIPEND' : 'BASIC') ?? 0;
     const hra = valueMap.get('HRA') ?? 0;
     const others = valueMap.get('OTHERS') ?? 0;
     const attBonus = valueMap.get('ATT_BONUS') ?? 0;
@@ -541,6 +542,7 @@ export class PayslipGeneratorService {
     const netPay = Number(valueMap.get('NET_PAY') ?? runEmp.netPay ?? 0);
 
     const customLayout =
+      !isIntern &&
       params.layout?.isActive &&
       params.layout.layoutJson?.settings?.enabled === true;
     if (customLayout) {
@@ -625,7 +627,7 @@ export class PayslipGeneratorService {
 
       // Row 1: Basic / PF
       drawRow(
-        'Basic',
+        isIntern ? 'Stipend' : 'Basic',
         this.formatCurrency(basic),
         'PF',
         this.formatCurrency(pfAmt),

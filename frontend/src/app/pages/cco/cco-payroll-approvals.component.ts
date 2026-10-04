@@ -15,6 +15,7 @@ type QueueRow = SalaryStructure & { clientName?: string | null };
 type ApprovalMode = 'RUNS' | 'STRUCTURES';
 type RunStatusFilter = 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'PROCESSED';
 type PayrollRunRow = {
+  payrollCategory?: 'REGULAR' | 'INTERN';
   id: string;
   clientId: string;
   clientName?: string | null;
@@ -81,7 +82,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   }
 
   runClientLabel(row: PayrollRunRow): string {
-    return row.clientName || row.clientId.slice(0, 8);
+    return (row.payrollCategory === 'INTERN' ? 'Intern · ' : '') + (row.clientName || row.clientId.slice(0, 8));
   }
 
   setMode(mode: ApprovalMode): void {
