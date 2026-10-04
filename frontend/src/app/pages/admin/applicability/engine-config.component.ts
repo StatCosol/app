@@ -356,7 +356,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                           {{ rule.effect }}
                         </span>
                       </td>
-                      <td class="px-4 py-3 font-mono text-xs text-brand-600">{{ rule.targetCompliance?.code || rule.targetComplianceId }}</td>
+                      <td class="px-4 py-3 font-mono text-xs text-brand-600">{{ rule.targetCompliance?.code || rule.targetCompliance?.name || 'Compliance unavailable' }}</td>
                       <td class="px-4 py-3 text-slate-500">{{ rule.stateCode || 'ALL' }}</td>
                       <td class="px-4 py-3">
                         <ui-status-badge [status]="rule.isActive ? 'Active' : 'Inactive'" />

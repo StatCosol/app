@@ -1,3 +1,4 @@
+import { ContractorLoginSelectorComponent } from '../../../shared/ui/entity-selectors/contractor-login-selector.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -41,6 +42,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
   selector: 'app-crm-clra-workspace',
   standalone: true,
   imports: [
+    ContractorLoginSelectorComponent,
     CommonModule,
     FormsModule,
     RouterLink,
@@ -166,8 +168,8 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
             </div>
           </div>
           <ui-data-table [columns]="assignmentCols" [data]="assignments" emptyMessage="No assignments found.">
-            <ng-template uiTableCell="contractor" let-row>{{ row.contractor?.legalName || row.contractorId }}</ng-template>
-            <ng-template uiTableCell="pe" let-row>{{ row.peEstablishment?.peName || row.peEstablishmentId }}</ng-template>
+            <ng-template uiTableCell="contractor" let-row>{{ row.contractor?.legalName || 'Contractor name unavailable' }}</ng-template>
+            <ng-template uiTableCell="pe" let-row>{{ row.peEstablishment?.peName || 'Establishment name unavailable' }}</ng-template>
             <ng-template uiTableCell="status" let-row><ui-status-badge [label]="row.status || 'ACTIVE'" /></ng-template>
             <ng-template uiTableCell="actions" let-row>
               <div class="flex gap-2">
@@ -267,7 +269,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">Portal User ID</label>
-              <input type="text" [(ngModel)]="contractorForm.contractorUserId" placeholder="UUID of contractor portal login (optional)" class="w-full rounded-lg border-gray-300 font-mono text-xs" />
+              <ui-contractor-login-selector [clientId]="clientId" [(value)]="contractorForm.contractorUserId" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">PAN</label>

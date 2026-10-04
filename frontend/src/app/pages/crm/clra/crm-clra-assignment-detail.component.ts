@@ -591,12 +591,12 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
 
   workerLabel(workerId: string): string {
     const w = this.contractorWorkers.find((x) => x.id === workerId);
-    return w ? `${w.workerCode} — ${w.fullName}` : workerId;
+    return w ? `${w.workerCode} — ${w.fullName}` : 'Worker name unavailable';
   }
 
   deploymentWorkerLabel(deploymentId: string): string {
     const d = this.deployments.find((x) => x.id === deploymentId);
-    return d ? this.workerLabel(d.workerId) : deploymentId;
+    return d ? this.workerLabel(d.workerId) : 'Worker deployment unavailable';
   }
 
   openDeploymentForm(row?: ClraDeployment): void {

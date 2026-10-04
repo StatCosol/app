@@ -1,3 +1,4 @@
+import { CrmScopeFilterComponent } from '../../../shared/ui/crm-scope-filter/crm-scope-filter.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -52,7 +53,7 @@ interface BranchPendingRow {
 @Component({
   selector: 'app-crm-renewals',
   standalone: true,
-  imports: [
+  imports: [CrmScopeFilterComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,

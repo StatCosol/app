@@ -53,9 +53,8 @@ import { HelpdeskAttachmentsComponent } from '../../../shared/helpdesk/helpdesk-
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-gray-500">
           <div><span class="uppercase tracking-wider">Employee Ref</span><br><span class="text-sm text-gray-700">{{ ticket.employeeRef || '—' }}</span></div>
-          <div><span class="uppercase tracking-wider">Created By</span><br><span class="text-sm text-gray-700">{{ ticket.creatorName || (ticket.createdByUserId ? ticket.createdByUserId.substring(0, 8) : '—') }}</span></div>
+          <div><span class="uppercase tracking-wider">Created By</span><br><span class="text-sm text-gray-700">{{ ticket.creatorName || 'Name unavailable' }}</span></div>
           <div><span class="uppercase tracking-wider">Created</span><br><span class="text-sm text-gray-700">{{ ticket.createdAt | date:'dd MMM yyyy, HH:mm' }}</span></div>
-          <div><span class="uppercase tracking-wider">Ticket ID</span><br><span class="text-sm text-gray-700 font-mono">{{ ticket.id | slice:0:8 }}…</span></div>
         </div>
       </div>
 
@@ -86,7 +85,7 @@ import { HelpdeskAttachmentsComponent } from '../../../shared/helpdesk/helpdesk-
             <p class="text-sm text-gray-600">
               <span class="font-medium">Currently assigned to:</span>
               <span class="ml-1" [class.text-amber-600]="!ticket.assignedToUserId">
-                {{ ticket.assigneeName || (ticket.assignedToUserId ? ticket.assignedToUserId.substring(0, 8) + '…' : 'Unassigned') }}
+                {{ ticket.assigneeName || (ticket.assignedToUserId ? 'Name unavailable' : 'Unassigned') }}
               </span>
             </p>
           </div>

@@ -52,7 +52,7 @@ import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, Loadi
           </div>
           <div class="space-y-2 text-sm text-gray-700">
             <div><strong>Requester:</strong> {{ req.requesterName || 'Unknown' }}</div>
-            <div><strong>Target:</strong> {{ req.targetEntityType }} ({{ req.targetEntityId }})</div>
+            <div><strong>Target:</strong> {{ req.targetEntityType }} — {{ req.targetName || 'Name unavailable' }}</div>
             @if (req.reason) {
 <div><strong>Reason:</strong> {{ req.reason }}</div>
 }

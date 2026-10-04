@@ -71,7 +71,7 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
         @if (tab === 'assignments') {
           <div class="mt-6">
             <ui-data-table [columns]="assignmentCols" [data]="assignments" emptyMessage="No CLRA assignments linked to your account.">
-              <ng-template uiTableCell="pe" let-row>{{ row.peEstablishment?.peName || row.peEstablishmentId }}</ng-template>
+              <ng-template uiTableCell="pe" let-row>{{ row.peEstablishment?.peName || 'Establishment name unavailable' }}</ng-template>
               <ng-template uiTableCell="actions" let-row>
                 <button class="text-rose-700 hover:underline text-sm" (click)="selectAssignment(row)">Manage</button>
               </ng-template>

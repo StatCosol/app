@@ -1,3 +1,4 @@
+import { EmployeeSelectorComponent } from '../../../shared/ui/entity-selectors/employee-selector.component';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import {
   ChangeDetectorRef,
@@ -53,6 +54,7 @@ type Tab =
   standalone: true,
   selector: 'app-facedesk',
   imports: [
+    EmployeeSelectorComponent,
     CommonModule,
     FormsModule,
     RouterModule,
@@ -325,8 +327,8 @@ type Tab =
           <tbody>
             @for (a of duplicates; track a) {
 <tr>
-              <td>{{ a.newEmployeeName || a.newEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span>@if (a.hasNewPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.newEmployeeId, a.newSubjectType, a.newEmployeeCode)">View face</button>}</td>
-              <td>{{ a.matchedEmployeeName || a.matchedEmployeeId }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span>@if (a.hasMatchedPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.matchedEmployeeId, a.matchedSubjectType, a.matchedEmployeeCode)">View face</button>}</td>
+              <td>{{ a.newEmployeeName || a.newEmployeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span>@if (a.hasNewPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.newEmployeeId, a.newSubjectType, a.newEmployeeCode)">View face</button>}</td>
+              <td>{{ a.matchedEmployeeName || a.matchedEmployeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span>@if (a.hasMatchedPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.matchedEmployeeId, a.matchedSubjectType, a.matchedEmployeeCode)">View face</button>}</td>
               <td>{{ (+a.similarityScore).toFixed(3) }}</td>
               <td>{{ a.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
@@ -366,7 +368,7 @@ type Tab =
             @for (r of review; track r) {
 <tr>
               <td><span class="pill amber">{{ r.issueType }}</span></td>
-              <td>{{ r.employeeName || r.employeeId || '—' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}{{ r.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
+              <td>{{ r.employeeName || r.employeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}{{ r.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
               @if (branchMode) {
                 <td>
                   @if (r.photoUrl) {
@@ -446,7 +448,7 @@ type Tab =
           <tbody>
             @for (d of shortDays; track d) {
 <tr>
-              <td>{{ d.employeeName || d.employeeId }}<br><span class="mono text-xs text-gray-500">{{ d.employeeCode || '' }}{{ d.branchName ? ' · ' + d.branchName : '' }}</span></td>
+              <td>{{ d.employeeName || d.employeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ d.employeeCode || '' }}{{ d.branchName ? ' · ' + d.branchName : '' }}</span></td>
               <td class="nowrap">{{ d.day }}</td>
               <td class="text-xs">{{ d.punchList }}</td>
               <td class="nowrap">{{ workedHhMm(d.workedSeconds) }}</td>
@@ -491,7 +493,7 @@ type Tab =
           <h4 class="text-sm font-semibold text-gray-800 mb-2">Manual attendance correction</h4>
           <p class="text-xs text-gray-500 mb-2">Submit an ADD correction for a missed punch. HR must approve it on the backend workflow.</p>
           <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <input class="inp" placeholder="Employee UUID" [(ngModel)]="correctionEmployeeId">
+            <ui-employee-selector [(value)]="correctionEmployeeId" />
             <input class="inp" type="datetime-local" [(ngModel)]="correctionPunchTime">
             <select class="inp" [(ngModel)]="correctionPunchType">
               <option value="IN">IN</option>
@@ -956,7 +958,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       next: (rows: any[]) => {
         this.branches = (rows || []).map((b: any) => ({
           id: b.id,
-          name: b.name || b.branchCode || b.code || b.id,
+          name: b.branchName || b.branchname || b.name || b.branchCode || b.code || 'Branch name unavailable',
         }));
         this.cdr.detectChanges();
       },
@@ -967,7 +969,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
   /** Resolve a device/row branchId to its display name. */
   branchName(id: string | null | undefined): string {
     if (!id) return '—';
-    return this.branches.find((b) => b.id === id)?.name ?? id;
+    return this.branches.find((b) => b.id === id)?.name ?? 'Branch name unavailable';
   }
 
   switch(t: Tab): void {
@@ -1057,7 +1059,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
           : 'Reject';
     const ok = await this.dialog.confirm(
       'Short Day',
-      `${label} — ${d.employeeName || d.employeeCode || d.employeeId} on ${d.day} (${this.workedHhMm(d.workedSeconds)} worked)?`,
+      `${label} — ${d.employeeName || d.employeeCode || 'Employee name unavailable'} on ${d.day} (${this.workedHhMm(d.workedSeconds)} worked)?`,
       action === 'REJECT' ? { variant: 'danger', confirmText } : { confirmText },
     );
     if (!ok) return;
@@ -1139,7 +1141,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
 
   submitCorrection(): void {
     if (!this.correctionEmployeeId.trim()) {
-      this.toast.error('Employee ID is required');
+      this.toast.error('Select an employee');
       return;
     }
     if (!this.correctionPunchTime) {

@@ -188,7 +188,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           @for (request of changeRequestedRequests; track request) {
 <div class="p-4 grid gap-3 lg:grid-cols-[1fr_auto]">
             <div>
-              <div class="font-medium text-slate-900">{{ request.clientName || request.clientId }}</div>
+              <div class="font-medium text-slate-900">{{ request.clientName || clientLabel(request.clientId) }}</div>
               <div class="mt-1 text-sm text-slate-700">{{ request.packageCode }}</div>
               <div class="mt-2 flex flex-wrap gap-1">
                 @for (module of request.requestedModules; track module) {
@@ -279,7 +279,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           <tbody>
             @for (r of filteredRequests; track r) {
 <tr class="border-t border-slate-100">
-              <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
+              <td class="px-4 py-3">{{ r.clientName || clientLabel(r.clientId) }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
               <td class="px-4 py-3">
                 <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="statusBadgeClass(r.status)">
@@ -354,7 +354,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           <tbody>
             @for (entry of filteredAuditLogs; track entry) {
 <tr class="border-t border-slate-100 align-top">
-              <td class="px-4 py-3">{{ entry.clientName || entry.clientId }}</td>
+              <td class="px-4 py-3">{{ entry.clientName || clientLabel(entry.clientId) }}</td>
               <td class="px-4 py-3">
                 <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="auditActionBadgeClass(entry.action)">
                   {{ auditActionLabel(entry.action) }}
@@ -377,7 +377,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
 }
                 
               </td>
-              <td class="px-4 py-3">{{ entry.actorName || entry.actorUserId || '-' }}</td>
+              <td class="px-4 py-3">{{ entry.actorName || 'User name unavailable' }}</td>
               <td class="px-4 py-3">{{ entry.note || '-' }}</td>
               <td class="px-4 py-3">{{ entry.createdAt | date:'dd MMM, HH:mm' }}</td>
             </tr>
@@ -394,6 +394,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
   `,
 })
 export class AdminServicePackagesComponent implements OnInit {
+  clientLabel(id: string): string { return this.clients.find(c => c.id === id)?.clientName || 'Client name unavailable'; }
   clients: Client[] = [];
   packages: ServicePackageOption[] = [];
   moduleOptions: ServiceModuleOption[] = [];

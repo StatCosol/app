@@ -253,7 +253,7 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
 
   get servedBranchRows(): ServedBranchRow[] {
     const rows: ServedBranchRow[] = (this.branches || []).map((branch) => {
-      const branchName = branch?.branchName || branch?.name || branch?.id || '-';
+      const branchName = branch?.branchName || branch?.name || branch?.branchCode || 'Branch name unavailable';
       const complianceItems = Array.isArray(branch?.compliances) ? branch.compliances.length : 0;
       const riskBand: ServedBranchRow['riskBand'] =
         complianceItems > 18 ? 'HIGH' : complianceItems > 8 ? 'MEDIUM' : 'LOW';

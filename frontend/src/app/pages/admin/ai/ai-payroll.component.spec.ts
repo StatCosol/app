@@ -1,3 +1,4 @@
+import { PayrollRunsService } from '../../payroll/payroll-runs.service';
 import { describe, expect, it, vi } from 'vitest';
 import { of, Subject, throwError } from 'rxjs';
 import { AiPayrollComponent } from './ai-payroll.component';
@@ -95,6 +96,7 @@ describe('Payroll anomaly detection form', () => {
     await TestBed.configureTestingModule({
       imports: [AiPayrollComponent],
       providers: [
+        { provide: PayrollRunsService, useValue: { listRuns: () => of([]) } },
         { provide: AiApiService, useValue: api },
         { provide: ToastService, useValue: toast },
         { provide: FilterOptionsService, useValue: { adminClients: () => of([{ id: 'company', name: 'Test' }]) } },

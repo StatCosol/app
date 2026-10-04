@@ -78,11 +78,11 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   }
 
   clientLabel(row: QueueRow): string {
-    return row.clientName || row.clientId.slice(0, 8);
+    return row.clientName || 'Client name unavailable';
   }
 
   runClientLabel(row: PayrollRunRow): string {
-    return (row.payrollCategory === 'INTERN' ? 'Intern · ' : '') + (row.clientName || row.clientId.slice(0, 8));
+    return (row.payrollCategory === 'INTERN' ? 'Intern · ' : '') + (row.clientName || 'Client name unavailable');
   }
 
   setMode(mode: ApprovalMode): void {
@@ -308,10 +308,10 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   scopeText(row: QueueRow): string {
     const parts: string[] = [row.scopeType];
-    if (row.branchId) parts.push(`branch=${row.branchId.slice(0, 8)}`);
-    if (row.departmentId) parts.push(`dept=${row.departmentId.slice(0, 8)}`);
-    if (row.gradeId) parts.push(`grade=${row.gradeId.slice(0, 8)}`);
-    if (row.employeeId) parts.push(`emp=${row.employeeId.slice(0, 8)}`);
+    if (row.branchId) parts.push(`Branch: ${row.branchName || 'Name unavailable'}`);
+    if (row.departmentId) parts.push(`Department: ${row.departmentName || 'Name unavailable'}`);
+    if (row.gradeId) parts.push(`Grade: ${row.gradeName || 'Name unavailable'}`);
+    if (row.employeeId) parts.push(`Employee: ${row.employeeName || 'Name unavailable'}`);
     return parts.join(' / ');
   }
 

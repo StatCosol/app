@@ -118,7 +118,7 @@ import {
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <ui-status-badge [status]="log.entityType" size="sm"></ui-status-badge>
-                  <span class="ml-1 text-xs text-gray-400 font-mono">{{ log.entityId | slice:0:8 }}…</span>
+                  <span class="ml-1 text-xs text-gray-400 font-mono">{{ entityLabel(log) }}</span>
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <span class="px-2 py-0.5 rounded text-xs font-medium"
@@ -128,7 +128,7 @@ import {
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                   @if (log.performedBy) {
-<span class="font-mono text-xs">{{ log.performedBy | slice:0:8 }}…</span>
+<span class="font-mono text-xs">{{ log.snapshot?.['performedName'] || 'Name unavailable' }}</span>
 }
                   @if (!log.performedBy) {
 <span class="text-gray-400 italic">system</span>
@@ -224,6 +224,20 @@ export class AdminAuditLogsComponent implements OnInit, OnDestroy {
     private svc: AdminAuditLogsService,
     private cdr: ChangeDetectorRef,
   ) {}
+
+  entityLabel(log: AuditLogEntry): string {
+    for (const key of ['after', 'before', 'meta']) {
+      const record = log.snapshot?.[key];
+      if (record && typeof record === 'object') {
+        const values = record as Record<string, unknown>;
+        for (const field of ['name', 'clientName', 'branchName', 'branchname', 'title', 'employeeCode', 'code']) {
+          const label = values[field];
+          if (typeof label === 'string' && label.trim()) return label;
+        }
+      }
+    }
+    return 'Name unavailable';
+  }
 
   ngOnInit() {
     this.load();

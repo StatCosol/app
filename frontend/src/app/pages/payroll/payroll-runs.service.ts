@@ -4,6 +4,8 @@ import { environment } from '../../../environments/environment';
 import { Observable, map } from 'rxjs';
 
 export type PayrollRunSummary = {
+  title?: string | null;
+  payrollCategory?: string | null;
   id: string;
   clientId: string;
   clientName?: string | null;
@@ -48,6 +50,8 @@ export class PayrollRunsService {
       map((res) => {
         const arr = Array.isArray(res) ? res : (res?.data ?? res?.rows ?? []);
         return (arr || []).map((r: any) => ({
+          title: r?.title ?? null,
+          payrollCategory: r?.payrollCategory ?? r?.payroll_category ?? null,
           id: String(r?.id ?? ''),
           clientId: String(r?.clientId ?? r?.client_id ?? ''),
           clientName: r?.clientName ?? r?.client_name ?? null,

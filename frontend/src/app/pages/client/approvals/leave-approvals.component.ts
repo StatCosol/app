@@ -48,7 +48,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <tbody>
             @for (lv of leaves; track lv) {
 <tr>
-              <td class="font-medium">{{ lv.employeeName || lv.employeeId }}</td>
+              <td class="font-medium">{{ lv.employeeName || lv.employeeCode || 'Employee name unavailable' }}</td>
               <td>{{ lv.leaveTypeCode }}</td>
               <td>{{ lv.fromDate }}</td>
               <td>{{ lv.toDate }}</td>

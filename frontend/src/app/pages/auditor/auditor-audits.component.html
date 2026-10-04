@@ -113,7 +113,7 @@
 
       <ng-template uiTableCell="auditCode" let-row>
         <button type="button" class="text-amber-700 hover:underline font-mono text-sm" (click)="openWorkspace(row)">
-          {{ row.auditCode || row.id?.substring(0, 8) }}
+          {{ row.auditCode || 'Audit code unavailable' }}
         </button>
         <div class="mt-1 text-xs text-gray-500">{{ getAuditNextStep(row) }}</div>
       </ng-template>

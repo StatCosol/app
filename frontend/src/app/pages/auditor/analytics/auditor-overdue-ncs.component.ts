@@ -111,7 +111,7 @@ interface OverdueNc {
               [class.bg-rose-50]="it.daysOverdue >= 7"
             >
               <td class="px-4 py-3 font-mono text-xs text-slate-700">
-                {{ it.auditCode || (it.auditId | slice: 0:8) }}
+                {{ it.auditCode || 'Audit code unavailable' }}
               </td>
               <td class="px-4 py-3 text-slate-700">
                 <div class="font-medium">{{ it.clientName || '—' }}</div>

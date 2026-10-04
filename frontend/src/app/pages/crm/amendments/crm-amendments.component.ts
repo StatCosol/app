@@ -1,3 +1,4 @@
+import { CrmScopeFilterComponent } from '../../../shared/ui/crm-scope-filter/crm-scope-filter.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -82,7 +83,7 @@ interface AmendmentDetail {
 @Component({
   selector: 'app-crm-amendments',
   standalone: true,
-  imports: [
+  imports: [CrmScopeFilterComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,

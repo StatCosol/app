@@ -280,7 +280,7 @@ export class PfTeamDashboardComponent implements OnInit {
         const clientMap = new Map<string, { clientId: string; clientName: string; total: number; open: number }>();
         for (const t of tickets) {
           const cid = t.clientId;
-          const cname = t.client?.clientName || cid?.substring(0, 8) || 'Unknown';
+          const cname = t.client?.clientName || 'Client name unavailable';
           if (!clientMap.has(cid)) {
             clientMap.set(cid, { clientId: cid, clientName: cname, total: 0, open: 0 });
           }

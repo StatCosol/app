@@ -413,6 +413,30 @@ export class PayrollEngineController {
       .createQueryBuilder('ps')
       .leftJoin('clients', 'c', 'c.id = ps.client_id')
       .addSelect('c.client_name', 'clientName')
+      .leftJoin(
+        'client_branches',
+        'b',
+        'b.id = ps.branch_id AND b.clientid = ps.client_id',
+      )
+      .addSelect('b.branchname', 'branchName')
+      .leftJoin(
+        'departments',
+        'd',
+        'd.id = ps.department_id AND d.client_id = ps.client_id',
+      )
+      .addSelect('d.name', 'departmentName')
+      .leftJoin(
+        'grades',
+        'g',
+        'g.id = ps.grade_id AND g.client_id = ps.client_id',
+      )
+      .addSelect('g.name', 'gradeName')
+      .leftJoin(
+        'employees',
+        'e',
+        'e.id = ps.employee_id AND e.client_id = ps.client_id',
+      )
+      .addSelect('e.name', 'employeeName')
       .where('ps.approval_status = :s', { s });
 
     // CCOs may only see structures whose owning client is assigned to a CRM
@@ -437,6 +461,10 @@ export class PayrollEngineController {
     return rows.entities.map((e, i) => ({
       ...e,
       clientName: rows.raw[i]?.clientName ?? null,
+      branchName: rows.raw[i]?.branchName ?? null,
+      departmentName: rows.raw[i]?.departmentName ?? null,
+      gradeName: rows.raw[i]?.gradeName ?? null,
+      employeeName: rows.raw[i]?.employeeName ?? null,
     }));
   }
 
@@ -782,10 +810,28 @@ export class PayrollEngineController {
   @Get('structures/:structureId/items')
   async listStructureItems(@Param('structureId') structureId: string) {
     await this.ensureStructureExists(structureId);
-    return this.itemRepo.find({
-      where: { structureId },
-      order: { priority: 'ASC' },
-    });
+    const rows = await this.itemRepo
+      .createQueryBuilder('item')
+      .innerJoin(
+        'pay_salary_structures',
+        'structure',
+        'structure.id = item.structure_id',
+      )
+      .leftJoin(
+        'payroll_components',
+        'component',
+        'component.id = item.component_id AND component.client_id = structure.client_id',
+      )
+      .addSelect('component.name', 'componentName')
+      .addSelect('component.code', 'componentCode')
+      .where('item.structure_id = :structureId', { structureId })
+      .orderBy('item.priority', 'ASC')
+      .getRawAndEntities();
+    return rows.entities.map((item, i) => ({
+      ...item,
+      componentName: rows.raw[i]?.componentName ?? null,
+      componentCode: rows.raw[i]?.componentCode ?? null,
+    }));
   }
 
   @ApiOperation({ summary: 'Create Structure Item' })

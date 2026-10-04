@@ -229,7 +229,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
   exportWorkspaceSummary(): void {
     const rows = [
       { metric: 'Branch Name', value: this.branch?.branchName || '-' },
-      { metric: 'Branch Code', value: this.branch?.branchCode || this.branchId },
+      { metric: 'Branch Code', value: this.branch?.branchCode || 'Not assigned' },
       { metric: 'Workspace Month', value: this.workspaceMonth },
       { metric: 'Risk Score', value: this.riskScore },
       { metric: 'Completion %', value: this.completionScore },

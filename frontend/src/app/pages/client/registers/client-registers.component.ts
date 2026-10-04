@@ -193,7 +193,7 @@ type RegisterRow = {
                   <div class="title">{{ row.title }}</div>
                   <div class="meta">{{ row.registerType || '-' }} | {{ row.fileName || '-' }}</div>
                 </td>
-                <td>{{ row.branchId || '-' }}</td>
+                <td>{{ branchLabel(row.branchId) }}</td>
                 <td>{{ periodLabel(row) }}</td>
                 <td>
                   <span class="source-badge" [class.generated]="row.sourceType === 'GENERATED'">
@@ -468,7 +468,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
       return (
         row.title.toLowerCase().includes(text) ||
         String(row.registerType || '').toLowerCase().includes(text) ||
-        String(row.branchId || '').toLowerCase().includes(text) ||
+        this.branchLabel(row.branchId).toLowerCase().includes(text) ||
         String(row.stateCode || '').toLowerCase().includes(text) ||
         String(row.fileName || '').toLowerCase().includes(text)
       );
@@ -619,6 +619,12 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
 
   pagedRows(): RegisterRow[] {
     return this.filteredRows.slice(this.pageStartIndex(), this.pageEndIndex());
+  }
+
+  branchLabel(id: string | null): string {
+    if (!id) return 'All branches';
+    const b = this.branches.find(branch => branch.id === id);
+    return b?.branchName || b?.branchname || b?.name || b?.branchCode || 'Branch name unavailable';
   }
 
   trackById(_index: number, row: RegisterRow): string {

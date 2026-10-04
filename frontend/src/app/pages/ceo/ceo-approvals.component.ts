@@ -85,7 +85,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 <div class="card">
           <ui-data-table [columns]="columns" [data]="filteredApprovals">
             <ng-template uiTableCell="entity" let-row>
-              {{ row.entityLabel || (row.entityType + ' #' + row.entityId) }}
+              {{ row.entityLabel || (row.entityType + ' — name unavailable') }}
             </ng-template>
             <ng-template uiTableCell="requestedBy" let-row>
               {{ row.requestedBy?.name || row.requestedBy?.email || '—' }}

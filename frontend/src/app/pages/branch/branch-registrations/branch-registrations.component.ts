@@ -152,7 +152,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
     this.branchId = branchIds.length ? String(branchIds[0]) : '';
     this.branchOptions = branchIds.map((id, index) => ({id, name:'Branch ' + (index + 1)}));
     this.branchesService.list().pipe(takeUntil(this.destroy$)).subscribe({next: rows => {
-      this.branchOptions = rows.map((b:any)=>({id:b.id, name:b.branchName || b.branchname || b.name || b.id}));
+      this.branchOptions = rows.map((b:any)=>({id:b.id, name:b.branchName || b.branchname || b.name || b.branchCode || 'Branch name unavailable'}));
       this.cdr.markForCheck();
     }, error: () => { this.cdr.markForCheck(); }});
     this.loadWorkspace();

@@ -497,7 +497,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
           const branches = Array.isArray(res) ? res : res?.data || [];
           const permittedOptions = branches.map((b: any) => ({
             value: b.id,
-            label: b.branchName || b.branchname || b.name || b.id,
+            label: b.branchName || b.branchname || b.name || b.branchCode || 'Branch name unavailable',
           }));
           if (this.auth.isBranchUser()) {
             // The API already scopes this list from live branch assignments.

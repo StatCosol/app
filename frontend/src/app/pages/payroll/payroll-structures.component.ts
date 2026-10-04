@@ -350,7 +350,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   get selectedRuleSetName(): string {
     if (!this.selectedStructure?.ruleSetId) return '-';
-    return this.ruleSets.find((r) => r.id === this.selectedStructure?.ruleSetId)?.name || this.selectedStructure.ruleSetId;
+    return this.ruleSets.find((r) => r.id === this.selectedStructure?.ruleSetId)?.name || 'Rule set name unavailable';
   }
 
   get ruleSetOptions(): Array<{ value: string; label: string }> {
@@ -1372,7 +1372,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   getComponentName(componentId: string): string {
     const comp = this.components.find((c) => String(c.id) === String(componentId));
-    return comp?.name || componentId;
+    return comp?.name || comp?.code || 'Component name unavailable';
   }
 
   getComponentCode(componentId: string): string {

@@ -23,7 +23,7 @@ interface ActionPlan {
    @for(action of plan.actions; track action.id) {
     <article class="mt-4 rounded-lg border border-slate-200 p-4">
      <div class="flex flex-wrap justify-between gap-2"><h3 class="font-semibold">{{action.title}}</h3><span class="text-sm font-medium">{{action.status}}</span></div>
-     <p class="text-xs text-slate-500">{{action.branchName || 'Selected company'}} · Task {{action.id}} @if(action.dueDate) { · Due {{action.dueDate}} }</p>
+     <p class="text-xs text-slate-500">{{action.branchName || 'Selected company'}} @if(action.dueDate) { · Due {{action.dueDate}} }</p>
      <p class="mt-2 text-sm">{{action.explanation}}</p><p class="mt-1 text-sm"><strong>Next step:</strong> {{action.nextAction}}</p>
      <a class="mt-2 inline-block font-medium text-indigo-700 underline" [routerLink]="action.route" [queryParams]="action.queryParams">Open compliance tasks</a>
     </article>

@@ -130,8 +130,8 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
         const id = r?.id ?? r?.userId ?? r?.clientId;
         const name =
           kind === 'client'
-            ? (r?.name ?? r?.clientName ?? r?.companyName ?? `Client ${String(id).slice(0, 8)}`)
-            : (r?.name ?? r?.fullName ?? r?.email ?? `User ${String(id).slice(0, 8)}`);
+            ? (r?.name ?? r?.clientName ?? r?.companyName ?? 'Client name unavailable')
+            : (r?.name ?? r?.fullName ?? r?.email ?? 'User name unavailable');
         return id ? { id: String(id), name: String(name) } : null;
       })
       .filter(Boolean) as Option[];
