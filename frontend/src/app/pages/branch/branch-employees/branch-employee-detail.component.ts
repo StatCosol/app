@@ -179,6 +179,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <h4 class="info-section-title">Employment</h4>
             <div class="info-rows">
               <div class="info-row"><span class="info-label">Employee Code</span><span class="info-value font-mono">{{ emp.employeeCode }}</span></div>
+              <div class="info-row"><span class="info-label">Payroll Category</span><span class="info-value">{{ emp.payrollCategory === 'INTERN' ? 'Intern' : 'Regular' }}</span></div>
+              <div class="info-row"><span class="info-label">{{ emp.payrollCategory === 'INTERN' ? 'Monthly Stipend' : 'Monthly Gross' }}</span><span class="info-value">{{ emp.monthlyGross != null ? (emp.monthlyGross | number:'1.2-2') : '-' }}</span></div>
               <div class="info-row"><span class="info-label">Designation</span><span class="info-value">{{ emp.designation || '-' }}</span></div>
               <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department || '-' }}</span></div>
               <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
@@ -310,7 +312,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </ui-modal>
 }
         </div>
-      
+
 }
     </div>
   `,

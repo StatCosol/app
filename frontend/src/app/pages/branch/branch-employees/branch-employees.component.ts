@@ -23,7 +23,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <div class="page-header">
         <div>
           <h1 class="page-title">Employees</h1>
-          <p class="page-subtitle">Manage employee registrations for this branch</p>
+          <p class="page-subtitle">Manage employee and intern registrations for this branch</p>
         </div>
         <div class="flex items-center gap-3">
           <label for="emp-search" class="sr-only">Search employees</label>
@@ -160,6 +160,9 @@ import { ToastService } from '../../../shared/toast/toast.service';
                   <a [routerLink]="['/branch/employees', emp.id]" class="hover:text-brand-600 cursor-pointer">
                     {{ emp.name }}
                   </a>
+                  @if (emp.payrollCategory === 'INTERN') {
+                    <span class="badge bg-brand-100 text-brand-700 ml-2">Intern</span>
+                  }
                 </td>
                 <td>
                   <span class="badge" [class.bg-brand-100]="emp.gender === 'Male'" [class.text-brand-700]="emp.gender === 'Male'"
@@ -195,7 +198,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                     <button (click)="editEmployee(emp.id)" class="text-brand-600 hover:text-brand-800 text-xs font-medium">Edit</button>
                     @if (emp.isActive && !emp.dateOfExit && emp.approvalStatus !== 'PENDING') {
 <button
-                     
+
                       (click)="markExit(emp)"
                       class="text-red-600 hover:text-red-800 text-xs font-medium">
                       Mark Exit
