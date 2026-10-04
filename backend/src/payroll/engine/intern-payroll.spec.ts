@@ -50,6 +50,7 @@ describe('Intern payroll through the payroll engine', () => {
     };
     const qr = {
       manager,
+      query: jest.fn().mockResolvedValue([{ acquired: true }]),
       connect: jest.fn(),
       startTransaction: jest.fn(),
       commitTransaction: jest.fn(),
@@ -131,6 +132,82 @@ describe('Intern payroll through the payroll engine', () => {
     const { svc, emp } = fixture(14.5, 'CALENDAR_DAYS', 2, 2028);
     await svc.processWithEngine('run');
     expect(emp).toMatchObject({ totalDays: 29, grossEarnings: '13000' });
+  });
+
+  it('includes paid holidays and approved paid leave from payable attendance, also on rerun', async () => {
+    const { svc, emp } = fixture(null);
+    svc.attendanceService.getMonthlySummary.mockResolvedValue([
+      {
+        employeeCode: 'I001',
+        totalDays: 30,
+        effectivePresent: 23.5,
+        lopDays: 2.5,
+        holidays: 2,
+        weekOffs: 0,
+        daysOnLeave: 0,
+      },
+    ]);
+    svc.compValRepo.find.mockResolvedValue([
+      { componentCode: 'EL_PAID_LEAVE_DAYS', amount: 0.5 },
+    ]);
+    for (let pass = 0; pass < 2; pass++) {
+      expect((await svc.processWithEngine('run')).processed).toBe(1);
+      expect(emp).toMatchObject({ daysPresent: 26, grossEarnings: '26000' });
+      expect(svc.persistComponentValues.mock.calls[pass][3].PAYABLE_DAYS).toBe(
+        26,
+      );
+    }
+  });
+
+  it('honours an uploaded payable total without adding holidays twice', async () => {
+    const { svc, emp } = fixture(13);
+    svc.attendanceService.getMonthlySummary.mockResolvedValue([
+      {
+        employeeCode: 'I001',
+        totalDays: 30,
+        effectivePresent: 11,
+        lopDays: 17,
+        holidays: 2,
+        weekOffs: 0,
+        daysOnLeave: 0,
+      },
+    ]);
+    await svc.processWithEngine('run');
+    expect(emp).toMatchObject({ grossEarnings: '13000' });
+  });
+
+  it('keeps the period locked through the final run status save', async () => {
+    const { svc, qr } = fixture(13);
+    let locked = false;
+    qr.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('pg_try_advisory_lock')) {
+        if (locked) return [{ acquired: false }];
+        locked = true;
+        return [{ acquired: true }];
+      }
+      locked = false;
+      return [];
+    });
+    let finishSave!: () => void;
+    let reachedSave!: () => void;
+    const saving = new Promise<void>((resolve) => {
+      reachedSave = resolve;
+    });
+    svc.runRepo.save.mockImplementation(() => {
+      reachedSave();
+      return new Promise<void>((resolve) => {
+        finishSave = resolve;
+      });
+    });
+    const first = svc.processWithEngine('run');
+    await saving;
+    expect(locked).toBe(true);
+    await expect(svc.processSpecificEmployees('run', ['I001'])).rejects.toThrow(
+      'Another intern payroll run',
+    );
+    finishSave();
+    await first;
+    expect(locked).toBe(false);
   });
 
   it('does not turn a zero-day attendance summary into a full stipend', async () => {

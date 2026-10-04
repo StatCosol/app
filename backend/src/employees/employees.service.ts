@@ -504,6 +504,7 @@ export class EmployeesService {
     // validates against the effective values.
     if (
       dto.monthlyGross !== undefined ||
+      dto.payrollCategory !== undefined ||
       dto.branchId !== undefined ||
       dto.stateCode !== undefined ||
       (dto as any).skillCategory !== undefined

@@ -18,6 +18,7 @@ import {
   internProrationFactor,
 } from '../payroll-category';
 import { StructureResolverService } from './structure-resolver.service';
+import { withPayrollPeriodLock } from './payroll-period-lock';
 import { RulesetResolverService } from './ruleset-resolver.service';
 import { RoundingService } from './rounding.service';
 import { WageBaseService } from './wage-base.service';
@@ -91,6 +92,28 @@ export class PayrollEngineService {
   ) {}
 
   async processWithEngine(runId: string): Promise<ProcessResult> {
+    return this.withInternPeriodLock(runId, () =>
+      this.processRunWithEngine(runId),
+    );
+  }
+
+  private async withInternPeriodLock<T>(
+    runId: string,
+    work: () => Promise<T>,
+  ): Promise<T> {
+    const run = await this.runRepo.findOne({ where: { id: runId } });
+    if (!run) throw new BadRequestException(`Payroll run ${runId} not found`);
+    if (run.payrollCategory !== 'INTERN') return work();
+    // Client-wide and branch runs overlap, so branchId must not be in the key.
+    // Reload inside work after acquiring the lock; hold it through status save.
+    return withPayrollPeriodLock(
+      this.ds,
+      `intern-payroll:${run.clientId}:${run.periodYear}:${run.periodMonth}`,
+      work,
+    );
+  }
+
+  private async processRunWithEngine(runId: string): Promise<ProcessResult> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) {
       throw new BadRequestException(`Payroll run ${runId} not found`);
@@ -235,6 +258,15 @@ export class PayrollEngineService {
    * Used for late-adding employees to an already-approved run.
    */
   async processSpecificEmployees(
+    runId: string,
+    employeeCodes: string[],
+  ): Promise<ProcessResult> {
+    return this.withInternPeriodLock(runId, () =>
+      this.processRunEmployees(runId, employeeCodes),
+    );
+  }
+
+  private async processRunEmployees(
     runId: string,
     employeeCodes: string[],
   ): Promise<ProcessResult> {
@@ -840,7 +872,12 @@ export class PayrollEngineService {
         throw new BadRequestException(
           'Register the intern before processing payroll',
         );
-      const attendanceUploaded = emp.totalDays > 0; // means Excel was uploaded before processing
+      const attendanceUploaded =
+        emp.totalDays > 0 &&
+        (!isIntern ||
+          !attendance ||
+          values['WORKED_DAYS'] !== undefined ||
+          values['PAYABLE_DAYS'] !== undefined);
       // True when *any* attendance signal exists for this employee. When false the engine
       // treats the employee as having no payable days (gross/net = 0) instead of silently
       // assuming a full 26-day month.
@@ -997,11 +1034,6 @@ export class PayrollEngineService {
           ? isIntern
             ? Number(emp.daysPresent ?? 0)
             : emp.daysPresent || WORKING_DAYS_IN_MONTH
-          : 0;
-      }
-      if (isIntern && values['PAYABLE_DAYS'] === undefined) {
-        values['PAYABLE_DAYS'] = attendanceProvided
-          ? Number(emp.daysPresent ?? 0)
           : 0;
       }
       if (values['PAYABLE_DAYS'] === undefined && !attendanceProvided) {
