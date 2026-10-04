@@ -354,8 +354,39 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     return this.ruleSets.find((r) => r.id === this.selectedStructure?.ruleSetId)?.name || 'Rule set name unavailable';
   }
 
+  showInactiveRuleSets = false;
+
   get ruleSetOptions(): Array<{ value: string; label: string }> {
-    return this.ruleSets.map((r) => ({ value: r.id, label: r.name }));
+    const rows = [...this.ruleSets].sort((a, b) =>
+      Number(b.isActive) - Number(a.isActive) ||
+      String(b.effectiveFrom).localeCompare(String(a.effectiveFrom)) ||
+      String(b.createdAt).localeCompare(String(a.createdAt)) || a.id.localeCompare(b.id));
+    const options = rows.map(r => {
+      const branch = r.branchId
+        ? r.branchName || this.branchOptions.find(b => b.id === r.branchId)?.branchName || 'Branch name unavailable'
+        : 'All branches';
+      return {
+        value: r.id,
+        label: `${r.name} · ${branch} · ${this.formatDate(r.effectiveFrom)} to ${r.effectiveTo ? this.formatDate(r.effectiveTo) : 'No end date'} · ${r.isActive ? 'Active' : 'Inactive'}`,
+      };
+    });
+    // Same names and dates can still represent different parameter sets. Keep
+    // every record selectable and distinguish them without exposing UUIDs.
+    const counts = new Map<string, number>();
+    const seen = new Map<string, number>();
+    for (const option of options) counts.set(option.label, (counts.get(option.label) || 0) + 1);
+    return options.map((option, index) => {
+      const count = counts.get(option.label)!;
+      const occurrence = (seen.get(option.label) || 0) + 1;
+      seen.set(option.label, occurrence);
+      return {
+        ...option,
+        label: option.label + (count > 1 ? ` · Entry ${occurrence} of ${count}` : '') +
+          (option.value === this.editingStructure?.ruleSetId ? ' · Currently linked' : ''),
+        visible: this.showInactiveRuleSets || rows[index].isActive ||
+          option.value === this.structureForm.ruleSetId || option.value === this.editingStructure?.ruleSetId,
+      };
+    }).filter(option => option.visible);
   }
 
   get componentOptions(): Array<{ value: string; label: string }> {
@@ -473,14 +504,13 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   openCreateStructure(): void {
     this.editingStructure = null;
+    this.showInactiveRuleSets = false;
     this.structureForm = this.defaultStructureForm();
-    if (this.ruleSets.length && !this.structureForm.ruleSetId) {
-      this.structureForm.ruleSetId = this.ruleSets[0].id;
-    }
     this.showStructureModal = true;
   }
 
   openEditStructure(structure: SalaryStructure): void {
+    this.showInactiveRuleSets = false;
     this.editingStructure = structure;
     this.structureForm = {
       name: structure.name,

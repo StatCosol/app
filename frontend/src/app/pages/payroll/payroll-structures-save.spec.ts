@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { of } from 'rxjs';
 import { PayrollStructuresComponent } from './payroll-structures.component';
-import { PayrollEngineApiService, SalaryStructure } from './payroll-engine-api.service';
+import { PayrollEngineApiService, RuleSet, SalaryStructure } from './payroll-engine-api.service';
 
 function setup() {
   const http = {
@@ -56,6 +56,62 @@ describe('Payroll structure save contract', () => {
     const { api, http, component } = setup();
     api.updateStructure('structure', { isActive: true }).subscribe();
     expect(http.put).toHaveBeenCalledExactlyOnceWith(expect.stringMatching(/\/structures\/structure$/), { isActive: true });
+    component.ngOnDestroy();
+  });
+});
+
+describe('Linked rule set choices', () => {
+  const rule = (id: string, isActive: boolean): RuleSet => ({
+    id, isActive, name: 'Standard Rules', clientId: 'logiq', branchId: null,
+    effectiveFrom: '2026-01-01', effectiveTo: null,
+    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+  });
+
+  it('hides unrelated inactive rules while retaining the existing link and exposing history on request', () => {
+    const { component } = setup();
+    component.ruleSets = [rule('standard-rules', false), rule('older', false), rule('active', true)];
+    expect(component.ruleSetOptions.map(r => r.value)).toEqual(['active', 'standard-rules']);
+    expect(component.ruleSetOptions.find(r => r.value === 'standard-rules')?.label).toContain('Currently linked');
+    component.showInactiveRuleSets = true;
+    expect(component.ruleSetOptions.map(r => r.value)).toContain('older');
+    expect(component.structureForm.ruleSetId).toBe('standard-rules');
+    component.showInactiveRuleSets = false;
+    component.structureForm.ruleSetId = 'active';
+    expect(component.ruleSetOptions.map(r => r.value)).toContain('standard-rules');
+    component.ngOnDestroy();
+  });
+
+  it('distinguishes identical names and dates without merging potentially different parameter sets', () => {
+    const { component } = setup();
+    component.ruleSets = [rule('uuid-two', true), rule('uuid-one', true)];
+    const choices = component.ruleSetOptions;
+    expect(choices).toHaveLength(2);
+    expect(new Set(choices.map(r => r.label)).size).toBe(2);
+    expect(choices[0].label).toContain('Entry 1 of 2');
+    expect(choices[0].label).not.toContain('uuid');
+    component.ruleSets.reverse();
+    expect(component.ruleSetOptions).toEqual(choices);
+    component.ngOnDestroy();
+  });
+
+  it('shows branch, effective dates, and status instead of a name alone', () => {
+    const { component } = setup();
+    component.branchOptions = [{ id: 'branch', branchName: 'Hyderabad' }];
+    component.ruleSets = [{ ...rule('standard-rules', true), branchId: 'branch', effectiveTo: '2026-09-30' }];
+    const label = component.ruleSetOptions[0].label;
+    expect(label).toContain('Hyderabad'); expect(label).toContain('2026');
+    expect(label).toContain('Active'); expect(label).toContain('Currently linked');
+    component.ngOnDestroy();
+  });
+
+  it('requires an explicit choice for a new structure instead of choosing the first duplicate name', () => {
+    const { component } = setup();
+    component.ruleSets = [rule('older', false), rule('active', true)];
+    component.showInactiveRuleSets = true;
+    component.openCreateStructure();
+    expect(component.structureForm.ruleSetId).toBe('');
+    expect(component.showInactiveRuleSets).toBe(false);
+    expect(component.ruleSetOptions.map(r => r.value)).toEqual(['active']);
     component.ngOnDestroy();
   });
 });
