@@ -1,5 +1,6 @@
 import {
   IsOptional,
+  IsIn,
   IsString,
   IsNumberString,
   IsUUID,
@@ -17,6 +18,7 @@ export class PayrollSummaryQueryDto {
 
 /** GET /payroll/employees */
 export class PayrollEmployeesQueryDto {
+  @IsOptional() @IsIn(['REGULAR', 'INTERN']) payrollCategory?: string;
   @IsOptional() @IsUUID() clientId?: string;
   @IsOptional() @IsString() status?: string;
   @IsOptional() @IsString() search?: string;

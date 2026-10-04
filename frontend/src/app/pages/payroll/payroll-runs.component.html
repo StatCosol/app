@@ -11,6 +11,11 @@
         class="new-run-period"
         title="Pay period for the new run. Defaults to the previous month (e.g. in May, run April's payroll)."
       >
+        <label for="new-run-category" class="sr-label">Payroll category</label>
+        <select id="new-run-category" name="newRunCategory" [(ngModel)]="newRunCategory">
+          <option value="REGULAR">Regular payroll</option>
+          <option value="INTERN">Intern payroll</option>
+        </select>
         <label for="new-run-month" class="sr-label">Pay period</label>
         <select
           id="new-run-month"
@@ -39,6 +44,9 @@
     </div>
   </ui-page-header>
 
+  @if (newRunCategory === 'INTERN') {
+    <p class="hint">Intern payroll uses the employee's monthly stipend, prorated by payable attendance days using the client's 26-day or calendar-day divisor, capped at the full monthly stipend. Mark employees as Intern in their employee record before creating the run.</p>
+  }
   <section class="filter-card">
     <div class="filter-grid">
       <div class="field">
@@ -138,7 +146,7 @@
             <tbody>
               @for (run of filteredRuns; track trackById($index, run)) {
                 <tr [class.row-active]="selectedRun?.id === run.id" (click)="selectRun(run)">
-                  <td>{{ run.clientName || '-' }}</td>
+                  <td>{{ run.payrollCategory === 'INTERN' ? 'Intern · ' : '' }}{{ run.clientName || '-' }}</td>
                   <td>{{ monthLabel(run.periodMonth) }} {{ run.periodYear }}</td>
                   <td>
                     <span [class]="statusClass(run.status)">{{ run.status }}</span>
@@ -168,7 +176,7 @@
       @if (selectedRun; as run) {
         <div class="detail-panel card">
           <div class="panel-head">
-            <h3>Run Workspace</h3>
+            <h3>{{ run.payrollCategory === 'INTERN' ? 'Intern Payroll' : 'Regular Payroll' }} Workspace</h3>
             <span
               >{{ run.clientName }} | {{ monthLabel(run.periodMonth) }} {{ run.periodYear }}</span
             >
@@ -1066,7 +1074,7 @@
                                           <td class="num">{{ row.designation || '-' }}</td>
                                         </tr>
                                         <tr>
-                                          <td>Monthly Gross (master)</td>
+                                          <td>{{ run.payrollCategory === 'INTERN' ? 'Monthly Stipend' : 'Monthly Gross' }} (master)</td>
                                           <td class="num">
                                             {{ row.monthlyGross | number: '1.2-2' }}
                                           </td>

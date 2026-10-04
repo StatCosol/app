@@ -202,9 +202,16 @@ import {
                            hint="The User ID the biometric machine created when this person was enrolled. Leave blank if they do not use a device."></ui-form-input>
             <ui-form-select label="State" [options]="stateOptions" [(ngModel)]="form.stateCode"
                             name="stateCode"></ui-form-select>
+            <div class="form-field">
+              <label class="form-label" for="cef-payroll-category">Payroll category</label>
+              <select id="cef-payroll-category" name="payrollCategory" class="form-input" [(ngModel)]="form.payrollCategory">
+                <option value="REGULAR">Regular</option>
+                <option value="INTERN">Intern</option>
+              </select>
+            </div>
             <ui-form-input label="CTC (Annual)" type="number" [(ngModel)]="form.ctc" name="ctc"
                            placeholder="e.g. 480000"></ui-form-input>
-            <ui-form-input label="Monthly Gross" type="number" [(ngModel)]="form.monthlyGross" name="monthlyGross"
+            <ui-form-input [label]="form.payrollCategory === 'INTERN' ? 'Monthly Stipend' : 'Monthly Gross'" type="number" [(ngModel)]="form.monthlyGross" name="monthlyGross"
                            placeholder="e.g. 25000"></ui-form-input>
             <div class="form-field">
               <label class="form-label">Skill Category</label>
@@ -399,7 +406,7 @@ export class ClientEmployeeFormComponent implements OnInit, OnDestroy {
   formError = '';
   successMsg = '';
   dobWarning = '';
-  form: any = { phone: '+91', pfApplicable: false, esiApplicable: false };
+  form: any = { payrollCategory: 'REGULAR', phone: '+91', pfApplicable: false, esiApplicable: false };
   submitted = false;
 
   breadcrumbs: Breadcrumb[] = [
@@ -584,6 +591,14 @@ export class ClientEmployeeFormComponent implements OnInit, OnDestroy {
         return;
       }
       this.form.minimumWageOverrideReason = reason;
+    }
+    if (this.form.payrollCategory === 'INTERN') {
+      const stipend = Number(this.form.monthlyGross);
+      if (!Number.isFinite(stipend) || stipend <= 0) {
+        this.formError = 'Enter a positive monthly stipend for the intern.';
+        return;
+      }
+      this.form.monthlyGross = stipend;
     }
     this.saving = true;
     this.formError = '';

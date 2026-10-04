@@ -374,6 +374,10 @@ export class PayrollService {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
     await this.assertPayrollAccessToClient(user, run.clientId);
+    if (run.payrollCategory === 'INTERN')
+      throw new BadRequestException(
+        'Intern payroll must be calculated from stipend and attendance. Use the attendance upload.',
+      );
 
     const wb = new ExcelJS.Workbook();
     const nameLower = String(file?.originalname || '').toLowerCase();
@@ -858,6 +862,7 @@ export class PayrollService {
       .select([
         'e.id as "id"',
         'e.employee_code as "employeeCode"',
+        'e.payroll_category as "payrollCategory"',
         'e.name as "name"',
         'e.designation as "designation"',
         'e.department as "department"',
@@ -877,6 +882,8 @@ export class PayrollService {
       ])
       .where('e.client_id IN (:...ids)', { ids: clientIds });
 
+    if (q?.payrollCategory)
+      qb.andWhere('e.payroll_category = :pc', { pc: q.payrollCategory });
     // Filters
     if (q?.clientId) {
       qb.andWhere('e.client_id = :cid', { cid: q.clientId });

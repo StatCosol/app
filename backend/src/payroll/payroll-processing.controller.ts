@@ -34,6 +34,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { DataSource } from 'typeorm';
 
+import { payrollCategory } from './payroll-category';
 import { PayrollRunEntity } from './entities/payroll-run.entity';
 import { PayrollRunEmployeeEntity } from './entities/payroll-run-employee.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
@@ -284,6 +285,10 @@ export class PayrollProcessingController {
 
     const run = await this.loadRunForUser(runId, user);
 
+    if (run.status === 'APPROVED')
+      throw new ConflictException(
+        'Approved runs are locked. Roll back before adding employees.',
+      );
     const added: string[] = [];
     const skipped: string[] = [];
 
@@ -299,7 +304,13 @@ export class PayrollProcessingController {
       const master = await empRepo.findOne({
         where: { employeeCode: code, clientId: run.clientId },
       });
-      if (!master) {
+      if (
+        !master ||
+        !master.isActive ||
+        payrollCategory(master.payrollCategory) !==
+          payrollCategory(run.payrollCategory) ||
+        (run.branchId && master.branchId !== run.branchId)
+      ) {
         skipped.push(code);
         continue;
       }

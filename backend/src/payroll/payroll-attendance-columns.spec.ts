@@ -37,7 +37,7 @@ describe('payroll attendance upload — column handling', () => {
     return path;
   }
 
-  function makeService() {
+  function makeService(category = 'REGULAR', wageBasisDays = 'FIXED_26') {
     const saved: any[] = [];
     const upserts: Array<{ code: string; amount: number }> = [];
 
@@ -59,6 +59,7 @@ describe('payroll attendance upload — column handling', () => {
         periodMonth: 4,
         periodYear: 2026,
         status: 'DRAFT',
+        payrollCategory: category,
       }),
     };
     svc.runEmpRepo = {
@@ -81,6 +82,9 @@ describe('payroll attendance upload — column handling', () => {
       }),
     };
     svc.empRepo = { find: async () => [] };
+    svc.ds = {
+      getRepository: () => ({ findOne: async () => ({ wageBasisDays }) }),
+    };
     return { svc, saved, upserts, runEmp };
   }
 
@@ -144,6 +148,39 @@ describe('payroll attendance upload — column handling', () => {
 
     // One row, so it is its own maximum and nothing is lost.
     expect(valueOf(upserts, 'LOP_DAYS')).toBe(0);
+  });
+
+  it.each([
+    ['FIXED_26', 26],
+    ['CALENDAR_DAYS', 30],
+  ])(
+    'uses the configured %s divisor for a partial intern attendance upload',
+    async (basis, expected) => {
+      const path = await writeSheet(
+        ['Employee Code', 'Working Days', 'Payable Days'],
+        [['E001', 13, 13]],
+      );
+      const { svc, saved } = makeService('INTERN', String(basis));
+      await svc.uploadAttendance('run-1', { path } as any);
+      expect(saved[0]).toMatchObject({
+        totalDays: expected,
+        daysPresent: 13,
+        lopDays: Number(expected) - 13,
+      });
+    },
+  );
+
+  it('rejects invalid intern attendance before saving any input values', async () => {
+    const path = await writeSheet(
+      ['Employee Code', 'Working Days', 'Payable Days'],
+      [['E001', -1, -1]],
+    );
+    const { svc, saved, upserts } = makeService('INTERN');
+    await expect(
+      svc.uploadAttendance('run-1', { path } as any),
+    ).rejects.toThrow('Intern attendance days');
+    expect(saved).toEqual([]);
+    expect(upserts).toEqual([]);
   });
 
   it('imports formatted Excel headers after a title and blank row', async () => {

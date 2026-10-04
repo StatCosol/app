@@ -60,6 +60,9 @@ export class CreateEmployeeDto {
   @IsOptional() @IsNumber() grossSalary?: number;
   @IsOptional() @IsNumber() ctc?: number;
   @IsOptional() @IsNumber() monthlyGross?: number;
+  @IsOptional() @IsIn(['REGULAR', 'INTERN']) payrollCategory?:
+    | 'REGULAR'
+    | 'INTERN';
   @IsOptional() @IsBoolean() minimumWageOverride?: boolean;
   @IsOptional() @IsString() minimumWageOverrideReason?: string;
   @IsOptional()
@@ -111,6 +114,9 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsNumber() grossSalary?: number;
   @IsOptional() @IsNumber() ctc?: number;
   @IsOptional() @IsNumber() monthlyGross?: number;
+  @IsOptional() @IsIn(['REGULAR', 'INTERN']) payrollCategory?:
+    | 'REGULAR'
+    | 'INTERN';
   @IsOptional() @IsBoolean() minimumWageOverride?: boolean;
   @IsOptional() @IsString() minimumWageOverrideReason?: string;
   @IsOptional()

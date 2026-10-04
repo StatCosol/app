@@ -44,6 +44,15 @@ async function main() {
   assert.equal(unchanged.text, legacy.text);
   const inactive = await render('inactive-payslip', { ...input, layout: { isActive: false, layoutJson: layout } });
   assert.equal(inactive.text, legacy.text);
+  const intern = await render('intern-payslip', {
+    ...input,
+    run: { ...input.run, payrollCategory: 'INTERN' },
+    runEmp: { ...input.runEmp, grossEarnings: '13000', totalDeductions: '0', netPay: '13000' },
+    valueMap: new Map([['STIPEND', 13000], ['GROSS', 13000], ['NET_PAY', 13000]]),
+  });
+  assert.ok(intern.text.includes('Stipend'));
+  assert.ok(intern.text.includes('13,000'));
+  assert.ok(!intern.text.includes('Custom Earnings'), 'regular layouts must not hide the stipend');
   const long = structuredClone(layout);
   long.sections[0].rows = Array.from({ length: 45 }, (_, i) => ({ type: 'COMPONENT', code: `SAMPLE_${i}`, label: `Sample row ${i}: long descriptive earnings label to check wrapping and pagination` }));
   const many = await render('multipage-payslip', { ...input, layout: { isActive: true, layoutJson: long } });

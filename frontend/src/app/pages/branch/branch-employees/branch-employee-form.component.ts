@@ -39,7 +39,7 @@ import {
 
       <ui-page-header
         [title]="isEdit ? 'Edit Employee' : 'New Employee Registration'"
-        [subtitle]="isEdit ? ('Editing: ' + form.name + ' (' + form.employeeCode + ')') : 'Fill in the details below to register a new Employee'"
+        [subtitle]="isEdit ? ('Editing: ' + form.name + ' (' + form.employeeCode + ')') : 'Register an employee or intern for this branch'"
         [breadcrumbs]="breadcrumbs">
       </ui-page-header>
 
@@ -197,9 +197,19 @@ import {
             </div>
             <ui-form-select label="State" [options]="stateOptions" [(ngModel)]="form.stateCode"
                             name="stateCode"></ui-form-select>
+            <div class="form-field">
+              <label class="form-label" for="bef-payroll-category">Payroll Category</label>
+              <select id="bef-payroll-category" name="payrollCategory" class="form-input" [(ngModel)]="form.payrollCategory">
+                <option value="REGULAR">Regular</option>
+                <option value="INTERN">Intern</option>
+              </select>
+              @if (form.payrollCategory === 'INTERN') {
+                <small class="text-xs text-gray-500">Included in the Intern payroll cycle. The monthly stipend is prorated using payable attendance days.</small>
+              }
+            </div>
             <ui-form-input label="CTC (Annual)" type="number" [(ngModel)]="form.ctc" name="ctc"
                            placeholder="e.g. 480000"></ui-form-input>
-            <ui-form-input label="Monthly Gross" type="number" [(ngModel)]="form.monthlyGross" name="monthlyGross"
+            <ui-form-input [label]="form.payrollCategory === 'INTERN' ? 'Monthly Stipend *' : 'Monthly Gross'" type="number" [(ngModel)]="form.monthlyGross" name="monthlyGross"
                            placeholder="e.g. 25000"></ui-form-input>
             <div class="form-field">
               <label class="form-label">Skill Category</label>
@@ -369,7 +379,7 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
   formError = '';
   successMsg = '';
   dobWarning = '';
-  form: any = { phone: '+91', pfApplicable: false, esiApplicable: false };
+  form: any = { payrollCategory: 'REGULAR', phone: '+91', pfApplicable: false, esiApplicable: false };
   submitted = false;
 
   breadcrumbs: Breadcrumb[] = [
@@ -444,7 +454,7 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (emp) => {
           this.loadingEmployee = false;
-          this.form = { ...emp };
+          this.form = { ...emp, payrollCategory: emp.payrollCategory || 'REGULAR' };
           this.breadcrumbs = [
             { label: 'Employees', route: '/branch/employees' },
             { label: emp.name, route: '/branch/employees/' + emp.id },
@@ -554,6 +564,14 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
         return;
       }
       this.form.minimumWageOverrideReason = reason;
+    }
+    if (this.form.payrollCategory === 'INTERN') {
+      const stipend = Number(this.form.monthlyGross);
+      if (!Number.isFinite(stipend) || stipend <= 0) {
+        this.formError = 'Enter a positive monthly stipend for the intern.';
+        return;
+      }
+      this.form.monthlyGross = stipend;
     }
     this.saving = true;
     this.formError = '';

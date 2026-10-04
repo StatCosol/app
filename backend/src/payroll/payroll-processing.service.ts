@@ -23,6 +23,7 @@ import { LeaveApplicationEntity } from '../ess/entities/leave-application.entity
 import { AttendanceEntity } from '../attendance/entities/attendance.entity';
 import { StatutoryCalculatorService } from './services/statutory-calculator.service';
 import { StateStatutoryService } from './services/state-statutory.service';
+import { payrollCategory } from './payroll-category';
 import { evaluateFormula } from './engine/expression';
 
 /** Component codes that are system-generated — skip during upload validation */
@@ -83,6 +84,10 @@ export class PayrollProcessingService {
   async uploadBreakup(runId: string, file: Express.Multer.File) {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
+    if (run.payrollCategory === 'INTERN')
+      throw new BadRequestException(
+        'Intern payroll uses the monthly stipend from employee records. Upload attendance instead of a salary breakup.',
+      );
 
     /*
      * Inputs may only change while the run is still open.
@@ -232,6 +237,29 @@ export class PayrollProcessingService {
         }
       }
 
+      const master = masterByCode.get(empCode);
+      if (
+        master &&
+        payrollCategory(master.payrollCategory) !==
+          payrollCategory(run.payrollCategory)
+      ) {
+        errors.push(
+          'Row ' +
+            r +
+            ': Employee ' +
+            empCode +
+            ' belongs to a different payroll category',
+        );
+      }
+      if (master && run.branchId && master.branchId !== run.branchId) {
+        errors.push(
+          'Row ' +
+            r +
+            ': Employee ' +
+            empCode +
+            ' belongs to a different branch',
+        );
+      }
       const empName =
         nameCol >= 0
           ? this.cellStr(row.getCell(nameCol).value) || empCode
@@ -417,6 +445,7 @@ export class PayrollProcessingService {
       const whereClause: Record<string, any> = {
         clientId: run.clientId,
         isActive: true,
+        payrollCategory: payrollCategory(run.payrollCategory),
       };
       if (run.branchId) whereClause.branchId = run.branchId;
       const masterEmps = await this.empRepo.find({
@@ -657,7 +686,25 @@ export class PayrollProcessingService {
     }
 
     // Second pass: compute LOP using max payable days as the month total
-    const totalPayable = maxPayableDays > 0 ? maxPayableDays : daysInMonth;
+    let totalPayable = maxPayableDays > 0 ? maxPayableDays : daysInMonth;
+    if (run.payrollCategory === 'INTERN') {
+      const setup = await this.ds
+        .getRepository(PayrollClientSetupEntity)
+        .findOne({ where: { clientId: run.clientId } });
+      totalPayable =
+        setup?.wageBasisDays === 'CALENDAR_DAYS' ? daysInMonth : 26;
+      for (const att of parsedAttendance) {
+        if (
+          ![att.workingDays, att.payableDays].every(
+            (n) => Number.isFinite(n) && n >= 0 && n <= daysInMonth,
+          )
+        ) {
+          throw new BadRequestException(
+            'Intern attendance days must be between zero and the days in the payroll month',
+          );
+        }
+      }
+    }
     for (const att of parsedAttendance) {
       const {
         emp,

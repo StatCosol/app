@@ -82,6 +82,28 @@ describe('EmployeesService', () => {
     expect(service).toBeDefined();
   });
 
+  it('rechecks the effective wage for a category-only transition to regular payroll', async () => {
+    employeeRepo.findOne.mockResolvedValue({
+      id: 'intern-1',
+      clientId: 'client-1',
+      payrollCategory: 'INTERN',
+      branchId: 'branch-1',
+      stateCode: 'TS',
+      monthlyGross: 5000,
+    });
+    employeeRepo.save.mockClear();
+    const check = jest
+      .spyOn(service as any, 'assertMonthlyGrossMeetsMinimumWage')
+      .mockRejectedValue(new Error('Below minimum wage'));
+    await expect(
+      service.update('client-1', 'intern-1', { payrollCategory: 'REGULAR' }),
+    ).rejects.toThrow('Below minimum wage');
+    expect(check).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: 'branch-1', monthlyGross: 5000 }),
+    );
+    expect(employeeRepo.save).not.toHaveBeenCalled();
+  });
+
   it('syncs active face enrollment branch when an employee branch changes', async () => {
     employeeRepo.findOne.mockResolvedValue({
       id: 'emp-1',

@@ -31,6 +31,7 @@ export type Employee = {
   stateCode: string | null;
   ctc: number | null;
   monthlyGross: number | null;
+  payrollCategory?: 'REGULAR' | 'INTERN';
   pfApplicable: boolean;
   esiApplicable: boolean;
   isActive: boolean;
@@ -205,6 +206,7 @@ export class ClientEmployeesService {
       dateOfExit: r?.dateOfExit ?? r?.date_of_exit ?? null,
       exitReason: r?.exitReason ?? r?.exit_reason ?? null,
       stateCode: r?.stateCode ?? r?.state_code ?? null,
+      payrollCategory: r?.payrollCategory === 'INTERN' || r?.payroll_category === 'INTERN' ? 'INTERN' : 'REGULAR',
       ctc: r?.ctc != null ? Number(r.ctc) : null,
       monthlyGross: r?.monthlyGross != null ? Number(r.monthlyGross) : (r?.monthly_gross != null ? Number(r.monthly_gross) : null),
       pfApplicable: !!(r?.pfApplicable ?? r?.pf_applicable ?? false),

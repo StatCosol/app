@@ -26,6 +26,7 @@ import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { AuthService } from '../../core/auth.service';
 
 interface PayrollRunItem {
+  payrollCategory?: 'REGULAR' | 'INTERN';
   id: string;
   clientId?: string;
   clientName?: string;
@@ -149,6 +150,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   selectedYear = 0;
   // Dedicated month/year for "+ New Run" (independent of search filters above).
   // Defaults to the previous month — the typical payroll-cycle use case.
+  newRunCategory: 'REGULAR' | 'INTERN' = 'REGULAR';
   newRunMonth = this.defaultNewRunMonth();
   newRunYear = this.defaultNewRunYear();
   statusFilter = '';
@@ -326,6 +328,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         next: (res) => {
           const rows = this.toArray(res).map((row: any) => ({
             id: String(row?.id || ''),
+            payrollCategory: row?.payrollCategory === 'INTERN' ? 'INTERN' as const : 'REGULAR' as const,
             clientId: row?.clientId || row?.client_id || '',
             clientName: row?.clientName || row?.client_name || '-',
             periodMonth: Number(row?.periodMonth || row?.period_month || 0),
@@ -441,18 +444,19 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.error('Pick a valid month for the new run.');
       return;
     }
+    const category = this.newRunCategory;
     const monthName = this.monthOptions[periodMonth - 1] || '';
 
     const ok = await this.dialog.confirm(
       'Create Payroll Run',
-      `Create a new payroll run for ${monthName} ${periodYear}?`,
+      `Create a new ${category === 'INTERN' ? 'Intern' : 'Regular'} payroll run for ${monthName} ${periodYear}?`,
       { confirmText: 'Create' },
     );
     if (!ok) return;
 
     this.creatingRun = true;
     this.http
-      .post<any>('/api/v1/payroll/runs', { clientId, periodYear, periodMonth })
+      .post<any>('/api/v1/payroll/runs', { clientId, periodYear, periodMonth, payrollCategory: category })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -461,7 +465,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: () => {
+        next: (created) => {
+          this.selectedRun = { ...created, payrollCategory: category, clientId, periodYear, periodMonth, status: 'DRAFT' };
           this.toast.success(`Payroll run created for ${monthName} ${periodYear}.`);
           // Sync search filters so the new run is immediately visible in the queue.
           this.selectedMonth = periodMonth;
@@ -1811,7 +1816,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     const clientId = this.selectedRun.clientId || '';
     this.http
       .get<any>(`/api/v1/payroll/employees`, {
-        params: { clientId, status: 'active', limit: '500' },
+        params: { clientId, payrollCategory: this.selectedRun.payrollCategory || 'REGULAR', status: 'active', limit: '500' },
       })
       .pipe(
         takeUntil(this.destroy$),
@@ -1825,9 +1830,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           const all = (res?.data || res || []).map((e: any) => ({
             employeeCode: e.employeeCode || e.emp_code || '',
             name: e.name || e.employeeName || '',
+            payrollCategory: e.payrollCategory || e.payroll_category || 'REGULAR',
           }));
           const inRun = new Set(this.runEmployees.map((r) => r.empCode));
-          this.addEmpAvailable = all.filter((e: any) => !inRun.has(e.employeeCode));
+          this.addEmpAvailable = all.filter((e: any) => !inRun.has(e.employeeCode) && e.payrollCategory === (this.selectedRun?.payrollCategory || 'REGULAR'));
           this.filterAddEmpList();
         },
         error: () => {

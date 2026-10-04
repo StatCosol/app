@@ -8,7 +8,10 @@ import {
 } from 'typeorm';
 
 @Entity({ name: 'payroll_runs' })
-@Index(['clientId', 'branchId', 'periodYear', 'periodMonth'], { unique: true })
+@Index(
+  ['clientId', 'branchId', 'periodYear', 'periodMonth', 'payrollCategory'],
+  { unique: true },
+)
 @Index('IDX_PR_CLIENT_STATUS', ['clientId', 'status'])
 @Index('IDX_PR_CLIENT_PERIOD', ['clientId', 'periodYear', 'periodMonth'])
 @Index('IDX_PR_BRANCH_PERIOD', ['branchId', 'periodYear', 'periodMonth'])
@@ -36,6 +39,14 @@ export class PayrollRunEntity {
   @Index()
   @Column({ name: 'status', type: 'varchar', length: 30, default: 'DRAFT' })
   status: string;
+
+  @Column({
+    name: 'payroll_category',
+    type: 'varchar',
+    length: 20,
+    default: 'REGULAR',
+  })
+  payrollCategory: 'REGULAR' | 'INTERN';
 
   // Optional linkage to uploaded payroll input (if you keep payroll_inputs)
   @Index()

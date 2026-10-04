@@ -4,6 +4,7 @@ import {
   IsString,
   IsUUID,
   IsInt,
+  IsIn,
   Min,
   Max,
 } from 'class-validator';
@@ -22,6 +23,10 @@ export class CreatePayrollRunDto {
   @Min(1)
   @Max(12)
   periodMonth: number;
+
+  @IsOptional()
+  @IsIn(['REGULAR', 'INTERN'])
+  payrollCategory?: 'REGULAR' | 'INTERN';
 
   @IsOptional()
   @IsString()
