@@ -179,7 +179,7 @@ export class PfTeamTicketsComponent implements OnInit, OnDestroy {
     const map = new Map<string, string>();
     for (const t of tickets) {
       if (t.clientId && !map.has(t.clientId)) {
-        map.set(t.clientId, t.client?.clientName || t.clientId.substring(0, 8));
+        map.set(t.clientId, t.client?.clientName || 'Client name unavailable');
       }
     }
     this.clientOptions = [...map.entries()]

@@ -115,11 +115,10 @@
               (click)="selectRun(row)">
               <td>
                 <div class="strong">{{ runClientLabel(row) }}</div>
-                <div class="minor mono">{{ row.clientId.slice(0, 8) }}...</div>
               </td>
               <td>
                 <div class="strong">{{ periodLabel(row) }}</div>
-                <div class="minor mono">{{ row.id.slice(0, 8) }}...</div>
+
               </td>
               <td class="mono">{{ row.employeeCount }}</td>
               <td>{{ formatDateTime(row.submittedAt || row.createdAt) }}</td>
@@ -235,7 +234,6 @@
               (click)="selectRow(row)">
               <td>
                 <div class="strong">{{ clientLabel(row) }}</div>
-                <div class="minor mono">{{ row.clientId.slice(0, 8) }}...</div>
               </td>
               <td>
                 <div class="strong">{{ row.name }}</div>
@@ -322,7 +320,7 @@
           <tbody>
             @for (it of selectedItems; track it) {
 <tr>
-              <td class="mono">{{ it.componentId.slice(0, 8) }}...</td>
+              <td class="mono">{{ it.componentName || it.componentCode || 'Component name unavailable' }}</td>
               <td>{{ it.calcMethod }}</td>
               <td class="text-right mono">
                 

@@ -152,7 +152,7 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
         // Re-resolve history assignee names now that user maps are populated
         this.assignmentHistory = this.assignmentHistory.map(row => ({
           ...row,
-          assigneeName: this.userNameById[(row as any).assigneeId ?? ''] || (row as any).assigneeId || '—',
+          assigneeName: this.userNameById[(row as any).assigneeId ?? ''] || 'Name unavailable',
         }));
       },
       error: () => {
@@ -349,7 +349,7 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
         clientId: row?.clientId ?? row?.client_id ?? row?.client?.id ?? '',
         assignmentType: assignmentType ?? '—',
         assigneeId: assignedId,
-        assigneeName: this.userNameById[assignedId ?? ''] || assignedId || '—',
+        assigneeName: this.userNameById[assignedId ?? ''] || 'Name unavailable',
         crmId: assignmentType === 'CRM' ? assignedId : null,
         auditorId: assignmentType === 'AUDITOR' ? assignedId : null,
         crm: assignmentType === 'CRM' ? assignedId : null,

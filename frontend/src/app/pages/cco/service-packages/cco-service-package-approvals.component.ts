@@ -77,7 +77,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
                 {{ reviewAction === 'REJECTED' ? 'Reject service package request' : 'Request service package changes' }}
               </h2>
               <p class="mt-1 text-sm text-slate-600">
-                {{ reviewRow.clientName || reviewRow.clientId }} - {{ reviewRow.packageCode }}
+                {{ reviewRow.clientName || 'Client name unavailable' }} - {{ reviewRow.packageCode }}
               </p>
             </div>
             <button class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
@@ -132,7 +132,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           <tbody>
             @for (r of filteredRequests; track r) {
 <tr class="border-t border-slate-100 align-top">
-              <td class="px-4 py-3">{{ r.clientName || r.clientId }}</td>
+              <td class="px-4 py-3">{{ r.clientName || 'Client name unavailable' }}</td>
               <td class="px-4 py-3">{{ r.packageCode }}</td>
               <td class="px-4 py-3">
                 @if (r.currentModules.length) {
@@ -224,7 +224,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           <tbody>
             @for (entry of filteredAuditLogs; track entry) {
 <tr class="border-t border-slate-100 align-top">
-              <td class="px-4 py-3">{{ entry.clientName || entry.clientId }}</td>
+              <td class="px-4 py-3">{{ entry.clientName || 'Client name unavailable' }}</td>
               <td class="px-4 py-3">
                 <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="auditActionBadgeClass(entry.action)">
                   {{ auditActionLabel(entry.action) }}
@@ -247,7 +247,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
 }
                 
               </td>
-              <td class="px-4 py-3">{{ entry.actorName || entry.actorUserId || '-' }}</td>
+              <td class="px-4 py-3">{{ entry.actorName || 'User name unavailable' }}</td>
               <td class="px-4 py-3">{{ entry.note || '-' }}</td>
               <td class="px-4 py-3">{{ entry.createdAt | date:'dd MMM, HH:mm' }}</td>
             </tr>

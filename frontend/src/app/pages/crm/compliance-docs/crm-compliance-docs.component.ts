@@ -144,7 +144,7 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
 
   getBranchName(branchId: string | null | undefined): string {
     if (!branchId) return 'All Branches';
-    return this.branches.find((b) => b.id === branchId)?.branchName || branchId;
+    return this.branches.find((b) => b.id === branchId)?.branchName || 'Branch name unavailable';
   }
 
   onCategoryChange() {

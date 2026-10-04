@@ -55,30 +55,8 @@
         [(ngModel)]="month"
       />
     </div>
-    <div class="filter-field">
-      <label for="ren-client">Client</label>
-      <input
-        autocomplete="off"
-        type="text"
-        id="ren-client"
-        name="clientId"
-        class="filter-input"
-        [(ngModel)]="clientId"
-        placeholder="Client ID"
-      />
-    </div>
-    <div class="filter-field">
-      <label for="ren-branch">Branch</label>
-      <input
-        autocomplete="off"
-        type="text"
-        id="ren-branch"
-        name="branchId"
-        class="filter-input"
-        [(ngModel)]="branchId"
-        placeholder="Branch ID"
-      />
-    </div>
+    <ui-crm-scope-filter [(clientId)]="clientId" [(branchId)]="branchId" />
+
     <div class="filter-field filter-field--wide">
       <label for="ren-search">Search</label>
       <input

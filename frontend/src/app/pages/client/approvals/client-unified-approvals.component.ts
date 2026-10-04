@@ -1,3 +1,4 @@
+import { BranchFilterComponent, BranchLabelOption } from '../../../shared/ui/branch-filter/branch-filter.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -69,7 +70,7 @@ interface UnifiedApprovalItem {
 @Component({
   standalone: true,
   selector: 'app-client-unified-approvals',
-  imports: [
+  imports: [BranchFilterComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -105,7 +106,7 @@ interface UnifiedApprovalItem {
               type="text"
               [(ngModel)]="searchText"
               (ngModelChange)="applyFilters()"
-              placeholder="Employee, id, type, summary" />
+              placeholder="Employee name, type, summary" />
           </label>
           <label>
             <span>Ageing</span>
@@ -116,14 +117,7 @@ interface UnifiedApprovalItem {
               <option value="8_PLUS">8+ days</option>
             </select>
           </label>
-          <label>
-            <span>Branch ID</span>
-            <input autocomplete="off" id="cua-branch-filter" name="branchFilter"
-              type="text"
-              [(ngModel)]="branchFilter"
-              placeholder="Optional branch id"
-              (keyup.enter)="load()" />
-          </label>
+          <ui-branch-filter inputId="cua-branch-filter" [(value)]="branchFilter" (optionsLoaded)="branchOptions = $event" />
           <label>
             <span>Sort</span>
             <select id="cua-sort-order" name="sortOrder" [(ngModel)]="sortOrder" (ngModelChange)="applyFilters()">
@@ -193,13 +187,13 @@ interface UnifiedApprovalItem {
               (click)="select(item)">
               <div class="row-top">
                 <span class="type-chip" [class.nom]="item.type === 'NOMINATION'">{{ item.type }}</span>
-                <span class="emp">{{ item.employeeName || item.employeeId }}</span>
+                <span class="emp">{{ item.employeeName || 'Employee name unavailable' }}</span>
                 <span class="ageing" [class.ageing-high]="item.ageingDays >= 8">{{ item.ageingDays }}d</span>
               </div>
               <div class="row-meta">
                 <span>{{ item.summary }}</span>
                 @if (item.branchId) {
-<span>Branch: {{ item.branchId }}</span>
+<span>Branch: {{ branchLabel(item.branchId) }}</span>
 }
                 <span>{{ item.submittedAt | date:'dd MMM yyyy' }}</span>
               </div>
@@ -219,7 +213,7 @@ interface UnifiedApprovalItem {
           <div class="detail-head">
             <div>
               <div class="label">Employee</div>
-              <div class="value">{{ selected.employeeName || selected.employeeId }}</div>
+              <div class="value">{{ selected.employeeName || 'Employee name unavailable' }}</div>
             </div>
             <div>
               <div class="label">Type</div>
@@ -231,7 +225,7 @@ interface UnifiedApprovalItem {
             </div>
             <div>
               <div class="label">Branch</div>
-              <div class="value">{{ selected.branchId || '-' }}</div>
+              <div class="value">{{ branchLabel(selected.branchId) }}</div>
             </div>
           </div>
 
@@ -426,6 +420,9 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
   ageingFilter: AgeingFilter = 'ALL';
   searchText = '';
   branchFilter = '';
+  branchOptions: BranchLabelOption[] = [];
+  branchLabel(id?: string | null): string { return id ? this.branchOptions.find(b => b.id === id)?.label || 'Branch name unavailable' : 'All branches'; }
+
   sortOrder: SortOrder = 'AGE_DESC';
 
   queue: UnifiedApprovalItem[] = [];
@@ -687,7 +684,7 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
       id: lv.id,
       type: 'LEAVE',
       employeeId: String(lv.employeeId || ''),
-      employeeName: String(lv.employeeName || lv.employeeId || ''),
+      employeeName: String(lv.employeeName || lv.employeeCode || 'Employee name unavailable'),
       branchId: (String((lv as any)?.branchId || '') || null),
       status: String(lv.status || 'PENDING'),
       submittedAt,
@@ -704,7 +701,7 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
       id: nom.id,
       type: 'NOMINATION',
       employeeId: String(nom.employeeId || ''),
-      employeeName: String(nom.employeeName || nom.employeeId || ''),
+      employeeName: String(nom.employeeName || nom.employeeCode || 'Employee name unavailable'),
       branchId: (String((nom as any)?.branchId || '') || null),
       status: String(nom.status || 'PENDING'),
       submittedAt,

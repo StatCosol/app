@@ -105,7 +105,7 @@ interface LoadResult {
                   <td>{{ row.periodMonth || '-' }}</td>
                   <td>
                     <strong>{{ row.branchName || 'All branches' }}</strong>
-                    <small>{{ row.contractorName || row.contractorUserId || '-' }}</small>
+                    <small>{{ row.contractorName || 'Contractor name unavailable' }}</small>
                   </td>
                   <td>
                     <strong>{{ row.employeeName || '-' }}</strong>

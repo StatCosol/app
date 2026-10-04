@@ -1441,7 +1441,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   branchName(id: string): string {
-    return this.availableBranches.find((b) => b.id === id)?.name ?? id;
+    return this.availableBranches.find((b) => b.id === id)?.name ?? 'Branch name unavailable';
   }
 
   get rejectedChecklistItems(): ChecklistItem[] {

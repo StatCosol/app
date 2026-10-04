@@ -207,7 +207,7 @@ export class ClientAccessSettingsComponent implements OnInit, OnDestroy {
           };
           this.branches = (branches || []).map((b: any) => ({
             id: b.id,
-            branchname: b.branchname || b.name || b.branchName || b.id,
+            branchname: b.branchname || b.name || b.branchName || b.branchCode || 'Branch name unavailable',
             branchCode: b.branchCode || b.branch_code || '',
             selected: allowedIds.includes(b.id),
           }));

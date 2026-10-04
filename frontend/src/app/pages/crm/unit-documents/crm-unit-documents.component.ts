@@ -470,7 +470,7 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
   getBranchName(branchId: string | null): string {
     if (!branchId) return 'Company';
     const branch = this.branches.find((item) => item.id === branchId);
-    return branch?.branchName || `${branchId.substring(0, 8)}...`;
+    return branch?.branchName || 'Branch name unavailable';
   }
 
   onFileSelected(event: Event): void {

@@ -273,7 +273,7 @@ export class ClientHolidayCalendarComponent implements OnInit, OnDestroy {
     this.branchSvc.list().pipe(takeUntil(this.destroy$), catchError(() => of([]))).subscribe((rows: any[]) => {
       this.branches = (rows || []).map((b) => ({
         value: b.id,
-        label: b.branchname || b.branchName || b.name || b.id,
+        label: b.branchname || b.branchName || b.name || b.branchCode || 'Branch name unavailable',
         state: b.statecode || b.stateCode || null,
       }));
       this.cdr.markForCheck();

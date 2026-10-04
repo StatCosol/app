@@ -18,14 +18,14 @@
         @else {
           @for (job of items(); track job.id) {
             <tr>
-              <td class="audit">{{ job.auditCode || job.auditId }}</td>
+              <td class="audit">{{ job.auditCode || 'Audit code unavailable' }}</td>
               <td>{{ labels[job.event] || job.event }}</td>
               <td><span class="status" [class.failed]="job.status === 'FAILED'" [class.complete]="job.status === 'SUCCEEDED'">{{ labels[job.status] || job.status }}</span></td>
               <td>{{ job.attempts }} / 8@if (job.retryCount) { <small>{{ job.retryCount }} manual retries</small> }</td>
               <td>{{ job.createdAt | date:'dd MMM yyyy, HH:mm':'+0530' }}</td>
               <td>{{ (job.status === 'RETRY' || job.status === 'PENDING') ? (job.nextAttemptAt | date:'dd MMM yyyy, HH:mm':'+0530') : '-' }}</td>
               <td class="details">{{ job.lastError || '-' }}</td>
-              <td>@if (job.status === 'RETRY' || job.status === 'FAILED') { <button type="button" class="icon-button" (click)="retry(job)" [disabled]="!!retrying()" [attr.aria-label]="'Retry follow-up for ' + (job.auditCode || job.auditId)" title="Queue retry"><ui-icon name="refresh" /></button> } @else { - }</td>
+              <td>@if (job.status === 'RETRY' || job.status === 'FAILED') { <button type="button" class="icon-button" (click)="retry(job)" [disabled]="!!retrying()" [attr.aria-label]="'Retry follow-up for ' + (job.auditCode || 'Audit code unavailable')" title="Queue retry"><ui-icon name="refresh" /></button> } @else { - }</td>
             </tr>
           } @empty { <tr><td colspan="8">{{ error() ? 'Follow-ups unavailable.' : 'No follow-ups match this status.' }}</td></tr> }
         }

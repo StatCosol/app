@@ -18,6 +18,28 @@ export class AdminApprovalsService {
 
   async list(status?: string) {
     const query = this.approvalRepo.createQueryBuilder('req');
+    query
+      .leftJoin('users', 'requester', 'requester.id = req.requester_user_id')
+      .addSelect('requester.name', 'requesterName')
+      .leftJoin(
+        'client_branches',
+        'branch',
+        "branch.id = req.target_entity_id AND LOWER(req.target_entity_type) = 'branch'",
+      )
+      .leftJoin(
+        'users',
+        'target_user',
+        "target_user.id = req.target_entity_id AND LOWER(req.target_entity_type) IN ('user', 'contractor')",
+      )
+      .leftJoin(
+        'payroll_runs',
+        'run',
+        "run.id = req.target_entity_id AND LOWER(req.target_entity_type) = 'payroll_run'",
+      )
+      .addSelect(
+        "COALESCE(branch.branchname, branch.branch_code, target_user.name, target_user.email, run.title, CASE WHEN run.id IS NOT NULL THEN 'Payroll ' || run.period_month || '/' || run.period_year END)",
+        'targetName',
+      );
 
     if (status) {
       query.where('req.status = :status', { status });
@@ -25,7 +47,12 @@ export class AdminApprovalsService {
 
     query.orderBy('req.created_at', 'DESC');
 
-    return await query.getMany();
+    const rows = await query.getRawAndEntities();
+    return rows.entities.map((row, i) => ({
+      ...row,
+      requesterName: rows.raw[i]?.requesterName ?? null,
+      targetName: rows.raw[i]?.targetName ?? null,
+    }));
   }
 
   async getCounts() {

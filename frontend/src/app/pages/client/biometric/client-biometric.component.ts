@@ -177,7 +177,7 @@ interface BranchOption { id: string; name: string }
 <tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3 text-gray-900">{{ p.punchTime | date: 'dd MMM, HH:mm:ss' }}</td>
                 <td class="px-4 py-3 font-mono text-gray-700">{{ p.employeeCode }}</td>
-                <td class="px-4 py-3 font-mono text-gray-500 text-xs">{{ p.deviceId || '—' }}</td>
+                <td class="px-4 py-3 font-mono text-gray-500 text-xs">{{ deviceLabel(p.deviceId) }}</td>
                 <td class="px-4 py-3">
                   <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
                     [class.bg-brand-100]="p.direction === 'IN'"
@@ -610,6 +610,12 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
   }
 
   // ── Helpers ───────────────────────────────────────────────
+  deviceLabel(id: string | null): string {
+    if (!id) return 'Device not linked';
+    const device = this.devices.find(d => d.id === id);
+    return device?.label || device?.serialNumber || 'Device name unavailable';
+  }
+
   branchName(id: string | null): string {
     if (!id) return '—';
     return this.branches.find((b) => b.id === id)?.name || '—';
@@ -622,7 +628,7 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
         next: (rows: any[]) => {
           this.branches = (rows || []).map((b) => ({
             id: b.id,
-            name: b.branchName || b.name || b.branch_name || b.label || `Branch ${String(b.id).slice(0, 6)}`,
+            name: b.branchName || b.name || b.branch_name || b.label || 'Branch name unavailable',
           }));
           this.bump();
         },

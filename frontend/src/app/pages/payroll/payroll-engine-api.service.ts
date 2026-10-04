@@ -29,6 +29,10 @@ export type RuleParameter = {
 export type StructureApprovalStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export type SalaryStructure = {
+  branchName?: string | null;
+  departmentName?: string | null;
+  gradeName?: string | null;
+  employeeName?: string | null;
   id: string;
   clientId: string;
   name: string;
@@ -54,6 +58,8 @@ export type SalaryStructure = {
 };
 
 export type StructureItem = {
+  componentName?: string | null;
+  componentCode?: string | null;
   id: string;
   structureId: string;
   componentId: string;

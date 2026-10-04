@@ -92,15 +92,9 @@
   <!-- ─── Filters ─── -->
   <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
     <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
-      <input autocomplete="off" id="cct-client-id" name="clientId"
-        class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-brand-800 focus:border-brand-800"
-        placeholder="Client ID"
-        [(ngModel)]="clientId" />
+      <ui-crm-scope-filter class="md:col-span-2" [(clientId)]="clientId" [(branchId)]="branchId" />
 
-      <input autocomplete="off" id="cct-branch-id" name="branchId"
-        class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-brand-800 focus:border-brand-800"
-        placeholder="Branch ID"
-        [(ngModel)]="branchId" />
+
 
       <input autocomplete="off" id="cct-month-key" name="monthKey"
         class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-brand-800 focus:border-brand-800"

@@ -1,3 +1,4 @@
+import { BranchFilterComponent, BranchLabelOption } from '../../../shared/ui/branch-filter/branch-filter.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -53,7 +54,7 @@ interface AttendanceIssue {
 @Component({
   selector: 'app-client-attendance',
   standalone: true,
-  imports: [
+  imports: [BranchFilterComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -85,17 +86,7 @@ interface AttendanceIssue {
               [(ngModel)]="selectedMonth"
             />
           </label>
-          <label>
-            <span>Branch ID (optional)</span>
-            <input
-              autocomplete="off"
-              id="ca-branch-id"
-              name="branchId"
-              type="text"
-              [(ngModel)]="branchId"
-              placeholder="Filter by branch id"
-            />
-          </label>
+          <ui-branch-filter inputId="ca-branch-filter" [(value)]="branchId" (optionsLoaded)="branchOptions = $event" />
           <div class="actions">
             <ui-button variant="primary" [disabled]="loading" (clicked)="loadWorkspace()"
               >Load</ui-button
@@ -195,7 +186,7 @@ interface AttendanceIssue {
                 <tbody>
                   @for (row of visibleMismatches; track trackByKey($index, row)) {
 <tr>
-                    <td>{{ row.employeeCode || row.employeeId }}</td>
+                    <td>{{ row.employeeCode || 'Employee code unavailable' }}</td>
                     <td>{{ row.date }}</td>
                     <td>
                       <span class="severity" [class.high]="row.severity === 'HIGH'">{{
@@ -255,7 +246,7 @@ interface AttendanceIssue {
                 <tbody>
                   @for (row of lopRows; track trackBySummary($index, row)) {
 <tr>
-                    <td>{{ row.employeeCode || row.employeeId }}</td>
+                    <td>{{ row.employeeCode || 'Employee code unavailable' }}</td>
                     <td>{{ row.daysPresent + row.halfDays * 0.5 }}</td>
                     <td>{{ row.daysOnLeave }}</td>
                     <td>{{ row.weekOffs }}</td>
@@ -330,7 +321,6 @@ interface AttendanceIssue {
             <table>
               <thead>
                 <tr>
-                  <th>Input ID</th>
                   <th>Title</th>
                   <th>Status</th>
                   <th>Files</th>
@@ -340,7 +330,6 @@ interface AttendanceIssue {
               <tbody>
                 @for (item of handoffHistory; track trackByHandoff($index, item)) {
 <tr>
-                  <td>{{ item.id }}</td>
                   <td>{{ item.title }}</td>
                   <td>
                     <span
@@ -583,6 +572,9 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
 
   selectedMonth = this.defaultMonth();
   branchId = '';
+  branchOptions: BranchLabelOption[] = [];
+  branchLabel(id?: string | null): string { return id ? this.branchOptions.find(b => b.id === id)?.label || 'Branch name unavailable' : 'All branches'; }
+
 
   loading = false;
   approving = false;
@@ -760,7 +752,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
       `Attendance handoff for ${monthText}`,
       `Mismatches: ${this.mismatches.length}`,
       `LOP employees: ${this.lopRows.length}`,
-      this.branchId.trim() ? `Branch: ${this.branchId.trim()}` : '',
+      this.branchId.trim() ? `Branch: ${this.branchLabel(this.branchId)}` : '',
     ]
       .filter(Boolean)
       .join(' | ');

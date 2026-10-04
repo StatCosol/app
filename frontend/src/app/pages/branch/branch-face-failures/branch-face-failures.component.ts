@@ -879,7 +879,7 @@ export class BranchFaceFailuresComponent implements OnInit {
 
   deviceLabel(d: { deviceId: string | null; deviceLabel: string | null }): string {
     if (d.deviceLabel) return d.deviceLabel;
-    if (d.deviceId) return d.deviceId.slice(0, 8) + '…';
+    if (d.deviceId) return 'Device name unavailable';
     return '(unknown device)';
   }
 

@@ -1,3 +1,4 @@
+import { PayrollRunSelectorComponent } from '../../../shared/ui/entity-selectors/payroll-run-selector.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -29,6 +30,7 @@ import {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    PayrollRunSelectorComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -56,7 +58,7 @@ import {
         <div class="flex items-end gap-4">
           <div class="flex-1">
             <label class="block text-sm font-medium text-gray-700 mb-1" for="ap-detect-client-id">Client *</label>
-            <select id="ap-detect-client-id" name="detectClientId" [(ngModel)]="detectClientId"
+            <select id="ap-detect-client-id" name="detectClientId" [(ngModel)]="detectClientId" (ngModelChange)="detectRunId = ''"
                     [disabled]="detecting"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
               <option value="">Select client</option>
@@ -66,10 +68,8 @@ import {
             </select>
           </div>
           <div class="flex-1">
-            <label class="block text-sm font-medium text-gray-700 mb-1" for="ap-detect-run-id">Payroll Run ID (optional)</label>
-            <input autocomplete="off" id="ap-detect-run-id" name="detectRunId" type="text" [(ngModel)]="detectRunId" placeholder="Optional run UUID"
-                   [disabled]="detecting"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500" />
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="ap-detect-run-id">Payroll run (optional)</label>
+            <ui-payroll-run-selector [clientId]="detectClientId" [(value)]="detectRunId" [disabled]="detecting" />
           </div>
           <ui-button variant="primary" [disabled]="!detectClientId || detecting" (clicked)="detect()">
             {{ detecting ? 'Scanning...' : '🔍 Detect' }}

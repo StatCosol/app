@@ -618,6 +618,6 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
 
   getComplianceName(complianceId: string): string {
     const found = this.applicableItems.find((i) => i.complianceId === complianceId);
-    return found?.compliance?.name || complianceId;
+    return found?.compliance?.name || found?.compliance?.code || 'Compliance name unavailable';
   }
 }

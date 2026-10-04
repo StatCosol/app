@@ -40,7 +40,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <div class="flex-1">
             <div class="flex items-center gap-3 mb-2">
               <span class="type-badge">{{ nom.nominationType }}</span>
-              <span class="text-sm font-medium text-gray-700">{{ nom.employeeName || nom.employeeId }}</span>
+              <span class="text-sm font-medium text-gray-700">{{ nom.employeeName || nom.employeeCode || 'Employee name unavailable' }}</span>
               @if (nom.submittedAt) {
 <span class="text-xs text-gray-400">Submitted {{ nom.submittedAt }}</span>
 }

@@ -1,3 +1,4 @@
+import { CrmScopeFilterComponent } from '../../../shared/ui/crm-scope-filter/crm-scope-filter.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -22,7 +23,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   selector: 'app-crm-compliance-tasks',
   standalone: true,
-  imports: [
+  imports: [CrmScopeFilterComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
