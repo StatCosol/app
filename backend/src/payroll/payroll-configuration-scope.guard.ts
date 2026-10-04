@@ -103,6 +103,7 @@ export class PayrollConfigurationScopeGuard implements CanActivate {
       if (route.startsWith('formula-templates/'))
         await owner('pay_formula_templates', params.id, 'client_id', true);
       await owner('payroll_runs', params.runId);
+      await owner('pay_salary_structures', body.structureId);
       await owner('pay_rule_sets', body.ruleSetId);
       await owner('payroll_components', body.componentId || query.componentId);
       if (Array.isArray(body.items)) {

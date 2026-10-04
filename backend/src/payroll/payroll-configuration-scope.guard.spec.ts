@@ -46,6 +46,20 @@ function harness({
   return { run: () => guard.canActivate(ctx as any), access, ds };
 }
 describe('payroll configuration client isolation', () => {
+  it('rejects previewing a saved structure belonging to a different client', async () => {
+    const h = harness({
+      route: 'preview',
+      method: 'POST',
+      params: {},
+      body: { clientId: A, structureId: ID },
+      storedClient: B,
+    });
+    await expect(h.run()).rejects.toThrow('same client');
+    expect(h.ds.query).toHaveBeenCalledWith(
+      expect.stringContaining('pay_salary_structures'),
+      [ID],
+    );
+  });
   it('checks stored ownership when an ID is used without clientId', async () => {
     const h = harness();
     await expect(h.run()).resolves.toBe(true);

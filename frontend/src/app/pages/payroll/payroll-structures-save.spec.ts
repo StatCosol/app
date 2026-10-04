@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { PayrollStructuresComponent } from './payroll-structures.component';
 import { PayrollEngineApiService, RuleSet, SalaryStructure } from './payroll-engine-api.service';
 
@@ -56,6 +56,58 @@ describe('Payroll structure save contract', () => {
     const { api, http, component } = setup();
     api.updateStructure('structure', { isActive: true }).subscribe();
     expect(http.put).toHaveBeenCalledExactlyOnceWith(expect.stringMatching(/\/structures\/structure$/), { isActive: true });
+    component.ngOnDestroy();
+  });
+});
+
+describe('Selected structure calculation preview', () => {
+  function previewSetup() {
+    const fixture = setup();
+    fixture.component.selectedStructure = fixture.component.editingStructure;
+    fixture.component.previewForm = { grossAmount: 25000, asOfDate: '2026-10-04', branchId: 'branch', employeeId: 'employee' };
+    fixture.component.components = [
+      { code: 'BASIC', componentType: 'EARNING' },
+      { code: 'CUSTOM_DEDUCTION', componentType: 'DEDUCTION' },
+      { code: 'CUSTOM_EMPLOYER', componentType: 'EMPLOYER' },
+      { code: 'EPS_WAGES', componentType: 'INFO' },
+    ] as any;
+    return fixture;
+  }
+
+  it('previews the selected saved version and keeps internal inputs out of earnings', () => {
+    const { component, http } = previewSetup();
+    http.post.mockReturnValueOnce(of({ ACTUAL_GROSS: 25000, BASIC: 25000, MIN_WAGE: 13500, EPS_WAGES: 0, PF_EMP: 1800, CUSTOM_DEDUCTION: 200, CUSTOM_EMPLOYER: 500, GROSS: 25000, NET_PAY: 23000 }) as any);
+    component.runPreview();
+    expect(http.post).toHaveBeenCalledWith(expect.stringMatching(/\/preview$/), expect.objectContaining({ structureId: 'structure', grossAmount: 25000 }));
+    expect(component.previewEarnings).toEqual([{ component: 'BASIC', amount: 25000 }]);
+    expect(component.previewTotalEarnings).toBe(25000);
+    expect(component.previewTotalDeductions).toBe(2000);
+    expect(component.previewEmployer).toEqual([{ component: 'CUSTOM_EMPLOYER', amount: 500 }]);
+    expect(component.previewNetPay).toBe(23000);
+    component.ngOnDestroy();
+  });
+
+  it('clears old results and shows mapping errors without manufacturing net pay', () => {
+    const { component, http } = previewSetup();
+    component.previewRows = [{ component: 'OLD', amount: 100 }];
+    http.post.mockReturnValueOnce(throwError(() => ({ error: { message: 'Add enabled component mappings' } })));
+    component.runPreview();
+    expect(component.previewRows).toEqual([]);
+    expect(component.previewError).toContain('enabled component mappings');
+    http.post.mockReturnValueOnce(of({ MIN_WAGE: 13500, EPS_WAGES: 0 }) as any);
+    component.runPreview();
+    expect(component.previewRows).toEqual([]);
+    expect(component.previewError).toContain('complete payroll totals');
+    component.ngOnDestroy();
+  });
+
+  it('ignores a response after the preview inputs change', () => {
+    const { component, http } = previewSetup();
+    const pending = new Subject<any>(); http.post.mockReturnValueOnce(pending as any);
+    component.runPreview(); component.previewForm.grossAmount = 30000; component.clearPreview();
+    pending.next({ BASIC: 25000, GROSS: 25000, NET_PAY: 25000 }); pending.complete();
+    expect(component.previewRows).toEqual([]);
+    expect(component.previewLoading).toBe(false);
     component.ngOnDestroy();
   });
 });
