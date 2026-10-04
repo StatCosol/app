@@ -719,10 +719,15 @@
         Linked Rule Set
         <select id="ps-rule-set-id" name="ruleSetId" [(ngModel)]="structureForm.ruleSetId">
           <option value="">Select rule set</option>
-          @for (rs of ruleSetOptions; track rs) {
+          @for (rs of ruleSetOptions; track rs.value) {
 <option [value]="rs.value">{{ rs.label }}</option>
 }
         </select>
+        <small>Active rule sets and your current selection are shown. Check the dates and branch before choosing.</small>
+      </label>
+      <label class="inline-checkbox span-2">
+        <input type="checkbox" id="ps-show-inactive-rule-sets" name="showInactiveRuleSets" [(ngModel)]="showInactiveRuleSets" />
+        Show inactive rule sets
       </label>
     </div>
 
