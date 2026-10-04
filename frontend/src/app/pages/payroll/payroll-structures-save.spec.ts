@@ -61,6 +61,34 @@ describe('Payroll structure save contract', () => {
 });
 
 describe('Linked rule set choices', () => {
+  it.each(['America/Los_Angeles', 'Pacific/Honolulu', 'Asia/Kolkata'])(
+    'keeps calendar dates unchanged with the browser timezone set to %s', timeZone => {
+      const { component } = setup();
+      const nativeFormat = Date.prototype.toLocaleDateString;
+      // Emulate the browser's default timezone; an explicit formatter timezone
+      // must still take precedence. The old implementation shifts Jan 1 west of UTC.
+      const formatter = vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(
+        function (this: Date, locales, options) {
+          return nativeFormat.call(this, locales, { timeZone, ...options });
+        },
+      );
+      try {
+        expect(component.formatDate('2026-01-01')).toBe('01 Jan 2026');
+        expect(component.formatDate('2026-09-30')).toBe('30 Sept 2026');
+        expect(component.formatDate('2024-02-29')).toBe('29 Feb 2024');
+        expect(component.formatDate(null)).toBe('-');
+        expect(component.formatDate('invalid')).toBe('-');
+        const timestamp = '2026-01-01T00:00:00Z';
+        expect(component.formatDate(timestamp)).toBe(nativeFormat.call(new Date(timestamp), 'en-IN', {
+          timeZone, day: '2-digit', month: 'short', year: 'numeric',
+        }));
+      } finally {
+        formatter.mockRestore();
+        component.ngOnDestroy();
+      }
+    },
+  );
+
   const rule = (id: string, isActive: boolean): RuleSet => ({
     id, isActive, name: 'Standard Rules', clientId: 'logiq', branchId: null,
     effectiveFrom: '2026-01-01', effectiveTo: null,

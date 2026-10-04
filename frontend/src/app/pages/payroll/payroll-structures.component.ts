@@ -1357,6 +1357,8 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
+      // Database DATE values are calendar dates, not local-time instants.
+      ...(/^\d{4}-\d{2}-\d{2}$/.test(input) ? { timeZone: 'UTC' } : {}),
     });
   }
 
