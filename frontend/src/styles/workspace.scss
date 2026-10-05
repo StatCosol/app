@@ -77,8 +77,9 @@
 .workspace-ui :is(.sidebar-panel, .sidebar-dark) .collapsed-tooltip { background: #183f32; color: white; }
 .workspace-ui .workforce-toolbar { padding: 16px; border: 1px solid #d6e2dc; background: #f7faf8; border-radius: 12px; }
 .workspace-ui .workforce-toolbar .btn-group .btn { min-height: 42px; }
-.workspace-ui .workforce-toolbar { display: grid; gap: 12px; }
+.workspace-ui .workforce-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 12px; }
 .workspace-ui .workforce-toolbar > div { min-width: 0; gap: 8px; }
+.workspace-ui .workforce-toolbar > div:last-child { justify-content: flex-end; }
 .workspace-ui .workforce-toolbar .relative { flex: 1 1 320px; max-width: 420px; min-width: 0; }
 .workspace-ui .workforce-toolbar input { width: 100%; min-height: 44px; font-size: 14px; }
 .workspace-ui .workforce-toolbar .relative > svg { top: 50%; transform: translateY(-50%); pointer-events: none; }
