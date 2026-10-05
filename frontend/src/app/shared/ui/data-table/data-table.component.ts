@@ -9,6 +9,8 @@ export interface TableColumn {
   align?: 'left' | 'center' | 'right';
   /** Custom value accessor for CSV export — use when the cell is rendered from computed data. */
   exportValue?: (row: any) => unknown;
+  /** Text shown by a custom cell, independently of its CSV representation. */
+  searchValue?: (row: any) => unknown;
 }
 
 export interface SortEvent {
@@ -253,7 +255,8 @@ export class DataTableComponent {
     return this.data.map((row, index) => ({ row, index })).filter(({ row }) =>
       !term || this.columns.some(col => {
         if (!col.header) return false;
-        const value = col.exportValue ? col.exportValue(row) : row?.[col.key];
+        const value = col.searchValue ? col.searchValue(row)
+          : col.exportValue ? col.exportValue(row) : row?.[col.key];
         return value != null && String(value).toLocaleLowerCase().includes(term);
       }),
     );
