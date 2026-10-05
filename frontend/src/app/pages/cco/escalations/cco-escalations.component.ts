@@ -39,8 +39,9 @@ export class CcoEscalationsComponent implements OnInit, OnDestroy {
   filtered: any[] = [];
 
   readonly columns: TableColumn[] = [
-    { key: 'type', header: 'Type' },
-    { key: 'clientBranch', header: 'Client / Branch' },
+    { key: 'type', header: 'Type', searchValue: row => row.type?.replace('_', ' ') || '-' },
+    { key: 'clientBranch', header: 'Client / Branch',
+      searchValue: row => `${row.clientName || '-'} ${row.branchName || '-'}` },
     { key: 'title', header: 'Title' },
     { key: 'severity', header: 'Severity', align: 'center' },
     { key: 'ageDays', header: 'Age (days)', align: 'center' },
