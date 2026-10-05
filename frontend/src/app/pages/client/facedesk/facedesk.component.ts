@@ -638,7 +638,7 @@ type Tab =
     .search-count { font-size: 12px; color: #64748b; white-space: nowrap; }
     @media (max-width: 640px) {
       .tab-search { flex: 1 1 100%; margin-left: 0; }
-      .tab-search input.inp { flex: 1; width: 100%; min-width: 0; }
+      .tab-search input.inp { flex: 1; width: 100%; min-width: 0; font-size: 16px; }
     }
     .tab-btn { padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: #6b7280; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
     .tab-btn:hover { color: #111827; }
