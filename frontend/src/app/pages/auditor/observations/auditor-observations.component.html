@@ -64,7 +64,7 @@
 
       <label class="search-box">
         Search
-        <input autocomplete="off" id="ao-filter-search" type="search" name="filterSearch" [(ngModel)]="filterSearch" (ngModelChange)="applyFilters()" placeholder="Clause / recommendation / text" />
+        <input class="workspace-search" autocomplete="off" id="ao-filter-search" type="search" name="filterSearch" [(ngModel)]="filterSearch" (ngModelChange)="applyFilters()" placeholder="Clause / recommendation / text" />
       </label>
 
       <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>

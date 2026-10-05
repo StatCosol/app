@@ -256,7 +256,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
             <label class="min-w-[260px]">
               <span class="sr-only">Search service requests</span>
               <input
-                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                class="workspace-search w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 name="searchTerm"
                 [(ngModel)]="searchTerm"
                 placeholder="Search client, package, service, or note">

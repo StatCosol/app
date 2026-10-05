@@ -22,7 +22,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
       <!-- Filters -->
       <div class="flex flex-wrap gap-3">
         <input [(ngModel)]="search" (keyup.enter)="load()" placeholder="Search invoice # or client..."
-               class="px-3 py-2 border rounded-lg text-sm w-64 focus:ring-2 focus:ring-brand-500 outline-none">
+               class="workspace-search px-3 py-2 border rounded-lg text-sm w-64 focus:ring-2 focus:ring-brand-500 outline-none">
         <select [(ngModel)]="statusFilter" (change)="load()" class="px-3 py-2 border rounded-lg text-sm">
           <option value="">All Status</option>
           @for (s of statuses; track s) {

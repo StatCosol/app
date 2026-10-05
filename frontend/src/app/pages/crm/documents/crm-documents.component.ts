@@ -67,7 +67,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
         <input autocomplete="off" id="cd-search-term" name="searchTerm" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
-               placeholder="Search by contractor or file name..." class="search-input" />
+               placeholder="Search by contractor or file name..." class="workspace-search search-input" />
       </div>
       <ui-form-select label="" [options]="statusOptions" [(ngModel)]="filterStatus"
                       (ngModelChange)="applyFilters()"></ui-form-select>

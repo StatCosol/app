@@ -15,7 +15,7 @@
 }
     </select>
 
-    <input autocomplete="off" id="cr-q" name="q" type="text" placeholder="Search…" [(ngModel)]="q" (input)="applyFilters()" />
+    <input class="workspace-search" autocomplete="off" id="cr-q" name="q" type="text" placeholder="Search…" [(ngModel)]="q" (input)="applyFilters()" />
 
     <select id="cr-status-filter" name="statusFilter" [(ngModel)]="statusFilter" (change)="applyFilters()">
       <option value="all">All Status</option>

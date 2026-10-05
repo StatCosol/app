@@ -21,7 +21,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
       <!-- Search -->
       <div class="flex gap-3">
         <input name="bc-search" [(ngModel)]="search" (keyup.enter)="loadClients()" placeholder="Search clients..."
-               class="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+               class="workspace-search flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
         <select name="bc-status-filter" [(ngModel)]="statusFilter" (change)="loadClients()"
                 class="px-3 py-2 border rounded-lg text-sm">
           <option value="">All Status</option>

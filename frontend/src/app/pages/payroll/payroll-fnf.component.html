@@ -8,7 +8,7 @@
   <div class="head-controls">
     <label class="search-box">
       Search
-      <input autocomplete="off" id="pf-search-text" type="search" name="searchText" [(ngModel)]="searchText" (ngModelChange)="onFilterChange()" placeholder="Employee / code / status" />
+      <input class="workspace-search" autocomplete="off" id="pf-search-text" type="search" name="searchText" [(ngModel)]="searchText" (ngModelChange)="onFilterChange()" placeholder="Employee / code / status" />
     </label>
 
     <button type="button" class="btn btn-primary" (click)="openCreateModal()">+ Initiate F&amp;F</button>

@@ -22,7 +22,7 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
           [(ngModel)]="search"
           (ngModelChange)="applyFilters()"
           placeholder="Search by name or code"
-          class="rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
+          class="workspace-search rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
         />
 
         <select id="cc-status" name="status" [(ngModel)]="status" (ngModelChange)="applyFilters()"

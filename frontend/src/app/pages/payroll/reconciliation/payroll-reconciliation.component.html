@@ -23,7 +23,7 @@
     <div class="table-scroll"><table><caption>Totals across each source, including employees present in only one source. Equal totals can still contain employee-level differences.</caption><thead><tr><th>Amount</th><th>Payroll (₹)</th><th>Register (₹)</th></tr></thead><tbody>
       @for (total of report.totals; track total.field) { <tr><th>{{ labels[total.field] }}</th><td>{{ total.expected.amount ?? 'Unknown' }} @if (total.expected.missingValues) { <small>({{ total.expected.missingValues }} missing values)</small> }</td><td>{{ total.actual.amount ?? 'Unknown' }} @if (total.actual.missingValues) { <small>({{ total.actual.missingValues }} missing values)</small> }</td></tr> }
     </tbody></table></div>
-    <div class="tools"><label>Employee code<input type="search" [(ngModel)]="search" (ngModelChange)="page = 0" placeholder="Search employee code"></label>
+    <div class="tools"><label>Employee code<input class="workspace-search" type="search" [(ngModel)]="search" (ngModelChange)="page = 0" placeholder="Search employee code"></label>
       <label class="check"><input type="checkbox" [(ngModel)]="onlyIssues" (ngModelChange)="page = 0"> Only differences or unknowns</label></div>
     @for (row of visibleRows(); track row.employeeCode) {
       <details><summary><strong>{{ row.employeeCode }}</strong><span class="status" [class.match]="row.status === 'MATCH'">{{ statuses[row.status] }}</span><span>{{ row.sourceLine ? 'CSV line ' + row.sourceLine : 'No CSV row' }}</span></summary>

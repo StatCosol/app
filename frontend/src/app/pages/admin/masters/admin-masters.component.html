@@ -157,7 +157,7 @@
         <h3 class="text-xl font-semibold text-gray-900">Existing Compliance Masters <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800 ml-2">{{ filteredComplianceMasters.length }}</span></h3>
         <div class="flex items-center gap-3">
           <input autocomplete="off" id="am-search-term" name="searchTerm" type="text" placeholder="Search by name, law, state..." [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
-            class="rounded-lg border-gray-300 text-sm px-3 py-1.5 w-56 focus:ring-accent-500 focus:border-accent-500" />
+            class="workspace-search rounded-lg border-gray-300 text-sm px-3 py-1.5 w-56 focus:ring-accent-500 focus:border-accent-500" />
           <ui-form-select label="" [options]="lawFilterOptions" [(ngModel)]="lawFilter" (ngModelChange)="applyFilters()"></ui-form-select>
           <ui-form-select label="" [options]="stateFilterOptions" [(ngModel)]="stateFilter" (ngModelChange)="applyFilters()"></ui-form-select>
           <button type="button" (click)="exportCsv()" class="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900 border rounded-lg px-3 py-1.5">
