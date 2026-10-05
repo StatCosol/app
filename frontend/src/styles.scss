@@ -1174,14 +1174,14 @@ svg {
  * reach anything is to scroll the whole document. Cap the wrapper instead so
  * the ROWS scroll inside it and the page chrome stays put.
  *
- * Deliberately scoped to the table wrappers and NOT .overflow-x-auto, which is
- * a generic utility that also sits on non-table content a height cap would clip.
+ * Generic horizontal wrappers are included only when they contain a table
+ * directly, so non-table content remains unaffected.
  *
  * :where() keeps specificity at zero, so any component that already sets its
  * own max-height (six do) keeps that value — the cascade resolves per property,
  * so those components override only max-height and still inherit the rest.
  */
-:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .cal-list) {
+:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .cal-list, .overflow-x-auto:has(> table)) {
   max-height: 70vh;
   overflow-y: auto;
   overscroll-behavior-block: contain;
@@ -1191,7 +1191,7 @@ svg {
  * specificity again: components with their own header background keep it, and
  * this only supplies one where none is set (a transparent sticky header would
  * let rows show through it). */
-:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .cal-list) thead th {
+:where(.table-scroll, .table-wrap, .table-wrapper, .tableWrap, .cal-list, .overflow-x-auto:has(> table)) thead th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -1217,7 +1217,8 @@ svg {
 .table-wrap > table,
 .table-wrapper > table,
 .tableWrap > table,
-.cal-list > table {
+.cal-list > table,
+.overflow-x-auto > table {
   display: table !important;
   overflow: visible !important;
 }
@@ -1234,6 +1235,11 @@ svg {
   .tableWrap,
   .tbl,
   .cal-list {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .overflow-x-auto:has(> table) {
     max-height: none !important;
     overflow: visible !important;
   }

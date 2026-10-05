@@ -40,6 +40,16 @@ export class TableCellDirective {
     <div class="animate-fade-up">
       <!-- Table display preferences affect this table only. -->
       <div class="table-tools">
+      @if (enableSearch) {
+        <label class="block text-sm text-gray-600">
+          {{ showPagination ? 'Search this page' : 'Search records' }}
+          <input type="search" class="form-control" placeholder="Type to search…"
+            [value]="searchTerm" (input)="searchTerm = $any($event.target).value" />
+        </label>
+        @if (searchTerm.trim()) {
+          <span class="text-sm text-gray-500" role="status">{{ displayedRows.length }} matching records</span>
+        }
+      }
       @if (allowColumnSelection && columns.length > 1) {
         <details><summary>Columns · {{ visibleColumns.length }}/{{ columns.length }}</summary>
           <div class="column-options">
@@ -66,7 +76,7 @@ export class TableCellDirective {
 
       </div>
       <!-- Table -->
-      <div class="overflow-x-auto" role="region" [attr.aria-label]="tableLabel" tabindex="0" [attr.aria-busy]="loading">
+      <div class="table-scroll overflow-x-auto" role="region" [attr.aria-label]="tableLabel" tabindex="0" [attr.aria-busy]="loading">
         <table class="table table-hover w-full table-fixed" [style.min-width]="minWidth">
           <thead>
             <tr>
@@ -122,7 +132,7 @@ export class TableCellDirective {
               </tr>
 
 }
-            @if (!loading && data.length === 0) {
+            @if (!loading && displayedRows.length === 0) {
 
               <tr>
                 <td [attr.colspan]="visibleColumns.length" class="px-6 py-16 text-center">
@@ -132,7 +142,7 @@ export class TableCellDirective {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                       </svg>
                     </div>
-                    <p class="text-sm font-semibold text-gray-700">{{ emptyMessage }}</p>
+                    <p class="text-sm font-semibold text-gray-700">{{ searchTerm.trim() ? 'No matching records' : emptyMessage }}</p>
                     <p class="text-xs text-gray-400 mt-1">Try adjusting your search or filters</p>
                   </div>
                 </td>
@@ -141,18 +151,19 @@ export class TableCellDirective {
 }
             @if (!loading && data.length > 0) {
 
-              @for (row of data; track row; let i = $index) {
+              @for (entry of displayedRows; track entry.row) {
+                @let row = entry.row;
 <tr
                   class="hover:bg-gray-50/80 transition-colors duration-150"
                   [class.cursor-pointer]="clickable"
                   [attr.tabindex]="clickable ? 0 : null"
-                  (keydown.enter)="activateRow($event, row, i)"
-                  (click)="onRowClick(row, i)">
+                  (keydown.enter)="activateRow($event, row, entry.index)"
+                  (click)="onRowClick(row, entry.index)">
                 @for (col of visibleColumns; track col) {
 <td [ngClass]="getCellClasses(col)">
                   @if (getCellTemplate(col.key); as tmpl) {
 
-                    <ng-container *ngTemplateOutlet="tmpl; context: { $implicit: row, row: row, value: row[col.key], index: i }"></ng-container>
+                    <ng-container *ngTemplateOutlet="tmpl; context: { $implicit: row, row: row, value: row[col.key], index: entry.index }"></ng-container>
 
 } @else {
 {{ row[col.key] }}
@@ -234,6 +245,19 @@ export class DataTableComponent {
   @Input() loading = false;
   @Input() emptyMessage = 'No data available';
   @Input() tableLabel = 'Data table';
+  @Input() enableSearch = true;
+  searchTerm = '';
+  /** Search loaded records; retain source indices used by editing templates. */
+  get displayedRows(): { row: any; index: number }[] {
+    const term = this.enableSearch ? this.searchTerm.trim().toLocaleLowerCase() : '';
+    return this.data.map((row, index) => ({ row, index })).filter(({ row }) =>
+      !term || this.columns.some(col => {
+        if (!col.header) return false;
+        const value = col.exportValue ? col.exportValue(row) : row?.[col.key];
+        return value != null && String(value).toLocaleLowerCase().includes(term);
+      }),
+    );
+  }
   @Input() allowColumnSelection = true;
   private hiddenColumns = new Set<string>();
   get visibleColumns(): TableColumn[] {
