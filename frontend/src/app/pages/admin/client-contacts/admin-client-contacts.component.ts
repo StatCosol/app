@@ -73,7 +73,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 type="text"
                 [(ngModel)]="clientSearch"
                 placeholder="Search clients…"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+                class="workspace-search w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
               />
             </div>
             @if (loadingClients()) {

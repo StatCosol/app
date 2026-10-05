@@ -72,7 +72,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <div class="md:col-span-2">
             <label for="dv-search" class="block text-xs text-gray-500 mb-1">Search</label>
             <div class="flex gap-2">
-              <input autocomplete="off" id="dv-search" name="searchText" class="input-sm flex-1" [(ngModel)]="searchText" (keyup.enter)="loadDocuments()" placeholder="Search by document type, name, file" />
+              <input autocomplete="off" id="dv-search" name="searchText" class="workspace-search input-sm flex-1" [(ngModel)]="searchText" (keyup.enter)="loadDocuments()" placeholder="Search by document type, name, file" />
               <button class="btn-secondary" (click)="loadDocuments()">Apply</button>
             </div>
           </div>

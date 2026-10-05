@@ -177,7 +177,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
               [(ngModel)]="searchTerm"
               (input)="applyFilters()"
               placeholder="Search by name or employee ID…"
-              class="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-400 focus:border-rose-400 w-52"
+              class="workspace-search pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-400 focus:border-rose-400 w-52"
             />
           </div>
           <!-- Status filter -->

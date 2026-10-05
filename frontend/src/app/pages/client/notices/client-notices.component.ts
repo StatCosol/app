@@ -28,7 +28,7 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
 }
 
       <div class="flex flex-wrap gap-2 mb-4">
-        <input type="text" class="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px]" placeholder="Search..." [(ngModel)]="search" (input)="load()" />
+        <input type="text" class="workspace-search border rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px]" placeholder="Search..." [(ngModel)]="search" (input)="load()" />
         <select class="border rounded-lg px-3 py-2 text-sm" [(ngModel)]="statusFilter" (change)="load()">
           <option value="">All Statuses</option>
           @for (s of statuses; track s) {

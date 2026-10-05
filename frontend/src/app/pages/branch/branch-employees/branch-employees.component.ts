@@ -27,7 +27,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         </div>
         <div class="flex items-center gap-3">
           <label for="emp-search" class="sr-only">Search employees</label>
-          <input autocomplete="off" id="emp-search" name="searchQuery" type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search employees..." class="search-input" />
+          <input autocomplete="off" id="emp-search" name="searchQuery" type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search employees..." class="workspace-search search-input" />
           <label for="emp-status-filter" class="sr-only">Employment filter</label>
           <select id="emp-status-filter" name="employmentFilter" [(ngModel)]="employmentFilter" (ngModelChange)="onSearch()" class="filter-select">
             <option value="ACTIVE">Active</option>

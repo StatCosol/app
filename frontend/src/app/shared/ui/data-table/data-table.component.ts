@@ -45,7 +45,7 @@ export class TableCellDirective {
       @if (enableSearch) {
         <label class="block text-sm text-gray-600">
           {{ showPagination ? 'Search this page' : 'Search records' }}
-          <input type="search" class="form-control" placeholder="Type to search…"
+          <input type="search" class="workspace-search form-control" placeholder="Type to search…"
             [value]="searchTerm" (input)="searchTerm = $any($event.target).value" />
         </label>
         @if (searchTerm.trim()) {

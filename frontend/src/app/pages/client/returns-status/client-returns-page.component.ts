@@ -40,7 +40,7 @@ type StatusTab = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'OV
           }
         </select>
         <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilter()"
-          placeholder="Search returns..." class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-56" />
+          placeholder="Search returns..." class="workspace-search border border-gray-300 rounded-lg px-3 py-2 text-sm w-56" />
       </div>
 
       @if (loading) {

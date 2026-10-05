@@ -38,7 +38,7 @@
     <p class="scope-note">{{ review.note }}</p>
     @if (!review.stages.length) { <div class="empty"><h2>No closing checks enabled</h2><p>Your current service package has no modules included in this review.</p></div> }
     @if (review.stages.length) {
-      <div class="review-tools"><label class="search-label">Search visible actions<input type="search" [(ngModel)]="search" placeholder="Document, owner or issue"></label>
+      <div class="review-tools"><label class="search-label">Search visible actions<input class="workspace-search" type="search" [(ngModel)]="search" placeholder="Document, owner or issue"></label>
         <label class="checkbox"><input type="checkbox" [(ngModel)]="onlyOutstanding"> Only checks needing attention</label></div>
       @if (!visibleStages().length) { <div class="empty"><h2>No outstanding checks in recorded data</h2><p>Show all checks to inspect coverage before making a closing decision.</p></div> }
       <div class="stages">

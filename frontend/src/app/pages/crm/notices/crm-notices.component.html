@@ -111,7 +111,7 @@
   <!-- Filters -->
   <section class="filters">
     <div class="filter-row">
-      <input type="text" class="field field--search" placeholder="Search subject, code, department..."
+      <input type="text" class="workspace-search field field--search" placeholder="Search subject, code, department..."
         [(ngModel)]="search" (input)="applyFilters()" />
       <select class="field" [(ngModel)]="clientFilter" (change)="applyFilters()">
         <option value="">All Clients</option>

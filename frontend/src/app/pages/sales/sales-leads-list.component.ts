@@ -56,7 +56,7 @@ import { PageHeaderComponent } from '../../shared/ui';
         <div class="flex-1 min-w-[12rem]">
           <label class="block text-xs font-medium text-gray-600 mb-1">Search company</label>
           <input [(ngModel)]="search" (keyup.enter)="reload()" placeholder="Search…"
-                 class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+                 class="workspace-search w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
         </div>
         <button (click)="reload()" class="px-3 py-1.5 text-sm font-medium text-white bg-gray-700 hover:bg-gray-800 rounded-lg">Apply</button>
       </div>
