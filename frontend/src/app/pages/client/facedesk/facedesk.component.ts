@@ -1,3 +1,4 @@
+import { filterFaceDeskRows } from '../../../shared/utils/facedesk-search.util';
 import { EmployeeSelectorComponent } from '../../../shared/ui/entity-selectors/employee-selector.component';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import {
@@ -105,6 +106,18 @@ type Tab =
         }
       </div>
 
+      @if (['pending', 'duplicates', 'review', 'capture-audit', 'short-days'].includes(tab)) {
+        <div class="filter-bar flex flex-wrap items-end gap-3 mb-4">
+          <label class="text-sm">Search loaded records
+            <input type="search" class="inp workspace-search" [(ngModel)]="recordSearch"
+              placeholder="Search name, employee code or branch…" />
+          </label>
+          @if (recordSearch.trim() && !loading) {
+            <span class="text-sm text-gray-600" role="status">{{ matchingRecordCount }} matching records</span>
+            <button type="button" class="btn" (click)="recordSearch = ''">Clear search</button>
+          }
+        </div>
+      }
       <!-- DASHBOARD -->
       @if (tab === 'dashboard') {
 
@@ -239,7 +252,7 @@ type Tab =
 <div class="table-wrap"><table class="tbl">
           <thead><tr><th>Code</th><th>Employee</th><th>Status</th><th class="right">Action</th></tr></thead>
           <tbody>
-            @for (r of pending; track r) {
+            @for (r of searchRows(pending); track r) {
 <tr>
               <td class="mono">{{ r.employeeCode }}</td>
               <td>{{ r.employeeName || r.name }}</td>
@@ -261,7 +274,7 @@ type Tab =
 <div class="table-wrap"><table class="tbl">
           <thead><tr><th>Code / Type</th><th>Worker</th><th>Branch</th><th>Profile</th><th>PIN</th><th>Enrolled</th>@if (branchMode) {<th>Photo</th>}<th class="right">Actions</th></tr></thead>
           <tbody>
-            @for (r of enrolled; track r.employeeId) {
+            @for (r of searchRows(enrolled); track r.employeeId) {
 <tr>
               <td><span class="mono">{{ r.employeeCode || '—' }}</span><br><span class="text-xs text-gray-500">{{ r.subjectType || enrollSubjectType }}</span></td>
               <td>{{ r.employeeName || r.name }}<br><span class="text-xs text-gray-500">{{ r.department || '' }}{{ r.department && r.designation ? ' · ' : '' }}{{ r.designation || '' }}</span></td>
@@ -325,7 +338,7 @@ type Tab =
 <div class="table-wrap"><table class="tbl">
           <thead><tr><th>New Employee</th><th>Matched</th><th>Similarity</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
-            @for (a of duplicates; track a) {
+            @for (a of searchRows(duplicates); track a) {
 <tr>
               <td>{{ a.newEmployeeName || a.newEmployeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span>@if (a.hasNewPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.newEmployeeId, a.newSubjectType, a.newEmployeeCode)">View face</button>}</td>
               <td>{{ a.matchedEmployeeName || a.matchedEmployeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span>@if (a.hasMatchedPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.matchedEmployeeId, a.matchedSubjectType, a.matchedEmployeeCode)">View face</button>}</td>
@@ -365,7 +378,7 @@ type Tab =
 <div class="table-wrap"><table class="tbl">
           <thead><tr><th>Issue</th><th>Worker</th>@if (branchMode) {<th>Face comparison</th>}<th>Confidence</th><th>Punch</th><th>When</th><th class="right">Actions</th></tr></thead>
           <tbody>
-            @for (r of review; track r) {
+            @for (r of searchRows(review); track r) {
 <tr>
               <td><span class="pill amber">{{ r.issueType }}</span></td>
               <td>{{ r.employeeName || r.employeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ r.employeeCode || '' }}{{ r.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
@@ -409,7 +422,7 @@ type Tab =
               <th>When</th><th>Who</th><th>Type</th><th>Confidence</th><th>Status</th><th>Photos</th>
             </tr></thead>
             <tbody>
-            @for (c of captures; track c.attendanceId) {
+            @for (c of searchRows(captures); track c.attendanceId) {
               <tr>
                 <td class="nowrap">{{ c.punchTime | date: 'dd MMM, HH:mm:ss' }}</td>
                 <td>{{ c.employeeName || '—' }}<br><span class="mono text-xs text-gray-500">{{ c.employeeCode || '' }}{{ c.subjectType === 'CONTRACTOR' ? ' · Contractor' : '' }}</span></td>
@@ -446,7 +459,7 @@ type Tab =
 <div class="table-wrap"><table class="tbl">
           <thead><tr><th>Employee</th><th>Day</th><th>Punches</th><th>Worked</th><th class="right">Actions</th></tr></thead>
           <tbody>
-            @for (d of shortDays; track d) {
+            @for (d of searchRows(shortDays); track d) {
 <tr>
               <td>{{ d.employeeName || d.employeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ d.employeeCode || '' }}{{ d.branchName ? ' · ' + d.branchName : '' }}</span></td>
               <td class="nowrap">{{ d.day }}</td>
@@ -665,6 +678,16 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
 
   tab: Tab = 'dashboard';
   loading = false;
+  recordSearch = '';
+  searchRows<T>(rows: T[]): T[] {
+    return filterFaceDeskRows(rows, this.recordSearch, id => this.branchName(id));
+  }
+  get matchingRecordCount(): number {
+    const rows: any[] = this.tab === 'pending' ? (this.enrollmentView === 'ENROLLED' ? this.enrolled : this.pending)
+      : this.tab === 'duplicates' ? this.duplicates : this.tab === 'review' ? this.review
+      : this.tab === 'capture-audit' ? this.captures : this.shortDays;
+    return this.searchRows(rows).length;
+  }
 
   cards: FaceDeskDashboard | null = null;
   pending: PendingEnrollmentRow[] = [];
