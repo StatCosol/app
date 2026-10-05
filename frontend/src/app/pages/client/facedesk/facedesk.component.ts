@@ -104,20 +104,19 @@ type Tab =
           <button class="tab-btn" [class.active]="tab === 'reports'" (click)="switch('reports')">Reports</button>
           <button class="tab-btn" [class.active]="tab === 'settings'" (click)="switch('settings')">Settings</button>
         }
+        @if (['pending', 'duplicates', 'review', 'capture-audit', 'short-days'].includes(tab)) {
+          <div class="tab-search">
+            <input type="search" class="inp" [(ngModel)]="recordSearch"
+              aria-label="Search loaded records by name, employee code or branch"
+              placeholder="Search name, code or branch…" />
+            @if (recordSearch.trim() && !loading) {
+              <span class="search-count" role="status">{{ matchingRecordCount }} matches</span>
+              <button type="button" class="link" (click)="recordSearch = ''" aria-label="Clear search">Clear</button>
+            }
+          </div>
+        }
       </div>
 
-      @if (['pending', 'duplicates', 'review', 'capture-audit', 'short-days'].includes(tab)) {
-        <div class="filter-bar flex flex-wrap items-end gap-3 mb-4">
-          <label class="text-sm">Search loaded records
-            <input type="search" class="inp workspace-search" [(ngModel)]="recordSearch"
-              placeholder="Search name, employee code or branch…" />
-          </label>
-          @if (recordSearch.trim() && !loading) {
-            <span class="text-sm text-gray-600" role="status">{{ matchingRecordCount }} matching records</span>
-            <button type="button" class="btn" (click)="recordSearch = ''">Clear search</button>
-          }
-        </div>
-      }
       <!-- DASHBOARD -->
       @if (tab === 'dashboard') {
 
@@ -634,6 +633,13 @@ type Tab =
   styles: [`
     .page { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
     .tab-bar { display: flex; gap: 0; border-bottom: 1px solid #e5e7eb; margin: 0 0 1.25rem; flex-wrap: wrap; }
+    .tab-search { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 0; }
+    .tab-search input.inp { width: 300px; max-width: 100%; margin: 0; min-height: 40px; }
+    .search-count { font-size: 12px; color: #64748b; white-space: nowrap; }
+    @media (max-width: 640px) {
+      .tab-search { flex: 1 1 100%; margin-left: 0; }
+      .tab-search input.inp { flex: 1; width: 100%; min-width: 0; }
+    }
     .tab-btn { padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: #6b7280; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
     .tab-btn:hover { color: #111827; }
     .tab-btn.active { color: #4f46e5; border-bottom-color: #4f46e5; }
