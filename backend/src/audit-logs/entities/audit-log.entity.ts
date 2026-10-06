@@ -24,6 +24,7 @@ export type AuditEntityType =
   | 'RECURRING_INVOICE';
 
 export type AuditAction =
+  | 'DOCUMENT_VIEWED'
   | 'CREATE'
   | 'UPDATE'
   | 'SOFT_DELETE'

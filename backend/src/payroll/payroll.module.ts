@@ -278,6 +278,7 @@ import { AccessModule } from '../access/access.module';
     CtcSummaryService,
   ],
   exports: [
+    ClientPayrollDocumentsService,
     PayrollService,
     PayrollSetupService,
     PayrollProcessingService,

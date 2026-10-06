@@ -102,6 +102,9 @@ describe('Branch dashboard layout', () => {
       assistantComponent.result.set({
         mode: 'RULES',
         note: 'Sample action plan',
+        explanationLabel: 'Rule calculation',
+        sources: [{ label: 'Compliance tasks', source: 'compliance_tasks' }],
+        forecast: null,
         coverage: 'Synthetic branch scope',
         generatedAt: '',
         actions: [
