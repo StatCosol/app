@@ -40,20 +40,43 @@ export function documentIntent(request: string): DocumentIntent | null {
     )
   )
     return null;
-  const employee =
-    /^(?:show|open|view|find)\s+(.+?)(?:'s)?\s+(?:last\s+|latest\s+)?(appointment letter|payslip|f&f(?: settlement)?(?: statement)?)\.?$/i.exec(
-      text,
-    );
-  if (employee)
+  const months = [
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+  ];
+  const employee = new RegExp(
+    "^(?:show|open|view|find)\\s+(.+?)(?:'s)?\\s+(?:(last|latest)\\s+)?(appointment letter|payslip|f&f(?: settlement)?(?: statement)?)(?:\\s+(?:for\\s+)?(" +
+      months.join('|') +
+      ')(?:\\s+(20\\d{2}))?|\\s+(?:for\\s+)?(20\\d{2}|last month))?\\.?$',
+    'i',
+  ).exec(text);
+  if (employee) {
+    // An explicit period must not silently become a latest-period lookup.
+    if (employee[2] && (employee[4] || employee[6])) return null;
     return {
-      kind: /appointment/i.test(employee[2])
+      kind: /appointment/i.test(employee[3])
         ? 'APPOINTMENT'
-        : /payslip/i.test(employee[2])
+        : /payslip/i.test(employee[3])
           ? 'PAYSLIP'
           : 'FNF',
       employeeName: employee[1].replace(/'s$/i, '').trim(),
-      latest: /\b(last|latest)\b/i.test(text),
+      latest: !!employee[2],
+      month: employee[4]
+        ? months.indexOf(employee[4].toLowerCase()) + 1
+        : undefined,
+      year: years[0] ? Number(years[0]) : undefined,
     };
+  }
   const contractor =
     /^(?:show|open|view|find)\s+(?:the\s+)?contractor\s+(.+?)(?:'s)?\s+(pending\s+)?documents\.?$/i.exec(
       text,
@@ -102,20 +125,7 @@ export function documentIntent(request: string): DocumentIntent | null {
       variant: /\brenewal\b/i.test(text) ? 'RENEWAL' : 'CERTIFICATE',
     };
   if (!intent) return null;
-  const months = [
-    'january',
-    'february',
-    'march',
-    'april',
-    'may',
-    'june',
-    'july',
-    'august',
-    'september',
-    'october',
-    'november',
-    'december',
-  ];
+
   intent.month =
     months.findIndex((month) => new RegExp(`\\b${month}\\b`, 'i').test(text)) +
       1 || undefined;

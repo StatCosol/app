@@ -94,6 +94,45 @@ describe('Assist read-only document intent', () => {
   ])('refuses unsupported or mutating request %s', (request) => {
     expect(documentIntent(request)).toBeNull();
   });
+  it.each([
+    ["Show Ravi Kumar's payslip for August 2026", 'PAYSLIP', 8, 2026],
+    [
+      'Open Ravi Kumar’s F&F settlement statement for August 2025.',
+      'FNF',
+      8,
+      2025,
+    ],
+    ['Find Ravi Kumar payslip August 2026', 'PAYSLIP', 8, 2026],
+    ["View Ravi Kumar's payslip for August", 'PAYSLIP', 8, undefined],
+    ["Show Ravi Kumar's F&F for 2025", 'FNF', undefined, 2025],
+    [
+      "Show Ravi Kumar's payslip for last month",
+      'PAYSLIP',
+      undefined,
+      undefined,
+    ],
+  ])(
+    'extracts employee document period from %s',
+    (request, kind, month, year) => {
+      expect(documentIntent(request as string)).toMatchObject({
+        kind,
+        employeeName: 'Ravi Kumar',
+        month,
+        year,
+        latest: false,
+      });
+    },
+  );
+  it.each([
+    "Show Ravi Kumar's payslip for August 2025 2026",
+    "Show Ravi Kumar's payslip for August September 2026",
+    "Show Ravi Kumar's payslip for last month 2025",
+    "Show Ravi Kumar's latest payslip for August 2026",
+    "Show Ravi Kumar's payslip for August 2026 and approve it",
+    "Show Ravi Kumar's payslip for another company",
+  ])('rejects conflicting or unsupported employee period %s', (request) => {
+    expect(documentIntent(request)).toBeNull();
+  });
   it('extracts employee, month, year and branch without an AI provider', () => {
     expect(documentIntent("Show Ravi Kumar's last payslip")).toMatchObject({
       kind: 'PAYSLIP',
