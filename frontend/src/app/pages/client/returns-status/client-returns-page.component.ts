@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -99,6 +99,7 @@ export class ClientReturnsPageComponent implements OnInit {
   rows: any[] = [];
   filtered: any[] = [];
   private clientId = '';
+  private readonly cdr = inject(ChangeDetectorRef);
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -118,9 +119,11 @@ export class ClientReturnsPageComponent implements OnInit {
     this.complianceSvc.getBranches().subscribe({
       next: (res: any) => {
         this.branches = res?.data || res || [];
+        this.cdr.markForCheck();
       },
       error: () => {
         this.branches = [];
+        this.cdr.markForCheck();
       },
     });
   }
@@ -128,9 +131,13 @@ export class ClientReturnsPageComponent implements OnInit {
   load(): void {
     if (!this.clientId) return;
     this.loading = true;
+    this.cdr.markForCheck();
     this.returnsService
       .getClientReturns(this.clientId, this.branchId || undefined)
-      .pipe(finalize(() => (this.loading = false)))
+      .pipe(finalize(() => {
+        this.loading = false;
+        this.cdr.markForCheck();
+      }))
       .subscribe({
         next: (data) => { this.rows = data || []; this.applyFilter(); },
         error: (err) => console.error('Failed to load returns', err?.message || err?.statusText),
@@ -151,6 +158,7 @@ export class ClientReturnsPageComponent implements OnInit {
       );
     }
     this.filtered = list;
+    this.cdr.markForCheck();
   }
 
   statusBadge(status: string): string {
