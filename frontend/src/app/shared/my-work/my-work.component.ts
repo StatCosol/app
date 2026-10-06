@@ -48,7 +48,7 @@ export class MyWorkComponent implements OnInit, OnDestroy {
   ) {}
   ngOnInit() {
     this.routeRequest = this.route.queryParamMap.subscribe((p) => {
-      this.company = p.get('clientId') || '';
+      this.company = this.isClientPortal ? '' : p.get('clientId') || '';
       this.branch = p.get('branchId') || '';
       this.month = p.get('month') || '';
       this.module = p.get('module') || '';
@@ -94,7 +94,7 @@ export class MyWorkComponent implements OnInit, OnDestroy {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {
-        clientId: this.company || null,
+        clientId: this.isClientPortal ? null : this.company || null,
         branchId: this.branch || null,
         month: this.month || null,
         module: this.module || null,
@@ -133,7 +133,7 @@ export class MyWorkComponent implements OnInit, OnDestroy {
     this.selected.set(null);
     let params = new HttpParams().set('view', this.view).set('page', this.page).set('limit', 25);
     for (const [k, v] of Object.entries({
-      clientId: this.company,
+      clientId: this.isClientPortal ? '' : this.company,
       branchId: this.branch,
       month: this.month,
       module: this.module,
