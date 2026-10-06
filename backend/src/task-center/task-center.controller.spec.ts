@@ -37,6 +37,7 @@ describe('Task queues enforce current operational assignments', () => {
       controller: new TaskCenterController(
         service as any,
         new OperationalScopeService(access as any),
+        {} as any,
       ),
     };
   }

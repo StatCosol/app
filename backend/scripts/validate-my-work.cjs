@@ -141,19 +141,9 @@ async function main() {
         dueDate,
         status,
       });
-    const scope = new OperationalScopeService(
-      new AccessScopeService(
-        {},
-        {},
-        ds.getRepository(ClientEntity),
-        ds.getRepository(BranchEntity),
-        {},
-      ),
-    );
-    const controller = new TaskCenterController(
-      new TaskCenterService(ds),
-      scope,
-    );
+    const access = new AccessScopeService({}, {}, ds.getRepository(ClientEntity), ds.getRepository(BranchEntity), {});
+    const scope = new OperationalScopeService(access);
+    const controller = new TaskCenterController(new TaskCenterService(ds), scope, access);
     const user = {
       id: id(31),
       userId: id(31),

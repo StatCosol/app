@@ -69,13 +69,40 @@ describe('My Work browser behavior', () => {
     return f;
   }
   it('routes audit and CRM filing tasks to their scoped source records', () => {
-    const f = mount(); http.expectOne(r => r.url.endsWith('/tasks/workspace')).flush(response);
+    const f = mount();
+    http.expectOne((r) => r.url.endsWith('/tasks/workspace')).flush(response);
     router.url = '/auditor/my-work';
-    const item = { ...response.items[0], reference_id: 'nc', reference_type: 'AUDIT_NON_COMPLIANCE', audit_id: 'audit-a' } as any;
+    const item = {
+      ...response.items[0],
+      reference_id: 'nc',
+      reference_type: 'AUDIT_NON_COMPLIANCE',
+      audit_id: 'audit-a',
+    } as any;
     expect(f.componentInstance.workArea(item)).toBe('/auditor/audits/audit-a/workspace');
-    router.url = '/crm/my-work'; item.reference_type = 'RENEWAL_FILING'; item.reference_id = 'filing-a';
+    router.url = '/crm/my-work';
+    item.reference_type = 'RENEWAL_FILING';
+    item.reference_id = 'filing-a';
     expect(f.componentInstance.workArea(item)).toBe('/crm/returns');
-    expect(f.componentInstance.workContext(item).filingId).toBe('filing-a'); f.destroy();
+    expect(f.componentInstance.workContext(item).filingId).toBe('filing-a');
+    f.destroy();
+  });
+  it('keeps a single client company visible when the task queue is empty', () => {
+    router.url = '/client/my-work';
+    const f = mount();
+    http
+      .expectOne((r) => r.url.endsWith('/tasks/workspace'))
+      .flush({
+        ...response,
+        items: [],
+        pagination: { page: 1, total: 0 },
+      });
+    f.detectChanges();
+    const company = f.nativeElement.querySelector('select[name=company]') as HTMLSelectElement;
+    expect(company.value).toBe('c');
+    expect(company.options.length).toBe(1);
+    expect(company.options[0].textContent).toContain('Example Company');
+    expect(f.componentInstance.visibleBranches).toEqual(response.branches);
+    f.destroy();
   });
   it('renders reconciled cards, selected context and next-step guidance', () => {
     const f = mount();
@@ -137,6 +164,12 @@ describe('My Work browser behavior', () => {
   it('fits desktop and mobile widths with readable next steps', async () => {
     const f = mount();
     http.expectOne((r) => r.url.endsWith('/tasks/workspace')).flush(response);
+    const shell = document.createElement('div');
+    shell.className = 'workspace-ui';
+    const main = document.createElement('main');
+    shell.append(main);
+    document.body.append(shell);
+    main.append(f.nativeElement);
     f.componentInstance.selected.set(response.items[0] as any);
     f.detectChanges();
     for (const [width, name] of [
@@ -146,11 +179,15 @@ describe('My Work browser behavior', () => {
       await browserPage.viewport(width, 2400);
       await f.whenStable();
       expect(f.nativeElement.querySelector('.work-page').scrollWidth).toBeLessThanOrEqual(width);
+      expect(
+        f.nativeElement.querySelector('input.workspace-search').getBoundingClientRect().height,
+      ).toBeLessThanOrEqual(56);
       await browserPage.screenshot({
         element: f.nativeElement,
         path: '../../../../../docs/reviews/2026-09-12/my-work-' + name + '.png',
       });
     }
     f.destroy();
+    shell.remove();
   });
 });
