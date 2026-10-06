@@ -60,8 +60,8 @@ export class LegitxAssistantService {
             : 'Follow up with the responsible reviewer and track the review outcome.'
           : branch
             ? task.status === 'REJECTED'
-              ? 'Read the reviewer remarks, correct the evidence and resubmit for review.'
-              : 'Open the compliance task, confirm the required evidence and submit it for review.'
+              ? 'Open the compliance task and read the reviewer remarks and required evidence.'
+              : 'Open the compliance task and review the required evidence and recorded status.'
             : 'Open the compliance task, review the gap with the responsible branch and track its submission.',
       route: branch ? '/branch/compliance/status' : '/client/compliance/status',
       queryParams: {
@@ -111,7 +111,7 @@ export class LegitxAssistantService {
                 generated.nextAction.trim()
               ) {
                 action.explanation = generated.explanation.trim().slice(0, 600);
-                action.nextAction = generated.nextAction.trim().slice(0, 600);
+                // Model output cannot introduce execution steps.
                 mode = 'AI';
               }
             }
@@ -130,6 +130,18 @@ export class LegitxAssistantService {
         assignedBranchesOnly: scope.allowedBranchIds !== 'ALL',
       },
       actions,
+      readOnly: true,
+      sources: [
+        {
+          label: 'Recorded data',
+          source: 'Compliance tasks',
+          period: { month, year },
+        },
+      ],
+      explanationLabel:
+        mode === 'AI' ? 'AI-assisted explanation' : 'Recorded data',
+      forecast: null,
+      assumptions: [],
       note: !actions.length
         ? 'No open compliance tasks were found for this selection.'
         : mode === 'AI'

@@ -114,7 +114,12 @@ export class ClientPayrollDocumentsService {
     };
   }
 
-  async downloadPayslip(user: ReqUser, runId: string, employeeCode: string) {
+  async downloadPayslip(
+    user: ReqUser,
+    runId: string,
+    employeeCode: string,
+    options: { resolveStoredPath?: (filePath: string) => string } = {},
+  ) {
     const clientId = await this.assertClientPayrollUser(user);
     const code = String(employeeCode || '').trim();
     if (!runId || !code) {
@@ -154,7 +159,11 @@ export class ClientPayrollDocumentsService {
     return {
       fileName: safeFileName(archive.fileName, `payslip_${code}.pdf`),
       fileType: archive.fileType || 'application/pdf',
-      buffer: fs.readFileSync(archive.filePath),
+      buffer: fs.readFileSync(
+        options.resolveStoredPath
+          ? options.resolveStoredPath(archive.filePath)
+          : archive.filePath,
+      ),
     };
   }
 
@@ -213,7 +222,15 @@ export class ClientPayrollDocumentsService {
     await archive.finalize();
   }
 
-  async downloadFnfDocument(user: ReqUser, fnfId: string, docType: string) {
+  async downloadFnfDocument(
+    user: ReqUser,
+    fnfId: string,
+    docType: string,
+    options: {
+      storedOnly?: boolean;
+      resolveStoredPath?: (filePath: string) => string;
+    } = {},
+  ) {
     const clientId = await this.assertClientPayrollUser(user);
     const type = String(docType || '').toUpperCase();
     if (!isClientFnfDocType(type)) {
@@ -248,10 +265,16 @@ export class ClientPayrollDocumentsService {
       return {
         fileName: safeFileName(file.fileName || file.docName, `${type}.pdf`),
         fileType: file.mimeType || 'application/pdf',
-        buffer: fs.readFileSync(file.filePath),
+        buffer: fs.readFileSync(
+          options.resolveStoredPath
+            ? options.resolveStoredPath(file.filePath)
+            : file.filePath,
+        ),
       };
     }
 
+    if (options.storedOnly)
+      throw new NotFoundException('Stored document is not available');
     const rendered = await this.fnfService.renderFnfDocumentPdf(fnfId, type);
     return {
       fileName: safeFileName(rendered.filename, `${type}.pdf`),

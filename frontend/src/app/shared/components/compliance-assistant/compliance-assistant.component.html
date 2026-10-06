@@ -1,0 +1,273 @@
+<section class="assist-shell" aria-label="Compliance assistant">
+  <header class="assist-header">
+    <div class="assist-brand">
+      <span class="assist-mark" aria-hidden="true"
+        ><svg viewBox="0 0 24 24" fill="none">
+          <path
+            d="m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4L12 3Z"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linejoin="round"
+          /></svg
+      ></span>
+      <div>
+        <span class="assist-eyebrow">STATCO PULSE</span>
+        <h2>Assist</h2>
+      </div>
+    </div>
+    <div class="assist-header-actions">
+      <span class="assist-readonly"><span aria-hidden="true"></span>Read-only</span>
+      <button
+        type="button"
+        class="assist-button assist-button-secondary"
+        [disabled]="loading()"
+        (click)="generate()"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        {{ loading() ? 'Reviewing gaps…' : result() ? 'Refresh action plan' : 'Explain my gaps' }}
+      </button>
+    </div>
+  </header>
+  <div class="assist-intro">
+    <div class="assist-context">
+      <span>{{ portal === 'branch' ? 'My allowed branches' : 'My company' }}</span
+      ><span>{{ selectedPeriod }}</span>
+    </div>
+  </div>
+  @if (!documentResult() && !result()) {
+    <div class="assist-welcome">
+      <div class="assist-orbit" aria-hidden="true">
+        <span></span
+        ><svg viewBox="0 0 40 40" fill="none">
+          <path
+            d="M6 21h7l4-10 6 20 4-10h7"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <h3>Your company.<br /><em>A little more clarity.</em></h3>
+      <p>Bring the right records into view, or find out what needs your attention.</p>
+      <div class="assist-starters">
+        <button class="assist-starter" type="button" (click)="useExample('Show PF challan')">
+          <span class="assist-starter-number">01</span><strong>Find a document</strong
+          ><span>Challans, payslips & company records</span><i aria-hidden="true">↗</i>
+        </button>
+        <button class="assist-starter" type="button" (click)="generate()" [disabled]="loading()">
+          <span class="assist-starter-number">02</span><strong>Understand the gaps</strong
+          ><span>Review this month’s compliance tasks</span><i aria-hidden="true">↗</i>
+        </button>
+        <button class="assist-starter" type="button" (click)="useExample('Show audit report')">
+          <span class="assist-starter-number">03</span><strong>Explore audit records</strong
+          ><span>Reports and published evidence</span><i aria-hidden="true">↗</i>
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (documentError()) {
+    <p role="alert" class="assist-error">{{ documentError() }}</p>
+  }
+  @if (documentResult(); as found) {
+    <section class="assist-results" aria-label="Document results">
+      <div class="assist-section-heading">
+        <h3>Document results</h3>
+        <span class="assist-source">{{ found.sourceLabel }}</span>
+      </div>
+      <p class="assist-result-message" role="status">{{ found.message }}</p>
+      @for (doc of found.documents; track doc.kind + doc.id + doc.employeeCode) {
+        <article class="assist-document">
+          <span class="assist-file-icon" aria-hidden="true"
+            ><svg viewBox="0 0 24 24" fill="none">
+              <path
+                d="M7 3h7l4 4v14H7V3Z"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M14 3v5h4M10 12h5m-5 4h5"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+              /></svg
+          ></span>
+          <div class="assist-document-body">
+            <h4>{{ doc.title }}</h4>
+            <p>{{ doc.owner || 'Company document' }}</p>
+            <div class="assist-meta">
+              <span>{{ displayPeriod(doc.period) }}</span>
+              @if (doc.branchId) {
+                <span class="assist-branch">Branch {{ doc.branchId }}</span>
+              }
+            </div>
+          </div>
+          <span
+            class="assist-status"
+            [class.is-approved]="doc.status === 'APPROVED'"
+            [class.is-alert]="doc.status === 'REJECTED' || doc.status === 'EXPIRED'"
+            >{{ displayStatus(doc.status) }}</span
+          >
+          <button
+            type="button"
+            class="assist-button assist-button-secondary assist-open"
+            (click)="openDocument(doc)"
+          >
+            Open document<span aria-hidden="true">↗</span>
+          </button>
+        </article>
+      }
+      <details class="assist-answer-details">
+        <summary>Source and coverage</summary>
+        <p>{{ found.coverage }}</p>
+      </details>
+    </section>
+  }
+
+  @if (error()) {
+    <p role="alert" class="assist-error">{{ error() }} Use the button above to retry.</p>
+  }
+  @if (result(); as plan) {
+    <section class="assist-plan" aria-label="Compliance review">
+      <div class="assist-section-heading">
+        <div>
+          <span class="assist-eyebrow">YOUR COMPLIANCE REVIEW</span>
+          <h3>What needs attention</h3>
+        </div>
+        <a [routerLink]="statusRoute" [queryParams]="statusQueryParams"
+          >View compliance status <span aria-hidden="true">↗</span></a
+        >
+      </div>
+      <div class="assist-plan-basis">
+        <span class="assist-source">{{ plan.explanationLabel || 'Recorded data' }}</span
+        ><span>Compliance tasks · {{ selectedPeriod }}</span>
+      </div>
+      @for (action of plan.actions; track action.id) {
+        <article class="assist-task">
+          <div class="assist-task-heading">
+            <h4>{{ action.title }}</h4>
+            <span
+              class="assist-status"
+              [class.is-alert]="action.status === 'OVERDUE' || action.status === 'REJECTED'"
+              >{{ displayStatus(action.status) }}</span
+            >
+          </div>
+          <div class="assist-meta">
+            <span>{{ action.branchName || 'Selected company' }}</span>
+            @if (action.dueDate) {
+              <span>Due {{ displayPeriod(action.dueDate) }}</span>
+            }
+          </div>
+          <p class="assist-task-explanation">{{ action.explanation }}</p>
+          <p class="assist-next"><strong>Next step</strong>{{ action.nextAction }}</p>
+          <a class="assist-task-link" [routerLink]="action.route" [queryParams]="action.queryParams"
+            >Open compliance tasks <span aria-hidden="true">→</span></a
+          >
+        </article>
+      } @empty {
+        <div class="assist-empty">
+          <p>No open tasks were found.</p>
+          <span
+            >Check the selected month and branch, then review Compliance Status. This does not
+            confirm that every compliance obligation is complete.</span
+          >
+        </div>
+      }
+      <details class="assist-answer-details">
+        <summary>About this answer</summary>
+        <p>{{ plan.note }}</p>
+        <p>{{ plan.coverage }}</p>
+        <p>Source: compliance tasks for the selected period. No forecast is included.</p>
+      </details>
+    </section>
+  }
+  <div class="assist-dock">
+    <form (ngSubmit)="findDocuments()">
+      <label class="assist-sr-only" for="assist-document-request"
+        >Ask Assist to find a document</label
+      >
+      <div class="assist-composer">
+        <input
+          id="assist-document-request"
+          name="documentRequest"
+          [(ngModel)]="documentRequest"
+          maxlength="400"
+          placeholder="Ask Assist to find a document…"
+          [disabled]="documentLoading()"
+        />
+        @if (voiceSupported) {
+          <button
+            type="button"
+            class="assist-mic"
+            [class.is-listening]="listening()"
+            [disabled]="documentLoading() || listening()"
+            (click)="startVoice()"
+            [attr.aria-label]="listening() ? 'Listening to your request' : 'Use voice input'"
+            [title]="listening() ? 'Listening…' : 'Use voice input'"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+              <rect
+                x="9"
+                y="3"
+                width="6"
+                height="11"
+                rx="3"
+                stroke="currentColor"
+                stroke-width="1.7"
+              />
+              <path
+                d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v3m-3 0h6"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        }
+        <button
+          type="submit"
+          class="assist-send"
+          [disabled]="documentLoading() || !documentRequest.trim()"
+          [attr.aria-label]="documentLoading() ? 'Finding document' : 'Find and show'"
+          title="Find and show"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 19V5m-6 6 6-6 6 6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </form>
+    <div class="assist-dock-note">
+      <span role="status">{{
+        listening()
+          ? 'Listening… Review your words before sending.'
+          : documentLoading()
+            ? 'Finding permitted documents…'
+            : 'Only records within your permissions. Review voice input before sending.'
+      }}</span>
+      <details class="assist-search-tips">
+        <summary>Search tips</summary>
+        <p>
+          Use a full employee name. Name a month to change the selected period. Audit evidence needs
+          the non-compliance ID from the audit workspace.
+        </p>
+      </details>
+    </div>
+  </div>
+</section>

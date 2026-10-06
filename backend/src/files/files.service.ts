@@ -283,6 +283,12 @@ export class FilesService {
     },
     {
       table: 'branch_registrations',
+      pathColumn: 'document_path',
+      clientColumn: 'client_id',
+      branchColumn: 'branch_id',
+    },
+    {
+      table: 'branch_registrations',
       pathColumn: 'document_url',
       clientColumn: 'client_id',
       branchColumn: 'branch_id',
