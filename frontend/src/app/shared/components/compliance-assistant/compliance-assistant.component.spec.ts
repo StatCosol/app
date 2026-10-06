@@ -89,7 +89,8 @@ describe('Assist document and voice UI', () => {
       }
       abort() {}
     }
-    vi.stubGlobal('window', { SpeechRecognition: Recognition });
+    if (typeof window === 'undefined') vi.stubGlobal('window', globalThis);
+    vi.stubGlobal('SpeechRecognition', Recognition);
     const { component, http } = setup();
     http.post.mockReturnValue(of({ ...found, status: 'UNAVAILABLE', documents: [] }));
     component.startVoice();
