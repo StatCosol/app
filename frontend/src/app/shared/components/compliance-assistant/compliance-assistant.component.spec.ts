@@ -79,13 +79,13 @@ describe('Assist document and voice UI', () => {
     expect(files.open).not.toHaveBeenCalled();
   });
   it('captures voice as editable text and uses the same request path after review', () => {
-    let recognition: any;
+    const recognitions: any[] = [];
     class Recognition {
       onresult: any;
       onend: any;
       onerror: any;
       start() {
-        recognition = this;
+        recognitions.push(this);
       }
       abort() {}
     }
@@ -93,6 +93,7 @@ describe('Assist document and voice UI', () => {
     const { component, http } = setup();
     http.post.mockReturnValue(of({ ...found, status: 'UNAVAILABLE', documents: [] }));
     component.startVoice();
+    const recognition = recognitions[0];
     recognition.onresult({ results: [[{ transcript: 'Show PF challan for August' }]] });
     recognition.onend();
     expect(component.documentRequest).toBe('Show PF challan for August');
