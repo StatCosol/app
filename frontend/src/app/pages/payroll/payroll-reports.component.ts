@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -195,6 +195,7 @@ export class PayrollReportsComponent implements OnInit, OnDestroy {
   ];
 
   downloading: Record<string, boolean> = {};
+  private readonly cdr = inject(ChangeDetectorRef);
 
   constructor(
     private http: HttpClient,
@@ -209,15 +210,18 @@ export class PayrollReportsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           this.clients = rows || [];
+          this.cdr.markForCheck();
         },
         error: () => {
           this.clients = [];
+          this.cdr.markForCheck();
         },
       });
   }
 
   downloadReport(report: ReportCard): void {
     this.downloading[report.key] = true;
+    this.cdr.markForCheck();
 
     this.http
       .get(report.endpoint, {
@@ -229,6 +233,7 @@ export class PayrollReportsComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.downloading[report.key] = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({
