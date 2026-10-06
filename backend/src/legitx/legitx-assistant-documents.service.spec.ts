@@ -114,7 +114,7 @@ describe('Assist read-only document intent', () => {
   ])(
     'extracts employee document period from %s',
     (request, kind, month, year) => {
-      expect(documentIntent(request as string)).toMatchObject({
+      expect(documentIntent(request)).toMatchObject({
         kind,
         employeeName: 'Ravi Kumar',
         month,
