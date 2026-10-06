@@ -12,7 +12,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { OperationalScopeService } from '../access/operational-scope.service';
 
 type TaskRole =
@@ -44,6 +44,7 @@ export class TaskCenterController {
   constructor(
     private readonly taskCenterService: TaskCenterService,
     private readonly accessScope: OperationalScopeService,
+    private readonly filterScope: AccessScopeService,
   ) {}
 
   @Get('workspace')
@@ -52,10 +53,31 @@ export class TaskCenterController {
   })
   async workspace(@CurrentUser() user: ReqUser, @Query() q: WorkQueryDto) {
     await this.resolveScope(user, q);
-    return this.taskCenterService.getWorkspace(
+    const result = await this.taskCenterService.getWorkspace(
       await this.resolveScope(user, {}),
       q,
     );
+    if (!['CLIENT', 'BRANCH_DESK'].includes(user.roleCode || '')) return result;
+    const clients = await this.filterScope.listAllowedClients(user);
+    const branches = await Promise.all(
+      clients.map(async (client) =>
+        (await this.filterScope.listAllowedBranches(user, client.id)).map(
+          (branch) => ({
+            id: branch.id,
+            name: branch.branchName,
+            clientId: client.id,
+          }),
+        ),
+      ),
+    );
+    return {
+      ...result,
+      companies: clients.map((client) => ({
+        id: client.id,
+        name: client.clientName,
+      })),
+      branches: branches.flat(),
+    };
   }
 
   @ApiOperation({ summary: 'Get task summary for logged-in user' })

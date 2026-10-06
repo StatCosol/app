@@ -15,6 +15,7 @@ describe('My Work request boundaries', () => {
     const controller = new TaskCenterController(
       { getWorkspace } as any,
       { resolve } as any,
+      { listAllowedClients: jest.fn().mockResolvedValue([]) } as any,
     );
     const user = { id: 'u', roleCode: 'BRANCH_DESK' } as any;
     await controller.workspace(user, { branchId: 'b' });
@@ -33,6 +34,7 @@ describe('My Work request boundaries', () => {
     const controller = new TaskCenterController(
       { getWorkspace } as any,
       { resolve: jest.fn().mockRejectedValue(new Error('Forbidden')) } as any,
+      {} as any,
     );
     await expect(
       controller.workspace({ id: 'u', roleCode: 'CRM' } as any, {

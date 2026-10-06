@@ -142,6 +142,12 @@ export class MyWorkComponent implements OnInit, OnDestroy {
         next: (r) => {
           this.result.set(r);
           this.companies = r.companies;
+          if (
+            ['client', 'branch'].includes(this.portal) &&
+            !this.company &&
+            this.companies.length === 1
+          )
+            this.company = this.companies[0].id;
           this.branches = r.branches;
           this.modules = r.modules;
           this.page = r.pagination.page;

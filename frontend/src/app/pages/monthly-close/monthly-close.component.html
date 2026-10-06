@@ -7,7 +7,7 @@
 
   <form class="filters" (ngSubmit)="load()">
     <label>Company<select name="company" [(ngModel)]="clientId" (ngModelChange)="changeClient()" [disabled]="optionsBusy()">
-      <option value="">Choose company</option>@for (client of clients(); track client.id) { <option [value]="client.id">{{ client.clientName }}</option> }
+      @if (clients().length !== 1) { <option value="">Choose company</option> }@for (client of clients(); track client.id) { <option [value]="client.id">{{ client.clientName }}</option> }
     </select></label>
     <label>Branch<select name="branch" [(ngModel)]="branchId" (ngModelChange)="invalidate()" [disabled]="optionsBusy() || !clientId">
       <option value="">Choose branch</option>@for (branch of branches(); track branch.id) { <option [value]="branch.id">{{ branch.branchName }}</option> }

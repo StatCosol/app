@@ -10,7 +10,9 @@
   <form class="filters" (ngSubmit)="update()" aria-label="Filter assigned work">
     <label
       >Company<select name="company" [(ngModel)]="company" (ngModelChange)="companyChanged()">
-        <option value="">All permitted companies</option>
+        @if (!(['client', 'branch'].includes(portal) && companies.length === 1)) {
+          <option value="">All permitted companies</option>
+        }
         @for (c of companies; track c.id) {
           <option [value]="c.id">{{ c.name || 'Company' }}</option>
         }
@@ -36,7 +38,8 @@
       </select></label
     >
     <label class="search"
-      >Find a task<input class="workspace-search"
+      >Find a task<input
+        class="workspace-search"
         name="search"
         [(ngModel)]="search"
         placeholder="Search task titles"
@@ -48,8 +51,12 @@
     </div>
   </form>
   <p class="scope-note">
-    Options show companies and branches with tasks in your permitted queue. Leave the due month
-    blank to include older and undated work.
+    @if (['client', 'branch'].includes(portal)) {
+      Options show your permitted companies and branches, including those with no tasks.
+    } @else {
+      Options show companies and branches with tasks in your permitted queue.
+    }
+    Leave the due month blank to include older and undated work.
   </p>
   @if (loading()) {
     <div class="notice" role="status">Loading your work…</div>
@@ -126,11 +133,7 @@
                 <p class="description">{{ item.description }}</p>
               }
               @if (workArea(item); as area) {
-                <a
-                  [routerLink]="area"
-                  [queryParams]="workContext(item)"
-                  >Open work area →</a
-                >
+                <a [routerLink]="area" [queryParams]="workContext(item)">Open work area →</a>
               }
               <small
                 >Task closure and source approval are separate. Confirm approval or verification in

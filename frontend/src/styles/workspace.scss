@@ -122,3 +122,8 @@
 .workspace-ui .workforce-metric { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
 .workspace-ui .bs-surface .btn-primary { background: #116653; border-color: #116653; color: white; }
 .workspace-ui .bs-surface .btn-primary:hover { background: #0b503f; border-color: #0b503f; }
+
+/* Column labels must not turn the horizontal search flex basis into input height. */
+.workspace-ui main .filters > label > input.workspace-search {
+ flex: 0 0 auto; width: 100%; max-width: none;
+}
