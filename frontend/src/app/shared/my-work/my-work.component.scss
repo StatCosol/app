@@ -278,3 +278,7 @@ h3 {
     width: 100%;
   }
 }
+
+.company-context { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; }
+.company-context span { font-size: 13px; font-weight: 650; }
+.company-context strong { overflow-wrap: anywhere; }

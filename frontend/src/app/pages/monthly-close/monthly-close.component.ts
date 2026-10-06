@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
 import { CloseArea, CloseBranch, CloseClient, CloseStage, MonthlyCloseResponse, MonthlyCloseService } from '../../core/monthly-close.service';
@@ -17,6 +17,7 @@ import { CloseArea, CloseBranch, CloseClient, CloseStage, MonthlyCloseResponse, 
 export class MonthlyCloseComponent implements OnInit {
   private readonly service = inject(MonthlyCloseService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private request?: Subscription;
   private branchRequest?: Subscription;
@@ -34,6 +35,8 @@ export class MonthlyCloseComponent implements OnInit {
   readonly stateLabels = { REVIEW: 'Needs action', RECORDED_CLEAR: 'Recorded checks clear', UNKNOWN: 'Needs checking', UNAVAILABLE: 'Check unavailable' };
   readonly portal = this.router.url.split('/')[1];
 
+  get isClientPortal() { return ['client', 'branch'].includes(this.portal); }
+  get companyName() { return this.clients().find(c => c.id === this.clientId)?.clientName || (this.optionsBusy() ? 'Loading company…' : 'No company available'); }
   ngOnInit() { this.loadClients(); }
 
   loadClients() {
@@ -61,7 +64,9 @@ export class MonthlyCloseComponent implements OnInit {
       next: ({ branches }) => {
         this.branches.set(branches);
         this.optionsBusy.set(false);
-        if (branches.length === 1) { this.branchId = branches[0].id; this.load(); }
+        const requestedBranch = this.route.snapshot.queryParamMap.get('branchId');
+        const initialBranch = branches.find(branch => branch.id === requestedBranch) || (branches.length === 1 ? branches[0] : undefined);
+        if (initialBranch) { this.branchId = initialBranch.id; this.load(); }
       },
       error: () => { this.optionsBusy.set(false); this.error.set('Could not load branches. Choose the company again to retry.'); },
     });

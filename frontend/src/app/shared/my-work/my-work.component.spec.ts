@@ -97,10 +97,16 @@ describe('My Work browser behavior', () => {
         pagination: { page: 1, total: 0 },
       });
     f.detectChanges();
-    const company = f.nativeElement.querySelector('select[name=company]') as HTMLSelectElement;
-    expect(company.value).toBe('c');
-    expect(company.options.length).toBe(1);
-    expect(company.options[0].textContent).toContain('Example Company');
+    expect(f.nativeElement.querySelector('select[name=company]')).toBeNull();
+    expect(f.nativeElement.querySelector('.company-context').textContent).toContain('Example Company');
+    expect(f.nativeElement.querySelector('h1').textContent).toContain('Action Queue');
+    expect(router.createUrlTree).toHaveBeenCalledWith(
+      ['/', 'client', 'monthly-close'],
+      expect.objectContaining({ queryParams: { branchId: 'b' } }),
+    );
+    expect(f.componentInstance.company).toBe('c');
+    f.componentInstance.reset();
+    expect(f.componentInstance.company).toBe('c');
     expect(f.componentInstance.visibleBranches).toEqual(response.branches);
     f.destroy();
   });
