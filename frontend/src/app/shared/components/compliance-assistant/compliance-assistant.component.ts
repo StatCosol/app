@@ -184,8 +184,6 @@ export class ComplianceAssistantComponent implements OnChanges, OnDestroy {
         next: (found) => {
           this.documentResult.set(found);
           this.documentLoading.set(false);
-          if (found.status === 'EXACT' && found.documents.length === 1)
-            this.openDocument(found.documents[0]);
         },
         error: () => {
           this.documentLoading.set(false);

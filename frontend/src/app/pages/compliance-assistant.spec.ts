@@ -127,11 +127,13 @@ describe('Assist rendered document UI', () => {
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toContain('Recorded PF evidence');
       expect(fixture.nativeElement.textContent).toContain('Recorded data');
-      expect(opened.length).toBe(status === 'EXACT' ? 1 : 0);
+      expect(opened.length).toBe(0);
       const view = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
         (button: any) => button.textContent.includes('Open document'),
       ) as HTMLButtonElement;
+      expect(view).toBeDefined();
       view.click();
+      expect(opened.length).toBe(1);
       expect(opened.at(-1)).toContain('branchId=branch-two&contractorId=contractor');
       http.verify();
     },

@@ -33,14 +33,20 @@ const found = {
 
 describe('Assist document and voice UI', () => {
   afterEach(() => vi.unstubAllGlobals());
-  it('opens an exact result through the authenticated existing viewer without a write call', () => {
+  it('waits for a user click after an asynchronous exact result before opening the viewer', () => {
     const { component, http, files } = setup();
-    http.post.mockReturnValue(of(found));
+    const response = new Subject<any>();
+    http.post.mockReturnValue(response);
     component.findDocuments();
     expect(http.post).toHaveBeenCalledWith(
       expect.stringContaining('/legitx/assistant/documents/find'),
       { request: "Show Ravi Kumar's last payslip", month: 8, year: 2026, branchId: 'branch' },
     );
+    expect(files.open).not.toHaveBeenCalled();
+    response.next(found);
+    expect(component.documentResult()).toEqual(found);
+    expect(files.open).not.toHaveBeenCalled();
+    component.openDocument(doc);
     expect(files.open).toHaveBeenCalledWith(
       expect.stringContaining('branchId=branch&employeeCode=EMP+1'),
       'Published payslip',
