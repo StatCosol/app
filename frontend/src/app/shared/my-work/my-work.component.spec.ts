@@ -97,11 +97,47 @@ describe('My Work browser behavior', () => {
         pagination: { page: 1, total: 0 },
       });
     f.detectChanges();
-    const company = f.nativeElement.querySelector('select[name=company]') as HTMLSelectElement;
-    expect(company.value).toBe('c');
-    expect(company.options.length).toBe(1);
-    expect(company.options[0].textContent).toContain('Example Company');
+    expect(f.nativeElement.querySelector('select[name=company]')).toBeNull();
+    expect(f.nativeElement.querySelector('.company-context').textContent).toContain('Example Company');
+    expect(f.nativeElement.querySelector('h1').textContent).toContain('Action Queue');
+    expect(router.createUrlTree).toHaveBeenCalledWith(
+      ['/', 'client', 'monthly-close'],
+      expect.objectContaining({ queryParams: { branchId: 'b' } }),
+    );
+    expect(f.componentInstance.company).toBe('c');
+    f.componentInstance.reset();
+    expect(f.componentInstance.company).toBe('c');
     expect(f.componentInstance.visibleBranches).toEqual(response.branches);
+    f.destroy();
+  });
+  it.each(['client', 'branch'])('ignores stale company URLs and recovers in the %s portal', (portal) => {
+    router.url = '/' + portal + '/my-work';
+    params.next(convertToParamMap({ clientId: 'foreign-company' }));
+    const f = mount();
+    const initial = http.expectOne((r) => r.url.endsWith('/tasks/workspace'));
+    expect(initial.request.params.has('clientId')).toBe(false);
+    initial.flush({}, { status: 503, statusText: 'Unavailable' });
+    f.componentInstance.reset();
+    expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ clientId: null }),
+    }));
+    f.componentInstance.load();
+    const retry = http.expectOne((r) => r.url.endsWith('/tasks/workspace'));
+    expect(retry.request.params.has('clientId')).toBe(false);
+    retry.flush(response);
+    f.detectChanges();
+    expect(f.componentInstance.company).toBe('c');
+    expect(f.nativeElement.querySelector('.company-context').textContent).toContain('Example Company');
+    expect(f.nativeElement.querySelector('select[name=company]')).toBeNull();
+    f.destroy();
+  });
+  it('retains company URL filters for staff queues', () => {
+    router.url = '/crm/my-work';
+    params.next(convertToParamMap({ clientId: 'assigned-company' }));
+    const f = mount();
+    const request = http.expectOne((r) => r.url.endsWith('/tasks/workspace'));
+    expect(request.request.params.get('clientId')).toBe('assigned-company');
+    request.flush(response);
     f.destroy();
   });
   it('renders reconciled cards, selected context and next-step guidance', () => {
@@ -150,6 +186,7 @@ describe('My Work browser behavior', () => {
   it('resets branch and pagination when the company changes', () => {
     const f = mount();
     http.expectOne((r) => r.url.endsWith('/tasks/workspace')).flush(response);
+    router.url = '/crm/my-work';
     f.componentInstance.company = 'new';
     f.componentInstance.page = 4;
     f.componentInstance.companyChanged();

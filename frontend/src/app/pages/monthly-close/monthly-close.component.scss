@@ -37,3 +37,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .empty { padding: 36px; border: 1px dashed #b7c5cd; border-radius: 14px; text-align: center; margin: 24px 0; }
 @media (max-width: 900px) { .filters { grid-template-columns: 1fr 1fr; } .stages { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .close-workspace { padding: 16px; } .hero, .summary, .review-tools { flex-direction: column; align-items: stretch; } .hero, .stage { padding: 20px; } .filters { grid-template-columns: 1fr; } .stage-heading { flex-direction: column; } }
+
+.company-context { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; }
+.company-context span { font-size: 13px; font-weight: 650; }
+.company-context strong { overflow-wrap: anywhere; }

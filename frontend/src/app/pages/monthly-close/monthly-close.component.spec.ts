@@ -1,5 +1,5 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { provideRouter, Router, ActivatedRoute } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { MonthlyCloseComponent } from './monthly-close.component';
@@ -34,8 +34,28 @@ describe('MonthlyCloseComponent', () => {
   it('automatically reviews a sole accessible company and branch and displays the next action', () => {
     fixture.detectChanges();
     expect(service.get).toHaveBeenCalledWith('c1', 'b1', component.month);
+    expect(fixture.nativeElement.querySelector('select[name=company]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.company-context').textContent).toContain('Test company');
     expect(fixture.nativeElement.textContent).toContain('Vendor — Wage register');
     expect(fixture.nativeElement.textContent).toContain('Responsible: Document reviewer');
+  });
+  it('opens an allowed branch passed from the Action Queue', () => {
+    vi.spyOn(TestBed.inject(ActivatedRoute).snapshot.queryParamMap, 'get').mockReturnValue('b2');
+    service.branches.mockReturnValue(of({ branches: [
+      { id: 'b1', branchName: 'North' }, { id: 'b2', branchName: 'South' },
+    ] }));
+    fixture.detectChanges();
+    expect(component.branchId).toBe('b2');
+    expect(service.get).toHaveBeenCalledWith('c1', 'b2', component.month);
+  });
+  it('does not load an unassigned branch from the page URL', () => {
+    vi.spyOn(TestBed.inject(ActivatedRoute).snapshot.queryParamMap, 'get').mockReturnValue('foreign');
+    service.branches.mockReturnValue(of({ branches: [
+      { id: 'b1', branchName: 'North' }, { id: 'b2', branchName: 'South' },
+    ] }));
+    fixture.detectChanges();
+    expect(component.branchId).toBe('');
+    expect(service.get).not.toHaveBeenCalled();
   });
   it('clears results immediately when filters change', () => {
     fixture.detectChanges();

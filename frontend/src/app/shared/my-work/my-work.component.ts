@@ -48,7 +48,7 @@ export class MyWorkComponent implements OnInit, OnDestroy {
   ) {}
   ngOnInit() {
     this.routeRequest = this.route.queryParamMap.subscribe((p) => {
-      this.company = p.get('clientId') || '';
+      this.company = this.isClientPortal ? '' : p.get('clientId') || '';
       this.branch = p.get('branchId') || '';
       this.month = p.get('month') || '';
       this.module = p.get('module') || '';
@@ -62,6 +62,10 @@ export class MyWorkComponent implements OnInit, OnDestroy {
     this.request?.unsubscribe();
     this.routeRequest?.unsubscribe();
   }
+  get isClientPortal() { return ['client', 'branch'].includes(this.portal); }
+  get companyName() { return this.companies.find(c => c.id === this.company)?.name || 'Loading company…'; }
+  get pageTitle() { return this.isClientPortal ? 'Action Queue' : 'My Work'; }
+  get reviewContext() { return { branchId: this.branch || null }; }
   get visibleBranches() {
     return this.branches.filter((b) => !this.company || b.clientId === this.company);
   }
@@ -74,7 +78,7 @@ export class MyWorkComponent implements OnInit, OnDestroy {
         {
           branch:
             'Prepare submissions, correct returned evidence and keep your branches on schedule.',
-          client: 'Follow up with your branches and track outstanding submissions.',
+          client: 'Tasks assigned to your client account. Track deadlines and follow up with the responsible branch or team.',
           contractor: 'Complete your assigned submissions and correct returned evidence.',
           crm: 'Review submissions and coordinate the next step with each responsible owner.',
           auditor: 'Review assigned evidence and follow up on unresolved findings.',
@@ -90,7 +94,7 @@ export class MyWorkComponent implements OnInit, OnDestroy {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {
-        clientId: this.company || null,
+        clientId: this.isClientPortal ? null : this.company || null,
         branchId: this.branch || null,
         month: this.month || null,
         module: this.module || null,
@@ -109,7 +113,7 @@ export class MyWorkComponent implements OnInit, OnDestroy {
     this.update();
   }
   reset() {
-    this.company = '';
+    if (!this.isClientPortal) this.company = '';
     this.branch = '';
     this.month = '';
     this.module = '';
@@ -129,7 +133,7 @@ export class MyWorkComponent implements OnInit, OnDestroy {
     this.selected.set(null);
     let params = new HttpParams().set('view', this.view).set('page', this.page).set('limit', 25);
     for (const [k, v] of Object.entries({
-      clientId: this.company,
+      clientId: this.isClientPortal ? '' : this.company,
       branchId: this.branch,
       month: this.month,
       module: this.module,

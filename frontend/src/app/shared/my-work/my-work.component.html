@@ -2,12 +2,15 @@
   <header class="work-header">
     <div>
       <p class="eyebrow">Your priorities</p>
-      <h1>My Work</h1>
+      <h1>{{ pageTitle }}</h1>
       <p>{{ introduction }}</p>
     </div>
     <button type="button" (click)="load()" [disabled]="loading()">Refresh</button>
   </header>
   <form class="filters" (ngSubmit)="update()" aria-label="Filter assigned work">
+    @if (isClientPortal) {
+      <div class="company-context"><span>Company</span><strong>{{ companyName }}</strong></div>
+    } @else {
     <label
       >Company<select name="company" [(ngModel)]="company" (ngModelChange)="companyChanged()">
         @if (!(['client', 'branch'].includes(portal) && companies.length === 1)) {
@@ -18,6 +21,7 @@
         }
       </select></label
     >
+    }
     <label
       >Branch<select name="branch" [(ngModel)]="branch" (ngModelChange)="update()">
         <option value="">All permitted branches</option>
@@ -52,7 +56,7 @@
   </form>
   <p class="scope-note">
     @if (['client', 'branch'].includes(portal)) {
-      Options show your permitted companies and branches, including those with no tasks.
+      Choose an assigned branch or include all your permitted branches.
     } @else {
       Options show companies and branches with tasks in your permitted queue.
     }
@@ -93,6 +97,10 @@
           compliance requirements are complete.
         </p>
         <button type="button" (click)="reset()">Show all active work</button>
+        @if (isClientPortal) {
+          <p>Monthly Review checks the branch records directly, including attendance, payroll and evidence.</p>
+          <a [routerLink]="['/', portal, 'monthly-close']" [queryParams]="reviewContext">Open Monthly Review →</a>
+        }
       </div>
     }
     <div class="task-list">

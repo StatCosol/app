@@ -1,14 +1,18 @@
 <main class="close-workspace">
   <header class="hero">
     <div><p class="eyebrow">MONTHLY WORKSPACE</p><h1>Monthly Review</h1>
-      <p>Review attendance, payroll and evidence readiness. This review does not close or lock the month.</p></div>
+      <p>Check recorded attendance approvals, payroll approval and filing evidence for one branch and month.</p></div>
     <a [routerLink]="['/', portal, 'dashboard']">Back to dashboard <span aria-hidden="true">↗</span></a>
   </header>
 
   <form class="filters" (ngSubmit)="load()">
+    @if (isClientPortal) {
+      <div class="company-context"><span>Company</span><strong>{{ companyName }}</strong></div>
+    } @else {
     <label>Company<select name="company" [(ngModel)]="clientId" (ngModelChange)="changeClient()" [disabled]="optionsBusy()">
       @if (clients().length !== 1) { <option value="">Choose company</option> }@for (client of clients(); track client.id) { <option [value]="client.id">{{ client.clientName }}</option> }
     </select></label>
+    }
     <label>Branch<select name="branch" [(ngModel)]="branchId" (ngModelChange)="invalidate()" [disabled]="optionsBusy() || !clientId">
       <option value="">Choose branch</option>@for (branch of branches(); track branch.id) { <option [value]="branch.id">{{ branch.branchName }}</option> }
     </select></label>
@@ -16,12 +20,13 @@
     <button type="submit" [disabled]="busy() || optionsBusy() || !branchId">{{ busy() ? 'Checking…' : 'Review month' }}</button>
   </form>
 
+  <p class="scope-note">This review checks recorded data for your enabled services. It does not close the month, verify payments or certify compliance.</p>
   @if (error()) { <div role="alert" class="message error">{{ error() }} @if (!clients().length) { <button type="button" (click)="loadClients()">Retry</button> }</div> }
   @if (optionsBusy()) { <p role="status" class="message">Loading your available companies and branches…</p> }
   @if (busy()) { <p role="status" class="message">Checking recorded data for this branch and month…</p> }
   @if (!optionsBusy() && !busy() && !error() && !data()) {
     <div class="empty"><h2>{{ clients().length ? 'Start with a branch and month' : 'No companies available' }}</h2>
-      <p>{{ clients().length ? 'Review the next actions across your enabled services.' : 'Your account has no assigned companies for this workspace.' }}</p>
+      <p>{{ clients().length ? 'Choose a branch and reporting month to check recorded approvals, missing evidence and outstanding actions.' : 'Your account has no assigned companies for this workspace.' }}</p>
       @if (clientId && !branches().length) { <p>No active branches are available for this company under your access.</p> }
     </div>
   }
@@ -36,11 +41,11 @@
         <p>Updated {{ review.generatedAt | date:'medium' }}</p></div>
     </section>
     <p class="scope-note">{{ review.note }}</p>
-    @if (!review.stages.length) { <div class="empty"><h2>No closing checks enabled</h2><p>Your current service package has no modules included in this review.</p></div> }
+    @if (!review.stages.length) { <div class="empty"><h2>No review checks enabled</h2><p>Your current service package has no modules included in this review.</p></div> }
     @if (review.stages.length) {
       <div class="review-tools"><label class="search-label">Search visible actions<input class="workspace-search" type="search" [(ngModel)]="search" placeholder="Document, owner or issue"></label>
         <label class="checkbox"><input type="checkbox" [(ngModel)]="onlyOutstanding"> Only checks needing attention</label></div>
-      @if (!visibleStages().length) { <div class="empty"><h2>No outstanding checks in recorded data</h2><p>Show all checks to inspect coverage before making a closing decision.</p></div> }
+      @if (!visibleStages().length) { <div class="empty"><h2>No outstanding checks in recorded data</h2><p>Show all checks to inspect coverage before deciding whether further follow-up is needed.</p></div> }
       <div class="stages">
         @for (stage of visibleStages(); track stage.area) {
           <section class="stage" [attr.aria-label]="stage.title">
