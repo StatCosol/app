@@ -1,4 +1,3 @@
-import { ComplianceAssistantComponent } from '../../../shared/components/compliance-assistant/compliance-assistant.component';
 import {
   Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy
 } from '@angular/core';
@@ -17,7 +16,7 @@ import { FaceFailuresWidgetComponent } from '../../../shared/face-failures-widge
 @Component({
   selector: 'app-branch-dashboard',
   standalone: true,
-  imports: [ComplianceAssistantComponent, CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
+  imports: [CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './branch-dashboard.component.html',
   styleUrls: ['./branch-dashboard.component.scss'],

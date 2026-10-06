@@ -2,12 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { By } from '@angular/platform-browser';
 import { vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { BranchDashboardComponent } from './branch-dashboard.component';
 import { AuthService } from '../../../core/auth.service';
-import { ComplianceAssistantComponent } from '../../../shared/components/compliance-assistant/compliance-assistant.component';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -53,14 +51,12 @@ describe('Branch dashboard layout', () => {
       const host = fixture.nativeElement as HTMLElement;
       const banner = host.querySelector('a[href="/branch/monthly-close"]')!.parentElement!;
       const hero = host.querySelector('.dash-hero')!;
-      const assistant = host.querySelector('app-compliance-assistant section')!;
+      expect(host.querySelector('app-compliance-assistant')).toBeNull();
       const checkLayout = () => {
         expect(
           hero.getBoundingClientRect().top - banner.getBoundingClientRect().bottom,
         ).toBeGreaterThanOrEqual(16);
-        expect(banner.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-          assistant.getBoundingClientRect().bottom,
-        );
+
         expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width + 1);
         const controls = Array.from(
           host.querySelectorAll(
@@ -94,36 +90,6 @@ describe('Branch dashboard layout', () => {
         await page.screenshot({
           path: `../../../../../../docs/reviews/2026-09-29/branch-dashboard-spacing-${width}.png`,
         });
-      c.assignedBranches = ['a', 'b'];
-      fixture.changeDetectorRef.markForCheck();
-      const assistantComponent = fixture.debugElement.query(
-        By.directive(ComplianceAssistantComponent),
-      ).componentInstance as ComplianceAssistantComponent;
-      assistantComponent.result.set({
-        mode: 'RULES',
-        note: 'Sample action plan',
-        explanationLabel: 'Rule calculation',
-        sources: [{ label: 'Compliance tasks', source: 'compliance_tasks' }],
-        forecast: null,
-        coverage: 'Synthetic branch scope',
-        generatedAt: '',
-        actions: [
-          {
-            id: 'sample',
-            title: 'Review pending evidence',
-            status: 'OPEN',
-            branchName: 'Sample Branch',
-            dueDate: null,
-            explanation: 'Sample explanation of a pending compliance task.',
-            nextAction: 'Review the supporting documents.',
-            route: '/branch/tasks',
-            queryParams: {},
-          },
-        ],
-      });
-      fixture.detectChanges();
-      await fixture.whenStable();
-      checkLayout();
       fixture.destroy();
     },
   );
