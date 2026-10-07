@@ -439,7 +439,8 @@ export class AuditListingService {
       qb.andWhere('a.periodYear = :yy', { yy: Number(q.year) });
     }
 
-    qb.orderBy('a.periodYear', 'DESC').addOrderBy('a.createdAt', 'DESC')
+    qb.orderBy('a.periodYear', 'DESC')
+      .addOrderBy('a.createdAt', 'DESC')
       .addOrderBy('a.id', 'DESC');
 
     const rows = await qb.getMany();
