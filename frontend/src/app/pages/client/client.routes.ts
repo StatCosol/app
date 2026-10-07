@@ -1,3 +1,4 @@
+import { clientPortalGuard } from '../../core/client-portal.guard';
 import { Routes } from '@angular/router';
 import { roleGuard } from '../../core/role.guard';
 import { branchUserOnlyGuard } from '../../core/branch-user-only.guard';
@@ -143,7 +144,7 @@ export const CLIENT_ROUTES: Routes = [
   {
     path: 'client',
     loadComponent: ClientLayoutComponent,
-    canActivate: [roleGuard(['CLIENT'])],
+    canActivate: [roleGuard(['CLIENT']), clientPortalGuard],
     children: [
       { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'monthly-close', loadComponent: () => import('../monthly-close/monthly-close.component').then(m => m.MonthlyCloseComponent) },

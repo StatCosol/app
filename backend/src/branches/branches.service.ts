@@ -1,3 +1,4 @@
+import { generateSecurePassword } from '../common/secure-password';
 import {
   Injectable,
   NotFoundException,
@@ -156,9 +157,7 @@ export class BranchesService {
     }
 
     // Generate password if not provided: Br@<4-digit random><year>
-    const plainPassword =
-      password ||
-      `Br@${Math.floor(1000 + Math.random() * 9000)}${new Date().getFullYear()}`;
+    const plainPassword = password || generateSecurePassword();
 
     // An existing branch user may be responsible for more than one unit. Link
     // that same login to this branch instead of creating a second account.

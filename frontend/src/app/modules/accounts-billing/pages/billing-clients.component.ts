@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { AccountsBillingService } from '../services/accounts-billing.service';
@@ -9,6 +9,8 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
   standalone: true,
   imports: [FormsModule],
   template: `
+    @if (loadError) { <div role="alert" class="p-4 text-red-700">{{ loadError }} <button (click)="loadClients()">Retry</button></div> }
+    @if (loading) { <div role="status" class="p-4">Loading…</div> }
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">Billing Clients</h1>
@@ -61,7 +63,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
               </td>
             </tr>
 }
-            @if (!clients.length) {
+            @if (!loading && !loadError && !clients.length) {
 <tr>
               <td colspan="7" class="px-4 py-8 text-center text-slate-400">No billing clients found</td>
             </tr>
@@ -182,6 +184,9 @@ export class BillingClientsComponent implements OnInit {
   search = '';
   statusFilter = '';
   page = 1;
+  loadError = '';
+  loading = false;
+  private loadGeneration = 0;
   total = 0;
   totalPages = 0;
   showForm = false;
@@ -194,23 +199,30 @@ export class BillingClientsComponent implements OnInit {
 
   form: any = {};
 
-  constructor(private svc: AccountsBillingService) {}
+  constructor(private svc: AccountsBillingService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadClients();
   }
 
   loadClients(): void {
+    const generation = ++this.loadGeneration;
+    this.loading = true;
+    this.loadError = '';
+    this.clients = [];
     const params: Record<string, string> = { page: String(this.page) };
     if (this.search) params['search'] = this.search;
     if (this.statusFilter) params['status'] = this.statusFilter;
     this.svc.getClients(params).subscribe({
       next: (r) => {
+        if (generation !== this.loadGeneration) return;
+        this.loading = false;
+        this.cdr.markForCheck();
         this.clients = (r && r.data) || [];
         this.total = (r && r.total) || 0;
         this.totalPages = (r && r.totalPages) || 0;
       },
-      error: (e) => { console.error('[billing] clients load failed', e); this.clients = []; this.total = 0; this.totalPages = 0; },
+      error: () => { if (generation !== this.loadGeneration) return; this.loading = false; this.loadError = 'Unable to load clients. Please retry.'; this.clients = []; this.total = 0; this.totalPages = 0; this.cdr.markForCheck(); },
     });
   }
 

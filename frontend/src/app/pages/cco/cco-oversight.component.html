@@ -10,10 +10,10 @@
 }
 
   @if (error) {
-<div class="alert alert-error mb-4">{{ error }}</div>
+<div class="alert alert-error mb-4">{{ error }} <button type="button" (click)="loadOversight()">Retry</button></div>
 }
 
-  @if (!loading) {
+  @if (!loading && !error) {
 <div class="space-y-4">
     <section class="cards-grid">
       <article class="summary-card summary-card--danger">

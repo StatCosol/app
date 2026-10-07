@@ -77,6 +77,7 @@ describe('AuthService.login', () => {
     email: 'test@example.com',
     mobile: null,
     passwordHash: 'hash',
+    sessionVersion: 0,
     isActive: true,
     userType: null,
     clientId: null,

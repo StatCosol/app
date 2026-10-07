@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
 
 import { RouterModule } from '@angular/router';
-import { finalize, takeUntil, catchError } from 'rxjs/operators';
-import { forkJoin, Subject, of } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
+import { forkJoin, Subject } from 'rxjs';
 import {
   EssApiService,
   EssProfile,
@@ -58,7 +58,7 @@ interface TimelineEntry {
 }
 
       <!-- ===== KPI CARDS ===== -->
-      @if (!loading) {
+      @if (!loading && !errorMsg) {
 <div class="kpi-row">
         <!-- Latest Payslip -->
         <a routerLink="/ess/payslips" class="kpi kpi-indigo">
@@ -103,7 +103,7 @@ interface TimelineEntry {
 }
 
       <!-- ===== QUICK ACTIONS ===== -->
-      @if (!loading) {
+      @if (!loading && !errorMsg) {
 <div class="section">
         <h2 class="sec-title">Quick Actions</h2>
         <div class="qa-row">
@@ -128,7 +128,7 @@ interface TimelineEntry {
 }
 
       <!-- ===== RECENT ACTIVITY ===== -->
-      @if (!loading && timeline.length) {
+      @if (!loading && !errorMsg && timeline.length) {
 <div class="section">
         <h2 class="sec-title">Recent Activity</h2>
         <div class="timeline-card">
@@ -149,7 +149,7 @@ interface TimelineEntry {
 }
 
       <!-- ===== LEAVE TABLE ===== -->
-      @if (!loading && leaveBalances.length) {
+      @if (!loading && !errorMsg && leaveBalances.length) {
 <div class="section">
         <h2 class="sec-title">Leave Balances ({{ currentYear }})</h2>
         <div class="table-card">
@@ -365,13 +365,13 @@ export class EssDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loading = true;
     forkJoin({
-      profile: this.api.getProfile().pipe(catchError(() => of(null as EssProfile | null))),
-      statutory: this.api.getStatutory().pipe(catchError(() => of(null as StatutoryDetails | null))),
-      contributions: this.api.getContributions().pipe(catchError(() => of([] as ContributionRow[]))),
-      balances: this.api.getLeaveBalances().pipe(catchError(() => of([] as LeaveBalance[]))),
-      leaveApps: this.api.listLeaveApplications().pipe(catchError(() => of([] as LeaveApplication[]))),
-      nominations: this.api.listNominations().pipe(catchError(() => of([] as EssNomination[]))),
-      payslips: this.api.listPayslips().pipe(catchError(() => of([] as Payslip[]))),
+      profile: this.api.getProfile(),
+      statutory: this.api.getStatutory(),
+      contributions: this.api.getContributions(),
+      balances: this.api.getLeaveBalances(),
+      leaveApps: this.api.listLeaveApplications(),
+      nominations: this.api.listNominations(),
+      payslips: this.api.listPayslips(),
     })
       .pipe(
         takeUntil(this.destroy$),

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -10,6 +10,8 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
   standalone: true,
   imports: [FormsModule, RouterModule],
   template: `
+    @if (loadError) { <div role="alert" class="p-4 text-red-700">{{ loadError }} <button (click)="load()">Retry</button></div> }
+    @if (loading) { <div role="status" class="p-4">Loading…</div> }
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">Invoices</h1>
@@ -83,7 +85,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
               </td>
             </tr>
 }
-            @if (!invoices.length) {
+            @if (!loading && !loadError && !invoices.length) {
 <tr>
               <td colspan="9" class="px-4 py-8 text-center text-slate-400">No invoices found</td>
             </tr>
@@ -115,14 +117,21 @@ export class BillingInvoicesComponent implements OnInit {
   fromDate = '';
   toDate = '';
   page = 1;
+  loadError = '';
+  loading = false;
+  private loadGeneration = 0;
   total = 0;
   totalPages = 0;
 
-  constructor(private svc: AccountsBillingService) {}
+  constructor(private svc: AccountsBillingService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void { this.load(); }
 
   load(): void {
+    const generation = ++this.loadGeneration;
+    this.loading = true;
+    this.loadError = '';
+    this.invoices = [];
     const p: Record<string, string> = { page: String(this.page) };
     if (this.search) p['search'] = this.search;
     if (this.statusFilter) p['status'] = this.statusFilter;
@@ -131,11 +140,14 @@ export class BillingInvoicesComponent implements OnInit {
     if (this.toDate) p['toDate'] = this.toDate;
     this.svc.getInvoices(p).subscribe({
       next: (r) => {
+        if (generation !== this.loadGeneration) return;
+        this.loading = false;
+        this.cdr.markForCheck();
         this.invoices = (r && r.data) || [];
         this.total = (r && r.total) || 0;
         this.totalPages = (r && r.totalPages) || 0;
       },
-      error: (e) => { console.error('[billing] invoices load failed', e); this.invoices = []; this.total = 0; this.totalPages = 0; },
+      error: () => { if (generation !== this.loadGeneration) return; this.loading = false; this.loadError = 'Unable to load invoices. Please retry.'; this.invoices = []; this.total = 0; this.totalPages = 0; this.cdr.markForCheck(); },
     });
   }
 

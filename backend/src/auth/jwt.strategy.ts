@@ -15,6 +15,7 @@ type JwtPayload = {
    * therefore sits in mail logs, browser history and referrer headers.
    */
   type?: string;
+  sessionVersion?: number;
   roleId?: string;
   roleCode?: string; // ADMIN/CCO/...
   email?: string;
@@ -71,6 +72,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         'JwtStrategy',
       );
       throw new UnauthorizedException('User not found');
+    }
+
+    if ((payload.sessionVersion ?? 0) !== (user.sessionVersion ?? 0)) {
+      throw new UnauthorizedException('Session expired. Please sign in again.');
     }
 
     if (user.isActive === false) {

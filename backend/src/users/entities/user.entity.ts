@@ -50,6 +50,15 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   mobile: string | null;
 
+  @Column({
+    name: 'session_version',
+    type: 'integer',
+    default: 0,
+    update: false,
+    insert: false,
+  })
+  sessionVersion: number;
+
   @Column({ name: 'password_hash', select: false })
   passwordHash: string;
 

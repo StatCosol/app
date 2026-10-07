@@ -1,0 +1,59 @@
+// Disposable local PostgreSQL only. Never reads application connection settings.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { PGlite } = require('./auditxpert-test-db.cjs');
+const { DataSource } = require('typeorm');
+const { LeadEntity } = require('../dist/src/sales/entities/lead.entity');
+const { LeadActivityEntity } = require('../dist/src/sales/entities/lead-activity.entity');
+const { SalesService } = require('../dist/src/sales/sales.service');
+const { UsersService } = require('../dist/src/users/users.service');
+const { LeadActivityType, LeadActivityOutcome } = require('../dist/src/sales/enums/lead.enums');
+const id = '00000000-0000-4000-8000-000000000001';
+async function main() {
+  const db = new PGlite(); let ds;
+  try {
+    await db.ready;
+    ds = new DataSource({type: 'postgres', host: '127.0.0.1', port: Number(process.env.AUDITXPERT_TEST_PORT || 55439), username: process.env.AUDITXPERT_TEST_USER || 'monthly_close_test', password: process.env.AUDITXPERT_TEST_PASSWORD, database: db.name, entities: [LeadEntity, LeadActivityEntity], synchronize: true});
+    await ds.initialize();
+    await db.exec('CREATE TABLE users(id uuid PRIMARY KEY, password_hash text); CREATE TABLE refresh_tokens(user_id uuid, revoked_at timestamptz);');
+    const migration = fs.readFileSync(path.join(__dirname, '../migrations/20261007_password_sessions_sales_counter.sql'), 'utf8');
+    await db.exec(migration); await db.exec(migration);
+    await db.query('INSERT INTO users(id, password_hash) VALUES ($1, $2);', [id, 'old-fixture-hash']);
+    await db.query('INSERT INTO refresh_tokens(user_id) VALUES ($1)', [id]);
+    await db.query('UPDATE users SET password_hash = $2 WHERE id = $1', [id, 'new-fixture-hash']);
+    assert.equal((await db.query('SELECT session_version FROM users')).rows[0].session_version, 1);
+    assert.ok((await db.query('SELECT revoked_at FROM refresh_tokens')).rows[0].revoked_at);
+    await db.query('UPDATE refresh_tokens SET revoked_at = NULL');
+    await assert.rejects(db.transaction(async tx => { await tx.query('UPDATE users SET password_hash = $2 WHERE id = $1', [id, 'rolled-back-hash']); throw Error('rollback fixture'); }));
+    assert.equal((await db.query('SELECT session_version FROM users')).rows[0].session_version, 1);
+    assert.equal((await db.query('SELECT revoked_at FROM refresh_tokens')).rows[0].revoked_at, null);
+    const events = [];
+    const context = {usersRepo: {findOne: async () => ({id, roleId: 'role', email: 'fixture@example.invalid'}), save: async user => db.query('UPDATE users SET password_hash = $2 WHERE id = $1', [id, user.passwordHash])}, rolesRepo: {findOne: async () => ({code: 'SALES'})}, auditLogs: {log: async event => events.push(event)}};
+    await UsersService.prototype.adminResetPassword.call(context, id, id);
+    assert.equal(events[0].performedBy, id);
+    assert.equal((await db.query('SELECT session_version FROM users')).rows[0].session_version, 2);
+    assert.ok((await db.query('SELECT revoked_at FROM refresh_tokens')).rows[0].revoked_at);
+    const service = new SalesService(ds.getRepository(LeadEntity), ds.getRepository(LeadActivityEntity), ds);
+    const user = {id, userId: id, roleCode: 'CEO'};
+    const leads = await Promise.all(Array.from({length: 20}, (_, index) => service.create(user, {companyName: 'Synthetic ' + index})));
+    assert.equal(new Set(leads.map(lead => lead.leadNo)).size, 20);
+    const highest = leads.find(lead => lead.leadNo.endsWith('-0020'));
+    assert.ok(highest); await service.remove(user, highest.id);
+    const next = await service.create(user, {companyName: 'Synthetic after delete'});
+    assert.ok(next.leadNo.endsWith('-0021'));
+    await db.exec(migration);
+    assert.ok((await service.create(user, {companyName: 'Synthetic after migration retry'})).leadNo.endsWith('-0022'));
+    await db.exec("ALTER TABLE leads ADD CONSTRAINT synthetic_update_failure CHECK(stage <> 'QUALIFIED')");
+    const activity = {activityType: LeadActivityType.CALL, outcome: LeadActivityOutcome.INTERESTED};
+    await assert.rejects(service.addActivity(user, next.id, activity));
+    assert.equal(await ds.getRepository(LeadActivityEntity).count(), 0);
+    assert.equal((await service.findOne(user, next.id)).stage, 'NEW');
+    await db.exec('ALTER TABLE leads DROP CONSTRAINT synthetic_update_failure');
+    await service.addActivity(user, next.id, activity);
+    assert.equal(await ds.getRepository(LeadActivityEntity).count(), 1);
+    assert.equal((await service.findOne(user, next.id)).stage, 'QUALIFIED');
+    console.log('PASS: password reset revocation and rollback, acting admin, migration replay, 20 concurrent lead creates, deletion-safe numbering, atomic sales activity failure/retry.');
+  } finally { if(ds?.isInitialized) await ds.destroy(); await db.close(); }
+}
+main().catch(error => {console.error(error); process.exitCode = 1;});

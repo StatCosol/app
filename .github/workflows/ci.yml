@@ -98,6 +98,7 @@ jobs:
           AUDITXPERT_TEST_USER: postgres
           AUDITXPERT_TEST_PASSWORD: postgres
         run: |
+          node scripts/validate-recall-release.cjs
           node scripts/verify-audit-corrections.cjs
           node scripts/verify-audit-follow-ups.cjs
           node scripts/verify-invoice-delivery.cjs

@@ -1,3 +1,4 @@
+import { map } from 'rxjs/operators';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -109,6 +110,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   selectedTimeline: SharedTimelineEvent[] = [];
 
   selectedEvidenceFiles: File[] = [];
+  failedEvidenceTicketId: string | null = null;
   showEvidencePreview = false;
   evidencePreviewData: SharedFilePreviewData | null = null;
   private localPreviewUrl: string | null = null;
@@ -273,6 +275,11 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   }
 
   selectObservation(obs: ObservationRow): void {
+    if (this.uploading) return;
+    if (this.selectedObservation?.id !== obs.id) {
+      this.selectedEvidenceFiles = [];
+      this.failedEvidenceTicketId = null;
+    }
     this.selectedObservation = obs;
     this.selectedCases = this.cases
       .filter((c) => c.observationId === obs.id)
@@ -299,17 +306,23 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
           notes: '',
         };
 
-    this.selectedEvidenceFiles = [];
     this.loadCaseMessages();
   }
 
+  retryEvidence(): void {
+    if (this.uploading || !this.failedEvidenceTicketId) return;
+    this.uploadEvidenceFiles(this.failedEvidenceTicketId);
+  }
+
   onEvidenceSelected(event: Event): void {
+    if (this.uploading) return;
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files || []);
     this.selectedEvidenceFiles = files.slice(0, 5);
   }
 
   removeEvidence(index: number): void {
+    if (this.uploading) return;
     this.selectedEvidenceFiles.splice(index, 1);
     this.selectedEvidenceFiles = [...this.selectedEvidenceFiles];
   }
@@ -680,8 +693,9 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
     }
 
     this.uploading = true;
-    const uploads = this.selectedEvidenceFiles.map((f) =>
-      this.helpdeskService.uploadFile(ticketId, f).pipe(catchError(() => of(null))),
+    const attemptedFiles = [...this.selectedEvidenceFiles];
+    const uploads = attemptedFiles.map((f) =>
+      this.helpdeskService.uploadFile(ticketId, f).pipe(map(() => true), catchError(() => of(false))),
     );
 
     forkJoin(uploads)
@@ -689,13 +703,22 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.uploading = false;
-          this.selectedEvidenceFiles = [];
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
-        next: () => {
-          this.toast.success('Evidence files uploaded to closure case.');
+        next: (results) => {
+          this.selectedEvidenceFiles = attemptedFiles.filter((_, index) => !results[index]);
+          const failed = this.selectedEvidenceFiles.length;
+          this.failedEvidenceTicketId = failed ? ticketId : null;
+          if (failed) {
+            this.toast.error(failed === attemptedFiles.length
+              ? 'Evidence upload failed. Your selected files are retained for retry.'
+              : (attemptedFiles.length - failed) + ' uploaded; ' + failed + ' failed. Failed files are retained for retry.');
+          } else {
+            this.toast.success('Evidence files uploaded to closure case.');
+          }
+          this.uploading = false;
           this.refreshCases(this.selectedObservation?.id || '');
         },
       });

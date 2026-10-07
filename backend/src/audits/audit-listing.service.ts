@@ -104,7 +104,8 @@ export class AuditListingService {
       'status_rank',
     )
       .orderBy('status_rank', 'ASC')
-      .addOrderBy('a.createdAt', 'DESC');
+      .addOrderBy('a.createdAt', 'DESC')
+      .addOrderBy('a.id', 'DESC');
 
     const [rows, total] = await qb
       .skip((page - 1) * pageSize)
@@ -309,7 +310,8 @@ export class AuditListingService {
       'status_rank',
     )
       .orderBy('status_rank', 'ASC')
-      .addOrderBy('a.createdAt', 'DESC');
+      .addOrderBy('a.createdAt', 'DESC')
+      .addOrderBy('a.id', 'DESC');
 
     const [rows, total] = await qb
       .skip((page - 1) * pageSize)
@@ -386,7 +388,8 @@ export class AuditListingService {
     )
       .orderBy('status_rank', 'ASC')
       .addOrderBy('a.scheduledDate', 'ASC', 'NULLS LAST')
-      .addOrderBy('a.createdAt', 'DESC');
+      .addOrderBy('a.createdAt', 'DESC')
+      .addOrderBy('a.id', 'DESC');
 
     const [rows, total] = await qb
       .skip((page - 1) * pageSize)
@@ -436,7 +439,8 @@ export class AuditListingService {
       qb.andWhere('a.periodYear = :yy', { yy: Number(q.year) });
     }
 
-    qb.orderBy('a.periodYear', 'DESC').addOrderBy('a.createdAt', 'DESC');
+    qb.orderBy('a.periodYear', 'DESC').addOrderBy('a.createdAt', 'DESC')
+      .addOrderBy('a.id', 'DESC');
 
     const rows = await qb.getMany();
     return rows;

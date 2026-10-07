@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -62,10 +62,11 @@ import { PageHeaderComponent } from '../../shared/ui';
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        @if (error) { <div role="alert" class="p-4 text-red-700">{{ error }} <button (click)="reload(page)">Retry</button></div> }
         @if (loading) {
 <div class="p-6 text-center text-gray-500">Loading…</div>
 }
-        @if (!loading && items.length === 0) {
+        @if (!loading && !error && items.length === 0) {
 <div class="p-10 text-center text-gray-500">No leads found.</div>
 }
         @if (!loading && items.length > 0) {
@@ -112,7 +113,9 @@ import { PageHeaderComponent } from '../../shared/ui';
 }
         @if (total > items.length) {
 <div class="px-4 py-2 text-xs text-gray-500 border-t">
-          Showing {{ items.length }} of {{ total }}.
+          Showing {{ (page - 1) * pageSize + 1 }}–{{ (page - 1) * pageSize + items.length }} of {{ total }}.
+          <button (click)="reload(page - 1)" [disabled]="loading || page <= 1" class="px-3 py-2">Previous</button>
+          <button (click)="reload(page + 1)" [disabled]="loading || page * pageSize >= total" class="px-3 py-2">Next</button>
         </div>
 }
       </div>
@@ -125,27 +128,35 @@ export class SalesLeadsListComponent implements OnInit {
   priority: LeadPriority | null = null;
   search = '';
   items: Lead[] = [];
+  page = 1;
+  readonly pageSize = 200;
+  error = '';
+  private loadGeneration = 0;
   total = 0;
   loading = true;
 
   stages: LeadStage[] = ['NEW','CONTACTED','QUALIFIED','PROPOSAL_SENT','NEGOTIATION','AGREEMENT_SENT','WON','LOST','ON_HOLD'];
   priorities: LeadPriority[] = ['LOW','MEDIUM','HIGH','CRITICAL'];
 
-  constructor(private svc: SalesService) {}
+  constructor(private svc: SalesService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void { this.reload(); }
 
-  reload(): void {
+  reload(page = 1): void {
+    const generation = ++this.loadGeneration;
+    this.page = page;
+    this.error = '';
     this.loading = true;
     this.svc.list({
       bucket: this.bucket,
       stage: this.stage ?? undefined,
       priority: this.priority ?? undefined,
       search: this.search || undefined,
-      limit: 200,
+      limit: this.pageSize,
+      offset: (page - 1) * this.pageSize,
     }).subscribe({
-      next: (r) => { this.items = r.items; this.total = r.total; this.loading = false; },
-      error: () => { this.loading = false; this.items = []; this.total = 0; },
+      next: (r) => { if (generation !== this.loadGeneration) return; this.items = r.items; this.total = r.total; this.loading = false; this.cdr.markForCheck(); },
+      error: () => { if (generation !== this.loadGeneration) return; this.loading = false; this.error = 'Leads could not be loaded. Please retry.'; this.items = []; this.total = 0; this.cdr.markForCheck(); },
     });
   }
 
