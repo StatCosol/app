@@ -139,7 +139,7 @@ export class SalesService {
 
     const [items, total] = await this.leadRepo.findAndCount({
       where,
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       take: limit,
       skip: offset,
     });

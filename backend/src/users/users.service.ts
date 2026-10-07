@@ -245,15 +245,24 @@ export class UsersService implements OnModuleInit {
 
     const existing = await this.usersRepo.findOne({
       where: { email: adminEmail.toLowerCase() },
+      select: { id: true, passwordHash: true, isActive: true, deletedAt: true },
     });
     if (existing) {
       // Recovery path: when explicitly configured, rotate/reset the admin password.
       if (explicitPass) {
-        const passwordHash = await bcrypt.hash(explicitPass, 12);
-        await this.usersRepo.update(
-          { id: existing.id },
-          { passwordHash, isActive: true, deletedAt: null },
+        const passwordMatches = await bcrypt.compare(
+          explicitPass,
+          existing.passwordHash,
         );
+        const recovery: Partial<UserEntity> = {
+          isActive: true,
+          deletedAt: null,
+        };
+        if (!passwordMatches)
+          recovery.passwordHash = await bcrypt.hash(explicitPass, 12);
+        if (!passwordMatches || !existing.isActive || existing.deletedAt) {
+          await this.usersRepo.update({ id: existing.id }, recovery);
+        }
       }
       return;
     }

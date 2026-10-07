@@ -30,6 +30,16 @@ describe('Release audit regressions', () => {
     expect(component.selectedEvidenceFiles).toEqual([]);
     expect(component.failedEvidenceTicketId).toBeNull();
   });
+  it('routes the primary closure button to failed-file retry without posting again', () => {
+    const component: any = {saving: false, uploading: false, failedEvidenceTicketId: 'ticket', retryEvidence: vi.fn(), helpdeskService: {postMessage: vi.fn(), createTicket: vi.fn()}};
+    BranchAuditObservationsComponent.prototype.submitClosureResponse.call(component);
+    expect(component.retryEvidence).toHaveBeenCalledTimes(1);
+    expect(component.helpdeskService.postMessage).not.toHaveBeenCalled();
+    expect(component.helpdeskService.createTicket).not.toHaveBeenCalled();
+    component.uploading = true;
+    BranchAuditObservationsComponent.prototype.submitClosureResponse.call(component);
+    expect(component.retryEvidence).toHaveBeenCalledTimes(1);
+  });
   it('blocks attendance saving when the attendance request fails', () => {
     const http = {get: vi.fn((url: string) => url.endsWith('/employees') ? of({data: [{id: 'e1'}], total: 1}) : fail()), post: vi.fn()};
     const toast = {error: vi.fn()};

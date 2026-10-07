@@ -38,6 +38,11 @@ async function main() {
     const user = {id, userId: id, roleCode: 'CEO'};
     const leads = await Promise.all(Array.from({length: 20}, (_, index) => service.create(user, {companyName: 'Synthetic ' + index})));
     assert.equal(new Set(leads.map(lead => lead.leadNo)).size, 20);
+    await db.exec("UPDATE leads SET created_at = '2026-01-01T00:00:00Z'");
+    const pageOne = await service.list(user, {limit: 10, offset: 0});
+    const pageTwo = await service.list(user, {limit: 10, offset: 10});
+    const sortedIds = leads.map(lead => lead.id).sort().reverse();
+    assert.deepEqual(pageOne.items.map(lead => lead.id).concat(pageTwo.items.map(lead => lead.id)), sortedIds);
     const highest = leads.find(lead => lead.leadNo.endsWith('-0020'));
     assert.ok(highest); await service.remove(user, highest.id);
     const next = await service.create(user, {companyName: 'Synthetic after delete'});

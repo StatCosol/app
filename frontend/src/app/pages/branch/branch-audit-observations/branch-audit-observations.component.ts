@@ -390,7 +390,11 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   }
 
   submitClosureResponse(): void {
-    if (this.saving) return;
+    if (this.saving || this.uploading) return;
+    if (this.failedEvidenceTicketId) {
+      this.retryEvidence();
+      return;
+    }
     const obs = this.selectedObservation;
     if (!obs) {
       this.toast.error('Select an observation first.');
