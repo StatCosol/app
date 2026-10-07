@@ -28,7 +28,6 @@ interface RepeatNcItem {
 interface ClientOpt {
   client_id: string;
   client_name: string;
-  audit_count: number;
 }
 
 @Component({
@@ -62,7 +61,7 @@ interface ClientOpt {
             <option value="">— Select a client —</option>
             @for (c of clients; track c) {
 <option [value]="c.client_id">
-              {{ c.client_name }} ({{ c.audit_count }} audit{{ c.audit_count === 1 ? '' : 's' }})
+              {{ c.client_name }}
             </option>
 }
           </select>
@@ -104,11 +103,11 @@ interface ClientOpt {
 
       @if (error) {
 <div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-md p-3 text-sm">
-        {{ error }}
+        {{ error }} <button type="button" (click)="clientId ? reload() : loadClients()">Retry</button>
       </div>
 }
 
-      @if (!loading && items.length > 0) {
+      @if (!loading && !error && items.length > 0) {
 <div class="space-y-4">
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center">
@@ -200,28 +199,18 @@ export class AuditorRepeatNcAnalyticsComponent implements OnInit, OnDestroy {
   }
 
   loadClients(): void {
-    this.audits
-      .auditorListAudits({})
-      .pipe(
-        takeUntil(this.destroy$),
-        catchError(() => of([] as any[])),
-      )
-      .subscribe((res: any) => {
-        const list: any[] = Array.isArray(res) ? res : res?.data || res?.items || [];
-        const byClient = new Map<string, ClientOpt>();
-        for (const a of list) {
-          const cid = a.clientId || a.client_id;
-          const cname = a.clientName || a.client_name || '(unnamed client)';
-          if (!cid) continue;
-          const entry = byClient.get(cid);
-          if (entry) entry.audit_count++;
-          else byClient.set(cid, { client_id: cid, client_name: cname, audit_count: 1 });
-        }
-        this.clients = Array.from(byClient.values()).sort((a, b) =>
-          a.client_name.localeCompare(b.client_name),
-        );
+    this.error = null;
+    this.audits.auditorClientOptions().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (rows) => {
+        this.clients = rows.map(row => ({ client_id: row.id, client_name: row.clientName }))
+          .sort((a, b) => a.client_name.localeCompare(b.client_name));
         this.cdr.markForCheck();
-      });
+      },
+      error: () => {
+        this.error = 'Assigned clients could not be loaded. Please retry.';
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   onClientChange(): void {

@@ -685,17 +685,20 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     return 'report-chip report-chip--todo';
   }
 
+  loadError = '';
+
+  retryLoad(): void { this.loadInitialData(); }
+
   private loadInitialData(): void {
     this.loading = true;
+    this.loadError = '';
     forkJoin({
-      clients: this.crmClientsApi.getAssignedClients().pipe(catchError(() => of([] as ClientDto[]))),
+      clients: this.crmClientsApi.getAssignedClients(),
       auditors: this.http
-        .get<AuditorOption[]>(`${this.baseUrl}/api/v1/crm/users/auditors`)
-        .pipe(catchError(() => of([] as AuditorOption[]))),
+        .get<AuditorOption[]>(`${this.baseUrl}/api/v1/crm/users/auditors`),
       audits: this.auditsService
-        .crmListAudits({ pageSize: 250 })
-        .pipe(catchError(() => of({ data: [] as AuditRow[] }))),
-      closures: this.trackerApi.getAuditClosures().pipe(catchError(() => of({ data: [] }))),
+        .crmAllAudits(),
+      closures: this.trackerApi.getAuditClosures(),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -705,6 +708,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
+        error: () => { this.loadError = 'Audit workspace could not be loaded. Please retry.'; this.toast.error(this.loadError); },
         next: ({ clients, auditors, audits, closures }) => {
           this.clients = clients || [];
           this.auditors = auditors || [];
@@ -718,7 +722,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   refreshWorkspace(preferredAuditId: string | null): void {
     this.listBusy = true;
     forkJoin({
-      audits: this.auditsService.crmListAudits({ pageSize: 250 }),
+      audits: this.auditsService.crmAllAudits(),
       closures: this.trackerApi.getAuditClosures(),
     })
       .pipe(

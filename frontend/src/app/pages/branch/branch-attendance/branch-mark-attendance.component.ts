@@ -1,3 +1,4 @@
+import { loadAllPages } from '../../../shared/utils/load-all-pages';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -8,8 +9,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Subject, forkJoin, of } from 'rxjs';
-import { catchError, finalize, takeUntil } from 'rxjs/operators';
+import { Subject, forkJoin } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import * as XLSX from 'xlsx';
 import { environment } from '../../../../environments/environment';
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -70,6 +71,9 @@ const STANDARD_HOURS = 9;
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (loadError) {
+      <div role="alert" class="p-4 text-red-700">{{ loadError }} <button type="button" (click)="load()">Retry</button></div>
+    }
     <div class="page">
       <header class="head">
         <div>
@@ -306,6 +310,9 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private base = `${environment.apiBaseUrl}/api/v1/client`;
 
+  loadedDate: string | null = null;
+  loadError = '';
+  private loadGeneration = 0;
   loading = false;
   saving = false;
   exporting = false;
@@ -361,6 +368,11 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    const generation = ++this.loadGeneration;
+    const date = this.selectedDate;
+    this.loadedDate = null;
+    this.loadError = '';
+    this.rows = [];
     this.loading = true;
     this.cdr.markForCheck();
 
@@ -368,28 +380,25 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
       .set('isActive', 'true')
       .set('limit', '1000');
     const attParams = new HttpParams()
-      .set('from', this.selectedDate)
-      .set('to', this.selectedDate);
+      .set('from', date)
+      .set('to', date);
 
     forkJoin({
-      employees: this.http
-        .get<any>(`${this.base}/employees`, { params: empParams })
-        .pipe(catchError(() => of({ data: [] }))),
+      employees: loadAllPages<ApiEmployee>(page => this.http.get<any>(`${this.base}/employees`, { params: empParams.set('offset', String((page - 1) * 1000)) })),
       attendance: this.http
-        .get<any>(`${this.base}/attendance`, { params: attParams })
-        .pipe(catchError(() => of([]))),
+        .get<any>(`${this.base}/attendance`, { params: attParams }),
     })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
-          this.loading = false;
+          if (generation === this.loadGeneration) this.loading = false;
           this.cdr.markForCheck();
         }),
       )
-      .subscribe(({ employees, attendance }) => {
-        const empList: ApiEmployee[] = Array.isArray(employees)
-          ? employees
-          : employees?.data ?? [];
+      .subscribe({ next: ({ employees, attendance }) => {
+        if (generation !== this.loadGeneration || date !== this.selectedDate) return;
+        this.loadedDate = date;
+        const empList: ApiEmployee[] = employees;
         const attList: ApiAttendanceRecord[] = Array.isArray(attendance)
           ? attendance
           : attendance?.data ?? [];
@@ -422,7 +431,13 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
             } as EmployeeRow;
           })
           .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
-      });
+      }, error: () => {
+        if (generation !== this.loadGeneration) return;
+        this.rows = [];
+        this.loadedDate = null;
+        this.loadError = 'Attendance could not be loaded. Retry before editing or saving.';
+        this.toast.error(this.loadError);
+      } });
   }
 
   onStatusChange(r: EmployeeRow): void {
@@ -466,6 +481,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
   }
 
   saveAll(): void {
+    if (this.loading || this.loadedDate !== this.selectedDate || this.saving) return;
     const dirty = this.rows.filter((r) => r.dirty);
     if (!dirty.length) return;
 
@@ -533,12 +549,9 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
     const attParams = new HttpParams().set('from', from).set('to', to);
 
     forkJoin({
-      employees: this.http
-        .get<any>(`${this.base}/employees`, { params: empParams })
-        .pipe(catchError(() => of({ data: [] }))),
+      employees: loadAllPages<ApiEmployee>(page => this.http.get<any>(`${this.base}/employees`, { params: empParams.set('offset', String((page - 1) * 1000)) })),
       attendance: this.http
-        .get<any>(`${this.base}/attendance`, { params: attParams })
-        .pipe(catchError(() => of([]))),
+        .get<any>(`${this.base}/attendance`, { params: attParams }),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -547,11 +560,9 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         }),
       )
-      .subscribe(({ employees, attendance }) => {
+      .subscribe({ next: ({ employees, attendance }) => {
         try {
-          const empList: ApiEmployee[] = Array.isArray(employees)
-            ? employees
-            : employees?.data ?? [];
+          const empList: ApiEmployee[] = employees;
           const attList: any[] = Array.isArray(attendance)
             ? attendance
             : attendance?.data ?? [];
@@ -761,7 +772,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
         } catch (err: any) {
           this.toast.error(err?.message || 'Failed to export Excel.');
         }
-      });
+      }, error: () => this.toast.error('Export failed because attendance data could not be loaded. Please retry.') });
   }
 
   private recompute(r: EmployeeRow): void {

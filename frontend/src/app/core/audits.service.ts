@@ -1,3 +1,5 @@
+import { loadAllPages } from '../shared/utils/load-all-pages';
+import { map } from 'rxjs/operators';
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -46,6 +48,14 @@ export class AuditsService {
   }
 
   // CRM: list audits for assigned clients
+  crmAllAudits(): Observable<any> {
+    return loadAllPages<any>(page => this.crmListAudits({ page, pageSize: 250 })).pipe(map(data => ({ data })));
+  }
+
+  auditorClientOptions(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/auditor/options/clients`);
+  }
+
   crmListAudits(params?: any): Observable<any> {
     let p = new HttpParams();
     Object.keys(params || {}).forEach((k) => {

@@ -203,8 +203,11 @@ export class UsersController {
 
   @ApiOperation({ summary: 'Admin reset user password' })
   @Post('users/:id/reset-password')
-  resetPassword(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.adminResetPassword(id);
+  resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.service.adminResetPassword(id, user?.userId ?? user?.id);
   }
 
   @ApiOperation({ summary: 'Delete a user' })

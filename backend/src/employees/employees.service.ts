@@ -421,7 +421,7 @@ export class EmployeesService {
         s: `%${filters.search.toLowerCase()}%`,
       });
     }
-    qb.orderBy('e.createdAt', 'DESC');
+    qb.orderBy('e.createdAt', 'DESC').addOrderBy('e.id', 'DESC');
     qb.take(filters.limit || 100);
     qb.skip(filters.offset || 0);
 

@@ -135,6 +135,9 @@ export class AuthService implements OnModuleInit {
         'u.email',
         'u.mobile',
         'u.passwordHash',
+        'u.sessionVersion',
+        'u.userType',
+        'u.employeeId',
         'u.isActive',
         'u.clientId',
         'u.deletedAt',
@@ -214,7 +217,9 @@ export class AuthService implements OnModuleInit {
         [user.id],
       );
       branchIds = rows.map((r) => r.branch_id);
-      isMasterUser = branchIds.length === 0;
+      isMasterUser =
+        user.userType === 'MASTER' ||
+        (user.userType !== 'BRANCH' && branchIds.length === 0);
     }
 
     const tokens = await this.issueTokens(user.id, role.code, user, branchIds);
@@ -285,6 +290,9 @@ export class AuthService implements OnModuleInit {
         'u.email',
         'u.mobile',
         'u.passwordHash',
+        'u.sessionVersion',
+        'u.userType',
+        'u.employeeId',
         'u.isActive',
         'u.clientId',
         'u.deletedAt',
@@ -478,9 +486,27 @@ export class AuthService implements OnModuleInit {
       { revokedAt: new Date() },
     );
 
-    const user = await this.usersRepo.findOne({ where: { id: payload.sub } });
+    const user = await this.usersRepo.findOne({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        roleId: true,
+        email: true,
+        name: true,
+        isActive: true,
+        deletedAt: true,
+        clientId: true,
+        userType: true,
+        employeeId: true,
+        sessionVersion: true,
+      },
+    });
     if (!user || !user.isActive || user.deletedAt) {
       throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if ((payload.sessionVersion ?? 0) !== (user.sessionVersion ?? 0)) {
+      throw new UnauthorizedException('Session expired. Please sign in again.');
     }
 
     const roleCode = await this.usersService.getUserRoleCode(user.id);
@@ -565,6 +591,7 @@ export class AuthService implements OnModuleInit {
         sub: user.id,
         email: user.email,
         type: 'reset',
+        sessionVersion: user.sessionVersion ?? 0,
       },
       { expiresIn: '1h' },
     );
@@ -602,8 +629,16 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid reset token');
     }
 
+    if ((payload.sessionVersion ?? 0) !== (user.sessionVersion ?? 0)) {
+      throw new UnauthorizedException('Reset token has already been used');
+    }
     const hashed = await bcrypt.hash(dto.newPassword, 12);
-    await this.usersRepo.update({ id: user.id }, { passwordHash: hashed });
+    const updated = await this.usersRepo.update(
+      { id: user.id, sessionVersion: user.sessionVersion ?? 0 },
+      { passwordHash: hashed },
+    );
+    if (updated.affected === 0)
+      throw new UnauthorizedException('Reset token has already been used');
 
     // Notify admin users about the password change
     this.notifyAdminsOfPasswordReset(user).catch(() => {});
@@ -662,6 +697,7 @@ export class AuthService implements OnModuleInit {
 
     const basePayload = {
       sub: userId,
+      sessionVersion: user?.sessionVersion ?? 0,
       roleCode,
       email: user?.email,
       name: user?.name,

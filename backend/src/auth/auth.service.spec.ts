@@ -77,6 +77,7 @@ describe('AuthService.login', () => {
     email: 'test@example.com',
     mobile: null,
     passwordHash: 'hash',
+    sessionVersion: 0,
     isActive: true,
     userType: null,
     clientId: null,
@@ -90,6 +91,25 @@ describe('AuthService.login', () => {
     lastLoginAt: null,
     branches: [],
     ...overrides,
+  });
+
+  it('preserves an explicit branch identity even without branch mappings', async () => {
+    usersRepo.__qb.getOne.mockResolvedValue(
+      buildUser({ userType: 'BRANCH', role: 'CLIENT' }),
+    );
+    (service as any).usersService.getRoleById.mockResolvedValue({
+      code: 'CLIENT',
+    });
+    (service as any).dataSource.query = jest.fn().mockResolvedValue([]);
+    const result = await service.login({
+      email: 'branch-fixture@example.invalid',
+      password: 'fixture',
+    } as any);
+    expect(result.user.userType).toBe('BRANCH');
+    expect(result.user.isMasterUser).toBe(false);
+    expect(usersRepo.__qb.select).toHaveBeenCalledWith(
+      expect.arrayContaining(['u.userType', 'u.employeeId']),
+    );
   });
 
   it('rejects inactive users', async () => {

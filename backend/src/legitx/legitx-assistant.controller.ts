@@ -1,3 +1,4 @@
+import { AssistRecallGuard } from './assist-recall.guard';
 import {
   Body,
   Get,
@@ -24,7 +25,7 @@ import {
   AssistantDocumentViewDto,
 } from './dto/assistant-document.dto';
 import { Response } from 'express';
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(AssistRecallGuard, JwtAuthGuard, RolesGuard)
 @Roles('CLIENT', 'BRANCH_DESK')
 @Controller({ path: 'legitx/assistant', version: '1' })
 export class LegitxAssistantController {

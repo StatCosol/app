@@ -67,19 +67,6 @@ export class SalesService {
     }
   }
 
-  private async generateLeadNo(): Promise<string> {
-    const year = new Date().getFullYear();
-    // Count existing leads created this year for the running serial.
-    const start = new Date(year, 0, 1);
-    const end = new Date(year + 1, 0, 1);
-    const count = await this.leadRepo
-      .createQueryBuilder('l')
-      .where('l.createdAt >= :start AND l.createdAt < :end', { start, end })
-      .getCount();
-    const serial = String(count + 1).padStart(4, '0');
-    return `LEAD-${year}-${serial}`;
-  }
-
   // ---------------------------------------------------------------------
   // Leads CRUD
   // ---------------------------------------------------------------------
@@ -88,15 +75,23 @@ export class SalesService {
     if (user.roleCode !== 'SALES' && !this.isCeo(user)) {
       throw new ForbiddenException('Only SALES/CEO can create leads');
     }
-    const lead = this.leadRepo.create({
-      ...dto,
-      estimatedValue: (dto.estimatedValue ?? 0).toString(),
-      ownerUserId: dto.ownerUserId ?? user.id,
-      createdBy: user.id,
-      updatedBy: user.id,
-      leadNo: await this.generateLeadNo(),
+    return this.ds.transaction(async (manager) => {
+      const year = new Date().getFullYear();
+      const [counter] = await manager.query(
+        'INSERT INTO sales_lead_counters(year, last_value) VALUES ($1, 1) ON CONFLICT (year) DO UPDATE SET last_value = sales_lead_counters.last_value + 1 RETURNING last_value',
+        [year],
+      );
+      const repo = manager.getRepository(LeadEntity);
+      const lead = repo.create({
+        ...dto,
+        estimatedValue: (dto.estimatedValue ?? 0).toString(),
+        ownerUserId: dto.ownerUserId ?? user.id,
+        createdBy: user.id,
+        updatedBy: user.id,
+        leadNo: `LEAD-${year}-${String(counter.last_value).padStart(4, '0')}`,
+      });
+      return repo.save(lead);
     });
-    return this.leadRepo.save(lead);
   }
 
   async summary(user: AuthUser) {
@@ -144,7 +139,7 @@ export class SalesService {
 
     const [items, total] = await this.leadRepo.findAndCount({
       where,
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       take: limit,
       skip: offset,
     });
@@ -208,45 +203,56 @@ export class SalesService {
     leadId: string,
     dto: CreateLeadActivityDto,
   ): Promise<LeadActivityEntity> {
-    const lead = await this.findOne(user, leadId);
-    await this.assertCanMutate(user, lead);
-    const activity = this.activityRepo.create({
-      leadId: lead.id,
-      activityType: dto.activityType,
-      outcome: dto.outcome ?? null,
-      occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : new Date(),
-      nextFollowupAt: dto.nextFollowupAt ? new Date(dto.nextFollowupAt) : null,
-      durationMinutes: dto.durationMinutes ?? null,
-      subject: dto.subject ?? null,
-      notes: dto.notes ?? null,
-      attachmentUrl: dto.attachmentUrl ?? null,
-      performedBy: user.id,
-    });
-    const saved = await this.activityRepo.save(activity);
+    this.assertSalesAccess(user);
+    return this.ds.transaction(async (manager) => {
+      const leadRepo = manager.getRepository(LeadEntity);
+      const activityRepo = manager.getRepository(LeadActivityEntity);
+      const lead = await leadRepo.findOne({
+        where: { id: leadId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lead) throw new NotFoundException('Lead not found');
+      await this.assertCanMutate(user, lead);
+      const activity = activityRepo.create({
+        leadId: lead.id,
+        activityType: dto.activityType,
+        outcome: dto.outcome ?? null,
+        occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : new Date(),
+        nextFollowupAt: dto.nextFollowupAt
+          ? new Date(dto.nextFollowupAt)
+          : null,
+        durationMinutes: dto.durationMinutes ?? null,
+        subject: dto.subject ?? null,
+        notes: dto.notes ?? null,
+        attachmentUrl: dto.attachmentUrl ?? null,
+        performedBy: user.id,
+      });
+      const saved = await activityRepo.save(activity);
 
-    // Auto-progress stage on certain outcomes.
-    if (dto.outcome === LeadActivityOutcome.PROPOSAL_SENT) {
-      lead.stage = LeadStage.PROPOSAL_SENT;
-    } else if (dto.outcome === LeadActivityOutcome.AGREEMENT_SIGNED) {
-      lead.stage = LeadStage.WON;
-      if (!lead.convertedAt) lead.convertedAt = new Date();
-    } else if (dto.outcome === LeadActivityOutcome.DECLINED) {
-      lead.stage = LeadStage.LOST;
-    } else if (
-      dto.outcome === LeadActivityOutcome.INTERESTED &&
-      lead.stage === LeadStage.NEW
-    ) {
-      lead.stage = LeadStage.QUALIFIED;
-    }
-    if (
-      lead.stage === LeadStage.NEW &&
-      dto.activityType !== LeadActivityType.NOTE
-    ) {
-      lead.stage = LeadStage.CONTACTED;
-    }
-    lead.updatedBy = user.id;
-    await this.leadRepo.save(lead);
-    return saved;
+      // Auto-progress stage on certain outcomes.
+      if (dto.outcome === LeadActivityOutcome.PROPOSAL_SENT) {
+        lead.stage = LeadStage.PROPOSAL_SENT;
+      } else if (dto.outcome === LeadActivityOutcome.AGREEMENT_SIGNED) {
+        lead.stage = LeadStage.WON;
+        if (!lead.convertedAt) lead.convertedAt = new Date();
+      } else if (dto.outcome === LeadActivityOutcome.DECLINED) {
+        lead.stage = LeadStage.LOST;
+      } else if (
+        dto.outcome === LeadActivityOutcome.INTERESTED &&
+        lead.stage === LeadStage.NEW
+      ) {
+        lead.stage = LeadStage.QUALIFIED;
+      }
+      if (
+        lead.stage === LeadStage.NEW &&
+        dto.activityType !== LeadActivityType.NOTE
+      ) {
+        lead.stage = LeadStage.CONTACTED;
+      }
+      lead.updatedBy = user.id;
+      await leadRepo.save(lead);
+      return saved;
+    });
   }
 
   async listActivities(

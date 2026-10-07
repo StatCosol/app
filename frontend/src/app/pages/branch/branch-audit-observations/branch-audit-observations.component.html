@@ -229,9 +229,12 @@
           <span>{{ selectedEvidenceFiles.length }} selected</span>
         </div>
         <div class="upload-row">
-          <input type="file" name="evidenceFiles" multiple (change)="onEvidenceSelected($event)" />
+          <input type="file" name="evidenceFiles" [disabled]="uploading" multiple (change)="onEvidenceSelected($event)" />
           <span class="hint">Attach up to 5 files. Files are posted to the closure case thread.</span>
         </div>
+        @if (failedEvidenceTicketId && selectedEvidenceFiles.length) {
+          <button type="button" class="btn btn-secondary" [disabled]="uploading" (click)="retryEvidence()">Retry failed uploads</button>
+        }
         @if (selectedEvidenceFiles.length) {
 <div class="file-list">
           @for (file of selectedEvidenceFiles; track file; let i = $index) {

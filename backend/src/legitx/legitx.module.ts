@@ -1,3 +1,4 @@
+import { AssistRecallGuard } from './assist-recall.guard';
 import { AccessModule } from '../access/access.module';
 import { ComplianceDocumentsModule } from '../compliance-documents/compliance-documents.module';
 import { PayrollModule } from '../payroll/payroll.module';
@@ -38,6 +39,7 @@ import { AuthModule } from '../auth/auth.module';
     LegitxComplianceStatusController,
   ],
   providers: [
+    AssistRecallGuard,
     LegitxAssistantDocumentsService,
     LegitxAssistantService,
     LegitxScopeService,

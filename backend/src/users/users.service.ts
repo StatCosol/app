@@ -1,3 +1,4 @@
+import { generateSecurePassword } from '../common/secure-password';
 import {
   BadRequestException,
   Inject,
@@ -244,15 +245,24 @@ export class UsersService implements OnModuleInit {
 
     const existing = await this.usersRepo.findOne({
       where: { email: adminEmail.toLowerCase() },
+      select: { id: true, passwordHash: true, isActive: true, deletedAt: true },
     });
     if (existing) {
       // Recovery path: when explicitly configured, rotate/reset the admin password.
       if (explicitPass) {
-        const passwordHash = await bcrypt.hash(explicitPass, 12);
-        await this.usersRepo.update(
-          { id: existing.id },
-          { passwordHash, isActive: true, deletedAt: null },
+        const passwordMatches = await bcrypt.compare(
+          explicitPass,
+          existing.passwordHash,
         );
+        const recovery: Partial<UserEntity> = {
+          isActive: true,
+          deletedAt: null,
+        };
+        if (!passwordMatches)
+          recovery.passwordHash = await bcrypt.hash(explicitPass, 12);
+        if (!passwordMatches || !existing.isActive || existing.deletedAt) {
+          await this.usersRepo.update({ id: existing.id }, recovery);
+        }
       }
       return;
     }
@@ -656,10 +666,8 @@ export class UsersService implements OnModuleInit {
     });
     if (existing) throw new BadRequestException('Email already exists');
 
-    // Auto-generate password if not provided: Us@<4-digit random><year>
-    const plainPassword =
-      dto.password ||
-      `Us@${Math.floor(1000 + Math.random() * 9000)}${new Date().getFullYear()}`;
+    // Generate a high-entropy password when none is provided.
+    const plainPassword = dto.password || generateSecurePassword();
     const passwordHash = await bcrypt.hash(plainPassword, 12);
 
     const userCode = await this.generateUserCode(
@@ -1097,7 +1105,7 @@ export class UsersService implements OnModuleInit {
    * Admin-triggered password reset. Generates a new password for the user.
    * Cannot be used for CEO or ADMIN users.
    */
-  async adminResetPassword(userId: string) {
+  async adminResetPassword(userId: string, actorUserId?: string) {
     const user = await this.usersRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
@@ -1112,7 +1120,7 @@ export class UsersService implements OnModuleInit {
     }
 
     // Auto-generate a password
-    const newPassword = `Reset@${Math.floor(1000 + Math.random() * 9000)}`;
+    const newPassword = generateSecurePassword();
     const bcrypt = await import('bcryptjs');
     const hashed = await bcrypt.hash(newPassword, 12);
 
@@ -1124,7 +1132,7 @@ export class UsersService implements OnModuleInit {
       entityType: 'USER',
       entityId: userId,
       action: 'PASSWORD_RESET',
-      performedBy: null,
+      performedBy: actorUserId ?? null,
       performedRole: 'ADMIN',
       afterJson: { resetFor: user.email, roleCode },
     });

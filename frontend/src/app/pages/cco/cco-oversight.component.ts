@@ -228,15 +228,13 @@ export class CcoOversightComponent implements OnInit, OnDestroy {
     this.error = null;
 
     forkJoin({
-      dashboard: this.ccoApi.getDashboard().pipe(catchError(() => of(null))),
+      dashboard: this.ccoApi.getDashboard(),
       oversight: this.ccoApi
-        .getOversight(this.getStatusParam())
-        .pipe(catchError(() => of([] as any[]))),
-      delays: this.ccoApi.getOversightDelays().pipe(catchError(() => of([] as any[]))),
+        .getOversight(this.getStatusParam()),
+      delays: this.ccoApi.getOversightDelays(),
       trends: this.ccoApi
-        .getOversightTrends(this.trendMonths)
-        .pipe(catchError(() => of([] as any[]))),
-      crms: this.ccoApi.getCrmsUnderMe().pipe(catchError(() => of([] as any[]))),
+        .getOversightTrends(this.trendMonths),
+      crms: this.ccoApi.getCrmsUnderMe(),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -295,7 +293,7 @@ export class CcoOversightComponent implements OnInit, OnDestroy {
       .getOversight(this.getStatusParam())
       .pipe(
         takeUntil(this.destroy$),
-        catchError(() => of([] as any[])),
+        catchError(() => { this.error = 'Some oversight data could not be loaded. Please retry.'; this.cdr.markForCheck(); return of([] as any[]); }),
         finalize(() => {
           this.queueLoading = false;
           this.cdr.markForCheck();
@@ -315,7 +313,7 @@ export class CcoOversightComponent implements OnInit, OnDestroy {
       .getOversightTrends(this.trendMonths)
       .pipe(
         takeUntil(this.destroy$),
-        catchError(() => of([] as any[])),
+        catchError(() => { this.error = 'Some oversight data could not be loaded. Please retry.'; this.cdr.markForCheck(); return of([] as any[]); }),
       )
       .subscribe((rows) => {
         this.trendRows = this.normalizeTrendRows(rows);
