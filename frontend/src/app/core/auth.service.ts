@@ -301,7 +301,10 @@ export class AuthService {
   /** True if the logged-in user is a CLIENT branch user (has 1+ branch mappings) */
   isBranchUser(): boolean {
     const u = this.getUser();
-    return u?.userType === 'BRANCH' || (!!u?.branchIds?.length && u?.roleCode === 'CLIENT');
+    if (!u || u.roleCode !== 'CLIENT') return false;
+    if (u.userType === 'MASTER') return false;
+    if (u.userType === 'BRANCH') return true;
+    return !!u.branchIds?.length;
   }
 
   /** Get the branch IDs this user is mapped to (empty for master) */

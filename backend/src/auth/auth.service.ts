@@ -136,6 +136,8 @@ export class AuthService implements OnModuleInit {
         'u.mobile',
         'u.passwordHash',
         'u.sessionVersion',
+        'u.userType',
+        'u.employeeId',
         'u.isActive',
         'u.clientId',
         'u.deletedAt',
@@ -215,7 +217,9 @@ export class AuthService implements OnModuleInit {
         [user.id],
       );
       branchIds = rows.map((r) => r.branch_id);
-      isMasterUser = branchIds.length === 0;
+      isMasterUser =
+        user.userType === 'MASTER' ||
+        (user.userType !== 'BRANCH' && branchIds.length === 0);
     }
 
     const tokens = await this.issueTokens(user.id, role.code, user, branchIds);
@@ -287,6 +291,8 @@ export class AuthService implements OnModuleInit {
         'u.mobile',
         'u.passwordHash',
         'u.sessionVersion',
+        'u.userType',
+        'u.employeeId',
         'u.isActive',
         'u.clientId',
         'u.deletedAt',
@@ -480,7 +486,21 @@ export class AuthService implements OnModuleInit {
       { revokedAt: new Date() },
     );
 
-    const user = await this.usersRepo.findOne({ where: { id: payload.sub } });
+    const user = await this.usersRepo.findOne({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        roleId: true,
+        email: true,
+        name: true,
+        isActive: true,
+        deletedAt: true,
+        clientId: true,
+        userType: true,
+        employeeId: true,
+        sessionVersion: true,
+      },
+    });
     if (!user || !user.isActive || user.deletedAt) {
       throw new UnauthorizedException('Invalid refresh token');
     }

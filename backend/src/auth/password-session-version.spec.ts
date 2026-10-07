@@ -91,3 +91,43 @@ describe('Password reset token families', () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe('Refresh portal identity', () => {
+  it('explicitly loads the branch identity and keeps unmapped branch users out of master portals', async () => {
+    const findOne = jest.fn().mockResolvedValue({
+      id: 'fixture',
+      isActive: true,
+      userType: 'BRANCH',
+      sessionVersion: 0,
+    });
+    const context = {
+      verifyToken: async () => ({
+        sub: 'fixture',
+        jti: 'token',
+        sessionVersion: 0,
+      }),
+      refreshTokenRepo: {
+        findOne: async () => ({ id: 'row', family: 'family', revokedAt: null }),
+        update: jest.fn(),
+      },
+      usersRepo: { findOne },
+      usersService: { getUserRoleCode: async () => 'CLIENT' },
+      dataSource: { query: async () => [] },
+      issueTokens: async () => ({
+        accessToken: 'synthetic',
+        refreshToken: 'synthetic',
+      }),
+    };
+    const result = await AuthService.prototype.refreshToken.call(
+      context as any,
+      { refreshToken: 'fixture' },
+    );
+    expect(findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ userType: true, employeeId: true }),
+      }),
+    );
+    expect(result.user.userType).toBe('BRANCH');
+    expect(result.user.branchIds).toEqual([]);
+  });
+});

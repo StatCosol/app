@@ -5,7 +5,7 @@ This release uses production commit a65530ee as its base. It restores the pre-Pu
 | Audit finding | Correction |
 | --- | --- |
 | F01: Incomplete Assist recall | Both dashboard mounts remain absent. A controller-wide recall guard rejects every Assist API, including document search and viewing. |
-| F02: BranchDesk entering LegitX | A branch account opening a saved client URL is redirected to BranchDesk; master client access remains available. |
+| F02: BranchDesk entering LegitX | A branch account opening a saved client URL is redirected to BranchDesk; master client access remains available. Login and refresh explicitly load stored account type, so an unmapped branch account is not classified as a master; explicit master identity takes precedence over legacy branch mappings. |
 | F03: Predictable generated passwords | User creation, branch creation and administrator resets use 144 bits of cryptographic randomness. Existing credential-delivery and password-change flows remain in place. |
 | F04: Reset sessions and actor attribution | Password updates atomically increment the session version and revoke refresh tokens through a database trigger, covering all password-write paths. Access, refresh and reset tokens reject stale versions. Admin resets record the acting administrator. |
 | F05: False evidence-upload success | Outcomes are tracked per file. Failed files remain selected and can be retried against the same closure case without reposting the closure response. |

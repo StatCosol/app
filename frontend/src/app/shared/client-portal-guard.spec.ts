@@ -29,3 +29,14 @@ describe('Client portal account boundary', () => {
     expect(check(false, 'CLIENT', false)).toBe('/login');
   });
 });
+
+describe('Stored account type precedence', () => {
+  it.each([
+    [{roleCode: 'CLIENT', userType: 'BRANCH', branchIds: []}, true],
+    [{roleCode: 'CLIENT', userType: 'MASTER', branchIds: ['legacy-mapping']}, false],
+    [{roleCode: 'CLIENT', userType: null, branchIds: ['branch']}, true],
+    [{roleCode: 'CLIENT', userType: null, branchIds: []}, false],
+  ])('resolves the stored branch/master identity %#', (user, expected) => {
+    expect(AuthService.prototype.isBranchUser.call({getUser: () => user} as any)).toBe(expected);
+  });
+});
