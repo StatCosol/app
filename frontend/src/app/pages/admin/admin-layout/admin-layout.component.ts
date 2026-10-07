@@ -11,7 +11,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   selector: 'app-admin-layout',
   standalone: true,
   host: { class: 'workspace-ui' },
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [WorkspaceToolsComponent, RouterOutlet, AdminSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="admin-shell">

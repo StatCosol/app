@@ -12,7 +12,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   selector: 'app-payroll-layout',
   standalone: true,
   host: { class: 'workspace-ui' },
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [WorkspaceToolsComponent, RouterOutlet, PayrollSidebarComponent, StatcoWordmarkComponent],
   template: `
     <div class="payroll-shell">

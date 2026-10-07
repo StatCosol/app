@@ -11,7 +11,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   selector: 'app-branch-layout',
   standalone: true,
   host: { class: 'workspace-ui' },
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [WorkspaceToolsComponent, RouterOutlet, BranchSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="branch-shell">

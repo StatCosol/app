@@ -14,7 +14,7 @@ interface NavItem {
   selector: 'app-pf-team-layout',
   standalone: true,
   host: { class: 'workspace-ui' },
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [WorkspaceToolsComponent, RouterOutlet, RouterModule],
   template: `
     <div class="shell" [class.sb-collapsed]="sidebarCollapsed" [class.sb-mobile-open]="mobileOpen">

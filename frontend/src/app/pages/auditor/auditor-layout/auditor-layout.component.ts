@@ -11,7 +11,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   selector: 'app-auditor-layout',
   standalone: true,
   host: { class: 'workspace-ui' },
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [WorkspaceToolsComponent, RouterOutlet, AuditorSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="auditor-shell">

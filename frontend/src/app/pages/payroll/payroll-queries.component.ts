@@ -1,6 +1,6 @@
 import { ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { Component, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
 
 import { ThreadLayoutComponent } from '../../shared/thread';
 import { PaydekThreadApiService } from '../../core/paydek-thread-api.service';
@@ -36,6 +36,7 @@ import { ClientContextStripComponent } from '../../shared/ui/client-context-stri
 })
 export class PayrollQueriesComponent implements OnInit, OnDestroy {
   contextIds: string[] = [];
+  private readonly cdr = inject(ChangeDetectorRef);
   private destroy$ = new Subject<void>();
   constructor(
     public api: PaydekThreadApiService,
@@ -46,6 +47,7 @@ export class PayrollQueriesComponent implements OnInit, OnDestroy {
       this.api.clientId =
         params.get('clientId') || this.route.parent?.snapshot.paramMap.get('clientId') || '';
       this.contextIds = [this.api.clientId];
+      this.cdr.markForCheck();
     });
   }
   ngOnDestroy(): void {

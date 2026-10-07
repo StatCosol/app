@@ -11,7 +11,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   selector: 'app-ceo-layout',
   standalone: true,
   host: { class: 'workspace-ui' },
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [WorkspaceToolsComponent, RouterOutlet, CeoSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="ceo-shell">
