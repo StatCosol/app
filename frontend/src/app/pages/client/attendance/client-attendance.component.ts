@@ -68,8 +68,6 @@ interface AttendanceIssue {
         title="Attendance Review & Payroll Handoff"
         subtitle="Validate monthly attendance, review mismatches and LOP preview, then handoff to payroll."
       >
-        <ui-button variant="secondary" [disabled]="loading" (clicked)="loadWorkspace()"
-           icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
       </ui-page-header>
 
       <section class="card mb-4">

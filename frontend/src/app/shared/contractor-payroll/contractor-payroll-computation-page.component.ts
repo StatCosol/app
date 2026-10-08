@@ -36,9 +36,6 @@ interface LoadResult {
             Wage, statutory deduction, employer contribution and exception view generated from contractor attendance/muster uploads.
           </p>
         </div>
-        <button type="button" class="compact-action btn" (click)="load()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
-          {{ loading ? 'Refreshing...' : 'Refresh' }}
-        </span></button>
       </header>
 
       <app-contractor-attendance-approval [clientId]="clientId" [periodMonth]="periodMonth" />
@@ -53,7 +50,6 @@ interface LoadResult {
             <span>Client ID</span>
             <input type="text" placeholder="Required for auditor view" [(ngModel)]="clientId" />
           </label>
-          <button type="button" class="compact-action btn secondary" (click)="load()" title="Apply" aria-label="Apply" data-action-label="Apply" data-action-icon="search"><ui-icon name="search" [size]="20" /></button>
         }
         <label>
           <span>Status</span>
@@ -64,6 +60,7 @@ interface LoadResult {
             <option value="NO_QUOTATION">No quotation</option>
           </select>
         </label>
+        <button type="button" class="compact-action btn secondary" (click)="load()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </section>
 
       @if (loading) {

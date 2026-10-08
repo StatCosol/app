@@ -84,7 +84,6 @@ interface UnifiedApprovalItem {
       <ui-page-header
         title="Approvals Workbench"
         subtitle="Unified queue for leave and nomination approvals with comparison and decision timeline.">
-        <ui-button variant="secondary" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
       </ui-page-header>
 
       <section class="workspace-card mb-4">

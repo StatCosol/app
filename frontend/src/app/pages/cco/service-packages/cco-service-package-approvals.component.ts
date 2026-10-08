@@ -22,9 +22,6 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
       <ui-page-header
         title="Service Package Approvals"
         subtitle="Review client module changes requested by Admin">
-        <ui-button variant="secondary" size="sm" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">
-          {{ loading ? 'Refreshing…' : 'Refresh' }}
-        </ui-button>
       </ui-page-header>
 
       @if (loading && !requests.length) {
@@ -63,7 +60,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
             [(ngModel)]="searchTerm"
             placeholder="Client, package, service, or note">
         </label>
-        <button class="compact-action rounded-md border border-slate-300 px-4 py-2 text-sm" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+        <button class="compact-action rounded-md border border-slate-300 px-4 py-2 text-sm" (click)="load()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 
       @if (message) {
@@ -208,7 +205,6 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               Showing {{ filteredAuditLogs.length }} of {{ auditLogs.length }} entr{{ auditLogs.length === 1 ? 'y' : 'ies' }}
             </p>
           </div>
-          <button class="compact-action text-sm text-brand-700" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">

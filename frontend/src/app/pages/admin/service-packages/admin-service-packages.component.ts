@@ -258,7 +258,6 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
                 [(ngModel)]="searchTerm"
                 placeholder="Search client, package, service, or note">
             </label>
-            <button class="compact-action text-sm text-brand-700" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           </div>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
@@ -332,7 +331,6 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               Showing {{ filteredAuditLogs.length }} of {{ auditLogs.length }} entr{{ auditLogs.length === 1 ? 'y' : 'ies' }}
             </p>
           </div>
-          <button class="compact-action text-sm text-brand-700" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">

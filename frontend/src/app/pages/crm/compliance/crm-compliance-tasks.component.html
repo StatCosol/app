@@ -126,19 +126,6 @@
     </div>
   </div>
 
-  <!-- ─── Bulk Actions Bar ─── -->
-  @if (selectedCount > 0) {
-<div
-    class="bg-brand-50 border border-brand-200 rounded-lg p-3 mb-4 flex items-center justify-between"
-   >
-    <span class="text-sm text-brand-800 font-medium">{{ selectedCount }} task(s) selected</span>
-    <div class="flex items-center gap-2">
-      <ui-button variant="primary" size="sm" (clicked)="bulkApprove()" icon="check-circle" [iconOnly]="true" label="Bulk Approve">Bulk Approve</ui-button>
-      <ui-button variant="danger" size="sm" (clicked)="bulkReject()" icon="x-circle" [iconOnly]="true" label="Bulk Reject">Bulk Reject</ui-button>
-    </div>
-  </div>
-}
-
   <!-- ─── States ─── -->
   @if (loading) {
 <ui-loading-spinner></ui-loading-spinner>
@@ -157,6 +144,20 @@
     [showPagination]="true" [totalItems]="total" [currentPage]="page" [pageSize]="limit"
     (pageChange)="page = $event.page; load()"
     emptyMessage="No tasks found.">
+    <div tableActions>
+  @if (selectedCount > 0) {
+<div
+    class="flex flex-wrap items-center gap-3 mr-auto"
+   >
+    <span class="text-sm text-brand-800 font-medium">{{ selectedCount }} task(s) selected</span>
+    <div class="flex items-center gap-2">
+      <ui-button variant="primary" size="sm" (clicked)="bulkApprove()" icon="check-circle" [iconOnly]="true" label="Bulk Approve">Bulk Approve</ui-button>
+      <ui-button variant="danger" size="sm" (clicked)="bulkReject()" icon="x-circle" [iconOnly]="true" label="Bulk Reject">Bulk Reject</ui-button>
+    </div>
+  </div>
+}
+
+    </div>
     <ng-template uiTableCell="select" let-row>
       @if (canReview(row.status)) {
 <input type="checkbox"

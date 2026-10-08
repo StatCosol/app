@@ -67,7 +67,6 @@ type RegisterRow = {
         title="Registers Download Center"
         [subtitle]="isBranch ? 'Track register preparation and approval, and download approved branch files' : 'Preview and download payroll registers by period and branch'">
         <div class="actions">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
           <ui-button
             variant="primary"
             [disabled]="!filteredRows.length || loading || packDownloading"
