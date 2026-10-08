@@ -9,7 +9,7 @@ h3 { font-size: 15px; font-weight: 650; margin: 0 0 5px; }
 p { margin: 0; line-height: 1.6; }
 a { text-decoration: underline; text-underline-offset: 4px; }
 .hero a { white-space: nowrap; font-size: 14px; }
-.filters { display: grid; grid-template-columns: 1fr 1fr 180px auto; gap: 16px; margin: 24px 0; align-items: end; }
+.filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 1.3fr); gap: 16px; margin: 24px 0; align-items: end; }
 label { font-size: 13px; font-weight: 600; display: grid; gap: 7px; }
 input:not([type=checkbox]), select { border: 1px solid #b7c5cd; border-radius: 9px; padding: 10px 12px; color: #172c38; background: #fff; width: 100%; min-width: 0; }
 button { border-radius: 9px; padding: 11px 18px; background: #17695e; color: white; font-weight: 600; }
@@ -35,7 +35,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .message { background: #f0f4f6; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 14px; }
 .error { background: #fff0ed; color: #8a3020; }
 .empty { padding: 36px; border: 1px dashed #b7c5cd; border-radius: 14px; text-align: center; margin: 24px 0; }
-@media (max-width: 900px) { .filters { grid-template-columns: 1fr 1fr; } .stages { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .filters { grid-template-columns: 1fr 1fr; } .reporting-actions { grid-column: 1 / -1; } .stages { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .close-workspace { padding: 16px; } .hero, .summary, .review-tools { flex-direction: column; align-items: stretch; } .hero, .stage { padding: 20px; } .filters { grid-template-columns: 1fr; } .stage-heading { flex-direction: column; } }
 
 .company-context { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; }

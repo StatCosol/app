@@ -72,11 +72,11 @@ interface BranchOpt { value: string; label: string; state: string | null; }
           </div>
           <div class="inline">
             <input type="month" [(ngModel)]="hwMonth" class="ctrl" />
-            <select [(ngModel)]="hwBranchId" class="ctrl">
+            <div class="field-action-group"><div class="action-field"><select [(ngModel)]="hwBranchId" class="ctrl">
               <option value="">All branches</option>
               @for (b of branches; track b.value) { <option [value]="b.value">{{ b.label }}</option> }
-            </select>
-            <button class="compact-action btn ghost" [disabled]="hwLoading" (click)="loadHolidayWork()" title="Load" aria-label="Load" data-action-label="Load" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">{{ hwLoading ? 'Loading…' : 'Load' }}</span></button>
+            </select></div><div class="attached-actions">
+            <button class="compact-action btn ghost" [disabled]="hwLoading" (click)="loadHolidayWork()" title="Load" aria-label="Load" data-action-label="Load" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">{{ hwLoading ? 'Loading…' : 'Load' }}</span></button></div></div>
           </div>
         </div>
         @if (!hwLoading && !holidayWork.length) { <div class="muted">No holiday-work found for this month. (Upload &amp; apply holidays first, then mark attendance.)</div> }

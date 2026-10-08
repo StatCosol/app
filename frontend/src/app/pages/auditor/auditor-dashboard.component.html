@@ -51,15 +51,15 @@
 }
         </button>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
-        <ui-form-select
+      <div class="field-action-group">
+        <ui-form-select class="action-field"
           label="Scheduled Audit"
           [(ngModel)]="selectedQuickAuditId"
           [options]="quickAuditOptions">
         </ui-form-select>
-        <ui-button variant="primary" [disabled]="!selectedQuickAuditId" (clicked)="startSelectedAudit()" icon="eye" [iconOnly]="true" label="Start / Continue Audit →">
+        <div class="attached-actions"><ui-button variant="primary" [disabled]="!selectedQuickAuditId" (clicked)="startSelectedAudit()" icon="eye" [iconOnly]="true" label="Start / Continue Audit →">
           Start / Continue Audit →
-        </ui-button>
+        </ui-button></div>
       </div>
     </div>
 
@@ -72,7 +72,7 @@
         <div class="text-sm text-gray-500">{{ activeFilterSummary }}</div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mt-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end mt-4">
         <ui-form-select
           label="Client"
           [(ngModel)]="filter.clientId"
@@ -89,15 +89,17 @@
           [(ngModel)]="filter.fromDate"
           placeholder="YYYY-MM-DD">
         </ui-form-input>
-        <ui-form-input
+        <div class="field-action-group">
+        <ui-form-input class="action-field"
           label="To"
           type="text"
           [(ngModel)]="filter.toDate"
           placeholder="YYYY-MM-DD">
         </ui-form-input>
-        <div class="flex gap-2">
+        <div class="attached-actions">
           <ui-button variant="primary" (clicked)="applyFilters()" [fullWidth]="true" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
           <ui-button variant="secondary" (clicked)="resetFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
+        </div>
         </div>
       </div>
     </div>
