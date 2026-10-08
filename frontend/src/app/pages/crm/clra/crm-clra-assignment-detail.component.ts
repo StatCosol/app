@@ -56,10 +56,10 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           <div>
             <h3 class="text-sm font-semibold text-gray-900">{{ assignment.assignmentCode }}</h3>
             <p class="text-xs text-gray-500 mt-0.5">
-              {{ assignment.natureOfWork }} · {{ assignment.stateCode }} · {{ assignment.status || 'ACTIVE' }}
+              {{ assignment.natureOfWork }} Â· {{ assignment.stateCode }} Â· {{ assignment.status || 'ACTIVE' }}
             </p>
           </div>
-          <div class="flex gap-1">
+          <div class="flex flex-wrap gap-1">
             @for (t of detailTabs; track t.id) {
               <button
                 type="button"
@@ -112,8 +112,8 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                     <tr class="border-b border-gray-50">
                       <td class="py-2 pr-4">{{ workerLabel(row.workerId) }}</td>
                       <td class="py-2 pr-4">{{ row.deploymentStart }}</td>
-                      <td class="py-2 pr-4">{{ row.deploymentEnd || '—' }}</td>
-                      <td class="py-2 pr-4">{{ row.ratePerMonth ?? '—' }}</td>
+                      <td class="py-2 pr-4">{{ row.deploymentEnd || 'â€”' }}</td>
+                      <td class="py-2 pr-4">{{ row.ratePerMonth ?? 'â€”' }}</td>
                       <td class="py-2 pr-4"><ui-status-badge [label]="row.status || 'ACTIVE'" /></td>
                       <td class="py-2">
                         <button class="compact-action text-brand-600 hover:underline text-xs" (click)="openDeploymentForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
@@ -147,7 +147,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                 <tbody>
                   @for (row of wagePeriods; track row.id) {
                     <tr class="border-b border-gray-50" [class.bg-emerald-50]="selectedWagePeriodId === row.id">
-                      <td class="py-2 pr-4">{{ row.periodFrom }} → {{ row.periodTo }}</td>
+                      <td class="py-2 pr-4">{{ row.periodFrom }} â†’ {{ row.periodTo }}</td>
                       <td class="py-2 pr-4">{{ row.wageMonth }}/{{ row.wageYear }}</td>
                       <td class="py-2 pr-4"><ui-status-badge [label]="row.status || 'OPEN'" /></td>
                       <td class="py-2 flex gap-2">
@@ -197,7 +197,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                         <td class="py-2 pr-4">{{ row.attendanceDate }}</td>
                         <td class="py-2 pr-4">{{ deploymentWorkerLabel(row.workerDeploymentId) }}</td>
                         <td class="py-2 pr-4">{{ row.status }}</td>
-                        <td class="py-2 pr-4">{{ row.normalHours ?? '—' }} / OT {{ row.otHours ?? '—' }}</td>
+                        <td class="py-2 pr-4">{{ row.normalHours ?? 'â€”' }} / OT {{ row.otHours ?? 'â€”' }}</td>
                         <td class="py-2">
                           <button class="compact-action text-brand-600 hover:underline text-xs" (click)="openAttendanceForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                         </td>
@@ -237,8 +237,8 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                       <tr class="border-b border-gray-50">
                         <td class="py-2 pr-4">{{ deploymentWorkerLabel(row.workerDeploymentId) }}</td>
                         <td class="py-2 pr-4">{{ row.daysWorked }}</td>
-                        <td class="py-2 pr-4">₹{{ row.grossWages | number:'1.2-2' }}</td>
-                        <td class="py-2 pr-4">₹{{ row.netWages | number:'1.2-2' }}</td>
+                        <td class="py-2 pr-4">â‚¹{{ row.grossWages | number:'1.2-2' }}</td>
+                        <td class="py-2 pr-4">â‚¹{{ row.netWages | number:'1.2-2' }}</td>
                         <td class="py-2">
                           <button class="compact-action text-brand-600 hover:underline text-xs" (click)="openWageForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                         </td>
@@ -278,10 +278,10 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                         @if (row.fileUrl) {
                           <a [href]="downloadRegisterHref(row.id)" target="_blank" class="compact-action text-brand-600 hover:underline" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">{{ row.fileName || 'Download' }}</span></a>
                         } @else {
-                          {{ row.fileName || '—' }}
+                          {{ row.fileName || 'â€”' }}
                         }
                       </td>
-                      <td class="py-2">{{ row.generatedAt || '—' }}</td>
+                      <td class="py-2">{{ row.generatedAt || 'â€”' }}</td>
                     </tr>
                   }
                 </tbody>
@@ -311,7 +311,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Wage Period</label>
               <select [(ngModel)]="registerForm.wagePeriodId" class="w-full rounded-lg border-gray-300">
-                <option value="">— None —</option>
+                <option value="">â€” None â€”</option>
                 @for (wp of wagePeriods; track wp.id) {
                   <option [value]="wp.id">{{ wp.wageMonth }}/{{ wp.wageYear }}</option>
                 }
@@ -328,7 +328,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           </div>
           <div class="flex gap-2 mt-5 justify-end">
             <ui-button variant="secondary" (clicked)="closeForms()">Cancel</ui-button>
-            <ui-button variant="primary" (clicked)="saveRegisterRun()" [disabled]="saving">{{ saving ? 'Saving…' : 'Save' }}</ui-button>
+            <ui-button variant="primary" (clicked)="saveRegisterRun()" [disabled]="saving">{{ saving ? 'Savingâ€¦' : 'Save' }}</ui-button>
           </div>
         </div>
       </div>
@@ -343,7 +343,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
               <label class="block text-sm font-medium text-gray-700 mb-1">Worker *</label>
               <select [(ngModel)]="deploymentForm.workerId" class="w-full rounded-lg border-gray-300" [disabled]="!!deploymentForm.id">
                 @for (w of contractorWorkers; track w.id) {
-                  <option [value]="w.id">{{ w.workerCode }} — {{ w.fullName }}</option>
+                  <option [value]="w.id">{{ w.workerCode }} â€” {{ w.fullName }}</option>
                 }
               </select>
             </div>
@@ -374,7 +374,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           </div>
           <div class="flex gap-2 mt-5 justify-end">
             <ui-button variant="secondary" (clicked)="closeForms()">Cancel</ui-button>
-            <ui-button variant="primary" (clicked)="saveDeployment()" [disabled]="saving">{{ saving ? 'Saving…' : 'Save' }}</ui-button>
+            <ui-button variant="primary" (clicked)="saveDeployment()" [disabled]="saving">{{ saving ? 'Savingâ€¦' : 'Save' }}</ui-button>
           </div>
         </div>
       </div>
@@ -408,7 +408,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           </div>
           <div class="flex gap-2 mt-5 justify-end">
             <ui-button variant="secondary" (clicked)="closeForms()">Cancel</ui-button>
-            <ui-button variant="primary" (clicked)="saveWagePeriod()" [disabled]="saving">{{ saving ? 'Saving…' : 'Save' }}</ui-button>
+            <ui-button variant="primary" (clicked)="saveWagePeriod()" [disabled]="saving">{{ saving ? 'Savingâ€¦' : 'Save' }}</ui-button>
           </div>
         </div>
       </div>
@@ -454,7 +454,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           </div>
           <div class="flex gap-2 mt-5 justify-end">
             <ui-button variant="secondary" (clicked)="closeForms()">Cancel</ui-button>
-            <ui-button variant="primary" (clicked)="saveAttendance()" [disabled]="saving">{{ saving ? 'Saving…' : 'Save' }}</ui-button>
+            <ui-button variant="primary" (clicked)="saveAttendance()" [disabled]="saving">{{ saving ? 'Savingâ€¦' : 'Save' }}</ui-button>
           </div>
         </div>
       </div>
@@ -524,7 +524,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           </div>
           <div class="flex gap-2 mt-5 justify-end">
             <ui-button variant="secondary" (clicked)="closeForms()">Cancel</ui-button>
-            <ui-button variant="primary" (clicked)="saveWage()" [disabled]="saving">{{ saving ? 'Saving…' : 'Save' }}</ui-button>
+            <ui-button variant="primary" (clicked)="saveWage()" [disabled]="saving">{{ saving ? 'Savingâ€¦' : 'Save' }}</ui-button>
           </div>
         </div>
       </div>
@@ -641,7 +641,7 @@ export class CrmClraAssignmentDetailComponent implements OnChanges, OnDestroy {
 
   workerLabel(workerId: string): string {
     const w = this.contractorWorkers.find((x) => x.id === workerId);
-    return w ? `${w.workerCode} — ${w.fullName}` : 'Worker name unavailable';
+    return w ? `${w.workerCode} â€” ${w.fullName}` : 'Worker name unavailable';
   }
 
   deploymentWorkerLabel(deploymentId: string): string {

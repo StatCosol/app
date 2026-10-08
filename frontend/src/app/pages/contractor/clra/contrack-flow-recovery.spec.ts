@@ -1,3 +1,4 @@
+import { page } from '@vitest/browser/context';
 import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { describe, it, expect, vi } from 'vitest';
@@ -55,6 +56,26 @@ describe('ConTrack CLRA sample-data recovery', () => {
     fixture.detectChanges();
     expect(host.textContent).toContain(sample.assignment.assignmentCode);
     expect(host.querySelector('[role="alert"]')).toBeNull();
+    fixture.destroy();
+  });
+
+  it('keeps all CLRA detail tabs visible on a narrow screen', async () => {
+    await page.viewport(390, 844);
+    const a = api();
+    await TestBed.configureTestingModule({imports: [CrmClraAssignmentDetailComponent], providers: [
+      {provide: ClraApiService, useValue:a}, {provide:ToastService,useValue:toast()},
+    ]}).compileComponents();
+    const fixture = TestBed.createComponent(CrmClraAssignmentDetailComponent);
+    fixture.componentRef.setInput('assignment', sample.assignment);
+    fixture.componentRef.setInput('portalMode', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+    for (const tab of fixture.componentInstance.detailTabs) {
+      const button = [...host.querySelectorAll('button')].find(b=>b.textContent?.trim()===tab.label)!;
+      expect(button.getBoundingClientRect().right).toBeLessThanOrEqual(390);
+      expect(button.getBoundingClientRect().left).toBeGreaterThanOrEqual(0);
+    }
     fixture.destroy();
   });
 

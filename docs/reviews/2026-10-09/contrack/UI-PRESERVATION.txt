@@ -1,4 +1,4 @@
-Combined release validation — 9 October 2026
+Combined release validation â€” 9 October 2026
 Preserved live frontend image: 20261008-all-filter-alignment-v9.
 Three-way source base: a65530ee024daf70724883365d62e6e681e914e4.
 Restoration base: 21cd80d794015aeca60cb13fd9a03aa2ae2b6114.
@@ -7,7 +7,7 @@ Authentication, branch routing and all restoration fixes retained.
 No Pulse Assist mounts added to the contractor, branch or client layouts.
 
 Production build: PASS. Lint: PASS.
-Browser suite: 114 files, 749 tests PASS (includes 25 new ConTrack tests).
+Browser suite: 114 files, 750 tests PASS (includes 26 new ConTrack tests).
 Frontend logic suite: 22 files, 129 tests PASS.
 Layout review: 220 pages, 13 portals, widths 1440/800/390; no reported runtime, overflow, alignment, sizing, row-group or unlabeled-icon issues.
 Real built UI with synthetic API data: PASS for CLRA profile/assignment errors and retry, worker/deployment lists, October attendance and wages, mobile viewport.
@@ -16,3 +16,5 @@ Additional corrections during integration: hidden tooltips excluded from layout 
 Sample fixtures are fictional and were not inserted into production. Cloud storage, external delivery and physical attendance devices were not live-tested. This document reports local validation; GitHub checks, required approval, merge and deployment remain separate release gates.
 
 Review follow-up: CLRA loading, errors and retry are scoped to the active detail tab and its required lookups. A failed attendance request or slow register request no longer blocks unrelated panels; two additional regressions pass.
+
+Populated mobile CLRA detail check: all five tabs remain visible at 390 pixels; tabs wrap instead of being clipped. Regression and production-build sample journey pass.
