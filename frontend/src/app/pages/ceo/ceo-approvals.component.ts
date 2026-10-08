@@ -83,7 +83,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
         <!-- DataTable -->
         @if (filteredApprovals.length > 0) {
 <div class="card">
-          <ui-data-table [columns]="columns" [data]="filteredApprovals">
+          <ui-data-table [enableSearch]="false" [columns]="columns" [data]="filteredApprovals">
             <ng-template uiTableCell="entity" let-row>
               {{ row.entityLabel || (row.entityType + ' — name unavailable') }}
             </ng-template>

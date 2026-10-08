@@ -91,7 +91,7 @@
 
   <!-- ─── Filters ─── -->
   <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end aligned-filter-controls">
       <ui-crm-scope-filter class="md:col-span-2" [(clientId)]="clientId" [(branchId)]="branchId" />
 
 
@@ -152,7 +152,7 @@
 
   <!-- ─── Table ─── -->
   @if (!loading) {
-<ui-data-table
+<ui-data-table [enableSearch]="false"
     [columns]="taskColumns" [data]="tasks" [loading]="loading"
     [showPagination]="true" [totalItems]="total" [currentPage]="page" [pageSize]="limit"
     (pageChange)="page = $event.page; load()"

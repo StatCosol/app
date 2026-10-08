@@ -225,7 +225,7 @@
         </div>
 
         <!-- Table -->
-        <ui-data-table
+        <ui-data-table [enableSearch]="false"
           [columns]="usersColumns"
           [data]="users"
           [loading]="usersLoading"

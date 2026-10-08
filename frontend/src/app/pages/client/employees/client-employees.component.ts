@@ -147,7 +147,7 @@ import {
 
       <!-- Employee Table -->
       @if (!loading && !error && employees.length > 0) {
-<ui-data-table
+<ui-data-table [enableSearch]="false"
        
         [columns]="columns"
         [data]="employees"

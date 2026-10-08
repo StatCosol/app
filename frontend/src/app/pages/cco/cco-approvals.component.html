@@ -57,7 +57,7 @@
 
     <!-- Table -->
     <div class="card">
-      <ui-data-table
+      <ui-data-table [enableSearch]="false"
         [columns]="columns"
         [data]="filteredRequests"
         emptyMessage="No requests match the current filters.">

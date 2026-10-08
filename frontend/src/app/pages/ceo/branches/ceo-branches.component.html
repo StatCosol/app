@@ -109,7 +109,7 @@
 
   <!-- Table -->
   @if (!loading && branches.length) {
-<ui-data-table
+<ui-data-table [enableSearch]="false"
     [columns]="columns" [data]="branches" [loading]="loading"
     [showPagination]="true" [totalItems]="total" [pageSize]="50"
     emptyMessage="No branches found.">

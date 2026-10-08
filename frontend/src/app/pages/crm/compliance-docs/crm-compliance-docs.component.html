@@ -159,7 +159,7 @@
 
   <!-- Documents table -->
   @if (!loading && documents.length > 0) {
-<ui-data-table
+<ui-data-table [enableSearch]="false"
     [columns]="docColumns" [data]="documents" [loading]="loading"
     emptyMessage="No documents yet.">
     <ng-template uiTableCell="title" let-row>

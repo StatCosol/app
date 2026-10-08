@@ -39,9 +39,9 @@ import {
 
     <div class="space-y-4">
       <div
-        class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-3"
+        class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
       >
-        <div class="md:col-span-2">
+        <div>
           <label for="ctr" class="block text-xs font-medium text-gray-600 mb-1">Contractor</label>
           <select
             id="ctr"
@@ -68,6 +68,19 @@ import {
         </div>
 
         <div>
+          <label for="ctr-employee-search" class="block text-xs font-medium text-gray-600 mb-1">Search Employee</label>
+          <input
+            id="ctr-employee-search"
+            name="employeeSearch"
+            type="search"
+            autocomplete="off"
+            placeholder="Employee name"
+            [(ngModel)]="employeeSearch"
+            class="ui-input"
+          />
+        </div>
+
+        <div>
           <label for="from" class="block text-xs font-medium text-gray-600 mb-1">From</label>
           <input
             id="from"
@@ -89,19 +102,6 @@ import {
             class="ui-input"
           />
         </div>
-      </div>
-
-      <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-        <label for="ctr-employee-search" class="block text-xs font-medium text-gray-600 mb-1">Search Employee</label>
-        <input
-          id="ctr-employee-search"
-          name="employeeSearch"
-          type="search"
-          autocomplete="off"
-          placeholder="Employee name"
-          [(ngModel)]="employeeSearch"
-          class="ui-input"
-        />
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm">

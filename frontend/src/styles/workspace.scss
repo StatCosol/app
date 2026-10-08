@@ -96,7 +96,7 @@
  flex-wrap: wrap; gap: 12px; min-width: 0;
 }
 .workspace-ui main input.workspace-search {
- width: min(100%, 26rem); max-width: min(100%, 26rem); min-width: 0; flex: 1 1 20rem;
+ width: min(100%, 26rem); max-width: min(100%, 26rem); min-width: 0; flex: 0 1 auto;
  min-height: 44px; box-sizing: border-box;
 }
 .workspace-ui main .relative:has(> input.workspace-search) {
@@ -124,6 +124,6 @@
 .workspace-ui .bs-surface .btn-primary:hover { background: #0b503f; border-color: #0b503f; }
 
 /* Column labels must not turn the horizontal search flex basis into input height. */
-.workspace-ui main .filters > label > input.workspace-search {
+.workspace-ui main label > input.workspace-search {
  flex: 0 0 auto; width: 100%; max-width: none;
 }
