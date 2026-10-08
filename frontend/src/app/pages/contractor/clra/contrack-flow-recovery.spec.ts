@@ -128,6 +128,7 @@ describe('ConTrack CLRA sample-data recovery', () => {
   ]) {
     it(`reports and retries failed ${key}`, () => {
       const {c, a} = detail();
+      c.detailTab = ({contractorWorkers:'deployments', deployments:'deployments', wagePeriods:'wage-periods', attendance:'attendance', wages:'wages', registerRuns:'registers'} as any)[key];
       a[list].mockImplementationOnce(failure);
       (c as any)[method]();
       expect(c.loadError).toContain('Could not load');
@@ -183,6 +184,35 @@ describe('ConTrack CLRA sample-data recovery', () => {
     expect(a.upsertMyAttendance).not.toHaveBeenCalled();
     expect(a.upsertMyWage).not.toHaveBeenCalled();
     expect(t.error).toHaveBeenCalledWith('Period changed', expect.any(String));
+  });
+
+  it('keeps loaded deployments usable after an attendance failure', () => {
+    const {c, a} = detail();
+    c.ngOnChanges({assignment: {} as any});
+    c.selectWagePeriod(sample.periods[1]);
+    a.listMyAttendance.mockImplementationOnce(failure);
+    c.setDetailTab('attendance');
+    expect(c.loadError).toContain('attendance');
+    c.setDetailTab('deployments');
+    expect(c.loadError).toBe('');
+    expect(c.loading).toBe(false);
+    expect(c.deployments).toEqual(sample.deployments);
+    c.ngOnDestroy();
+  });
+
+  it('does not let a slow register request hide wage periods', () => {
+    const {c, a} = detail();
+    c.ngOnChanges({assignment: {} as any});
+    const pending = new Subject<any[]>();
+    a.listMyRegisterRuns.mockReturnValue(pending);
+    c.setDetailTab('registers');
+    expect(c.loading).toBe(true);
+    c.setDetailTab('wage-periods');
+    expect(c.loading).toBe(false);
+    expect(c.wagePeriods).toEqual(sample.periods);
+    pending.error(new Error('offline'));
+    expect(c.loadError).toBe('');
+    c.ngOnDestroy();
   });
 
   it('cancels pending requests on component destruction', () => {

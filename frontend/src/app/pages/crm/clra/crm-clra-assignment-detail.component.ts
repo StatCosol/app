@@ -546,8 +546,8 @@ export class CrmClraAssignmentDetailComponent implements OnChanges, OnDestroy {
   readonly attendanceStatuses = ['P', 'A', 'H', 'L', 'WO'];
 
   detailTab: DetailTab = 'deployments';
-  get loading(): boolean { return this.listStates.some(state => state.loading); }
-  get loadError(): string { return this.listStates.map(state => state.error).filter(Boolean).join(' '); }
+  get loading(): boolean { return this.activeListStates.some(state => state.loading); }
+  get loadError(): string { return this.activeListStates.map(state => state.error).filter(Boolean).join(' '); }
   saving = false;
 
   readonly deploymentsState = new ClraListState<ClraDeployment>(() => this.cdr.markForCheck());
@@ -563,6 +563,15 @@ export class CrmClraAssignmentDetailComponent implements OnChanges, OnDestroy {
   readonly contractorWorkersState = new ClraListState<ClraWorker>(() => this.cdr.markForCheck());
   get contractorWorkers(): ClraWorker[] { return this.contractorWorkersState.rows; }
   private get listStates() { return [this.deploymentsState, this.wagePeriodsState, this.attendanceState, this.wagesState, this.registerRunsState, this.contractorWorkersState]; }
+  private get activeListStates() {
+    switch (this.detailTab) {
+      case 'deployments': return [this.deploymentsState, this.contractorWorkersState];
+      case 'wage-periods': return [this.wagePeriodsState];
+      case 'attendance': return [this.attendanceState, this.deploymentsState, this.contractorWorkersState];
+      case 'wages': return [this.wagesState, this.deploymentsState, this.contractorWorkersState];
+      case 'registers': return [this.registerRunsState];
+    }
+  }
   selectedWagePeriodId = '';
 
   showDeploymentForm = false;
@@ -618,11 +627,16 @@ export class CrmClraAssignmentDetailComponent implements OnChanges, OnDestroy {
   }
 
   retryDetail(): void {
-    this.loadContractorWorkers();
-    this.reloadDetail();
-    this.loadRegisterRuns();
-    this.loadAttendance();
-    this.loadWages();
+    if (['deployments', 'attendance', 'wages'].includes(this.detailTab)) {
+      this.loadContractorWorkers();
+      this.loadDeployments();
+    }
+    switch (this.detailTab) {
+      case 'wage-periods': this.loadWagePeriods(); break;
+      case 'attendance': this.loadAttendance(); break;
+      case 'wages': this.loadWages(); break;
+      case 'registers': this.loadRegisterRuns(); break;
+    }
   }
 
   workerLabel(workerId: string): string {
