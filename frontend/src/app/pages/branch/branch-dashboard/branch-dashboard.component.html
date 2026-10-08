@@ -76,13 +76,13 @@
                 @for (id of assignedBranches; track id) { <option [value]="id">{{branchLabels[id]}}</option> }
               </select>
             }
-            <input autocomplete="off" id="bd-current-month" name="currentMonth"
+            <div class="field-action-group"><div class="action-field"><input autocomplete="off" id="bd-current-month" name="currentMonth"
               type="month"
               [(ngModel)]="currentMonth"
               (change)="onMonthChange()"
               class="dash-hero__month"
-            />
-            <button type="button" (click)="loadDashboard()" class="compact-action dash-hero__btn" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+            /></div><div class="attached-actions">
+            <button type="button" (click)="loadDashboard()" class="compact-action dash-hero__btn" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div></div>
           </div>
         </div>
       </div>

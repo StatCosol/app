@@ -14,8 +14,9 @@
           <option value="STRUCTURES">Salary Structures</option>
         </select>
       </label>
+      <div class="field-action-group">
       @if (mode === 'RUNS') {
-<label>
+<label class="action-field">
         Status
         <select [(ngModel)]="runStatusFilter" (change)="loadRuns()">
           @for (s of runStatusOptions; track s) {
@@ -25,7 +26,7 @@
       </label>
 }
       @if (mode === 'STRUCTURES') {
-<label>
+<label class="action-field">
         Status
         <select [(ngModel)]="statusFilter" (change)="load()">
           @for (s of statusOptions; track s) {
@@ -34,7 +35,7 @@
         </select>
       </label>
 }
-      <button type="button" class="compact-action btn btn-secondary" (click)="refresh()" [disabled]="runsLoading || loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+      <div class="attached-actions"><button type="button" class="compact-action btn btn-secondary" (click)="refresh()" [disabled]="runsLoading || loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div></div>
     </div>
   </header>
 

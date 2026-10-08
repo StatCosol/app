@@ -35,6 +35,12 @@
           90 Days
         </button>
       </div>
+      <ui-button variant="secondary" [loading]="sendingDigest" (clicked)="sendDigestNow()" icon="send" [iconOnly]="true" label="Send Weekly Digest">
+        {{ sendingDigest ? 'Sending...' : 'Send Weekly Digest' }}
+      </ui-button>
+      <ui-button variant="danger" [loading]="sendingAlerts" (clicked)="sendCriticalAlertsNow()" icon="send" [iconOnly]="true" label="Send Critical Alerts">
+        {{ sendingAlerts ? 'Sending...' : 'Send Critical Alerts' }}
+      </ui-button>
       <ui-button variant="secondary" [routerLink]="['/admin/notifications']">
         <span class="flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,7 +67,7 @@
 
   <!-- Filters -->
   <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm">
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
       <ui-form-select
         label="Client"
         [options]="clientOptions"
@@ -82,21 +88,18 @@
         [(ngModel)]="from">
       </ui-form-input>
 
-      <ui-form-input
+      <div class="field-action-group">
+      <ui-form-input class="action-field"
         label="To Date"
         type="date"
         [(ngModel)]="to">
       </ui-form-input>
-    </div>
-    <div class="flex flex-wrap gap-2">
+    <div class="attached-actions">
       <ui-button variant="primary" (clicked)="applyFilters()" icon="search" [iconOnly]="true" label="Apply Filters">Apply Filters</ui-button>
       <ui-button variant="secondary" (clicked)="resetFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
-      <ui-button variant="secondary" [loading]="sendingDigest" (clicked)="sendDigestNow()" icon="send" [iconOnly]="true" label="Send Weekly Digest">
-        {{ sendingDigest ? 'Sending...' : 'Send Weekly Digest' }}
-      </ui-button>
-      <ui-button variant="danger" [loading]="sendingAlerts" (clicked)="sendCriticalAlertsNow()" icon="send" [iconOnly]="true" label="Send Critical Alerts">
-        {{ sendingAlerts ? 'Sending...' : 'Send Critical Alerts' }}
-      </ui-button>
+
+    </div>
+      </div>
     </div>
   </div>
 

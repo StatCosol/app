@@ -41,7 +41,8 @@
         }
       </select></label
     >
-    <label class="search"
+    <div class="search field-action-group">
+    <label class="action-field"
       >Find a task<input
         class="workspace-search"
         name="search"
@@ -49,8 +50,9 @@
         placeholder="Search task titles"
         maxlength="200"
     /></label>
-    <div class="filter-actions">
+    <div class="filter-actions attached-actions">
       <button type="submit" class="standard-action">Search</button><button type="button" class="compact-action quiet" (click)="reset()" title="Clear filters" aria-label="Clear filters" data-action-label="Clear filters" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
+    </div>
     </div>
   </form>
   <p class="scope-note">

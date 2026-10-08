@@ -60,7 +60,7 @@ interface FormState extends UpsertWagePayload {
 
     <!-- Filters -->
     <div class="card mb-4 p-4">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 aligned-filter-controls">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 aligned-filter-controls">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">State Code</label>
           <input type="text" name="fState" [(ngModel)]="filters.stateCode"
@@ -77,15 +77,17 @@ interface FormState extends UpsertWagePayload {
 }
           </select>
         </div>
-        <div>
+        <div class="field-action-group md:col-span-2">
+        <div class="action-field">
           <label class="block text-sm font-medium text-gray-700 mb-1">Schedule of Employment</label>
           <input type="text" name="fSched" [(ngModel)]="filters.scheduledEmployment"
             placeholder="exact match"
             class="w-full rounded-lg border-gray-300" />
         </div>
-        <div class="flex items-end gap-2">
+        <div class="attached-actions">
           <ui-button variant="primary" (clicked)="load()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
           <ui-button variant="secondary" (clicked)="resetFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
+        </div>
         </div>
       </div>
     </div>

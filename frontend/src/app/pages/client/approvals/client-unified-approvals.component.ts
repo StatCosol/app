@@ -117,7 +117,8 @@ interface UnifiedApprovalItem {
             </select>
           </label>
           <ui-branch-filter inputId="cua-branch-filter" [(value)]="branchFilter" (optionsLoaded)="branchOptions = $event" />
-          <label>
+          <div class="field-action-group">
+          <label class="action-field">
             <span>Sort</span>
             <select id="cua-sort-order" name="sortOrder" [(ngModel)]="sortOrder" (ngModelChange)="applyFilters()">
               <option value="AGE_DESC">Ageing high to low</option>
@@ -126,13 +127,14 @@ interface UnifiedApprovalItem {
               <option value="OLDEST">Oldest submitted</option>
             </select>
           </label>
-          <div class="filter-actions">
+          <div class="filter-actions attached-actions">
             <ui-button size="sm" variant="secondary" [disabled]="loading" (clicked)="load()" icon="search" [iconOnly]="true" label="Apply">
               Apply
             </ui-button>
             <ui-button size="sm" variant="ghost" [disabled]="loading" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Reset">
               Reset
             </ui-button>
+          </div>
           </div>
         </div>
         <div class="ageing-cards">
@@ -351,7 +353,7 @@ interface UnifiedApprovalItem {
     .tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .7rem; }
     .tabs button { border: 1px solid #d1d5db; background: #fff; border-radius: 999px; padding: .3rem .7rem; font-size: .78rem; font-weight: 700; color: #374151; }
     .tabs button.active { background: #0A1F44; color: #fff; border-color: #0A1F44; }
-    .filter-row { display: grid; align-items: end; grid-template-columns: 1fr 170px 1fr 190px auto; gap: .65rem; }
+    .filter-row { display: grid; align-items: end; grid-template-columns: minmax(0, 1fr) 140px minmax(0, 1fr) minmax(280px, 1.4fr); gap: .65rem; }
     .filter-actions { display: flex; align-items: end; gap: .45rem; }
     label { display: flex; flex-direction: column; gap: .35rem; }
     label > span { color: #4b5563; font-size: .78rem; font-weight: 600; }

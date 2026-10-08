@@ -8,7 +8,7 @@
   <!-- Filters -->
   <div class="card mb-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 items-end">
       <div class="form-group">
         <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-client-id">Client</label>
         <select id="cr-client-id" name="clientId" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="filters.clientId" (change)="onClientChange()">
@@ -35,7 +35,8 @@
         <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-to">To</label>
         <input autocomplete="off" id="cr-to" name="to" type="date" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="filters.to" />
       </div>
-      <div class="form-group">
+      <div class="field-action-group md:col-span-2">
+      <div class="form-group action-field">
         <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-status">Status</label>
         <select id="cr-status" name="status" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="filters.status">
           <option value="">All</option>
@@ -44,8 +45,7 @@
 }
         </select>
       </div>
-    </div>
-    <div class="flex gap-2">
+    <div class="attached-actions">
       <ui-button variant="primary" (clicked)="apply()" [disabled]="loading" icon="search" [iconOnly]="true" label="Apply">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -59,6 +59,8 @@
         </svg>
         Export Overdue Excel
       </ui-button>
+    </div>
+      </div>
     </div>
   </div>
 

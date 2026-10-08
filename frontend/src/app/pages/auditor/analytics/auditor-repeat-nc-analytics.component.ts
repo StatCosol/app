@@ -53,11 +53,12 @@ interface ClientOpt {
         <label class="block text-xs font-semibold text-slate-600 uppercase mb-2">
           Client (from your assigned audits)
         </label>
-        <div class="flex flex-wrap gap-3 items-center">
+        <div class="field-action-group">
+          <div class="action-field">
           <select
             [(ngModel)]="clientId"
             (ngModelChange)="onClientChange()"
-            class="border border-slate-300 rounded-md px-3 py-2 text-sm min-w-[280px]"
+            class="border border-slate-300 rounded-md px-3 py-2 text-sm w-full"
           >
             <option value="">— Select a client —</option>
             @for (c of clients; track c) {
@@ -66,12 +67,14 @@ interface ClientOpt {
             </option>
 }
           </select>
+          </div><div class="attached-actions">
           <button
             type="button"
             (click)="reload()"
             [disabled]="!clientId || loading"
             class="compact-action px-4 py-2 bg-brand-600 text-white text-sm rounded-md disabled:opacity-50"
            title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+          </div>
         </div>
         <p class="text-xs text-slate-500 mt-2">
           Recurring findings highlight systemic vendor issues you can flag in your next audit's preliminary publish.

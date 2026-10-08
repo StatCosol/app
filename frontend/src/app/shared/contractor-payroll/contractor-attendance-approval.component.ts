@@ -14,7 +14,15 @@ import { AuthService } from '../../core/auth.service';
   template: `
     @if (visible) {
       <section class="attendance" aria-label="Contractor attendance approval">
-        <h2>Attendance approval</h2>
+        <div class="attendance-heading">
+          <h2>Attendance approval</h2>
+          <div class="attendance-heading-actions">
+            @if (isContractor) {
+              <button type="button" (click)="downloadTemplate()" [disabled]="busy()" class="compact-action" title="Download attendance template" aria-label="Download attendance template" data-action-label="Download attendance template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+            }
+            <button type="button" (click)="load()" [disabled]="busy()" class="compact-action" title="Refresh attendance" aria-label="Refresh attendance" data-action-label="Refresh attendance" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+          </div>
+        </div>
         <p>Contractor submits attendance → Assigned branch reviews → Payroll is calculated.</p>
         <p>
           Sundays worked are paid double unless you mark them as C-off. C-off is valid for 90 days;
@@ -26,8 +34,9 @@ import { AuthService } from '../../core/auth.service';
         </p>
         @if (isContractor) {
           <p>Upload attendance Excel from Monthly Documents, or submit device attendance below.</p>
-          <button type="button" (click)="downloadTemplate()" [disabled]="busy()" class="compact-action" title="Download attendance template" aria-label="Download attendance template" data-action-label="Download attendance template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
-          <label
+
+          <div class="field-action-group">
+          <label class="action-field"
             >Deployment branch
             <select [(ngModel)]="branchId">
               <option value="">Select branch</option>
@@ -38,11 +47,14 @@ import { AuthService } from '../../core/auth.service';
               }
             </select>
           </label>
-          <button type="button" (click)="submitSystem()" [disabled]="busy() || !branchId" class="compact-action" title="Submit device attendance for {{ periodMonth }}" aria-label="Submit device attendance for {{ periodMonth }}" attr.data-action-label="Submit device attendance for {{ periodMonth }}" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
+          <div class="attached-actions">
+            <button type="button" (click)="submitSystem()" [disabled]="busy() || !branchId" class="compact-action" title="Submit device attendance for {{ periodMonth }}" aria-label="Submit device attendance for {{ periodMonth }}" attr.data-action-label="Submit device attendance for {{ periodMonth }}" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
             Submit device attendance for {{ periodMonth }}
           </span></button>
+          </div>
+          </div>
         }
-        <button type="button" (click)="load()" [disabled]="busy()" class="compact-action" title="Refresh attendance" aria-label="Refresh attendance" data-action-label="Refresh attendance" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+
         @if (error()) {
           <p role="alert">{{ error() }}</p>
         }
@@ -181,6 +193,9 @@ import { AuthService } from '../../core/auth.service';
   `,
   styles: [
     `
+      .attendance-heading, .attendance-heading-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .attendance-heading { justify-content: space-between; }
+      .attached-actions button, .attendance-heading-actions button { margin: 0; }
       .attendance {
         padding: 20px;
         margin: 18px 0;

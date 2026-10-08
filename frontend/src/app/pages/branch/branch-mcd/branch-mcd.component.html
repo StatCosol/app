@@ -59,7 +59,8 @@
       </select>
     </div>
 
-    <div class="toolbar-group">
+    <div class="field-action-group">
+    <div class="toolbar-group action-field">
       <label class="field-label" for="mcd-category">Category</label>
       <select id="mcd-category" name="categoryFilter" class="field-select" [(ngModel)]="categoryFilter" (change)="applyFilters()">
         <option value="ALL">All categories</option>
@@ -69,8 +70,11 @@
       </select>
     </div>
 
+<div class="attached-actions">
     <button type="button" class="compact-action btn-refresh" (click)="load(selectedItem?.returnCode)" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     <button type="button" class="compact-action btn-refresh" (click)="exportMonthSheet()" title="Export Month Sheet" aria-label="Export Month Sheet" data-action-label="Export Month Sheet" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+    </div>
+    </div>
   </div>
 
   <div class="summary-grid">

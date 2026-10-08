@@ -410,7 +410,7 @@ const REASONS: { value: string; label: string }[] = [
 <span class="text-gray-400">(custom range)</span>
 }
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 aligned-filter-controls">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 aligned-filter-controls">
         <div>
           <label for="subj" class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
           <select id="subj" name="subject" [(ngModel)]="subject"
@@ -436,15 +436,17 @@ const REASONS: { value: string; label: string }[] = [
           <input id="from" name="from" type="date" [(ngModel)]="from"
                  (change)="onDateChange()" class="ui-input">
         </div>
-        <div>
+        <div class="field-action-group">
+        <div class="action-field">
           <label for="to" class="block text-xs font-medium text-gray-600 mb-1">To</label>
           <input id="to" name="to" type="date" [(ngModel)]="to"
                  (change)="onDateChange()" class="ui-input">
         </div>
 
-        <div class="flex items-end">
+        <div class="attached-actions">
           <button type="button" class="compact-action ui-btn-secondary w-full"
                   [disabled]="loading" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+        </div>
         </div>
         </div>
       </div>

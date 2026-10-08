@@ -16,8 +16,10 @@
     <label>Branch<select name="branch" [(ngModel)]="branchId" (ngModelChange)="invalidate()" [disabled]="optionsBusy() || !clientId">
       <option value="">Choose branch</option>@for (branch of branches(); track branch.id) { <option [value]="branch.id">{{ branch.branchName }}</option> }
     </select></label>
-    <label>Reporting month<input name="month" type="month" min="2000-01" max="2099-12" [(ngModel)]="month" (ngModelChange)="invalidate()" required></label>
-    <button type="submit" [disabled]="busy() || optionsBusy() || !branchId" class="standard-action">{{ busy() ? 'Checking…' : 'Review month' }}</button>
+    <div class="field-action-group reporting-actions">
+    <label class="action-field">Reporting month<input name="month" type="month" min="2000-01" max="2099-12" [(ngModel)]="month" (ngModelChange)="invalidate()" required></label>
+    <div class="attached-actions"><button type="submit" [disabled]="busy() || optionsBusy() || !branchId" class="standard-action">{{ busy() ? 'Checking…' : 'Review month' }}</button></div>
+    </div>
   </form>
 
   <p class="scope-note">This review checks recorded data for your enabled services. It does not close the month, verify payments or certify compliance.</p>

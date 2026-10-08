@@ -83,10 +83,12 @@ interface AttendanceIssue {
               [(ngModel)]="selectedMonth"
             />
           </label>
-          <ui-branch-filter inputId="ca-branch-filter" [(value)]="branchId" (optionsLoaded)="branchOptions = $event" />
-          <div class="actions">
+          <div class="field-action-group">
+          <ui-branch-filter class="action-field" inputId="ca-branch-filter" [(value)]="branchId" (optionsLoaded)="branchOptions = $event" />
+          <div class="actions attached-actions">
             <ui-button variant="primary" [disabled]="loading" (clicked)="loadWorkspace()"
                icon="refresh" [iconOnly]="true" label="Load">Load</ui-button>
+          </div>
           </div>
         </div>
       </section>
@@ -370,7 +372,7 @@ interface AttendanceIssue {
       }
       .toolbar {
         display: grid;
-        grid-template-columns: 240px 1fr auto;
+        grid-template-columns: 240px minmax(0, 1fr);
         gap: 0.7rem;
         align-items: end;
       }

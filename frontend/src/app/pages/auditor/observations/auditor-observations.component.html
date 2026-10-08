@@ -62,12 +62,14 @@
         </select>
       </label>
 
-      <label class="search-box">
+      <div class="search-box field-action-group">
+      <label class="action-field">
         Search
         <input class="workspace-search" autocomplete="off" id="ao-filter-search" type="search" name="filterSearch" [(ngModel)]="filterSearch" (ngModelChange)="applyFilters()" placeholder="Clause / recommendation / text" />
       </label>
 
-      <button type="button" class="compact-action btn btn-ghost" (click)="clearFilters()" title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
+      <div class="attached-actions"><button type="button" class="compact-action btn btn-ghost" (click)="clearFilters()" title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button></div>
+      </div>
     </div>
   </section>
 
