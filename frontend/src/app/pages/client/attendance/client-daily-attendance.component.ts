@@ -57,7 +57,6 @@ const ATTENDANCE_STATUSES = [
       <ui-page-header
         title="Daily Attendance"
         subtitle="View, edit and approve employee attendance. Only approved records are sent to payroll.">
-        <ui-button variant="secondary" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
       </ui-page-header>
 
       <!-- Filters -->
@@ -92,7 +91,7 @@ const ATTENDANCE_STATUSES = [
               [(ngModel)]="employeeSearch" (ngModelChange)="applyFilter()" />
           </label>
           <div class="toolbar-actions">
-            <ui-button size="sm" variant="primary" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Load">Load</ui-button>
+            <ui-button size="sm" variant="primary" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
             <ui-button size="sm" variant="secondary" [disabled]="loading || downloadingReport || !records.length"
               [loading]="downloadingReport" (clicked)="downloadReport()" icon="download" [iconOnly]="true" label="Download Report">
               ⬇ Download Report
@@ -127,9 +126,15 @@ const ATTENDANCE_STATUSES = [
 
       @if (!loading) {
 
+        <!-- Data table -->
+        <section class="card">
+          <div class="section-head">
+            <h3>Attendance Records</h3>
+            <span class="muted">{{ filteredRecords.length }} of {{ records.length }} records</span>
+          </div>
+
         <!-- Bulk actions -->
         @if (selectedIds.size > 0) {
-<section class="card mb">
           <div class="bulk-bar">
             <span>{{ selectedIds.size }} record(s) selected</span>
             <ui-button size="sm" variant="primary" [disabled]="actionBusy" [loading]="actionBusy && actionType==='approve'" (clicked)="bulkApprove()" icon="check-circle" [iconOnly]="true" label="Approve Selected">
@@ -145,12 +150,10 @@ const ATTENDANCE_STATUSES = [
               Clear Selection
             </ui-button>
           </div>
-        </section>
 }
 
         <!-- Select-all pending shortcut -->
         @if (pendingRecords.length > 0 && selectedIds.size === 0) {
-<section class="card mb">
           <div class="bulk-bar">
             <span>{{ pendingRecords.length }} pending record(s)</span>
             <ui-button size="sm" variant="secondary" (clicked)="selectAllPending()">
@@ -163,15 +166,8 @@ const ATTENDANCE_STATUSES = [
               Reject All Pending
             </ui-button>
           </div>
-        </section>
 }
 
-        <!-- Data table -->
-        <section class="card">
-          <div class="section-head">
-            <h3>Attendance Records</h3>
-            <span class="muted">{{ filteredRecords.length }} of {{ records.length }} records</span>
-          </div>
 
           @if (!filteredRecords.length) {
 <ui-empty-state
@@ -365,7 +361,7 @@ const ATTENDANCE_STATUSES = [
       .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; }
       .section-head h3 { margin: 0; font-size: 1rem; font-weight: 700; color: #111827; }
       .muted { color: #6b7280; font-size: .78rem; }
-      .bulk-bar { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+      .bulk-bar { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; padding-bottom: .65rem; margin-bottom: .65rem; border-bottom: 1px solid #e5e7eb; }
       .bulk-bar span { font-weight: 600; color: #111827; font-size: .84rem; }
       .table-wrap { overflow: auto; }
       table { width: 100%; min-width: 1120px; border-collapse: collapse; }
