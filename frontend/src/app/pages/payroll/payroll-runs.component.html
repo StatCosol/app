@@ -11,12 +11,16 @@
         class="new-run-period"
         title="Pay period for the new run. Defaults to the previous month (e.g. in May, run April's payroll)."
       >
+        <div class="new-run-category">
         <label for="new-run-category" class="sr-label">Payroll category</label>
         <select id="new-run-category" name="newRunCategory" [(ngModel)]="newRunCategory">
           <option value="REGULAR">Regular payroll</option>
           <option value="INTERN">Intern payroll</option>
         </select>
+        </div>
+        <div class="new-run-date">
         <label for="new-run-month" class="sr-label">Pay period</label>
+        <div class="new-run-date-actions">
         <select
           id="new-run-month"
           name="newRunMonth"
@@ -37,10 +41,13 @@
             <option [ngValue]="year">{{ year }}</option>
           }
         </select>
-      </div>
       <ui-button variant="primary" size="sm" (clicked)="createRun()" [disabled]="creatingRun" icon="plus" [iconOnly]="true" label="+ New Run">
         {{ creatingRun ? 'Creating...' : '+ New Run' }}
       </ui-button>
+        </div>
+        </div>
+      </div>
+
     </div>
   </ui-page-header>
 
