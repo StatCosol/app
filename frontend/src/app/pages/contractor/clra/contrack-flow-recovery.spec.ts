@@ -76,6 +76,10 @@ describe('ConTrack CLRA sample-data recovery', () => {
       expect(button.getBoundingClientRect().right).toBeLessThanOrEqual(390);
       expect(button.getBoundingClientRect().left).toBeGreaterThanOrEqual(0);
     }
+    fixture.componentInstance.selectWagePeriod(sample.periods[1]);
+    fixture.componentInstance.setDetailTab('wages');
+    fixture.detectChanges();
+    expect(host.textContent).toContain('\u20b910,500.00');
     fixture.destroy();
   });
 

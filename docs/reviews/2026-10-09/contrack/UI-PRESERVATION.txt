@@ -1,4 +1,4 @@
-Combined release validation â€” 9 October 2026
+Combined release validation — 9 October 2026
 Preserved live frontend image: 20261008-all-filter-alignment-v9.
 Three-way source base: a65530ee024daf70724883365d62e6e681e914e4.
 Restoration base: 21cd80d794015aeca60cb13fd9a03aa2ae2b6114.
