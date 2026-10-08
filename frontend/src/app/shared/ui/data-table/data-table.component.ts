@@ -42,6 +42,7 @@ export class TableCellDirective {
     <div class="animate-fade-up">
       <!-- Table display preferences affect this table only. -->
       <div class="table-tools">
+      <ng-content select="[tableActions]"></ng-content>
       @if (enableSearch) {
         <label class="block text-sm text-gray-600">
           {{ showPagination ? 'Search this page' : 'Search records' }}
