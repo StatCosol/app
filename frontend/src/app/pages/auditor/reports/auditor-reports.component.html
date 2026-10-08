@@ -62,7 +62,7 @@
     <!-- Reports Table -->
     @if (filteredReports.length > 0) {
 <div class="card">
-      <ui-data-table [columns]="columns" [data]="filteredReports">
+      <ui-data-table [enableSearch]="false" [columns]="columns" [data]="filteredReports">
         <ng-template uiTableCell="auditName" let-row>
           <div class="font-medium text-gray-900">{{ row.auditName || 'Audit' }}</div>
           <div class="text-xs text-gray-500">{{ row.periodCode || '-' }}</div>

@@ -57,7 +57,7 @@
     <!-- DataTable -->
     @if (filteredCrms.length > 0) {
 <div class="card">
-      <ui-data-table [columns]="columns" [data]="filteredCrms">
+      <ui-data-table [enableSearch]="false" [columns]="columns" [data]="filteredCrms">
         <ng-template uiTableCell="name" let-row>
           <span class="font-medium text-gray-900">{{ row.name }}</span>
         </ng-template>

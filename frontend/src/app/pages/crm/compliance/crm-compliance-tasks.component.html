@@ -152,7 +152,7 @@
 
   <!-- ─── Table ─── -->
   @if (!loading) {
-<ui-data-table
+<ui-data-table [enableSearch]="false"
     [columns]="taskColumns" [data]="tasks" [loading]="loading"
     [showPagination]="true" [totalItems]="total" [currentPage]="page" [pageSize]="limit"
     (pageChange)="page = $event.page; load()"

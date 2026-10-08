@@ -77,7 +77,7 @@
       <h3 class="card-title">CRM Team Performance</h3>
       <ui-button variant="secondary" size="sm" (clicked)="goToCrms()" icon="eye" [iconOnly]="true" label="View All CRMs">View All CRMs</ui-button>
     </div>
-    <ui-data-table
+    <ui-data-table [enableSearch]="false"
       [columns]="crmColumns"
       [data]="filteredCrms">
       <ng-template uiTableCell="status" let-row>
@@ -155,7 +155,7 @@
         {{ filteredOversight.length }} escalated
       </span>
     </div>
-    <ui-data-table
+    <ui-data-table [enableSearch]="false"
       [columns]="oversightColumns"
       [data]="filteredOversight">
       <ng-template uiTableCell="status" let-row>

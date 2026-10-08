@@ -106,7 +106,7 @@
 }
 
     @if (!loading && filteredAudits.length > 0) {
-<ui-data-table
+<ui-data-table [enableSearch]="false"
      
       [columns]="auditColumns"
       [data]="filteredAudits">

@@ -5,15 +5,6 @@
     <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </ui-page-header>
 
-  <div class="head-controls">
-    <label class="search-box">
-      Search
-      <input class="workspace-search" autocomplete="off" id="pf-search-text" type="search" name="searchText" [(ngModel)]="searchText" (ngModelChange)="onFilterChange()" placeholder="Employee / code / status" />
-    </label>
-
-    <button type="button" class="btn btn-primary" (click)="openCreateModal()">+ Initiate F&amp;F</button>
-  </div>
-
   <section class="summary-grid">
     <article class="summary-card">
       <span class="label">Initiated</span>
@@ -41,18 +32,29 @@
     </article>
   </section>
 
-  <div class="tabs-row card">
-    @for (tab of lifecycleTabs; track tab) {
-<button
-      type="button"
-     
-      (click)="setLifecycleFilter(tab.key)"
-      [class]="lifecycleFilter === tab.key ? 'tab tab--active' : 'tab'"
-    >
-      {{ tab.label }}
-    </button>
-}
-  </div>
+  <section class="card lifecycle-filters" aria-label="Filter settlement cases">
+    <div class="head-controls">
+      <label class="search-box">
+        Search
+        <input class="workspace-search" autocomplete="off" id="pf-search-text" type="search" name="searchText" [(ngModel)]="searchText" (ngModelChange)="onFilterChange()" placeholder="Employee / code / status" />
+      </label>
+
+      <button type="button" class="btn btn-primary" (click)="openCreateModal()">+ Initiate F&amp;F</button>
+    </div>
+
+    <div class="tabs-row">
+      @for (tab of lifecycleTabs; track tab) {
+  <button
+        type="button"
+
+        (click)="setLifecycleFilter(tab.key)"
+        [class]="lifecycleFilter === tab.key ? 'tab tab--active' : 'tab'"
+      >
+        {{ tab.label }}
+      </button>
+  }
+    </div>
+  </section>
 
   @if (loading) {
 <div class="loader">Loading F&amp;F cases...</div>

@@ -80,7 +80,7 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
 
         @if (filteredItems.length > 0) {
 <div class="card">
-          <ui-data-table [columns]="columns" [data]="filteredItems">
+          <ui-data-table [enableSearch]="false" [columns]="columns" [data]="filteredItems">
             <ng-template uiTableCell="status" let-row>
               <ui-status-badge [status]="row.status"></ui-status-badge>
             </ng-template>

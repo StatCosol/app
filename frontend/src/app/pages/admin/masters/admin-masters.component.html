@@ -162,7 +162,7 @@
       </div>
 
       <div class="border border-gray-200 rounded-xl max-h-[600px] overflow-auto">
-        <ui-data-table
+        <ui-data-table [enableSearch]="false"
           [columns]="complianceColumns"
           [data]="filteredComplianceMasters"
           [loading]="loading">

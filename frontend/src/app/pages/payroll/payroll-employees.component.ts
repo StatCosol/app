@@ -50,17 +50,14 @@ interface PayrollEmployee {
         title="Payroll Employees"
         description="Browse and manage employees for payroll processing.">
         <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
-      </ui-page-header>
-
-      <!-- Search -->
-      <div class="mb-6">
         <ui-form-input
+          label="Search employees"
           type="search"
           placeholder="Search employees by name, code or department..."
           [(ngModel)]="searchTerm"
           (ngModelChange)="onSearch($event)">
         </ui-form-input>
-      </div>
+      </ui-page-header>
 
       <!-- Loading -->
       @if (loading) {
@@ -96,7 +93,7 @@ interface PayrollEmployee {
 
       <!-- Table -->
       @if (!loading && !error && filteredEmployees.length > 0) {
-<ui-data-table
+<ui-data-table [enableSearch]="false"
        
         [columns]="columns"
         [data]="filteredEmployees"
