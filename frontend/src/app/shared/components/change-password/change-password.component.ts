@@ -116,7 +116,7 @@ import { ValidationMessagesComponent } from '../../ui/validation-messages/valida
         <button
           type="submit"
           [disabled]="saving || form.invalid"
-          class="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-brand-600 text-white font-medium text-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          class="standard-action w-full sm:w-auto px-6 py-2.5 rounded-lg bg-brand-600 text-white font-medium text-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           @if (!saving) {
 <span>Update Password</span>

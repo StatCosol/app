@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -17,7 +18,7 @@ import {
 @Component({
   selector: 'app-cco-crms-under-me',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule, FormsModule, PageHeaderComponent, StatusBadgeComponent,
     LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent,
     TableCellDirective, FormSelectComponent, EmptyStateComponent,

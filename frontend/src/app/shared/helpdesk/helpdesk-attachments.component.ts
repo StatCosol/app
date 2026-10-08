@@ -9,12 +9,12 @@ import { IconComponent } from '../ui/icon/icon.component';
   imports: [IconComponent],
   template: `
     @for (file of attachments; track file.url) {
-      <button type="button" class="flex items-center gap-2 max-w-full text-left text-sm text-brand-700 py-2 disabled:opacity-50"
+      <button type="button" class="compact-action flex items-center gap-2 max-w-full text-left text-sm text-brand-700 py-2 disabled:opacity-50"
               [disabled]="disabled || !!downloading" (click)="download(file)"
-              [attr.aria-label]="'Download ' + file.name" [title]="disabled ? 'Ticket assignment required' : 'Download ' + file.name">
+              [attr.aria-label]="'Download ' + file.name" [title]="disabled ? 'Ticket assignment required' : 'Download ' + file.name" title="download" aria-label="download" data-action-label="download" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
         <ui-icon name="download" class="shrink-0" />
         <span class="min-w-0 break-all">{{ file.name }}</span>
-      </button>
+      </span></button>
     }
     @if (downloading) { <p role="status" class="text-xs text-gray-500">Downloading...</p> }
     @if (error) { <p role="alert" class="text-sm text-red-700">{{ error }}</p> }

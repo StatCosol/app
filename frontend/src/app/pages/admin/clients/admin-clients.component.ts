@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnInit, OnDestroy, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -26,7 +27,7 @@ import {
 @Component({
   selector: 'app-admin-clients',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     RouterLink,
     PageHeaderComponent,
@@ -274,12 +275,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.routeSubscription = this.route.paramMap.subscribe(params => {
       const clientId = params.get('id');
       const tab = params.get('tab');
-      
+
       // Update tab immediately for instant visual feedback
       if (tab && (tab === 'company' || tab === 'branches' || tab === 'compliances')) {
         this.activeTab = tab;
       }
-      
+
       if (clientId) {
         const id = clientId;
         // If we already have this client loaded, just switch tabs
@@ -418,9 +419,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
   private handleTabChange(tab: 'company' | 'branches' | 'compliances') {
     if (!this.selectedClient) return;
-    
+
     this.activeTab = tab || 'branches';
-    
+
     // Load data for the specific tab if needed
     if (tab === 'branches' && this.branches.length === 0) {
       this.loadBranches();
@@ -604,7 +605,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   private loadClientById(clientId: string, tab?: 'company' | 'branches' | 'compliances') {
     // Update UI immediately for instant feedback
     this.activeTab = tab || 'branches';
-    
+
     this.loading = true;
     this.service.getClient(clientId).pipe(
       timeout(8000),
@@ -878,7 +879,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   // BRANCH OPERATIONS
   loadBranches() {
     if (!this.selectedClient) return;
-    
+
     this.loading = true;
     this.service.getBranches(this.selectedClient.id).pipe(
       timeout(8000),
@@ -911,7 +912,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
   createOrUpdateBranch() {
     if (!this.selectedClient) return;
-    
+
     if (!this.branchForm.branchName.trim()) {
       this.error = 'Branch name is required';
       return;
@@ -1085,12 +1086,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.compliances = [];
     this.selectedComplianceIds = new Set<string>();
     this.selectedCount = 0;
-    
+
     // Navigate to compliances tab only if not already there
     if (this.selectedClient && this.activeTab !== 'compliances') {
       this.router.navigate(['/admin/clients', this.selectedClient.id, 'compliances']);
     }
-    
+
     // Then load the compliance data
     if (branch.id) {
       this.loadBranchCompliances(branch.id);

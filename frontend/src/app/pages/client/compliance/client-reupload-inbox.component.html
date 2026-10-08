@@ -14,18 +14,16 @@
       />
       <button type="button"
         (click)="load()"
-        class="px-3 py-2 rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 text-sm font-medium"
-      >
-        Refresh
-      </button>
+        class="compact-action px-3 py-2 rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 text-sm font-medium"
+       title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   </div>
 
   <!-- Quick Tabs with counts -->
   <div class="flex flex-wrap gap-2 mb-3">
-    <button type="button" class="px-3 py-1 text-sm border rounded"
+    <button type="button" class="compact-action px-3 py-1 text-sm border rounded"
             [ngClass]="statusTab==='OPEN' ? 'bg-black text-white' : ''"
-            (click)="setTab('OPEN')">{{ tabLabel('OPEN') }}</button>
+            (click)="setTab('OPEN')" title="OPEN" aria-label="OPEN" data-action-label="OPEN" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">{{ tabLabel('OPEN') }}</span></button>
     <button type="button" class="px-3 py-1 text-sm border rounded"
             [ngClass]="statusTab==='SUBMITTED' ? 'bg-black text-white' : ''"
             (click)="setTab('SUBMITTED')">{{ tabLabel('SUBMITTED') }}</button>
@@ -51,7 +49,7 @@
   <!-- Empty -->
   @if (!loading && !filteredRows.length) {
 <div
-   
+
     class="text-center py-12 bg-white rounded-xl border border-gray-200"
   >
     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -67,7 +65,7 @@
 <div class="space-y-4">
     @for (r of filteredRows; track r) {
 <div
-     
+
       class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
     >
       <div class="p-5">
@@ -85,7 +83,7 @@
             </span>
             @if (isOverdue(r) && (statusText(r) === 'OPEN' || statusText(r) === 'SUBMITTED')) {
 <span
-             
+
               class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700"
             >
               OVERDUE
@@ -124,13 +122,8 @@
           <a
             [href]="latestFileUrl(r)"
             target="_blank"
-            class="inline-flex items-center text-xs text-brand-600 hover:text-brand-800 font-medium"
-          >
-            <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
-            </svg>
-            Download latest
-          </a>
+            class="compact-action inline-flex items-center text-xs text-brand-600 hover:text-brand-800 font-medium"
+           title="Download latest" aria-label="Download latest" data-action-label="Download latest" data-action-icon="download"><ui-icon name="download" [size]="20" /></a>
         </div>
 }
 
@@ -156,17 +149,17 @@
             <button type="button"
               (click)="upload(r)"
               [disabled]="!canUpload(r) || uploadingId === id(r)"
-              class="px-3 py-2 text-sm border rounded disabled:opacity-50"
-            >
+              class="compact-action px-3 py-2 text-sm border rounded disabled:opacity-50"
+             title="Upload disabled" aria-label="Upload disabled" data-action-label="Upload disabled" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
               {{ uploadingId === id(r) ? 'Uploading\u2026' : (canUpload(r) ? 'Upload' : 'Upload disabled') }}
-            </button>
+            </span></button>
             <button type="button"
               (click)="submit(r)"
               [disabled]="!canSubmit(r) || submittingId === id(r)"
-              class="px-3 py-2 text-sm bg-black text-white rounded disabled:opacity-50"
-            >
+              class="compact-action px-3 py-2 text-sm bg-black text-white rounded disabled:opacity-50"
+             title="Submit disabled" aria-label="Submit disabled" data-action-label="Submit disabled" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
               {{ submittingId === id(r) ? 'Submitting\u2026' : (canSubmit(r) ? 'Submit' : 'Submit disabled') }}
-            </button>
+            </span></button>
           </div>
         </div>
       </div>

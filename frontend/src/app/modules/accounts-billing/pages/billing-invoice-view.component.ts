@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subject, Subscription, takeUntil } from 'rxjs';
 
@@ -11,7 +12,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   selector: 'app-billing-invoice-view',
   standalone: true,
-  imports: [FormsModule, RouterModule],
+  imports: [IconComponent, FormsModule, RouterModule],
   template: `
     @if (invoice) {
 <div class="p-6 space-y-6">
@@ -25,28 +26,28 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="flex gap-2 flex-wrap">
           @if (invoice.invoiceStatus === 'DRAFT') {
 <button (click)="approve()" [disabled]="actionBusy"
-                  class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Approve</button>
+                  class="compact-action px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
           @if (isEditable() && !actionBusy) {
 <a [routerLink]="['/accounts/invoices', invoice.id, 'edit']"
-                  class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Edit</a>
+                  class="compact-action px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></a>
 }
           @if (canConvert()) {
 <button (click)="openTaxInvoiceConversion()"
                   [disabled]="actionBusy"
-                  class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50">
+                  class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50" title="View Tax Invoice" aria-label="View Tax Invoice" data-action-label="View Tax Invoice" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
             {{ invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice' }}
-          </button>
+          </span></button>
 }
           <button (click)="generatePdf()" [disabled]="actionBusy"
-                  class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700">
+                  class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700" title="Generate PDF" aria-label="Generate PDF" data-action-label="Generate PDF" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
             {{ generatingPdf ? 'Generating...' : 'Generate PDF' }}
-          </button>
+          </span></button>
           <button (click)="openEmail()" [disabled]="actionBusy"
-                  class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700">Send Email</button>
+                  class="compact-action px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700" title="Send Email" aria-label="Send Email" data-action-label="Send Email" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
           @if (canCancel()) {
 <button (click)="cancel()" [disabled]="actionBusy"
-                  class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Cancel</button>
+                  class="standard-action px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Cancel</button>
 }
         </div>
       </div>
@@ -62,7 +63,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Mail: {{ invoice.mailStatus }}</span>
         @if (invoice.pdfPath) {
 <button (click)="generatePdf()" type="button" [disabled]="actionBusy"
-           class="px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 hover:underline">View PDF</button>
+           class="compact-action px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 hover:underline" title="View PDF" aria-label="View PDF" data-action-label="View PDF" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 }
       </div>
 
@@ -181,7 +182,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           @if (canRecordPayment()) {
 <button [disabled]="actionBusy"
                   (click)="openPayment()"
-                  class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">+ Record Payment</button>
+                  class="compact-action px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700" title="Record Payment" aria-label="Record Payment" data-action-label="Record Payment" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
 }
         </div>
         @if (payments.length) {
@@ -227,7 +228,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
               <h2 class="text-lg font-bold">Generate Tax Invoice</h2>
               <p class="text-xs text-slate-500 mt-1">From Proforma {{ invoice.invoiceNumber }}</p>
             </div>
-            <button (click)="showConversionModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
+            <button (click)="showConversionModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             <div>
@@ -258,12 +259,12 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </p>
           </div>
           <div class="p-6 border-t flex justify-end gap-3">
-            <button (click)="showConversionModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+            <button (click)="showConversionModal = false" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="submitTaxInvoiceConversion()"
                     [disabled]="actionBusy || !conversionForm.purchaseOrderNumber.trim() || !conversionForm.invoiceDate"
-                    class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50">
+                    class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50" title="Generate Tax Invoice" aria-label="Generate Tax Invoice" data-action-label="Generate Tax Invoice" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
               {{ convertingProforma ? 'Generating...' : 'Generate Tax Invoice' }}
-            </button>
+            </span></button>
           </div>
         </div>
       </div>
@@ -275,7 +276,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Record Payment</h2>
-            <button (click)="showPaymentModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
+            <button (click)="showPaymentModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             <div>
@@ -314,9 +315,9 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </div>
           </div>
           <div class="p-6 border-t flex justify-end gap-3">
-            <button (click)="showPaymentModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+            <button (click)="showPaymentModal = false" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="submitPayment()" [disabled]="actionBusy"
-                    class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">
+                    class="standard-action px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">
               {{ savingPayment ? 'Saving...' : 'Save Payment' }}
             </button>
           </div>
@@ -330,7 +331,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Send Invoice Email</h2>
-            <button (click)="showEmailModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
+            <button (click)="showEmailModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             <div>
@@ -356,11 +357,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </div>
           </div>
           <div class="p-6 border-t flex justify-end gap-3">
-            <button (click)="showEmailModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+            <button (click)="showEmailModal = false" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="submitEmail()" [disabled]="actionBusy"
-                    class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700">
+                    class="compact-action px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700" title="Send" aria-label="Send" data-action-label="Send" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
               {{ sendingEmail ? 'Sending...' : 'Send' }}
-            </button>
+            </span></button>
           </div>
         </div>
       </div>
@@ -377,14 +378,14 @@ import { ToastService } from '../../../shared/toast/toast.service';
 }
           @if (loadError) {
 <p class="text-red-500">Could not load this invoice. It may have been deleted or you may not have access.</p>
-<button (click)="loadInvoice(invoiceId)" class="mt-3 px-4 py-2 border rounded-lg text-sm">Retry invoice</button>
+<button (click)="loadInvoice(invoiceId)" class="compact-action mt-3 px-4 py-2 border rounded-lg text-sm" title="Retry invoice" aria-label="Retry invoice" data-action-label="Retry invoice" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
 }
         </div>
       </div>
     
 }
 
-    
+
   `,
 })
 export class BillingInvoiceViewComponent implements OnInit, OnDestroy {

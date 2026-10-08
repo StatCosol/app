@@ -4,7 +4,7 @@
     description="Use this queue to start reviews, continue audits in progress, and return for corrections when stakeholders re-upload documents."
     icon="clipboard-check">
   </ui-page-header>
-  <div class="mb-4"><ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']">Conduct Audit</ui-button></div>
+  <div class="mb-4"><ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']" icon="eye" [iconOnly]="true" label="Conduct Audit">Conduct Audit</ui-button></div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
     <div class="card">
@@ -82,7 +82,7 @@
       </ui-form-input>
 
       <div class="flex gap-2 items-end">
-        <ui-button variant="secondary" (clicked)="clear()">Clear</ui-button>
+        <ui-button variant="secondary" (clicked)="clear()" icon="undo" [iconOnly]="true" label="Clear">Clear</ui-button>
       </div>
     </div>
   </div>
@@ -146,7 +146,7 @@
       </ng-template>
 
       <ng-template uiTableCell="action" let-row>
-        <ui-button variant="primary" size="sm" (clicked)="openWorkspace(row)">
+        <ui-button variant="primary" size="sm" (clicked)="openWorkspace(row)" [icon]="getWorkspaceActionLabel(row) | actionIcon" [iconOnly]="true" [label]="getWorkspaceActionLabel(row)">
           {{ getWorkspaceActionLabel(row) }}
         </ui-button>
       </ng-template>

@@ -17,7 +17,7 @@ interface Policy { commType: string; requestDay: number; deadlineDay: number; en
         <label><input type="checkbox" [(ngModel)]="p.enabled" /> Enabled</label>
         <label>Request day <input class="w-20 border rounded p-1" type="number" min="1" max="28" [(ngModel)]="p.requestDay" /></label>
         <label>Requested by day <input class="w-20 border rounded p-1" type="number" [min]="p.requestDay" max="28" [(ngModel)]="p.deadlineDay" /></label>
-        @if (canEdit) { <button type="button" class="border rounded px-3 py-1" (click)="save(p)">Save schedule</button> }
+        @if (canEdit) { <button type="button" class="standard-action border rounded px-3 py-1" (click)="save(p)">Save schedule</button> }
       </fieldset>
     }
   </section>`,

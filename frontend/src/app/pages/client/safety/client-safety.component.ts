@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +20,7 @@ import { environment } from '../../../../environments/environment';
 @Component({
   standalone: true,
   selector: 'app-client-safety',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="Safety Documents" subtitle="View safety documents uploaded by your branches"></ui-page-header>
@@ -173,7 +174,7 @@ import { environment } from '../../../../environments/environment';
                   <div [class.text-green-600]="doc.verifiedByAuditor" [class.text-gray-400]="!doc.verifiedByAuditor">Auditor: {{ doc.verifiedByAuditor ? '✓' : '—' }}</div>
                 </td>
                 <td class="px-3 py-3 text-sm">
-                  <button (click)="download(doc)" class="text-brand-600 hover:text-brand-800 font-medium text-xs">Download</button>
+                  <button (click)="download(doc)" class="compact-action text-brand-600 hover:text-brand-800 font-medium text-xs" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
                 </td>
               </tr>
 }

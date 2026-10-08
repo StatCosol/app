@@ -9,7 +9,7 @@ import { FormSelectComponent } from '../shared/ui/form-select/form-select.compon
 import { ActionButtonComponent } from '../shared/ui/action-button/action-button.component';
 import { ModalComponent } from '../shared/ui/modal/modal.component';
 
-@Component({ standalone: true, imports: [WorkspaceToolsComponent], template: `<div class="workspace-ui"><aside><nav><a href="/client/dashboard">Dashboard</a><a href="/client/payroll">Payroll</a><a href="/client/payroll">Payroll duplicate</a><a href="/admin/users">Users</a><a href="https://example.com/client/help">External</a></nav></aside><app-workspace-tools /></div>` })
+@Component({ standalone: true, imports: [WorkspaceToolsComponent], template: `<div class="workspace-ui"><aside><nav><a href="/client/dashboard">Dashboard</a><a href="/client/payroll">Payroll</a><a href="/client/payroll">Payroll duplicate</a><a href="/admin/users">Users</a><a href="https://example.com/client/help">External</a></nav></aside><app-workspace-tools [showToolbar]="true" /></div>` })
 class WorkspaceHarness { @ViewChild(WorkspaceToolsComponent) tools!: WorkspaceToolsComponent; }
 
 describe('Workspace UI interactions', () => {

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,7 +22,7 @@ import {
 @Component({
   selector: 'app-branch-contractor-attendance',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -58,7 +59,7 @@ import {
           </select>
           @if (!loadingContractors && contractors.length === 0) {
 <p
-           
+
             class="mt-1 text-xs text-gray-500"
           >
             No contractors with active employees in your branch.
@@ -90,33 +91,44 @@ import {
         </div>
       </div>
 
+      <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+        <label for="ctr-employee-search" class="block text-xs font-medium text-gray-600 mb-1">Search Employee</label>
+        <input
+          id="ctr-employee-search"
+          name="employeeSearch"
+          type="search"
+          autocomplete="off"
+          placeholder="Employee name"
+          [(ngModel)]="employeeSearch"
+          class="ui-input"
+        />
+      </div>
+
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h3 class="font-semibold text-gray-900">
             Attendance
             @if (attendanceRows.length) {
 <span class="ml-2 text-xs font-normal text-gray-500">
-              ({{ attendanceRows.length }})
+              ({{ filteredAttendanceRows.length }} of {{ attendanceRows.length }})
             </span>
 }
           </h3>
           <div class="flex items-center gap-3">
             <button
               type="button"
-              class="text-sm font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
+              class="compact-action text-sm font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
               [disabled]="loadingPunches || exporting || !contractorUserId"
               (click)="downloadAttendance()"
-            >
+             title="Download Excel" aria-label="Download Excel" data-action-label="Download Excel" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
               {{ exporting ? 'Preparing...' : 'Download Excel' }}
-            </button>
+            </span></button>
             <button
               type="button"
-              class="text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400"
+              class="compact-action text-sm text-brand-600 hover:text-brand-700 disabled:text-gray-400"
               [disabled]="loadingPunches"
               (click)="loadPunches()"
-            >
-              Refresh
-            </button>
+             title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           </div>
         </div>
 
@@ -137,16 +149,16 @@ import {
           </div>
 }
 
-          @if (contractorUserId && !attendanceRows.length) {
+          @if (contractorUserId && !filteredAttendanceRows.length) {
 <div>
             <ui-empty-state
               title="No attendance found"
-              description="No ConTrack punches for this contractor in the selected window."
+              [description]="employeeSearch.trim() ? 'No employee attendance matches your search.' : 'No ConTrack punches for this contractor in the selected window.'"
             ></ui-empty-state>
           </div>
 }
 
-          @if (contractorUserId && attendanceRows.length) {
+          @if (contractorUserId && filteredAttendanceRows.length) {
 <div class="max-h-[600px] overflow-auto">
             <table class="min-w-full text-sm">
               <thead class="sticky top-0 z-10 bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase">
@@ -165,7 +177,7 @@ import {
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                @for (r of attendanceRows; track r) {
+                @for (r of filteredAttendanceRows; track r) {
 <tr class="hover:bg-gray-50">
                   <td class="px-4 py-2 whitespace-nowrap">{{ r.date | date: 'dd MMM yyyy' }}</td>
                   <td class="px-4 py-2">
@@ -199,9 +211,9 @@ import {
                     @if (r.photoUrl) {
                       <button
                         type="button"
-                        class="text-brand-600 hover:text-brand-700 text-xs"
+                        class="compact-action text-brand-600 hover:text-brand-700 text-xs"
                         (click)="viewPunchPhoto(r)"
-                      >View</button>
+                       title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
                     }
                     @if (!r.photoUrl) {
                       <span class="text-xs text-gray-400">-</span>
@@ -211,20 +223,16 @@ import {
                     @if (r.editable) {
                       <button
                         type="button"
-                        class="text-xs font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
+                        class="compact-action text-xs font-medium text-brand-600 hover:text-brand-700 disabled:text-gray-400"
                         [disabled]="actionBusyId === r.rowKey"
                         (click)="editRow(r)"
-                      >
-                        Edit
-                      </button>
+                       title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                       <button
                         type="button"
-                        class="ml-3 text-xs font-medium text-red-600 hover:text-red-700 disabled:text-gray-400"
+                        class="compact-action ml-3 text-xs font-medium text-red-600 hover:text-red-700 disabled:text-gray-400"
                         [disabled]="actionBusyId === r.rowKey"
                         (click)="deleteRow(r)"
-                      >
-                        Delete
-                      </button>
+                       title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                     } @else {
                       <span
                         class="text-xs text-gray-400"
@@ -239,7 +247,7 @@ import {
             </table>
           </div>
 }
-        
+
 }
       </div>
     </div>
@@ -251,6 +259,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
   punches: ContractorPunchRow[] = [];
   attendanceRows: ContractorAttendanceRow[] = [];
   contractorUserId = '';
+  employeeSearch = '';
   from = '';
   to = '';
   loadingContractors = false;
@@ -341,6 +350,14 @@ export class BranchContractorAttendanceComponent implements OnInit {
       default:
         return '-';
     }
+  }
+
+  get filteredAttendanceRows(): ContractorAttendanceRow[] {
+    const search = this.employeeSearch.trim().toLowerCase();
+    if (!search) return this.attendanceRows;
+    return this.attendanceRows.filter((row) =>
+      (row.contractorEmployeeName || '').toLowerCase().includes(search),
+    );
   }
 
   fmtScore(v: string | null): string {

@@ -159,7 +159,7 @@ import { AuthService } from '../../../core/auth.service';
 }
 
               <!-- Login button -->
-              <button class="login" type="submit" [disabled]="isLoading">
+              <button class="standard-action login" type="submit" [disabled]="isLoading">
                 @if (!isLoading) {
 <span class="btn-text">Login</span>
 }

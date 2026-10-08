@@ -129,7 +129,7 @@ describe('Assist rendered document UI', () => {
       expect(fixture.nativeElement.textContent).toContain('Recorded data');
       expect(opened.length).toBe(0);
       const view = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
-        (button: any) => button.textContent.includes('Open document'),
+        (button: any) => (button.getAttribute('aria-label') || button.textContent).includes('Open document'),
       ) as HTMLButtonElement;
       expect(view).toBeDefined();
       view.click();

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, NgZone, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +20,7 @@ interface ReportOption {
 @Component({
   selector: 'app-billing-gst-report',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -36,10 +37,10 @@ interface ReportOption {
           type="button"
           (click)="exportExcel()"
           [disabled]="loading || exporting || !report"
-          class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50"
-        >
+          class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50"
+         title="Download Excel" aria-label="Download Excel" data-action-label="Download Excel" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
           {{ exporting ? 'Preparing Excel...' : 'Download Excel' }}
-        </button>
+        </span></button>
       </div>
 
       <section class="bg-white border rounded-xl shadow-sm p-5 space-y-4">
@@ -134,18 +135,16 @@ interface ReportOption {
           <button
             type="button"
             (click)="clearOptionalFilters()"
-            class="px-3 py-1.5 border rounded-lg text-xs hover:bg-slate-50"
-          >
-            Clear filters
-          </button>
+            class="compact-action px-3 py-1.5 border rounded-lg text-xs hover:bg-slate-50"
+           title="Clear filters" aria-label="Clear filters" data-action-label="Clear filters" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
           <button
             type="button"
             (click)="load()"
             [disabled]="loading"
-            class="ml-auto px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
-          >
+            class="compact-action ml-auto px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
+           title="Generate Report" aria-label="Generate Report" data-action-label="Generate Report" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
             {{ loading ? 'Generating...' : 'Generate Report' }}
-          </button>
+          </span></button>
         </div>
 
         <div class="rounded-lg bg-brand-50 border border-brand-100 px-4 py-3 text-sm text-brand-900">

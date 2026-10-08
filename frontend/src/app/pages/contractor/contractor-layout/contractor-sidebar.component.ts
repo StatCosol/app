@@ -27,7 +27,7 @@ interface SidebarItem {
     <!-- Mobile overlay -->
     @if (mobileOpen) {
 <div
-     
+
       class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
@@ -59,7 +59,7 @@ interface SidebarItem {
           </svg>
           <input
             type="text"
-            placeholder="Filter navigation…"
+            placeholder="Search navigation…" aria-label="Search navigation"
             [(ngModel)]="searchTerm"
             class="sidebar-search w-full pl-8 pr-3 py-1.5 text-[12px] bg-white/8 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/12 focus:border-white/20 transition-all"
           />
@@ -105,9 +105,9 @@ interface SidebarItem {
         @if (collapsed) {
 
           <div class="collapsed-menu">
-            @for (link of collapsedLinks; track link) {
+            @for (link of collapsedLinks; track link.label) {
 <a
-             
+
               [routerLink]="link.route"
               [queryParams]="link.queryParams"
               [class.collapsed-active]="isLinkActive(link)"
@@ -119,12 +119,12 @@ interface SidebarItem {
             </a>
 }
           </div>
-        
+
 } @else {
 
-          @for (group of filteredNavGroups; track group) {
+          @for (group of filteredNavGroups; track group.label) {
 <div
-           
+
           >
             <div
               class="sidebar-section"
@@ -137,9 +137,9 @@ interface SidebarItem {
               </svg>
             </div>
             <div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
-              @for (item of group.items; track item) {
+              @for (item of group.items; track item.label) {
 <a
-               
+
                 [routerLink]="item.route"
                 [queryParams]="item.queryParams"
                 [class.sidebar-active]="isLinkActive(item)"
@@ -153,10 +153,13 @@ interface SidebarItem {
             </div>
           </div>
 }
-        
+
 }
 
-        
+
+        @if (!collapsed && searchTerm.trim() && filteredNavGroups.length === 0) {
+          <p class="px-4 py-3 text-sm" role="status">No matching pages.</p>
+        }
       </nav>
 
       <!-- Version footer -->
@@ -461,7 +464,7 @@ export class ContractorSidebarComponent implements OnChanges, OnDestroy {
     const q = this.searchTerm.trim().toLowerCase();
     if (!q) return this.navGroups;
     return this.navGroups
-      .map(g => ({ ...g, items: g.items.filter(i => i.label.toLowerCase().includes(q)) }))
+      .map(g => ({ ...g, items: g.label.toLowerCase().includes(q) ? g.items : g.items.filter(i => i.label.toLowerCase().includes(q)) }))
       .filter(g => g.items.length > 0)
       .map(g => ({ ...g, expanded: true }));
   }

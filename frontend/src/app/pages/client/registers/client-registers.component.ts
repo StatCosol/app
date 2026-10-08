@@ -67,11 +67,11 @@ type RegisterRow = {
         title="Registers Download Center"
         [subtitle]="isBranch ? 'Track register preparation and approval, and download approved branch files' : 'Preview and download payroll registers by period and branch'">
         <div class="actions">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()">Refresh</ui-button>
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
           <ui-button
             variant="primary"
             [disabled]="!filteredRows.length || loading || packDownloading"
-            (clicked)="downloadPack()">
+            (clicked)="downloadPack()" icon="download" [iconOnly]="true" label="Download ZIP Pack">
             {{ packDownloading ? 'Preparing Pack...' : 'Download ZIP Pack' }}
           </ui-button>
         </div>
@@ -97,7 +97,7 @@ type RegisterRow = {
 
       <section class="card mb-6">
         <div class="section-title">Filters</div>
-        <div class="filter-grid">
+        <div class="filter-grid aligned-filter-controls">
           <label>
             <span>Year</span>
             <input autocomplete="off" type="number" id="reg-year" name="periodYear" [(ngModel)]="q.periodYear" (ngModelChange)="onFiltersChange()" placeholder="2026" />
@@ -142,8 +142,8 @@ type RegisterRow = {
               placeholder="Title, register type, branch, file name" />
           </label>
           <div class="actions">
-            <ui-button variant="primary" [disabled]="loading" (clicked)="reload()">Apply</ui-button>
-            <ui-button variant="ghost" [disabled]="loading" (clicked)="reset()">Reset</ui-button>
+            <ui-button variant="primary" [disabled]="loading" (clicked)="reload()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
+            <ui-button variant="ghost" [disabled]="loading" (clicked)="reset()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
           </div>
         </div>
         @if (!loading && rows.length) {
@@ -205,8 +205,8 @@ type RegisterRow = {
                 <td>
                   <div class="meta">{{ formatFileSize(row.fileSize) }} | {{ row.fileType || 'unknown' }}</div>
                   <div class="row-actions">
-                    <ui-button size="sm" variant="secondary" (clicked)="preview(row)">Preview</ui-button>
-                    <ui-button size="sm" variant="primary" (clicked)="download(row)">Download</ui-button>
+                    <ui-button size="sm" variant="secondary" (clicked)="preview(row)" icon="eye" [iconOnly]="true" label="Preview">Preview</ui-button>
+                    <ui-button size="sm" variant="primary" (clicked)="download(row)" icon="download" [iconOnly]="true" label="Download">Download</ui-button>
                   </div>
                 </td>
               </tr>
@@ -264,7 +264,7 @@ type RegisterRow = {
           @default {
 <div class="unsupported">
             <p>Inline preview is not available for this file type.</p>
-            <ui-button variant="primary" (clicked)="previewRow && download(previewRow)">Download File</ui-button>
+            <ui-button variant="primary" (clicked)="previewRow && download(previewRow)" icon="download" [iconOnly]="true" label="Download File">Download File</ui-button>
           </div>
 }
         }

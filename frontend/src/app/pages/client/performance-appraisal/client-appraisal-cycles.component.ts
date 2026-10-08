@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-client-appraisal-cycles',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
@@ -20,9 +21,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
         title="Appraisal Cycles"
         subtitle="Create and manage appraisal cycles">
         <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
-        <button (click)="showCreateForm = !showCreateForm" class="appraisal-action appraisal-action--primary">
+        <button (click)="showCreateForm = !showCreateForm" class="compact-action appraisal-action appraisal-action--primary" title="Create Cycle" aria-label="Create Cycle" data-action-label="Create Cycle" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
           {{ showCreateForm ? 'Cancel' : 'Create Cycle' }}
-        </button>
+        </span></button>
       </ui-page-header>
 
       <!-- Create Form -->
@@ -62,9 +63,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
         </div>
         <div class="flex items-center gap-3 mt-4">
-          <button (click)="createCycle()" [disabled]="creating" class="appraisal-action appraisal-action--primary">
+          <button (click)="createCycle()" [disabled]="creating" class="compact-action appraisal-action appraisal-action--primary" title="Create" aria-label="Create" data-action-label="Create" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
             {{ creating ? 'Creating...' : 'Create' }}
-          </button>
+          </span></button>
         </div>
       </div>
 }
@@ -113,13 +114,13 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td>
                   <div class="flex items-center gap-2">
                     @if (c.status === 'DRAFT') {
-<button (click)="activateCycle(c.id)" class="text-emerald-600 hover:text-emerald-800 text-xs font-medium">Activate</button>
+<button (click)="activateCycle(c.id)" class="compact-action text-emerald-600 hover:text-emerald-800 text-xs font-medium" title="Activate" aria-label="Activate" data-action-label="Activate" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
                     @if (c.status === 'ACTIVE') {
-<button (click)="generateEmployees(c.id)" class="text-brand-600 hover:text-brand-800 text-xs font-medium">Generate</button>
+<button (click)="generateEmployees(c.id)" class="compact-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Generate" aria-label="Generate" data-action-label="Generate" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
 }
                     @if (c.status === 'ACTIVE') {
-<button (click)="closeCycle(c.id)" class="text-red-600 hover:text-red-800 text-xs font-medium">Close</button>
+<button (click)="closeCycle(c.id)" class="standard-action text-red-600 hover:text-red-800 text-xs font-medium">Close</button>
 }
                   </div>
                 </td>

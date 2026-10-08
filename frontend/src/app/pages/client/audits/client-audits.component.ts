@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, FormSelectCompone
 @Component({
   standalone: true,
   selector: 'app-client-audits',
-  imports: [FormsModule, PageHeaderComponent, DataTableComponent, FormSelectComponent, StatusBadgeComponent],
+  imports: [IconComponent, FormsModule, PageHeaderComponent, DataTableComponent, FormSelectComponent, StatusBadgeComponent],
   templateUrl: './client-audits.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-audits.component.scss'],
 })

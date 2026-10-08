@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef
 } from '@angular/core';
@@ -17,7 +18,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 @Component({
   selector: 'app-branch-contractors',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-container">
@@ -116,11 +117,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </div>
           <button
             type="button"
-            class="refresh-btn"
+            class="compact-action refresh-btn"
             (click)="loadDeleteRequests()"
-            [disabled]="loadingDeleteRequests">
-            Refresh
-          </button>
+            [disabled]="loadingDeleteRequests" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
 
         @if (loadingDeleteRequests) {
@@ -155,8 +154,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 <td class="text-slate-600">{{ req.reason || '-' }}</td>
                 <td class="text-slate-500">{{ req.createdAt | date:'medium' }}</td>
                 <td class="text-right whitespace-nowrap">
-                  <button type="button" class="approve-btn" (click)="approveDeleteRequest(req)">Approve Delete</button>
-                  <button type="button" class="reject-btn" (click)="rejectDeleteRequest(req)">Reject</button>
+                  <button type="button" class="compact-action approve-btn" (click)="approveDeleteRequest(req)" title="Approve Delete" aria-label="Approve Delete" data-action-label="Approve Delete" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                  <button type="button" class="compact-action reject-btn" (click)="rejectDeleteRequest(req)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
                 </td>
               </tr>
 }

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -19,7 +20,7 @@ type ComplianceTab = 'ALL' | 'OVERDUE' | 'PENDING' | 'APPROVED';
 @Component({
   selector: 'app-crm-compliance',
   standalone: true,
-  imports: [CommonModule],
+  imports: [IconComponent, CommonModule],
   template: `
     <section class="page-card">
       <div class="page-header">
@@ -27,7 +28,7 @@ type ComplianceTab = 'ALL' | 'OVERDUE' | 'PENDING' | 'APPROVED';
           <h2>Compliance</h2>
           <p>Track assigned compliance tasks and due dates.</p>
         </div>
-        <button type="button" class="primary-btn" (click)="loadTasks()">Refresh</button>
+        <button type="button" class="compact-action primary-btn" (click)="loadTasks()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 
       <div class="stats-row">

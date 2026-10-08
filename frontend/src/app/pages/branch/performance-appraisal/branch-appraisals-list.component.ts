@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-branch-appraisals-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .page-container { max-width: 1280px; margin: 0 auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
@@ -102,9 +103,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs text-gray-500">{{ total }} records</span>
           <div class="flex gap-2">
-            <button [disabled]="page <= 1" (click)="page = page - 1; load()" class="btn-secondary text-xs">Prev</button>
+            <button [disabled]="page <= 1" (click)="page = page - 1; load()" class="standard-action btn-secondary text-xs">Prev</button>
             <span class="text-xs text-gray-500 self-center">Page {{ page }}</span>
-            <button [disabled]="appraisals.length < pageSize" (click)="page = page + 1; load()" class="btn-secondary text-xs">Next</button>
+            <button [disabled]="appraisals.length < pageSize" (click)="page = page + 1; load()" class="standard-action btn-secondary text-xs">Next</button>
           </div>
         </div>
 
@@ -149,7 +150,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   </span>
                 </td>
                 <td>
-                  <a [routerLink]="['/branch/appraisals', a.id]" class="text-brand-600 hover:text-brand-800 text-xs font-medium">Review</a>
+                  <a [routerLink]="['/branch/appraisals', a.id]" class="compact-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Review" aria-label="Review" data-action-label="Review" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
                 </td>
               </tr>
 }

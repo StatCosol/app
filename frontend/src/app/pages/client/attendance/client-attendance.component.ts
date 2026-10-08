@@ -69,8 +69,7 @@ interface AttendanceIssue {
         subtitle="Validate monthly attendance, review mismatches and LOP preview, then handoff to payroll."
       >
         <ui-button variant="secondary" [disabled]="loading" (clicked)="loadWorkspace()"
-          >Refresh</ui-button
-        >
+           icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
       </ui-page-header>
 
       <section class="card mb-4">
@@ -89,8 +88,7 @@ interface AttendanceIssue {
           <ui-branch-filter inputId="ca-branch-filter" [(value)]="branchId" (optionsLoaded)="branchOptions = $event" />
           <div class="actions">
             <ui-button variant="primary" [disabled]="loading" (clicked)="loadWorkspace()"
-              >Load</ui-button
-            >
+               icon="refresh" [iconOnly]="true" label="Load">Load</ui-button>
           </div>
         </div>
       </section>
@@ -154,7 +152,7 @@ interface AttendanceIssue {
                   variant="ghost"
                   [disabled]="unresolvedMismatchCount === 0"
                   (clicked)="resolveAllMismatches()"
-                >
+                 icon="check-circle" [iconOnly]="true" label="Resolve All">
                   Resolve All
                 </ui-button>
               </div>
@@ -289,7 +287,7 @@ interface AttendanceIssue {
               [disabled]="approving || handoffBusy || unresolvedMismatchCount > 0"
               [loading]="approving"
               (clicked)="approveAttendance()"
-            >
+             icon="check-circle" [iconOnly]="true" label="Approve Attendance">
               {{ allRowsApproved ? 'Attendance Approved' : 'Approve Attendance' }}
             </ui-button>
             <ui-button
@@ -297,7 +295,7 @@ interface AttendanceIssue {
               [disabled]="!allRowsApproved || handoffBusy || approving"
               [loading]="handoffBusy"
               (clicked)="sendToPayroll()"
-            >
+             icon="send" [iconOnly]="true" label="Send to Payroll">
               Send to Payroll
             </ui-button>
           </div>

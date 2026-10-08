@@ -46,7 +46,7 @@ import { ChangePasswordComponent } from '../../shared/components/change-password
 <p class="mt-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded">{{ phoneError }}</p>
 }
             </div>
-            <button class="btn-primary" [disabled]="saving" (click)="saveProfile()">
+            <button class="standard-action btn-primary" [disabled]="saving" (click)="saveProfile()">
               {{ saving ? 'Saving...' : 'Save Changes' }}
             </button>
           </div>

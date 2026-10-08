@@ -16,7 +16,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 <p class="text-xs text-gray-500 mt-1">{{ subtitle }}</p>
 }
           </div>
-          <button type="button" class="text-sm font-semibold text-gray-600 hover:text-gray-900" (click)="close.emit()">Close</button>
+          <button type="button" class="standard-action text-sm font-semibold text-gray-600 hover:text-gray-900" (click)="close.emit()">Close</button>
         </header>
 
         <div class="flex-1 overflow-auto p-4">

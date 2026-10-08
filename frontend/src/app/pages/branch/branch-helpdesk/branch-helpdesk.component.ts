@@ -1,4 +1,5 @@
-﻿import {
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
+import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -17,7 +18,7 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
 @Component({
   selector: 'app-branch-helpdesk',
   standalone: true,
-  imports: [FormsModule, ThreadLayoutComponent, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, ThreadLayoutComponent, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-4">
@@ -34,10 +35,10 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
           </div>
           <button
             type="button"
-            class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            (click)="showNewTicketForm = !showNewTicketForm">
+            class="compact-action px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            (click)="showNewTicketForm = !showNewTicketForm" title="Raise Ticket" aria-label="Raise Ticket" data-action-label="Raise Ticket" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
             {{ showNewTicketForm ? 'Hide Form' : 'Raise Ticket' }}
-          </button>
+          </span></button>
         </div>
 
         @if (showNewTicketForm) {
@@ -78,14 +79,14 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
           <div class="md:col-span-2 flex items-center gap-2 justify-end">
             <button
               type="button"
-              class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              class="standard-action px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               (click)="showNewTicketForm = false"
               [disabled]="submitting">
               Cancel
             </button>
             <button
               type="submit"
-              class="px-3 py-2 rounded-lg bg-brand-700 text-white text-sm font-semibold disabled:opacity-60"
+              class="standard-action px-3 py-2 rounded-lg bg-brand-700 text-white text-sm font-semibold disabled:opacity-60"
               [disabled]="submitting || !canSubmitTicket">
               {{ submitting ? 'Submitting...' : 'Submit Ticket' }}
             </button>

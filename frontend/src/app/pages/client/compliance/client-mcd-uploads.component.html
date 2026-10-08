@@ -59,12 +59,12 @@
     @if (task.canUpload) {
 <div class="actions">
       <input #fileInput type="file" hidden accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onFileSelected(task, $event)" />
-      <button type="button" (click)="fileInput.click()" [disabled]="uploading[task.id]">{{ uploading[task.id] ? 'Uploading...' : 'Upload file' }}</button>
+      <button type="button" (click)="fileInput.click()" [disabled]="uploading[task.id]" class="compact-action" title="Upload file" aria-label="Upload file" data-action-label="Upload file" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">{{ uploading[task.id] ? 'Uploading...' : 'Upload file' }}</span></button>
     </div>
 } @else {
 
       <div class="locked">Uploads allowed from 20th to 27th of the following month.</div>
-    
+
 }
     
   </div>

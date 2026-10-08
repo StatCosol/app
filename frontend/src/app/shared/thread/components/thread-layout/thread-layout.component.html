@@ -22,10 +22,10 @@
           Page {{ page.page }} - {{ page.total }} total
         </span>
         <div class="flex gap-2">
-          <button class="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          <button class="standard-action px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             [disabled]="(page.page || 1) <= 1"
             (click)="goToPage((page.page || 1) - 1)">Prev</button>
-          <button class="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          <button class="standard-action px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             [disabled]="(page.page || 1) * (page.limit || 20) >= page.total"
             (click)="goToPage((page.page || 1) + 1)">Next</button>
         </div>
@@ -36,7 +36,7 @@
 
   <div class="lg:col-span-2" [class.hidden]="!showDetail && !selected" [class.lg:block]="true">
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <button class="lg:hidden flex items-center gap-2 px-4 py-3 text-sm text-brand-800 hover:bg-gray-50 w-full border-b border-gray-200"
+      <button class="standard-action lg:hidden flex items-center gap-2 px-4 py-3 text-sm text-brand-800 hover:bg-gray-50 w-full border-b border-gray-200"
         (click)="backToList()">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -83,18 +83,18 @@
             <div class="flex gap-2 flex-shrink-0">
               @if (canResolve && !!api.resolve && isOpen) {
 <button
-                class="px-3 py-1.5 text-sm font-medium rounded-lg border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
-                (click)="resolveThread()">Resolve</button>
+                class="compact-action px-3 py-1.5 text-sm font-medium rounded-lg border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                (click)="resolveThread()" title="Resolve" aria-label="Resolve" data-action-label="Resolve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
               @if (canClose && !!api.close && isOpen) {
 <button
-                class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                class="standard-action px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                 (click)="closeThread()">Close</button>
 }
               @if (canReopen && !!api.reopen && isClosed) {
 <button
-                class="px-3 py-1.5 text-sm font-medium rounded-lg border border-brand-300 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
-                (click)="reopenThread()">Reopen</button>
+                class="compact-action px-3 py-1.5 text-sm font-medium rounded-lg border border-brand-300 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
+                (click)="reopenThread()" title="Reopen" aria-label="Reopen" data-action-label="Reopen" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
 }
             </div>
           </div>

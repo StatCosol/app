@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -8,7 +9,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
 @Component({
   selector: 'app-billing-invoices',
   standalone: true,
-  imports: [FormsModule, RouterModule],
+  imports: [IconComponent, FormsModule, RouterModule],
   template: `
     @if (loadError) { <div role="alert" class="p-4 text-red-700">{{ loadError }} <button (click)="load()">Retry</button></div> }
     @if (loading) { <div role="status" class="p-4">Loading…</div> }
@@ -16,9 +17,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">Invoices</h1>
         <a routerLink="/accounts/invoices/new"
-           class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium">
-          + New Invoice
-        </a>
+           class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium" title="New Invoice" aria-label="New Invoice" data-action-label="New Invoice" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></a>
       </div>
 
       <!-- Filters -->
@@ -81,7 +80,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
                 </span>
               </td>
               <td class="px-4 py-3 text-center">
-                <a [routerLink]="['/accounts/invoices', inv.id]" class="text-brand-600 hover:underline text-xs">View</a>
+                <a [routerLink]="['/accounts/invoices', inv.id]" class="compact-action text-brand-600 hover:underline text-xs" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               </td>
             </tr>
 }
@@ -99,9 +98,9 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
         <span>Page {{ page }} of {{ totalPages }} ({{ total }} records)</span>
         <div class="flex gap-2">
           <button (click)="page = page - 1; load()" [disabled]="page <= 1"
-                  class="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+                  class="standard-action px-3 py-1 border rounded disabled:opacity-50">Prev</button>
           <button (click)="page = page + 1; load()" [disabled]="page >= totalPages"
-                  class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
+                  class="standard-action px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
 }

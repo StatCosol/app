@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -26,7 +27,7 @@ interface TimelineEvent {
 @Component({
   selector: 'app-branch-mcd',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, StatusBadgeComponent, ModalComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, StatusBadgeComponent, ModalComponent],
   templateUrl: './branch-mcd.component.html',
   styleUrls: ['./branch-mcd.component.scss'],
 })

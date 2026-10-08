@@ -1,3 +1,5 @@
+import { ActionIconPipe } from '../../../shared/ui/action-icon.pipe';
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -126,7 +128,7 @@ interface ScheduleModel {
 @Component({
   selector: 'app-crm-audit-management-page',
   standalone: true,
-  imports: [
+  imports: [ActionIconPipe, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,

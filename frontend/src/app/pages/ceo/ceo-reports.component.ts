@@ -47,7 +47,7 @@ interface ReportHistoryRow {
       ></ui-page-header>
 
       <div class="bg-white rounded-2xl border border-gray-100 shadow-card p-4">
-        <div class="flex flex-wrap items-end gap-3">
+        <div class="flex flex-wrap items-end gap-3 aligned-filter-controls">
           <div>
             <label class="block text-xs text-gray-600 mb-1" for="cr-period">Period</label>
             <input autocomplete="off" id="cr-period" name="period"
@@ -56,7 +56,7 @@ interface ReportHistoryRow {
               class="h-10 rounded-lg border border-gray-200 px-3 text-sm"
             />
           </div>
-          <ui-button variant="secondary" size="sm" [loading]="loadingSummary" (clicked)="loadSummary()">
+          <ui-button variant="secondary" size="sm" [loading]="loadingSummary" (clicked)="loadSummary()" icon="refresh" [iconOnly]="true" label="Refresh Packs">
             Refresh Packs
           </ui-button>
           @if (summary) {
@@ -103,13 +103,13 @@ interface ReportHistoryRow {
               <p class="text-sm text-gray-500">Preview for {{ period }}</p>
             </div>
             <div class="flex gap-2">
-              <ui-button variant="secondary" size="sm" [loading]="loadingPreview" (clicked)="loadPreview()">
+              <ui-button variant="secondary" size="sm" [loading]="loadingPreview" (clicked)="loadPreview()" icon="refresh" [iconOnly]="true" label="Refresh Preview">
                 Refresh Preview
               </ui-button>
-              <ui-button variant="secondary" size="sm" [loading]="exportingCsv" [disabled]="!canExport" (clicked)="exportCsv()">
+              <ui-button variant="secondary" size="sm" [loading]="exportingCsv" [disabled]="!canExport" (clicked)="exportCsv()" icon="download" [iconOnly]="true" label="Export CSV">
                 Export CSV
               </ui-button>
-              <ui-button variant="primary" size="sm" [loading]="exportingPdf" [disabled]="!canExport" (clicked)="exportPdf()">
+              <ui-button variant="primary" size="sm" [loading]="exportingPdf" [disabled]="!canExport" (clicked)="exportPdf()" icon="download" [iconOnly]="true" label="Export PDF">
                 Export PDF
               </ui-button>
             </div>
@@ -168,7 +168,7 @@ interface ReportHistoryRow {
         <div class="bg-white rounded-2xl border border-gray-100 shadow-card p-6">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900">Saved Report History</h3>
-            <ui-button variant="outline" size="sm" (clicked)="clearHistory()">Clear History</ui-button>
+            <ui-button variant="outline" size="sm" (clicked)="clearHistory()" icon="undo" [iconOnly]="true" label="Clear History">Clear History</ui-button>
           </div>
 
           @if (history.length > 0) {

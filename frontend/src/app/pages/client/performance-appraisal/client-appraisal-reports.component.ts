@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-client-appraisal-reports',
   standalone: true,
-  imports: [FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
@@ -20,7 +21,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         title="Appraisal Reports"
         subtitle="Analytics and reports for performance appraisals">
         <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
-        <button (click)="exportData()" class="appraisal-action">Export Data</button>
+        <button (click)="exportData()" class="compact-action appraisal-action" title="Export Data" aria-label="Export Data" data-action-label="Export Data" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
       </ui-page-header>
 
       <!-- Cycle Filter -->
@@ -133,7 +134,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
         </div>
 }
-      
+
 }
     </div>
   `,

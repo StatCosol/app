@@ -80,12 +80,10 @@
           </td>
           <td>
             <div class="action-btns">
-              <button class="btn btn-ack"
+              <button class="compact-action btn btn-ack"
                       (click)="updateStatus(it, 'ACK')"
-                      [disabled]="it.status === 'ACK' || it.status === 'CLOSED'">
-                Acknowledge
-              </button>
-              <button class="btn btn-close"
+                      [disabled]="it.status === 'ACK' || it.status === 'CLOSED'" title="Acknowledge" aria-label="Acknowledge" data-action-label="Acknowledge" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+              <button class="standard-action btn btn-close"
                       (click)="updateStatus(it, 'CLOSED')"
                       [disabled]="it.status === 'CLOSED'">
                 Close

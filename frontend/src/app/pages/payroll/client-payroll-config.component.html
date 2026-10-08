@@ -27,11 +27,11 @@
             [disabled]="!selectedClientId" (click)="openOverrides()">⚙ Per-Client Overrides</button>
 }
     @if (view === 'list') {
-<button type="button" class="btn btn-primary"
-            [disabled]="!selectedClientId" (click)="openCreateForm()">+ New Structure</button>
+<button type="button" class="compact-action btn btn-primary"
+            [disabled]="!selectedClientId" (click)="openCreateForm()" title="New Structure" aria-label="New Structure" data-action-label="New Structure" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
 }
     @if (view !== 'list') {
-<button type="button" class="btn btn-secondary" (click)="backToList()">← Back to List</button>
+<button type="button" class="standard-action btn btn-secondary" (click)="backToList()">← Back to List</button>
 }
   </div>
 
@@ -49,7 +49,7 @@
   @if (!loading && structuresError && view === 'list') {
     <div role="alert" class="empty-state">
       Payroll structures could not be loaded.
-      <button type="button" class="btn btn-secondary" (click)="loadStructures()">Retry</button>
+      <button type="button" class="compact-action btn btn-secondary" (click)="loadStructures()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   }
 
@@ -113,7 +113,7 @@
 }
             </td>
             <td class="text-right">
-              <button type="button" class="btn btn-sm btn-ghost" (click)="selectStructure(s)">View</button>
+              <button type="button" class="compact-action btn btn-sm btn-ghost" (click)="selectStructure(s)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
             </td>
           </tr>
 }
@@ -121,7 +121,7 @@
       </table>
     </div>
 }
-  
+
 }
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -163,7 +163,7 @@
     <section class="card form-section">
       <header class="section-head">
         <h2>Salary Components</h2>
-        <button type="button" class="btn btn-sm btn-primary" (click)="openCompModal()">+ Add Component</button>
+        <button type="button" class="compact-action btn btn-sm btn-primary" (click)="openCompModal()" title="Add Component" aria-label="Add Component" data-action-label="Add Component" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
       </header>
 
       @if (!componentForms.length) {
@@ -221,8 +221,8 @@
               <td class="text-right actions-cell">
                 <button type="button" class="btn btn-xs btn-ghost" (click)="moveComp(i, -1)" [disabled]="i === 0">↑</button>
                 <button type="button" class="btn btn-xs btn-ghost" (click)="moveComp(i, 1)" [disabled]="i === componentForms.length - 1">↓</button>
-                <button type="button" class="btn btn-xs btn-ghost" (click)="openCompModal(i)">Edit</button>
-                <button type="button" class="btn btn-xs btn-danger" (click)="removeComp(i)">×</button>
+                <button type="button" class="compact-action btn btn-xs btn-ghost" (click)="openCompModal(i)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
+                <button type="button" class="compact-action btn btn-xs btn-danger" (click)="removeComp(i)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -236,7 +236,7 @@
     <section class="card form-section">
       <header class="section-head">
         <h2>Statutory Configuration (per State)</h2>
-        <button type="button" class="btn btn-sm btn-primary" (click)="openStatModal()">+ Add State</button>
+        <button type="button" class="compact-action btn btn-sm btn-primary" (click)="openStatModal()" title="Add State" aria-label="Add State" data-action-label="Add State" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
       </header>
 
       @if (!statConfigForms.length) {
@@ -250,8 +250,8 @@
         <div class="stat-card-head">
           <h3>{{ getStateName(sc.stateCode) }} <code>{{ sc.stateCode }}</code></h3>
           <div class="stat-card-actions">
-            <button type="button" class="btn btn-xs btn-ghost" (click)="openStatModal(i)">Edit</button>
-            <button type="button" class="btn btn-xs btn-danger" (click)="removeStat(i)">×</button>
+            <button type="button" class="compact-action btn btn-xs btn-ghost" (click)="openStatModal(i)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
+            <button type="button" class="compact-action btn btn-xs btn-danger" (click)="removeStat(i)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
         </div>
         <div class="stat-grid">
@@ -285,12 +285,12 @@
 
     <!-- ── Save ──────────────────────────────────────────────────────────── -->
     <div class="form-actions">
-      <button type="button" class="btn btn-secondary" (click)="backToList()">Cancel</button>
-      <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveStructure()">
+      <button type="button" class="standard-action btn btn-secondary" (click)="backToList()">Cancel</button>
+      <button type="button" class="standard-action btn btn-primary" [disabled]="saving" (click)="saveStructure()">
         {{ saving ? 'Saving...' : 'Save Structure' }}
       </button>
     </div>
-  
+
 }
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -314,10 +314,10 @@
           @if (selectedStructure.isDefault) {
 <span class="badge badge-blue">Default</span>
 }
-          <button type="button" class="btn btn-sm btn-secondary" (click)="toggleActive()">
+          <button type="button" class="standard-action btn btn-sm btn-secondary" (click)="toggleActive()">
             {{ selectedStructure.isActive ? 'Deactivate' : 'Activate' }}
           </button>
-          <button type="button" class="btn btn-sm btn-primary" (click)="openVersionModal()">Clone as New Version</button>
+          <button type="button" class="compact-action btn btn-sm btn-primary" (click)="openVersionModal()" title="Clone as New Version" aria-label="Clone as New Version" data-action-label="Clone as New Version" data-action-icon="document"><ui-icon name="document" [size]="20" /></button>
         </div>
       </header>
     </section>
@@ -447,9 +447,9 @@
           </div>
         </label>
       </div>
-      <button type="button" class="btn btn-primary mt-3" [disabled]="previewLoading || !previewForm.gross" (click)="calculate()">
+      <button type="button" class="compact-action btn btn-primary mt-3" [disabled]="previewLoading || !previewForm.gross" (click)="calculate()" title="Calculate Preview" aria-label="Calculate Preview" data-action-label="Calculate Preview" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
         {{ previewLoading ? 'Calculating...' : 'Calculate Preview' }}
-      </button>
+      </span></button>
 
       @if (previewResult) {
 <div class="preview-result">
@@ -475,7 +475,7 @@
                   <span class="amount">₹{{ kv.value | number:'1.0-0' }}</span>
                 </div>
 }
-              
+
 }
             </div>
             <div class="preview-total">
@@ -496,7 +496,7 @@
                   <span class="amount">₹{{ kv.value | number:'1.0-0' }}</span>
                 </div>
 }
-              
+
 }
             </div>
             <div class="preview-total">
@@ -541,15 +541,15 @@
           <input type="date" [(ngModel)]="versionEffectiveFrom" />
         </label>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" (click)="showVersionModal = false">Cancel</button>
-          <button type="button" class="btn btn-primary" [disabled]="saving || !versionEffectiveFrom" (click)="cloneVersion()">
+          <button type="button" class="standard-action btn btn-secondary" (click)="showVersionModal = false">Cancel</button>
+          <button type="button" class="compact-action btn btn-primary" [disabled]="saving || !versionEffectiveFrom" (click)="cloneVersion()" title="Create Version" aria-label="Create Version" data-action-label="Create Version" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
             {{ saving ? 'Cloning...' : 'Create Version' }}
-          </button>
+          </span></button>
         </div>
       </div>
     </div>
 }
-  
+
 }
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -640,10 +640,10 @@
         <label class="checkbox-label"><input type="checkbox" [(ngModel)]="compForm.isActive" /> Active</label>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="showCompModal = false">Cancel</button>
-        <button type="button" class="btn btn-primary" [disabled]="!compForm.code || !compForm.name || !compForm.label" (click)="saveComp()">
+        <button type="button" class="standard-action btn btn-secondary" (click)="showCompModal = false">Cancel</button>
+        <button type="button" class="compact-action btn btn-primary" [disabled]="!compForm.code || !compForm.name || !compForm.label" (click)="saveComp()" title="Add" aria-label="Add" data-action-label="Add" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
           {{ editingCompIdx >= 0 ? 'Update' : 'Add' }}
-        </button>
+        </span></button>
       </div>
     </div>
   </div>
@@ -732,10 +732,10 @@
       </div>
 
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" (click)="showStatModal = false">Cancel</button>
-        <button type="button" class="btn btn-primary" [disabled]="!statForm.stateCode" (click)="saveStat()">
+        <button type="button" class="standard-action btn btn-secondary" (click)="showStatModal = false">Cancel</button>
+        <button type="button" class="compact-action btn btn-primary" [disabled]="!statForm.stateCode" (click)="saveStat()" title="Add" aria-label="Add" data-action-label="Add" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
           {{ editingStatIdx >= 0 ? 'Update' : 'Add' }}
-        </button>
+        </span></button>
       </div>
     </div>
   </div>
@@ -756,7 +756,7 @@
           </p>
         </div>
         <div style="display:flex; gap:8px;">
-          <button type="button" class="btn btn-secondary" (click)="loadOverrides()" [disabled]="overridesLoading || saving">Reload</button>
+          <button type="button" class="compact-action btn btn-secondary" (click)="loadOverrides()" [disabled]="overridesLoading || saving" title="Reload" aria-label="Reload" data-action-label="Reload" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           <button type="button" class="btn btn-primary"
                   [disabled]="!overridesDirtyCount || saving"
                   (click)="saveOverrides()">
@@ -770,7 +770,7 @@
 }
 
       @if (!overridesLoading && overridesError) {
-        <div role="alert" class="empty-state">Components could not be loaded. <button type="button" class="btn btn-secondary" (click)="loadOverrides()">Retry</button></div>
+        <div role="alert" class="empty-state">Components could not be loaded. <button type="button" class="compact-action btn btn-secondary" (click)="loadOverrides()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
       }
 
       @if (!overridesLoading && !overridesError && !overrides.length) {
@@ -859,7 +859,7 @@
       </p>
 }
     </section>
-  
+
 }
   @if (view === 'history') {
     <section aria-label="Override history">
@@ -867,7 +867,7 @@
       @if (historyLoading) {
         <div class="loader">Loading history...</div>
       } @else if (historyError) {
-        <div role="alert" class="empty-state">History could not be loaded. <button type="button" class="btn btn-secondary" (click)="openHistory()">Retry</button></div>
+        <div role="alert" class="empty-state">History could not be loaded. <button type="button" class="compact-action btn btn-secondary" (click)="openHistory()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
       } @else if (!history.length) {
         <p>No recorded override changes.</p>
       } @else {

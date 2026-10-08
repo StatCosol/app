@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, ViewChild, inject, signal, computed } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, ViewChild, inject, signal, computed } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { Router } from '@angular/router';
 
@@ -8,6 +8,7 @@ interface ModuleLink { label: string; url: string }
   host: { class: 'bs-surface' },
   standalone: true,
   template: `
+    @if (showToolbar) {
     <div class="workspace-tools" aria-label="Workspace tools">
       <div class="workspace-tools__identity">
         <span class="workspace-tools__mark" aria-hidden="true">S<span>↗</span></span>
@@ -18,6 +19,7 @@ interface ModuleLink { label: string; url: string }
         <button class="btn btn-outline-secondary workspace-tool-button" type="button" (click)="toggleDensity()" [attr.aria-pressed]="compact()" title="Switch table spacing">{{ compact() ? 'Compact view' : 'Comfortable view' }}</button>
       </div>
     </div>
+    }
     <dialog #finder class="module-finder" aria-labelledby="module-finder-title" (close)="restoreFocus()" (click)="backdrop($event)">
       <div class="module-finder__heading"><h2 id="module-finder-title">Find a module</h2><button class="workspace-tool-button" type="button" (click)="close()" aria-label="Close module finder">✕</button></div>
       <p>Search the modules available in your navigation.</p>
@@ -36,6 +38,7 @@ interface ModuleLink { label: string; url: string }
   styleUrl: './workspace-tools.component.scss',
 })
 export class WorkspaceToolsComponent {
+  @Input() showToolbar = false;
   private readonly doc = inject(DOCUMENT);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);

@@ -3,7 +3,7 @@
     title="Controls Register"
     subtitle="Owner, evidence, and effectiveness tracking for SLA, threshold, and reminder controls">
     <div class="flex flex-wrap gap-2">
-      <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
       <ui-button variant="primary" size="sm" (clicked)="addControl('SLA')">+ SLA</ui-button>
       <ui-button variant="primary" size="sm" (clicked)="addControl('THRESHOLD')">+ Threshold</ui-button>
       <ui-button variant="primary" size="sm" (clicked)="addControl('REMINDER')">+ Reminder</ui-button>

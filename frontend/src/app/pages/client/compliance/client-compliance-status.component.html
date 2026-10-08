@@ -30,10 +30,8 @@
       <button
         type="button"
         (click)="loadAll()"
-        class="text-red-800 font-semibold hover:underline ml-4"
-      >
-        Retry
-      </button>
+        class="compact-action text-red-800 font-semibold hover:underline ml-4"
+       title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   }
 
@@ -131,7 +129,7 @@
       <article class="dashboard-panel area-panel">
         <header>
           <h2>Compliance by area</h2>
-          <a [routerLink]="complianceAreaRoute">View all</a>
+          <a [routerLink]="complianceAreaRoute" class="compact-action" title="View all" aria-label="View all" data-action-label="View all" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </header>
         <div class="area-table-wrap">
           <table class="area-table">
@@ -197,7 +195,7 @@
       <article class="dashboard-panel deadlines-panel">
         <header>
           <h2>Upcoming due dates</h2>
-          <a [routerLink]="calendarRoute">View calendar</a>
+          <a [routerLink]="calendarRoute" class="compact-action" title="View calendar" aria-label="View calendar" data-action-label="View calendar" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </header>
         <div class="compact-list">
           @for (item of upcomingItems; track item.type + '-' + item.id) {
@@ -226,7 +224,7 @@
       <article class="dashboard-panel">
         <header>
           <h2>Contractor compliance score</h2>
-          <a [routerLink]="contractorsRoute">View all</a>
+          <a [routerLink]="contractorsRoute" class="compact-action" title="View all" aria-label="View all" data-action-label="View all" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </header>
         <div class="score-list">
           @for (
@@ -252,7 +250,7 @@
       <article class="dashboard-panel">
         <header>
           <h2>Licences / registrations expiry</h2>
-          <a [routerLink]="registrationsRoute">View all</a>
+          <a [routerLink]="registrationsRoute" class="compact-action" title="View all" aria-label="View all" data-action-label="View all" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </header>
         <div class="compact-list">
           @for (item of overview.registrations; track item.id) {
@@ -277,7 +275,7 @@
       <article class="dashboard-panel audit-panel">
         <header>
           <h2>Audit & inspection summary</h2>
-          <a [routerLink]="auditsRoute">View all</a>
+          <a [routerLink]="auditsRoute" class="compact-action" title="View all" aria-label="View all" data-action-label="View all" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </header>
         <div class="audit-summary">
           <div class="audit-ring" [ngStyle]="auditRingStyle">
@@ -311,7 +309,7 @@
     <section class="dashboard-panel action-panel">
       <header>
         <h2>Critical action required</h2>
-        <a [routerLink]="actionItemsRoute">View all action items</a>
+        <a [routerLink]="actionItemsRoute" class="compact-action" title="View all action items" aria-label="View all action items" data-action-label="View all action items" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
       </header>
       <div class="action-grid">
         @for (item of criticalActionItems; track item.id) {
@@ -510,9 +508,9 @@
       </div>
 
       <nav aria-label="Task pages" class="mb-3 flex items-center gap-4">
-        <button type="button" [disabled]="taskOffset === 0 || tasksLoading" (click)="loadTabData(taskOffset - taskLimit)">Previous</button>
+        <button type="button" [disabled]="taskOffset === 0 || tasksLoading" (click)="loadTabData(taskOffset - taskLimit)" class="standard-action">Previous</button>
         <span class="text-sm">Page {{ (taskOffset / taskLimit) + 1 }} · {{tasks.length}} tasks</span>
-        <button type="button" [disabled]="tasks.length < taskLimit || tasksLoading || !!error" (click)="loadTabData(taskOffset + taskLimit)">Next</button>
+        <button type="button" [disabled]="tasks.length < taskLimit || tasksLoading || !!error" (click)="loadTabData(taskOffset + taskLimit)" class="standard-action">Next</button>
       </nav>
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <ui-data-table

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
@@ -28,7 +29,7 @@ import {
   selector: 'app-ai-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     RouterModule,
     DecimalPipe,
@@ -45,7 +46,7 @@ import {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="AI Intelligence Hub" subtitle="Predictive compliance risk scoring, AI-powered audit observations, and payroll anomaly detection">
         <div slot="actions" class="flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()">Refresh</ui-button>
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
           <ui-button variant="primary" (clicked)="navigateTo('ai-config')">⚙ AI Config</ui-button>
         </div>
       </ui-page-header>
@@ -57,7 +58,7 @@ import {
       @if (errorMsg && !loading) {
 <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
         <p class="text-red-700 text-sm">{{ errorMsg }}</p>
-        <button class="text-red-600 underline text-xs mt-1" (click)="reload()">Try again</button>
+        <button class="compact-action text-red-600 underline text-xs mt-1" (click)="reload()" title="Try again" aria-label="Try again" data-action-label="Try again" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 }
 
@@ -177,11 +178,11 @@ import {
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-900">🚨 High Risk Clients</h2>
-            <ui-button variant="ghost" size="sm" (clicked)="navigateTo('ai-risk')">View All →</ui-button>
+            <ui-button variant="ghost" size="sm" (clicked)="navigateTo('ai-risk')" icon="eye" [iconOnly]="true" label="View All →">View All →</ui-button>
           </div>
           @if (highRiskClients.length > 0) {
 <ui-data-table
-           
+
             [columns]="riskColumns"
             [data]="highRiskClients"
             [pageSize]="10">
@@ -206,7 +207,7 @@ import {
 }
           @if (highRiskClients.length === 0) {
 <ui-empty-state
-           
+
             title="No Risk Assessments Yet"
             message="Run risk assessments from the Risk Assessments page to see high-risk clients here.">
           </ui-empty-state>
@@ -248,7 +249,7 @@ import {
                 </div>
                 <p class="text-sm text-gray-600">{{ insight.description }}</p>
               </div>
-              <button (click)="dismiss(insight)" class="text-gray-400 hover:text-gray-600 text-sm shrink-0">Dismiss</button>
+              <button (click)="dismiss(insight)" class="standard-action text-gray-400 hover:text-gray-600 text-sm shrink-0">Dismiss</button>
             </div>
 }
           </div>

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
@@ -7,7 +8,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-applicability-list',
   standalone: true,
-  imports: [RouterModule, PageHeaderComponent],
+  imports: [IconComponent, RouterModule, PageHeaderComponent],
   template: `
     <div class="p-6 max-w-6xl mx-auto">
       <ui-page-header
@@ -66,10 +67,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                         <td class="py-2.5 text-slate-500">{{ branch.employeeCount || 0 }}</td>
                         <td class="py-2.5 text-right">
                           <a [routerLink]="['/admin/branches', branch.id, 'applicability']"
-                             class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium text-sm">
-                            Configure
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                          </a>
+                             class="compact-action inline-flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium text-sm" title="Configure" aria-label="Configure" data-action-label="Configure" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></a>
                         </td>
                       </tr>
                     }

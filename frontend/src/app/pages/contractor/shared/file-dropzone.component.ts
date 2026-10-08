@@ -1,10 +1,11 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
   standalone: true,
   selector: 'app-file-dropzone',
-  imports: [CommonModule],
+  imports: [IconComponent, CommonModule],
   template: `
   <div class="dz" [class.drag]="dragging"
        (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
@@ -25,7 +26,7 @@ import { CommonModule } from '@angular/common';
 <div class="file">
       <div class="name">{{f.name}}</div>
       <div class="meta">{{(f.size/1024/1024) | number:'1.1-1'}} MB</div>
-      <button class="link" type="button" (click)="remove(i)">Remove</button>
+      <button class="compact-action link" type="button" (click)="remove(i)" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
     </div>
 }
   </div>

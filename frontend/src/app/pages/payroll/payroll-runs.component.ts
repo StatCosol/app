@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { PayrollReconciliationComponent } from './reconciliation/payroll-reconciliation.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import {
@@ -112,7 +113,7 @@ interface GuardrailItem {
 @Component({
   standalone: true,
   selector: 'app-payroll-runs',
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,

@@ -2,11 +2,11 @@
 <section class="reconciliation" aria-label="Wage register reconciliation">
   <header><div><p class="eyebrow">PAYROLL EVIDENCE</p><h3>Compare a wage register</h3>
     <p>Find missing employees and amount differences before approving or closing payroll.</p></div>
-    <button type="button" class="secondary" (click)="template()">Download CSV template</button></header>
+    <button type="button" class="compact-action secondary" (click)="template()" title="Download CSV template" aria-label="Download CSV template" data-action-label="Download CSV template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button></header>
   <p class="help">Use employee codes exactly as recorded in payroll and period <strong>{{ period }}</strong> on every row. Enter plain amounts without currency symbols or separators. Blank amounts remain unknown; use 0 only for a known zero. CSV only, up to 1 MB and 5,000 employees.</p>
   @if (!processed) { <p class="notice">Process this run before comparing its amounts.</p> }
   <div class="upload"><div><p class="file-label">Wage register</p><input #filePicker hidden type="file" aria-label="Wage register" accept=".csv,text/csv" (change)="selectFile($event)" [disabled]="!processed"><button type="button" class="secondary" (click)="filePicker.click()" [disabled]="!processed">Choose CSV file</button></div>
-    <span aria-live="polite">{{ file?.name || 'No file selected' }}</span><button type="button" (click)="compare()" [disabled]="!file || !processed || busy()">{{ busy() ? 'Comparing…' : 'Compare with payroll' }}</button></div>
+    <span aria-live="polite">{{ file?.name || 'No file selected' }}</span><button type="button" (click)="compare()" [disabled]="!file || !processed || busy()" class="compact-action" title="Compare with payroll" aria-label="Compare with payroll" data-action-label="Compare with payroll" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">{{ busy() ? 'Comparing…' : 'Compare with payroll' }}</span></button></div>
   @if (error()) { <p role="alert" class="notice error">{{ error() }}</p> }
   @if (busy()) { <p role="status" class="notice">Reading the register and comparing recorded payroll amounts…</p> }
   @if (result(); as report) {
@@ -33,8 +33,8 @@
       </details>
     }
     @if (!filteredRows().length) { <p class="notice">No rows match the current filters. Show all employees to inspect matching values.</p> }
-    @if (filteredRows().length > 50) { <div class="tools"><button type="button" class="secondary" [disabled]="page === 0" (click)="page = page - 1">Previous</button><span>Page {{ page + 1 }}</span><button type="button" class="secondary" [disabled]="(page + 1) * 50 >= filteredRows().length" (click)="page = page + 1">Next</button></div> }
-    <footer><div><strong>Snapshot: {{ report.generatedAt | date:'medium' }}</strong><p>Source: {{ report.source.fileName }}. Compare again after editing payroll or the register.</p></div><button type="button" (click)="download()">Download full comparison</button></footer>
+    @if (filteredRows().length > 50) { <div class="tools"><button type="button" class="standard-action secondary" [disabled]="page === 0" (click)="page = page - 1">Previous</button><span>Page {{ page + 1 }}</span><button type="button" class="standard-action secondary" [disabled]="(page + 1) * 50 >= filteredRows().length" (click)="page = page + 1">Next</button></div> }
+    <footer><div><strong>Snapshot: {{ report.generatedAt | date:'medium' }}</strong><p>Source: {{ report.source.fileName }}. Compare again after editing payroll or the register.</p></div><button type="button" (click)="download()" class="compact-action" title="Download full comparison" aria-label="Download full comparison" data-action-label="Download full comparison" data-action-icon="download"><ui-icon name="download" [size]="20" /></button></footer>
     <details class="provenance"><summary>Source identification</summary><p>Original file SHA-256: {{ report.source.sha256 }}</p><p>Payroll baseline SHA-256: {{ report.baselineSha256 }}</p><p>The download includes every compared row, source line, payroll run and comparison time. It is a review report, not an approval record.</p></details>
   }
 </section>

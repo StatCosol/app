@@ -112,7 +112,7 @@ interface ReportCard {
           <div class="mt-auto flex gap-3 pt-2">
             <ui-button variant="primary" size="sm"
                        [loading]="downloading[report.key]"
-                       (clicked)="downloadReport(report)">
+                       (clicked)="downloadReport(report)" icon="download" [iconOnly]="true" label="Download">
               Download
             </ui-button>
           </div>

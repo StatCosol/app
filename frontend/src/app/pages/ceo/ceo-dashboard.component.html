@@ -1,7 +1,7 @@
 @if (dataUnavailable) {
   <div role="alert" class="m-4 rounded border border-amber-300 bg-amber-50 p-4">
     Dashboard data could not be refreshed. Totals are unavailable until all required data loads.
-    <button type="button" class="underline" (click)="loadAll()">Retry</button>
+    <button type="button" class="compact-action underline" (click)="loadAll()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
 }
 @if (!dataUnavailable) {
@@ -19,7 +19,7 @@
   @if (!loading() && errorMsg()) {
 <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
     <span>{{ errorMsg() }}</span>
-    <button type="button" (click)="loadAll()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+    <button type="button" (click)="loadAll()" class="compact-action text-red-800 font-semibold hover:underline ml-4" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
 }
 
@@ -252,7 +252,7 @@
 <div class="card mb-6">
       <div class="flex items-center justify-between mb-4">
         <h3 class="card-title">Pending Escalations</h3>
-        <ui-button variant="secondary" size="sm" (clicked)="goToEscalations()">View all</ui-button>
+        <ui-button variant="secondary" size="sm" (clicked)="goToEscalations()" icon="eye" [iconOnly]="true" label="View all">View all</ui-button>
       </div>
       <ui-data-table [columns]="escalationColumns" [data]="escalations()">
         <ng-template uiTableCell="status" let-row>
@@ -271,10 +271,10 @@
     <div class="card">
       <h3 class="card-title mb-4">Quick Actions</h3>
       <div class="flex flex-wrap gap-3">
-        <ui-button variant="primary" (clicked)="goToApprovals()">Review Approvals</ui-button>
-        <ui-button variant="secondary" (clicked)="goToEscalations()">Manage Escalations</ui-button>
-        <ui-button variant="secondary" (clicked)="goToOversight()">Open Oversight</ui-button>
-        <ui-button variant="secondary" (clicked)="exportCSV()">Export Summary CSV</ui-button>
+        <ui-button variant="primary" (clicked)="goToApprovals()" icon="eye" [iconOnly]="true" label="Review Approvals">Review Approvals</ui-button>
+        <ui-button variant="secondary" (clicked)="goToEscalations()" icon="cog" [iconOnly]="true" label="Manage Escalations">Manage Escalations</ui-button>
+        <ui-button variant="secondary" (clicked)="goToOversight()" icon="eye" [iconOnly]="true" label="Open Oversight">Open Oversight</ui-button>
+        <ui-button variant="secondary" (clicked)="exportCSV()" icon="download" [iconOnly]="true" label="Export Summary CSV">Export Summary CSV</ui-button>
       </div>
     </div>
   

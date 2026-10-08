@@ -109,8 +109,8 @@
               Unread only
             </label>
             <div class="flex items-center justify-between">
-              <ui-button variant="secondary" size="sm" (clicked)="clearFilters()">Clear</ui-button>
-              <ui-button variant="primary" size="sm" (clicked)="onServerFilterChanged()">Apply</ui-button>
+              <ui-button variant="secondary" size="sm" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Clear">Clear</ui-button>
+              <ui-button variant="primary" size="sm" (clicked)="onServerFilterChanged()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
             </div>
           </div>
         </article>
@@ -173,7 +173,7 @@
                   [variant]="action.variant"
                   size="sm"
                   [disabled]="updatingStatus || !!action.blockedReason"
-                  (clicked)="setStatus(action.target)">
+                  (clicked)="setStatus(action.target)" [icon]="action.label | actionIcon" [iconOnly]="true" [label]="action.label">
                   {{ action.label }}
                 </ui-button>
 }

@@ -1,4 +1,4 @@
-﻿import { Component } from '@angular/core';
+import { Component } from '@angular/core';
 
 import { ThreadLayoutComponent } from '../../../shared/thread';
 import { PageHeaderComponent } from '../../../shared/ui';

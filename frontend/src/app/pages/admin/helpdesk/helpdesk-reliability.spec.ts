@@ -87,7 +87,7 @@ describe.each([false, true])('Helpdesk thread reliability (PF: %s)', pf => {
   it('shows a retryable ticket failure instead of an endless spinner', async () => {
     const { api } = await setup(); api.getTicket.mockReturnValueOnce(throwError(() => ({ status: 503 })));
     const f = detail(pf); expect(f.componentInstance.ticket).toBeNull();
-    expect(f.nativeElement.textContent).toContain('Retry ticket');
+    expect(f.nativeElement.querySelector('[aria-label="Retry ticket"]')).not.toBeNull();
     f.componentInstance.loadTicket(); expect(f.componentInstance.ticket?.id).toBe('a');
   });
 });
@@ -127,7 +127,7 @@ describe('Helpdesk lists', () => {
   it('renders a PF list error with retry, not an empty result', async () => {
     const { api } = await setup(); api.listTickets.mockReturnValueOnce(throwError(() => new Error('offline'))).mockReturnValueOnce(of([ticket()]));
     const f = TestBed.createComponent(PfTeamTicketsComponent); f.detectChanges();
-    expect(f.nativeElement.textContent).toContain('Retry tickets'); expect(f.nativeElement.textContent).not.toContain('No tickets found');
+    expect(f.nativeElement.querySelector('[aria-label="Retry tickets"]')).not.toBeNull(); expect(f.nativeElement.textContent).not.toContain('No tickets found');
     f.componentInstance.loadTickets(); expect(f.componentInstance.pageTickets).toHaveLength(1);
   });
 });

@@ -24,9 +24,9 @@
       </select>
     </label>
 
-    <button type="button" class="btn btn-primary" [disabled]="refreshing || loading" (click)="refresh()">
+    <button type="button" class="compact-action btn btn-primary" [disabled]="refreshing || loading" (click)="refresh()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
       {{ refreshing ? 'Refreshing...' : 'Refresh' }}
-    </button>
+    </span></button>
   </div>
 
   @if (loading) {
@@ -36,7 +36,7 @@
   @if (!loading && error) {
 <div class="error-box">
     <span>{{ error }}</span>
-    <button type="button" class="btn btn-ghost" (click)="loadBase()">Retry</button>
+    <button type="button" class="compact-action btn btn-ghost" (click)="loadBase()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
 }
 
@@ -91,9 +91,9 @@
           File
           <div class="file-row">
             <input id="ppe-upload-file" type="file" (change)="onUploadFileChange($event)" accept=".pdf,.xlsx,.xls,.csv,.txt,image/*" />
-            <button type="button" class="btn btn-primary" [disabled]="uploading || !uploadFile || (!selectedClientId && !uploadClientId)" (click)="uploadChallan()">
+            <button type="button" class="compact-action btn btn-primary" [disabled]="uploading || !uploadFile || (!selectedClientId && !uploadClientId)" (click)="uploadChallan()" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
               {{ uploading ? 'Uploading...' : 'Upload' }}
-            </button>
+            </span></button>
           </div>
         </label>
       </div>
@@ -209,7 +209,7 @@
                 </td>
                 <td>{{ statusHint(row) }}</td>
                 <td class="text-right">
-                  <button type="button" class="link" (click)="openException(row)">View</button>
+                  <button type="button" class="compact-action link" (click)="openException(row)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
                 </td>
               </tr>
 }
@@ -371,7 +371,7 @@
 <aside class="drawer">
   <header>
     <h3>Employee Exception Detail</h3>
-    <button type="button" class="link" (click)="closeExceptionDrawer()">Close</button>
+    <button type="button" class="standard-action link" (click)="closeExceptionDrawer()">Close</button>
   </header>
 
   <div class="drawer-body">

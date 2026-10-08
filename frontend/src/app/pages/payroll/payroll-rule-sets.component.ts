@@ -1,4 +1,5 @@
-﻿import {
+import { IconComponent } from '../../shared/ui/icon/icon.component';
+import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -59,7 +60,7 @@ interface GuardrailCheck {
 @Component({
   selector: 'app-payroll-rule-sets',
   standalone: true,
-  imports: [FormsModule, ClientContextStripComponent, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, ClientContextStripComponent, PageHeaderComponent],
   templateUrl: './payroll-rule-sets.component.html',
   styleUrls: ['./payroll-rule-sets.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

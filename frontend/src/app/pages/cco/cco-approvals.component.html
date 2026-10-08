@@ -73,10 +73,10 @@
         <ng-template uiTableCell="actions" let-row>
           @if (row.status === 'PENDING') {
 <div class="flex justify-end gap-2">
-            <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)">
+            <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)" icon="check-circle" [iconOnly]="true" label="Approve">
               {{ actionId === row.id ? 'Processing...' : 'Approve' }}
             </ui-button>
-            <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)">Reject</ui-button>
+            <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)" icon="x-circle" [iconOnly]="true" label="Reject">Reject</ui-button>
           </div>
 }
           @if (row.status !== 'PENDING') {

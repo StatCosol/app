@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -9,7 +10,7 @@ import {
 @Component({
   selector: 'app-ceo-sales-summary',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [IconComponent, CommonModule, RouterModule],
   template: `
     <div class="space-y-5">
       <div class="flex items-center justify-between">
@@ -18,8 +19,8 @@ import {
           <p class="text-sm text-gray-500">Read-only overview across all sales executives.</p>
         </div>
         <div class="flex gap-2">
-          <a routerLink="/ceo/followups" class="px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg">View Follow-ups →</a>
-          <a routerLink="/ceo/receivables" class="px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg">View Receivables →</a>
+          <a routerLink="/ceo/followups" class="compact-action px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg" title="View Follow-ups →" aria-label="View Follow-ups →" data-action-label="View Follow-ups →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
+          <a routerLink="/ceo/receivables" class="compact-action px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg" title="View Receivables →" aria-label="View Receivables →" data-action-label="View Receivables →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </div>
       </div>
 

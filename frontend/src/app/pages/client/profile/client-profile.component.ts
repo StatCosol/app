@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { ChangePasswordComponent } from '../../../shared/components/change-passw
 @Component({
   standalone: true,
   selector: 'app-client-profile',
-  imports: [FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, ChangePasswordComponent],
+  imports: [IconComponent, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, ChangePasswordComponent],
   template: `
     <div class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="My Profile" description="Your account information" icon="user"></ui-page-header>
@@ -22,7 +23,7 @@ import { ChangePasswordComponent } from '../../../shared/components/change-passw
       @if (!loading && error) {
 <div class="card text-center py-8">
         <p class="text-red-600">{{ error }}</p>
-        <button class="btn-primary mt-4" (click)="loadProfile()">Retry</button>
+        <button class="compact-action btn-primary mt-4" (click)="loadProfile()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 }
 

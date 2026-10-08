@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { RegisterEvidenceComponent } from './register-evidence.component';
 import {
   Component,
@@ -35,7 +36,7 @@ interface Field {
 @Component({
   selector: 'app-register-preparation',
   standalone: true,
-  imports: [FormsModule, RegisterEvidenceComponent],
+  imports: [IconComponent, FormsModule, RegisterEvidenceComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .register-record-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
@@ -127,13 +128,11 @@ interface Field {
           />
         </label>
         <div class="flex flex-wrap gap-3 my-3">
-          <button type="button" class="underline" (click)="blank()" [disabled]="busy">
-            Download empty template (no worker data)
-          </button>
+          <button type="button" class="compact-action underline" (click)="blank()" [disabled]="busy" title="Download empty template (no worker data)" aria-label="Download empty template (no worker data)" data-action-label="Download empty template (no worker data)" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           @if (canPrefill) {
             <button
               type="button"
-              class="underline"
+              class="compact-action underline"
               (click)="prefill()"
               [disabled]="
                 busy || (draftPrefill && draftLoaded) ||
@@ -141,13 +140,13 @@ interface Field {
                 (recordSource === 'CONTRACTOR' && !contractorId) ||
                 !eligible
               "
-            >
+             title="Load selected contractor records" aria-label="Load selected contractor records" data-action-label="Load selected contractor records" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
               {{
                 draftPrefill && draftLoaded ? 'Saved records loaded' : recordSource === 'CONTRACTOR'
                   ? 'Load selected contractor records'
                   : prefillLabel
               }}
-            </button>
+            </span></button>
           }
         </div>
         @if (eligible) {
@@ -250,9 +249,7 @@ interface Field {
                   </label>
                 }
               </div>
-              <button type="button" class="underline" (click)="rows.splice(i, 1)" [disabled]="busy">
-                Remove record
-              </button>
+              <button type="button" class="compact-action underline" (click)="rows.splice(i, 1)" [disabled]="busy" title="Remove record" aria-label="Remove record" data-action-label="Remove record" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
             </details>
           }
           <h5 class="font-semibold mt-5">Review and generate</h5>
@@ -277,20 +274,18 @@ interface Field {
           <div class="flex flex-wrap gap-4 my-3">
             <button
               type="button"
-              class="underline"
+              class="compact-action underline"
               (click)="rows.push({})"
               [disabled]="busy || rows.length >= 500"
-            >
-              Add record
-            </button>
+             title="Add record" aria-label="Add record" data-action-label="Add record" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
             <button
               type="button"
-              class="border rounded bg-blue-700 text-white px-4 py-2"
+              class="compact-action border rounded bg-blue-700 text-white px-4 py-2"
               (click)="generate()"
               [disabled]="busy || !rows.length"
-            >
+             title="Generate and save register" aria-label="Generate and save register" data-action-label="Generate and save register" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
               {{ generating ? 'Generating and saving…' : 'Generate and save register' }}
-            </button>
+            </span></button>
           </div>
         }
       }

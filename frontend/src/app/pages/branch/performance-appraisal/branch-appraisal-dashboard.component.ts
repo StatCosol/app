@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -11,14 +12,14 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-branch-appraisal-dashboard',
   standalone: true,
-  imports: [FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
         title="Performance Appraisals"
         subtitle="Branch appraisal overview and pending actions">
-        <a routerLink="/branch/appraisals" class="btn-secondary">View All Appraisals</a>
+        <a routerLink="/branch/appraisals" class="compact-action btn-secondary" title="View All Appraisals" aria-label="View All Appraisals" data-action-label="View All Appraisals" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         <a routerLink="/branch/appraisal-cycles" class="btn-secondary">Cycles</a>
       </ui-page-header>
 
@@ -139,7 +140,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
         </div>
 }
-      
+
 }
     </div>
   `,

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -29,7 +30,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
 @Component({
   selector: 'app-client-employee-detail',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     ActionButtonComponent,
@@ -44,7 +45,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
     <div class="page">
       <!-- Back Button -->
       <button (click)="goBack()"
-        class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-800 mb-4 transition-colors">
+        class="standard-action flex items-center gap-1 text-sm text-gray-500 hover:text-brand-800 mb-4 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -60,7 +61,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
 <div
            class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
         <span>{{ error }}</span>
-        <button (click)="goBack()" class="text-red-800 font-semibold hover:underline ml-4">Go Back</button>
+        <button (click)="goBack()" class="standard-action text-red-800 font-semibold hover:underline ml-4">Go Back</button>
       </div>
 }
 
@@ -91,32 +92,32 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             </div>
             <div class="header-actions">
               @if (emp.approvalStatus === 'PENDING') {
-<ui-button variant="primary" (clicked)="approveEmployee()">Approve</ui-button>
+<ui-button variant="primary" (clicked)="approveEmployee()" icon="check-circle" [iconOnly]="true" label="Approve">Approve</ui-button>
 }
               @if (emp.approvalStatus === 'PENDING') {
-<ui-button variant="danger" (clicked)="rejectEmployee()">Reject</ui-button>
+<ui-button variant="danger" (clicked)="rejectEmployee()" icon="x-circle" [iconOnly]="true" label="Reject">Reject</ui-button>
 }
-              <ui-button variant="secondary" (clicked)="editEmployee()">Edit</ui-button>
-              <ui-button variant="outline" [disabled]="downloadingLetter" (clicked)="downloadAppointmentLetter()">
+              <ui-button variant="secondary" (clicked)="editEmployee()" icon="pencil" [iconOnly]="true" label="Edit">Edit</ui-button>
+              <ui-button variant="outline" [disabled]="downloadingLetter" (clicked)="downloadAppointmentLetter()" icon="document" [iconOnly]="true" label="Appointment Letter (PDF)">
                 {{ downloadingLetter ? 'Downloading...' : 'Appointment Letter (PDF)' }}
               </ui-button>
-              <ui-button variant="outline" [disabled]="downloadingDocx" (clicked)="downloadAppointmentLetterDocx()">
+              <ui-button variant="outline" [disabled]="downloadingDocx" (clicked)="downloadAppointmentLetterDocx()" icon="document" [iconOnly]="true" label="Appointment Letter (Word)">
                 {{ downloadingDocx ? 'Downloading...' : 'Appointment Letter (Word)' }}
               </ui-button>
               @if (emp.isActive && emp.approvalStatus !== 'PENDING') {
 <ui-button variant="secondary" [disabled]="provisioningEss || !hasValidEmail()" (clicked)="provisionEssLogin()"
-                [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'">
+                [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'" icon="plus" [iconOnly]="true" label="Create ESS Login">
                 {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
               </ui-button>
 }
               @if (emp.isActive && emp.approvalStatus !== 'PENDING') {
 <ui-button variant="outline" [disabled]="resettingEssPassword || !hasValidEmail()" (clicked)="resetEssPassword()"
-                [title]="hasValidEmail() ? 'Reset ESS password for this employee' : 'Add a valid employee email first'">
+                [title]="hasValidEmail() ? 'Reset ESS password for this employee' : 'Add a valid employee email first'" icon="undo" [iconOnly]="true" label="Reset ESS Password">
                 {{ resettingEssPassword ? 'Resetting...' : 'Reset ESS Password' }}
               </ui-button>
 }
               @if (emp.isActive && emp.approvalStatus !== 'PENDING') {
-<ui-button variant="danger" (clicked)="confirmDeactivate()">Mark Exit</ui-button>
+<ui-button variant="danger" (clicked)="confirmDeactivate()" icon="user-minus" [iconOnly]="true" label="Mark Exit">Mark Exit</ui-button>
 }
             </div>
           </div>
@@ -148,20 +149,12 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             <div class="ess-cred-row">
               <span class="ess-cred-label">Email</span>
               <span class="ess-cred-value">{{ essResult.email }}</span>
-              <button class="ess-copy-btn" (click)="copyCredential(essResult.email)" title="Copy email">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                </svg>
-              </button>
+              <button class="compact-action ess-copy-btn" (click)="copyCredential(essResult.email)" title="Copy email" aria-label="Copy email" data-action-label="Copy email" data-action-icon="document"><ui-icon name="document" [size]="20" /></button>
             </div>
             <div class="ess-cred-row">
               <span class="ess-cred-label">Password</span>
               <span class="ess-cred-value font-mono">{{ essResult.generatedPassword }}</span>
-              <button class="ess-copy-btn" (click)="copyCredential(essResult.generatedPassword)" title="Copy password">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                </svg>
-              </button>
+              <button class="compact-action ess-copy-btn" (click)="copyCredential(essResult.generatedPassword)" title="Copy password" aria-label="Copy password" data-action-label="Copy password" data-action-icon="document"><ui-icon name="document" [size]="20" /></button>
             </div>
           </div>
         </div>
@@ -246,7 +239,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
 <div class="tab-content">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-semibold text-gray-900">Nominations</h3>
-            <ui-button variant="primary" (clicked)="openNomForm()">+ Add Nomination</ui-button>
+            <ui-button variant="primary" (clicked)="openNomForm()" icon="plus" [iconOnly]="true" label="Add Nomination">+ Add Nomination</ui-button>
           </div>
 
           @if (loadingNoms) {
@@ -273,7 +266,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
 }
               <ui-button variant="outline" size="sm" class="ml-auto"
                          [disabled]="printingNomination === nom.nominationType"
-                         (clicked)="printNomination(nom.nominationType)">
+                         (clicked)="printNomination(nom.nominationType)" icon="printer" [iconOnly]="true" label="Print / Download PDF">
                 {{ printingNomination === nom.nominationType ? 'Preparing...' : 'Print / Download PDF' }}
               </ui-button>
             </div>
@@ -322,7 +315,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             <div class="mt-4">
               <div class="flex justify-between items-center mb-2">
                 <h4 class="text-sm font-semibold text-gray-700">Nominee Members</h4>
-                <button class="text-xs text-brand-600 hover:underline" (click)="addNomMember()">+ Add Member</button>
+                <button class="compact-action text-xs text-brand-600 hover:underline" (click)="addNomMember()" title="Add Member" aria-label="Add Member" data-action-label="Add Member" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
               </div>
               @for (m of nomForm.members; track m; let i = $index) {
 <div class="member-row">
@@ -340,7 +333,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                   </label>
                   @if (nomForm.members.length > 1) {
 <button
-                    class="text-xs text-red-600 hover:underline ml-auto" (click)="removeNomMember(i)">Remove</button>
+                    class="compact-action text-xs text-red-600 hover:underline ml-auto" (click)="removeNomMember(i)" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
                 </div>
                 @if (m.isMinor) {
@@ -439,7 +432,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               </div>
             </div>
             <div class="mt-3 flex items-center gap-3">
-              <ui-button variant="primary" [disabled]="!docUpload.file || uploadingDoc" [loading]="uploadingDoc" (clicked)="uploadDocument()">
+              <ui-button variant="primary" [disabled]="!docUpload.file || uploadingDoc" [loading]="uploadingDoc" (clicked)="uploadDocument()" icon="upload" [iconOnly]="true" label="Upload">
                 {{ uploadingDoc ? 'Uploading...' : 'Upload' }}
               </ui-button>
               @if (docUploadMsg) {
@@ -479,11 +472,11 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                   <td class="px-4 py-3 text-gray-600">{{ d.expiryDate || '-' }}</td>
                   <td class="px-4 py-3 text-right">
                     <div class="flex justify-end gap-2">
-                      <button class="text-xs text-brand-600 hover:underline" (click)="downloadDoc(d)">Download</button>
+                      <button class="compact-action text-xs text-brand-600 hover:underline" (click)="downloadDoc(d)" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
                       @if (!d.isVerified) {
-<button class="text-xs text-green-600 hover:underline" (click)="verifyDoc(d)">Verify</button>
+<button class="compact-action text-xs text-green-600 hover:underline" (click)="verifyDoc(d)" title="Verify" aria-label="Verify" data-action-label="Verify" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
-                      <button class="text-xs text-red-600 hover:underline" (click)="deleteDoc(d)">Delete</button>
+                      <button class="compact-action text-xs text-red-600 hover:underline" (click)="deleteDoc(d)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                     </div>
                   </td>
                 </tr>
@@ -500,7 +493,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
 <div class="tab-content">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-semibold text-gray-900">Salary Revisions</h3>
-            <ui-button variant="primary" (clicked)="showRevisionModal = true">+ New Revision</ui-button>
+            <ui-button variant="primary" (clicked)="showRevisionModal = true" icon="plus" [iconOnly]="true" label="New Revision">+ New Revision</ui-button>
           </div>
 
           @if (loadingRevisions) {

@@ -68,7 +68,7 @@
                 [disabled]="it.status === 'IN_PROGRESS' || it.status === 'CLOSED'"
               >In Progress</button>
               <button
-                class="btn btn-close"
+                class="standard-action btn btn-close"
                 (click)="setStatus(it, 'CLOSED')"
                 [disabled]="it.status === 'CLOSED'"
               >Close</button>

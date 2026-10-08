@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-client-appraisal-templates',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
@@ -19,9 +20,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
         title="Appraisal Templates"
         subtitle="Manage rating templates used in appraisal cycles">
         <a routerLink="/client/appraisal-cycles" class="appraisal-action">Cycles</a>
-        <button type="button" class="appraisal-action appraisal-action--primary" (click)="showCreate = !showCreate">
+        <button type="button" class="compact-action appraisal-action appraisal-action--primary" (click)="showCreate = !showCreate" title="New Template" aria-label="New Template" data-action-label="New Template" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
           {{ showCreate ? 'Cancel' : 'New Template' }}
-        </button>
+        </span></button>
       </ui-page-header>
 
       @if (showCreate) {
@@ -36,9 +37,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
               <input id="tpl-name" class="search-input" [(ngModel)]="draft.templateName" />
             </div>
           </div>
-          <button type="button" class="appraisal-action appraisal-action--primary mt-4" [disabled]="creating" (click)="createTemplate()">
+          <button type="button" class="compact-action appraisal-action appraisal-action--primary mt-4" [disabled]="creating" (click)="createTemplate()" title="Create Template" aria-label="Create Template" data-action-label="Create Template" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
             {{ creating ? 'Saving...' : 'Create Template' }}
-          </button>
+          </span></button>
         </div>
       }
 

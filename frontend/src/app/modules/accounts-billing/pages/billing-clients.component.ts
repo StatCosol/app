@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 
 import { FormsModule } from '@angular/forms';
 import { AccountsBillingService } from '../services/accounts-billing.service';
@@ -7,7 +8,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
 @Component({
   selector: 'app-billing-clients',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   template: `
     @if (loadError) { <div role="alert" class="p-4 text-red-700">{{ loadError }} <button (click)="loadClients()">Retry</button></div> }
     @if (loading) { <div role="status" class="p-4">Loading…</div> }
@@ -15,9 +16,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">Billing Clients</h1>
         <button (click)="showForm = true; editClient = null; saveError = ''; resetForm()"
-                class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium">
-          + Add Client
-        </button>
+                class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium" title="Add Client" aria-label="Add Client" data-action-label="Add Client" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
       </div>
 
       <!-- Search -->
@@ -59,7 +58,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                       class="px-2 py-0.5 rounded-full text-xs font-medium">{{ c.status }}</span>
               </td>
               <td class="px-4 py-3 text-center">
-                <button (click)="onEdit(c)" class="text-brand-600 hover:underline text-xs mr-2">Edit</button>
+                <button (click)="onEdit(c)" class="compact-action text-brand-600 hover:underline text-xs mr-2" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -78,9 +77,9 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
         <span>Page {{ page }} of {{ totalPages }} ({{ total }} records)</span>
         <div class="flex gap-2">
           <button (click)="page = page - 1; loadClients()" [disabled]="page <= 1"
-                  class="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+                  class="standard-action px-3 py-1 border rounded disabled:opacity-50">Prev</button>
           <button (click)="page = page + 1; loadClients()" [disabled]="page >= totalPages"
-                  class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
+                  class="standard-action px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
 }
@@ -91,7 +90,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
         <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">{{ editClient ? 'Edit' : 'Add' }} Billing Client</h2>
-            <button (click)="showForm = false" class="text-slate-400 hover:text-slate-600">&times;</button>
+            <button (click)="showForm = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             @if (saveError) {
@@ -169,8 +168,8 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
             </div>
           </div>
           <div class="p-6 border-t flex justify-end gap-3">
-            <button (click)="showForm = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button (click)="onSave()" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700"
+            <button (click)="showForm = false" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
+            <button (click)="onSave()" class="standard-action px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700"
                     [disabled]="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
           </div>
         </div>

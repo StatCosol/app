@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -25,7 +26,7 @@ import {
 @Component({
   selector: 'app-client-employees',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -45,10 +46,10 @@ import {
         description="Register and manage employees"
         icon="users">
         <div class="flex gap-2">
-          <ui-button variant="secondary" (clicked)="downloadEmployees()">Download List</ui-button>
-          <ui-button variant="secondary" (clicked)="downloadAppointmentLetters()" [disabled]="downloadingLetters">{{ downloadingLetters ? 'Generating...' : 'Appointment Letters' }}</ui-button>
-          <ui-button variant="secondary" (clicked)="showImportDialog = true">Import Employees</ui-button>
-          <ui-button variant="primary" (clicked)="addEmployee()">+ Register Employee</ui-button>
+          <ui-button variant="secondary" (clicked)="downloadEmployees()" icon="download" [iconOnly]="true" label="Download List">Download List</ui-button>
+          <ui-button variant="secondary" (clicked)="downloadAppointmentLetters()" [disabled]="downloadingLetters" icon="document" [iconOnly]="true" label="Appointment Letters">{{ downloadingLetters ? 'Generating...' : 'Appointment Letters' }}</ui-button>
+          <ui-button variant="secondary" (clicked)="showImportDialog = true" icon="upload" [iconOnly]="true" label="Import Employees">Import Employees</ui-button>
+          <ui-button variant="primary" (clicked)="addEmployee()" icon="user-plus" [iconOnly]="true" label="Register Employee">+ Register Employee</ui-button>
         </div>
       </ui-page-header>
 
@@ -58,13 +59,13 @@ import {
         <h3 class="text-base font-semibold text-gray-900 mb-3">Bulk Import Employees</h3>
         <p class="text-sm text-gray-600 mb-3">Upload an Excel/CSV file with employee data. Download the template first to see the required format.</p>
         <div class="flex items-end gap-3 flex-wrap">
-          <ui-button variant="secondary" (clicked)="downloadTemplate()">Download Template</ui-button>
+          <ui-button variant="secondary" (clicked)="downloadTemplate()" icon="download" [iconOnly]="true" label="Download Template">Download Template</ui-button>
           <div class="form-field">
             <label class="form-label" for="ce-file">File</label>
             <input id="ce-file" type="file" (change)="onImportFileSelected($event)" accept=".xlsx,.xls,.csv"
               class="text-sm border border-gray-300 rounded-lg p-2 bg-white" />
           </div>
-          <ui-button variant="primary" [disabled]="!importFile || importing" (clicked)="bulkImport()">
+          <ui-button variant="primary" [disabled]="!importFile || importing" (clicked)="bulkImport()" icon="upload" [iconOnly]="true" label="Upload & Import">
             {{ importing ? 'Importing...' : 'Upload & Import' }}
           </ui-button>
           <ui-button variant="secondary" (clicked)="showImportDialog = false">Cancel</ui-button>
@@ -78,7 +79,7 @@ import {
             Wrong upload? You can revert and delete the {{ lastImportNewCount }} newly added
             employee(s) from this import. (Updated existing employees are not reverted.)
           </div>
-          <ui-button variant="danger" [disabled]="reverting" (clicked)="revertLastImport()">
+          <ui-button variant="danger" [disabled]="reverting" (clicked)="revertLastImport()" icon="undo" [iconOnly]="true" label="Revert this Import">
             {{ reverting ? 'Reverting...' : 'Revert this Import' }}
           </ui-button>
         </div>
@@ -124,7 +125,7 @@ import {
           </svg>
           <span>{{ error }}</span>
         </div>
-        <button (click)="load()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+        <button (click)="load()" class="compact-action text-red-800 font-semibold hover:underline ml-4" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 }
 
@@ -208,34 +209,28 @@ import {
 
         <ng-template uiTableCell="actions" let-row>
           <div class="employee-actions">
-            <button class="employee-action text-brand-600 hover:underline" title="View employee" (click)="$event.stopPropagation(); viewEmployee(row)">View</button>
-            <button class="employee-action text-brand-600 hover:underline" title="Edit employee" (click)="$event.stopPropagation(); editEmployee(row)">Edit</button>
+            <button class="compact-action employee-action text-brand-600 hover:underline" (click)="$event.stopPropagation(); viewEmployee(row)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
+            <button class="compact-action employee-action text-brand-600 hover:underline" (click)="$event.stopPropagation(); editEmployee(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
             @if (row.approvalStatus === 'PENDING') {
 <button
              
-              class="employee-action text-green-600 hover:underline font-semibold"
-              title="Approve employee"
-              (click)="$event.stopPropagation(); approveEmployee(row)">
-              Approve
-            </button>
+              class="compact-action employee-action text-green-600 hover:underline font-semibold"
+
+              (click)="$event.stopPropagation(); approveEmployee(row)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
             @if (row.approvalStatus === 'PENDING') {
 <button
              
-              class="employee-action text-red-600 hover:underline"
-              title="Reject employee"
-              (click)="$event.stopPropagation(); rejectEmployee(row)">
-              Reject
-            </button>
+              class="compact-action employee-action text-red-600 hover:underline"
+
+              (click)="$event.stopPropagation(); rejectEmployee(row)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
             @if (row.isActive && !row.dateOfExit && row.approvalStatus !== 'PENDING') {
 <button
              
-              class="employee-action text-red-600 hover:underline"
-              title="Mark employee exit"
-              (click)="$event.stopPropagation(); confirmDeactivate(row)">
-              Mark Exit
-            </button>
+              class="compact-action employee-action text-red-600 hover:underline"
+
+              (click)="$event.stopPropagation(); confirmDeactivate(row)" title="Mark Exit" aria-label="Mark Exit" data-action-label="Mark Exit" data-action-icon="user-minus"><ui-icon name="user-minus" [size]="20" /></button>
 }
           </div>
         </ng-template>

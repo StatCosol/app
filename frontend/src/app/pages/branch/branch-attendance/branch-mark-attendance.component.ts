@@ -1,4 +1,5 @@
 import { loadAllPages } from '../../../shared/utils/load-all-pages';
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -68,7 +69,7 @@ const STANDARD_HOURS = 9;
 @Component({
   selector: 'app-branch-mark-attendance',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (loadError) {
@@ -95,19 +96,17 @@ const STANDARD_HOURS = 9;
           />
           <button
             type="button"
-            class="btn ghost"
+            class="compact-action btn ghost"
             (click)="downloadMonthlyExcel()"
             [disabled]="exporting"
-            title="Download monthly attendance as Excel"
-          >
+
+           title="Download Excel" aria-label="Download Excel" data-action-label="Download Excel" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
             {{ exporting ? 'Exporting…' : 'Download Excel' }}
-          </button>
-          <button type="button" class="btn ghost" (click)="load()" [disabled]="loading">
-            Refresh
-          </button>
+          </span></button>
+          <button type="button" class="compact-action btn ghost" (click)="load()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           <button
             type="button"
-            class="btn primary"
+            class="standard-action btn primary"
             (click)="saveAll()"
             [disabled]="saving || !dirtyCount"
           >
@@ -194,7 +193,7 @@ const STANDARD_HOURS = 9;
               <tbody>
                 @for (r of filteredRows(); track trackById($index, r)) {
 <tr
-                 
+
                   [class.dirty]="r.dirty"
                   [class.absent]="r.status === 'ABSENT'"
                 >
@@ -261,7 +260,7 @@ const STANDARD_HOURS = 9;
           </div>
         </section>
 }
-      
+
 }
     </div>
   `,

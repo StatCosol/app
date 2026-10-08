@@ -2,9 +2,9 @@
   <ui-page-header
     title="Notice & Inspection Tracker"
     subtitle="Track department notices, show-cause orders, inspections, and response timelines">
-    <button class="btn btn-primary btn-sm" (click)="toggleCreate()">
+    <button class="compact-action btn btn-primary btn-sm" (click)="toggleCreate()" title="+ New Notice" aria-label="+ New Notice" data-action-label="+ New Notice" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
       {{ showCreate ? 'Cancel' : '+ New Notice' }}
-    </button>
+    </span></button>
   </ui-page-header>
 
   <!-- KPI Cards -->
@@ -100,9 +100,9 @@
         <textarea [(ngModel)]="newNotice.description" class="field" rows="2" placeholder="Optional details"></textarea>
       </div>
       <div class="form-field">
-        <button class="btn btn-primary btn-sm" [disabled]="saving" (click)="saveNotice()">
+        <button class="compact-action btn btn-primary btn-sm" [disabled]="saving" (click)="saveNotice()" title="Create Notice" aria-label="Create Notice" data-action-label="Create Notice" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
           {{ saving ? 'Saving...' : 'Create Notice' }}
-        </button>
+        </span></button>
       </div>
     </div>
   </section>
@@ -211,7 +211,7 @@
           <h3>{{ selected.noticeCode }}</h3>
           <span class="text-xs text-gray-500">{{ selected.subject }}</span>
         </div>
-        <button class="close-btn" (click)="closeDetail()">✕</button>
+        <button class="compact-action close-btn" (click)="closeDetail()" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
       </header>
       <div class="detail-body">
         <!-- Meta info -->

@@ -2,7 +2,7 @@
   <a routerLink="/admin/automation" class="back">Automation Control Centre</a>
   <header>
     <h1>Audit follow-ups</h1>
-    <button type="button" class="icon-button" (click)="load()" [disabled]="loading() || !!retrying()" aria-label="Refresh follow-ups" title="Refresh follow-ups"><ui-icon name="refresh" /></button>
+    <button type="button" class="compact-action icon-button" (click)="load()" [disabled]="loading() || !!retrying()" title="Refresh follow-ups" aria-label="Refresh follow-ups" data-action-label="Refresh follow-ups" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </header>
   <div class="toolbar">
     <label>Status <select [(ngModel)]="status" (ngModelChange)="message.set(''); load(true)" [disabled]="!!retrying()"><option value="">All statuses</option>@for (state of states; track state) { <option [value]="state">{{ labels[state] }}</option> }</select></label>

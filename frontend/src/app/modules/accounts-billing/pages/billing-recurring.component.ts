@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -24,7 +25,7 @@ interface RecurringConfig {
 @Component({
   selector: 'app-billing-recurring',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
@@ -37,13 +38,11 @@ interface RecurringConfig {
         </div>
         <div class="flex gap-2">
           <button (click)="runNow()" [disabled]="running"
-                  class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-medium disabled:opacity-50">
+                  class="compact-action px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-medium disabled:opacity-50" title="Run Now" aria-label="Run Now" data-action-label="Run Now" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
             {{ running ? 'Running…' : 'Run Now' }}
-          </button>
+          </span></button>
           <button (click)="openCreate()"
-                  class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium">
-            + Add Recurring
-          </button>
+                  class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium" title="Add Recurring" aria-label="Add Recurring" data-action-label="Add Recurring" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
         </div>
       </div>
 
@@ -87,8 +86,8 @@ interface RecurringConfig {
                 </button>
               </td>
               <td class="px-4 py-3 text-center">
-                <button (click)="openEdit(r)" class="text-brand-600 hover:underline text-xs mr-2">Edit</button>
-                <button (click)="onDelete(r)" class="text-red-600 hover:underline text-xs">Delete</button>
+                <button (click)="openEdit(r)" class="compact-action text-brand-600 hover:underline text-xs mr-2" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
+                <button (click)="onDelete(r)" class="compact-action text-red-600 hover:underline text-xs" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -109,7 +108,7 @@ interface RecurringConfig {
         <div class="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="px-6 py-4 border-b flex justify-between items-center">
             <h2 class="text-lg font-bold">{{ editing ? 'Edit' : 'Add' }} Recurring Invoice</h2>
-            <button (click)="closeForm()" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+            <button (click)="closeForm()" class="compact-action text-slate-400 hover:text-slate-700 text-2xl leading-none" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             @if (saveError) {
@@ -187,11 +186,11 @@ interface RecurringConfig {
             </div>
           </div>
           <div class="px-6 py-4 border-t flex justify-end gap-2">
-            <button (click)="closeForm()" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+            <button (click)="closeForm()" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="save()" [disabled]="saving"
-                    class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm disabled:opacity-50">
+                    class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm disabled:opacity-50" title="Create" aria-label="Create" data-action-label="Create" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
               {{ saving ? 'Saving…' : (editing ? 'Update' : 'Create') }}
-            </button>
+            </span></button>
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { ContractorAttendanceApprovalComponent } from './contractor-attendance-approval.component';
 import { ContractorPayrollWorkflowComponent } from './contractor-payroll-workflow.component';
 import { CommonModule } from '@angular/common';
@@ -24,7 +25,7 @@ interface LoadResult {
 @Component({
   standalone: true,
   selector: 'app-contractor-payroll-computation-page',
-  imports: [ContractorAttendanceApprovalComponent, ContractorPayrollWorkflowComponent, CommonModule, FormsModule],
+  imports: [IconComponent, ContractorAttendanceApprovalComponent, ContractorPayrollWorkflowComponent, CommonModule, FormsModule],
   template: `
     <div class="page">
       <header class="hero">
@@ -35,14 +36,14 @@ interface LoadResult {
             Wage, statutory deduction, employer contribution and exception view generated from contractor attendance/muster uploads.
           </p>
         </div>
-        <button type="button" class="btn" (click)="load()" [disabled]="loading">
+        <button type="button" class="compact-action btn" (click)="load()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
           {{ loading ? 'Refreshing...' : 'Refresh' }}
-        </button>
+        </span></button>
       </header>
 
       <app-contractor-attendance-approval [clientId]="clientId" [periodMonth]="periodMonth" />
       <app-contractor-payroll-workflow [clientId]="clientId" [periodMonth]="periodMonth" />
-      <section class="filters">
+      <section class="filters aligned-filter-controls">
         <label>
           <span>Period</span>
           <input type="month" [(ngModel)]="periodMonth" (ngModelChange)="load()" />
@@ -52,7 +53,7 @@ interface LoadResult {
             <span>Client ID</span>
             <input type="text" placeholder="Required for auditor view" [(ngModel)]="clientId" />
           </label>
-          <button type="button" class="btn secondary" (click)="load()">Apply</button>
+          <button type="button" class="compact-action btn secondary" (click)="load()" title="Apply" aria-label="Apply" data-action-label="Apply" data-action-icon="search"><ui-icon name="search" [size]="20" /></button>
         }
         <label>
           <span>Status</span>

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -37,7 +38,7 @@ interface OverdueNc {
 @Component({
   selector: 'app-auditor-overdue-ncs',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     RouterLink,
     LoadingSpinnerComponent,
@@ -57,10 +58,8 @@ interface OverdueNc {
           type="button"
           (click)="reload()"
           [disabled]="loading"
-          class="px-4 py-2 bg-brand-600 text-white text-sm rounded-md disabled:opacity-50"
-        >
-          Refresh
-        </button>
+          class="compact-action px-4 py-2 bg-brand-600 text-white text-sm rounded-md disabled:opacity-50"
+         title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         @if (asOf) {
 <span class="text-xs text-slate-500">
           As of {{ asOf | date: 'mediumDate' }} — {{ items.length }} item(s)
@@ -106,7 +105,7 @@ interface OverdueNc {
           <tbody>
             @for (it of items; track it) {
 <tr
-             
+
               class="border-b border-slate-100 hover:bg-slate-50"
               [class.bg-rose-50]="it.daysOverdue >= 7"
             >
@@ -141,10 +140,8 @@ interface OverdueNc {
               <td class="px-4 py-3">
                 <a
                   [routerLink]="['/auditor/audits', it.auditId, 'workspace']"
-                  class="text-brand-600 hover:text-brand-800 text-xs font-semibold"
-                >
-                  Open audit →
-                </a>
+                  class="compact-action text-brand-600 hover:text-brand-800 text-xs font-semibold"
+                 title="Open audit →" aria-label="Open audit →" data-action-label="Open audit →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               </td>
             </tr>
 }

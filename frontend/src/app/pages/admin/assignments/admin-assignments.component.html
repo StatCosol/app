@@ -53,7 +53,7 @@
           </ui-button>
           @if (isEditMode) {
 <ui-button
-           
+
             variant="secondary"
             (clicked)="resetForm()"
             [disabled]="loading">
@@ -76,42 +76,42 @@
         [columns]="currentAssignmentsColumns"
         [data]="currentAssignments"
         [loading]="loading && currentAssignments.length === 0">
-        
+
         <!-- Client Name -->
         <ng-template uiTableCell="clientName" let-row>
           <span class="font-medium text-gray-900">{{ clientNameById[row.clientId] || 'Unknown Client' }}</span>
         </ng-template>
-        
+
         <!-- CRM Name -->
         <ng-template uiTableCell="crmName" let-row>
           <span class="text-sm text-gray-600">{{ getUserName(row.crmId) }}</span>
         </ng-template>
-        
+
         <!-- Auditor Name -->
         <ng-template uiTableCell="auditorName" let-row>
           <span class="text-sm text-gray-600">{{ getUserName(row.auditorId) }}</span>
         </ng-template>
-        
+
         <!-- Start Date -->
         <ng-template uiTableCell="startDate" let-row>
           <span class="text-sm text-gray-600">{{ row.startDate | date: 'yyyy-MM-dd' }}</span>
         </ng-template>
-        
+
         <!-- Status -->
         <ng-template uiTableCell="status" let-row>
           <ui-status-badge [variant]="getStatus(row) === 'ASSIGNED' ? 'success' : 'gray'">
             {{ getStatus(row) }}
           </ui-status-badge>
         </ng-template>
-        
+
         <!-- Actions -->
         <ng-template uiTableCell="actions" let-row>
           <div class="flex justify-end gap-2">
-            <ui-button variant="secondary" size="sm" (clicked)="openEdit(row)">Edit</ui-button>
-            <ui-button variant="danger" size="sm" (clicked)="remove(row)" [disabled]="removingClientId === row.clientId">{{ removingClientId === row.clientId ? 'Removing...' : 'Delete' }}</ui-button>
+            <ui-button variant="secondary" size="sm" (clicked)="openEdit(row)" icon="pencil" [iconOnly]="true" label="Edit">Edit</ui-button>
+            <ui-button variant="danger" size="sm" (clicked)="remove(row)" [disabled]="removingClientId === row.clientId" icon="trash" [iconOnly]="true" label="Delete">{{ removingClientId === row.clientId ? 'Removing...' : 'Delete' }}</ui-button>
           </div>
         </ng-template>
-        
+
         <!-- Empty State -->
         <ng-template #emptyState>
           <ui-empty-state
@@ -128,12 +128,12 @@
   @if (assignmentHistory.length > 0) {
 <div class="card mt-6">
     <h3 class="text-xl font-semibold text-gray-900 mb-6">Assignment History</h3>
-    
+
     <ui-data-table
       [columns]="historyColumns"
       [data]="assignmentHistory"
       [loading]="historyLoading">
-      
+
       <!-- Client Name -->
       <ng-template uiTableCell="clientName" let-row>
           <span class="font-medium text-gray-900">{{ clientNameById[row.clientId] || 'Unknown Client' }}</span>
@@ -143,17 +143,17 @@
         <ng-template uiTableCell="assigneeName" let-row>
           <span class="text-sm text-gray-600">{{ getUserName(row.assigneeId) }}</span>
         </ng-template>
-      
+
       <!-- Start Date -->
       <ng-template uiTableCell="startDate" let-row>
         <span class="text-sm text-gray-600">{{ row.startDate | date: 'yyyy-MM-dd' }}</span>
       </ng-template>
-      
+
       <!-- End Date -->
       <ng-template uiTableCell="endDate" let-row>
         <span class="text-sm text-gray-600">{{ row.endDate ? (row.endDate | date: 'yyyy-MM-dd') : '—' }}</span>
       </ng-template>
-      
+
       <!-- Status -->
       <ng-template uiTableCell="status" let-row>
         <span class="text-sm text-gray-600">{{ getStatus(row) }}</span>

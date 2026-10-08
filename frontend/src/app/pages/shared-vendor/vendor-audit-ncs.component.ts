@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -20,7 +21,7 @@ interface VendorNcRow {
 @Component({
   selector: 'app-vendor-audit-ncs',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-wrap">
@@ -73,9 +74,9 @@ interface VendorNcRow {
               </div>
               <div style="display:flex;flex-direction:column;gap:6px;">
                 <input type="file" #fileInput (change)="onFile($event, nc)" [disabled]="uploadingId === nc.id" />
-                <button type="button" class="btn btn-primary" style="font-size:12px;padding:4px 10px;" [disabled]="!pending[nc.id] || uploadingId === nc.id" (click)="upload(nc)">
+                <button type="button" class="compact-action btn btn-primary" style="font-size:12px;padding:4px 10px;" [disabled]="!pending[nc.id] || uploadingId === nc.id" (click)="upload(nc)" title="Upload Correction" aria-label="Upload Correction" data-action-label="Upload Correction" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
                   {{ uploadingId === nc.id ? 'Uploading...' : 'Upload Correction' }}
-                </button>
+                </span></button>
               </div>
             </div>
           </div>

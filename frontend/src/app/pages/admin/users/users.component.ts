@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -25,7 +26,7 @@ import {
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     RouterLink,
     PageHeaderComponent,

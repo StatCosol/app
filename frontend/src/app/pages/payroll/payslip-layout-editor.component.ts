@@ -13,7 +13,7 @@ import { EffectiveComponent, PayrollEngineApiService, PayslipLayout, PayslipLayo
     <header class="layout-heading"><h2>Payslip Layout</h2><span aria-live="polite">{{ dirty ? 'Unsaved changes' : message }}</span></header>
     @if (error) { <p class="error" role="alert">{{ error }}</p> }
     @if (loading) { <p role="status">Loading payslip layout...</p> }
-    @if (!layout && !loading) { <button type="button" (click)="load()">Retry</button> }
+    @if (!layout && !loading) { <button type="button" (click)="load()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button> }
     @if (layout; as current) {
       <form #form="ngForm" (ngSubmit)="save()">
         <fieldset [disabled]="loading || saving">
@@ -21,7 +21,7 @@ import { EffectiveComponent, PayrollEngineApiService, PayslipLayout, PayslipLayo
             <label class="toggle"><input type="checkbox" name="enabled" [(ngModel)]="current.settings.enabled" (ngModelChange)="changed()">Custom layout enabled</label>
             <span class="currency">INR</span>
             <button type="button" class="icon-button" title="Discard changes and reload" aria-label="Discard changes and reload" (click)="load()"><ui-icon name="refresh" /></button>
-            <button type="submit" class="primary" [disabled]="!dirty || form.invalid">{{ saving ? 'Saving...' : 'Save layout' }}</button>
+            <button type="submit" class="standard-action primary" [disabled]="!dirty || form.invalid">{{ saving ? 'Saving...' : 'Save layout' }}</button>
           </div>
           @for (section of current.sections; track section.key; let s = $index) {
             <section class="layout-section" [attr.aria-label]="section.key">
@@ -35,7 +35,7 @@ import { EffectiveComponent, PayrollEngineApiService, PayslipLayout, PayslipLayo
                     <button type="button" class="icon-button up" title="Move up" aria-label="Move up" [disabled]="i === 0" (click)="move(section.rows, i, -1)"><ui-icon name="chevron-right" /></button>
                     <button type="button" class="icon-button down" title="Move down" aria-label="Move down" [disabled]="i === section.rows.length - 1" (click)="move(section.rows, i, 1)"><ui-icon name="chevron-right" /></button>
                     @if (row.type === 'COMPONENT') {
-                      <button type="button" class="icon-button" title="Remove component" aria-label="Remove component" (click)="remove(section.rows, i)"><ui-icon name="trash" /></button>
+                      <button type="button" class="compact-action icon-button" (click)="remove(section.rows, i)" title="Remove component" aria-label="Remove component" data-action-label="Remove component" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                     }
                   </div>
                 </div>
@@ -48,7 +48,7 @@ import { EffectiveComponent, PayrollEngineApiService, PayslipLayout, PayslipLayo
                   <option value="">Select component</option>
                   @for (component of available(); track component.code) { <option [value]="component.code">{{ component.name }} ({{ component.code }})</option> }
                 </select>
-                <button type="button" class="icon-button" title="Add component" aria-label="Add component" [disabled]="!selected[section.key] || section.rows.length >= 50" (click)="add(section)"><ui-icon name="plus" /></button>
+                <button type="button" class="compact-action icon-button" [disabled]="!selected[section.key] || section.rows.length >= 50" (click)="add(section)" title="Add component" aria-label="Add component" data-action-label="Add component" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
               </div>
             </section>
           }

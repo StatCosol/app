@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +21,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 @Component({
   selector: 'app-branch-employee-detail',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     ActionButtonComponent,
@@ -34,7 +35,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
     <div class="page">
       <!-- Back Button -->
       <button (click)="goBack()"
-        class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-800 mb-4 transition-colors">
+        class="standard-action flex items-center gap-1 text-sm text-gray-500 hover:text-brand-800 mb-4 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -50,7 +51,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 <div
            class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
         <span>{{ error }}</span>
-        <button (click)="goBack()" class="text-red-800 font-semibold hover:underline ml-4">Go Back</button>
+        <button (click)="goBack()" class="standard-action text-red-800 font-semibold hover:underline ml-4">Go Back</button>
       </div>
 }
 
@@ -80,21 +81,21 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 }
             </div>
             <div class="header-actions">
-              <ui-button variant="primary" (clicked)="editEmployee()">Edit</ui-button>
-              <ui-button variant="outline" [disabled]="downloadingLetter" (clicked)="downloadAppointmentLetter()">
+              <ui-button variant="primary" (clicked)="editEmployee()" icon="pencil" [iconOnly]="true" label="Edit">Edit</ui-button>
+              <ui-button variant="outline" [disabled]="downloadingLetter" (clicked)="downloadAppointmentLetter()" icon="document" [iconOnly]="true" label="Appointment Letter (PDF)">
                 {{ downloadingLetter ? 'Downloading...' : 'Appointment Letter (PDF)' }}
               </ui-button>
-              <ui-button variant="outline" [disabled]="downloadingDocx" (clicked)="downloadAppointmentLetterDocx()">
+              <ui-button variant="outline" [disabled]="downloadingDocx" (clicked)="downloadAppointmentLetterDocx()" icon="document" [iconOnly]="true" label="Appointment Letter (Word)">
                 {{ downloadingDocx ? 'Downloading...' : 'Appointment Letter (Word)' }}
               </ui-button>
               @if (emp.isActive && emp.approvalStatus !== 'PENDING') {
 <ui-button variant="secondary" [disabled]="provisioningEss || !hasValidEmail()" (clicked)="provisionEssLogin()"
-                [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'">
+                [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'" icon="plus" [iconOnly]="true" label="Create ESS Login">
                 {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
               </ui-button>
 }
               @if (emp.isActive) {
-<ui-button variant="danger" (clicked)="confirmDeactivate()">Mark Exit</ui-button>
+<ui-button variant="danger" (clicked)="confirmDeactivate()" icon="user-minus" [iconOnly]="true" label="Mark Exit">Mark Exit</ui-button>
 }
             </div>
           </div>
@@ -126,20 +127,12 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <div class="ess-cred-row">
               <span class="ess-cred-label">Email</span>
               <span class="ess-cred-value">{{ essResult.email }}</span>
-              <button class="ess-copy-btn" (click)="copyCredential(essResult.email)" title="Copy email">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                </svg>
-              </button>
+              <button class="compact-action ess-copy-btn" (click)="copyCredential(essResult.email)" title="Copy email" aria-label="Copy email" data-action-label="Copy email" data-action-icon="document"><ui-icon name="document" [size]="20" /></button>
             </div>
             <div class="ess-cred-row">
               <span class="ess-cred-label">Password</span>
               <span class="ess-cred-value font-mono">{{ essResult.generatedPassword }}</span>
-              <button class="ess-copy-btn" (click)="copyCredential(essResult.generatedPassword)" title="Copy password">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                </svg>
-              </button>
+              <button class="compact-action ess-copy-btn" (click)="copyCredential(essResult.generatedPassword)" title="Copy password" aria-label="Copy password" data-action-label="Copy password" data-action-icon="document"><ui-icon name="document" [size]="20" /></button>
             </div>
           </div>
         </div>
@@ -211,7 +204,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             @if (!loadingNoms && nominations.length) {
 <span class="text-xs text-gray-500">{{ nominations.length }} record(s)</span>
 }
-            <ui-button variant="primary" size="sm" class="ml-auto" (clicked)="openNomForm()">
+            <ui-button variant="primary" size="sm" class="ml-auto" (clicked)="openNomForm()" icon="plus" [iconOnly]="true" label="Add Nomination">
               + Add Nomination
             </ui-button>
           </div>
@@ -239,7 +232,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               </div>
               <ui-button variant="outline" size="sm"
                          [disabled]="printingNomination === nom.nominationType"
-                         (clicked)="printNomination(nom.nominationType)">
+                         (clicked)="printNomination(nom.nominationType)" icon="printer" [iconOnly]="true" label="Print / Download PDF">
                 {{ printingNomination === nom.nominationType ? 'Preparing...' : 'Print / Download PDF' }}
               </ui-button>
             </div>
@@ -267,7 +260,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <div class="mt-4">
               <div class="flex justify-between items-center mb-2">
                 <h4 class="text-sm font-semibold text-gray-700">Nominee Members</h4>
-                <button class="text-xs text-brand-600 hover:underline" (click)="addNomMember()">+ Add Member</button>
+                <button class="compact-action text-xs text-brand-600 hover:underline" (click)="addNomMember()" title="Add Member" aria-label="Add Member" data-action-label="Add Member" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
               </div>
               @for (m of nomForm.members; track m; let i = $index) {
 <div class="member-row">
@@ -286,7 +279,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                            type="checkbox" [(ngModel)]="m.isMinor"> Minor (under 18)
                   </label>
                   @if (nomForm.members.length > 1) {
-<button class="text-xs text-red-600 hover:underline ml-auto" (click)="removeNomMember(i)">Remove</button>
+<button class="compact-action text-xs text-red-600 hover:underline ml-auto" (click)="removeNomMember(i)" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
                 </div>
                 @if (m.isMinor) {

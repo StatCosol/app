@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -16,7 +17,7 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
 @Component({
   selector: 'app-ceo-escalations',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule, FormsModule, RouterModule, PageHeaderComponent, EmptyStateComponent,
     LoadingSpinnerComponent, DataTableComponent, TableCellDirective,
     StatusBadgeComponent, ActionButtonComponent, FormSelectComponent,
@@ -36,7 +37,7 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
       @if (error) {
 <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between">
         <span>{{ error }}</span>
-        <button (click)="ngOnInit()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+        <button (click)="ngOnInit()" class="compact-action text-red-800 font-semibold hover:underline ml-4" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 }
 
@@ -73,10 +74,7 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
             </svg>
           </div>
           <ui-form-select label="Status" [options]="statusOptions" [(ngModel)]="statusFilter" (ngModelChange)="applyFilter()" class="w-44"></ui-form-select>
-          <button (click)="exportCsv()" class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Export
-          </button>
+          <button (click)="exportCsv()" class="compact-action ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export" aria-label="Export" data-action-label="Export" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           <span class="text-sm text-gray-500">{{ filteredItems.length }} escalation{{ filteredItems.length !== 1 ? 's' : '' }}</span>
         </div>
 
@@ -100,7 +98,7 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
               {{ row.createdAt | date:'mediumDate' }}
             </ng-template>
             <ng-template uiTableCell="actions" let-row>
-              <ui-button variant="secondary" size="sm" [routerLink]="['/ceo/escalations', row.id]">
+              <ui-button variant="secondary" size="sm" [routerLink]="['/ceo/escalations', row.id]" icon="eye" [iconOnly]="true" label="View">
                 View
               </ui-button>
             </ng-template>
@@ -110,7 +108,7 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
 
         @if (filteredItems.length === 0) {
 <ui-empty-state
-         
+
           title="No escalations"
           description="Escalated issues requiring CEO attention will appear here."
           icon="exclamation-circle">

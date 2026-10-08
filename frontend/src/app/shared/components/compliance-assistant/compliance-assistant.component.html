@@ -19,10 +19,10 @@
       <span class="assist-readonly"><span aria-hidden="true"></span>Read-only</span>
       <button
         type="button"
-        class="assist-button assist-button-secondary"
+        class="compact-action assist-button assist-button-secondary"
         [disabled]="loading()"
         (click)="generate()"
-      >
+       title="Refresh action plan" aria-label="Refresh action plan" data-action-label="Refresh action plan" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
           <path
             d="M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5"
@@ -33,7 +33,7 @@
           />
         </svg>
         {{ loading() ? 'Reviewing gaps…' : result() ? 'Refresh action plan' : 'Explain my gaps' }}
-      </button>
+      </span></button>
     </div>
   </header>
   <div class="assist-intro">
@@ -120,11 +120,9 @@
           >
           <button
             type="button"
-            class="assist-button assist-button-secondary assist-open"
+            class="compact-action assist-button assist-button-secondary assist-open"
             (click)="openDocument(doc)"
-          >
-            Open document<span aria-hidden="true">↗</span>
-          </button>
+           title="Open document↗" aria-label="Open document↗" data-action-label="Open document↗" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </article>
       }
       <details class="assist-answer-details">
@@ -145,8 +143,7 @@
           <h3>What needs attention</h3>
         </div>
         <a [routerLink]="statusRoute" [queryParams]="statusQueryParams"
-          >View compliance status <span aria-hidden="true">↗</span></a
-        >
+           class="compact-action" title="View compliance status ↗" aria-label="View compliance status ↗" data-action-label="View compliance status ↗" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
       </div>
       <div class="assist-plan-basis">
         <span class="assist-source">{{ plan.explanationLabel || 'Recorded data' }}</span
@@ -170,9 +167,8 @@
           </div>
           <p class="assist-task-explanation">{{ action.explanation }}</p>
           <p class="assist-next"><strong>Next step</strong>{{ action.nextAction }}</p>
-          <a class="assist-task-link" [routerLink]="action.route" [queryParams]="action.queryParams"
-            >Open compliance tasks <span aria-hidden="true">→</span></a
-          >
+          <a class="compact-action assist-task-link" [routerLink]="action.route" [queryParams]="action.queryParams"
+             title="Open compliance tasks →" aria-label="Open compliance tasks →" data-action-label="Open compliance tasks →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </article>
       } @empty {
         <div class="assist-empty">
@@ -236,7 +232,7 @@
         }
         <button
           type="submit"
-          class="assist-send"
+          class="standard-action assist-send"
           [disabled]="documentLoading() || !documentRequest.trim()"
           [attr.aria-label]="documentLoading() ? 'Finding document' : 'Find and show'"
           title="Find and show"

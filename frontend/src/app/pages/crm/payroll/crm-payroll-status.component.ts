@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -34,7 +35,7 @@ interface PayrollRun {
 @Component({
   standalone: true,
   selector: 'app-crm-payroll-status',
-  imports: [CommonModule, PageHeaderComponent, FormsModule, ClientContextStripComponent],
+  imports: [IconComponent, CommonModule, PageHeaderComponent, FormsModule, ClientContextStripComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="Payroll Status" description="Payroll processing status for your assigned clients">
@@ -53,7 +54,7 @@ interface PayrollRun {
       @if (error()) {
         <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <p class="text-sm text-red-700">{{ error() }}</p>
-          <button (click)="loadAll()" class="mt-2 text-xs font-medium text-red-600 hover:text-red-800 underline">Retry</button>
+          <button (click)="loadAll()" class="compact-action mt-2 text-xs font-medium text-red-600 hover:text-red-800 underline" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
       }
 

@@ -85,7 +85,7 @@
         />
       </label>
 
-      <button class="btn btn-ghost" type="button" (click)="clearFilters()">Reset</button>
+      <button class="compact-action btn btn-ghost" type="button" (click)="clearFilters()" title="Reset" aria-label="Reset" data-action-label="Reset" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
     </div>
   </section>
 
@@ -183,7 +183,7 @@
 
         @if (selected.latestDocument) {
 <div class="action-row">
-          <button class="btn btn-secondary" type="button" (click)="downloadLatest()">Download latest file</button>
+          <button class="compact-action btn btn-secondary" type="button" (click)="downloadLatest()" title="Download latest file" aria-label="Download latest file" data-action-label="Download latest file" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
         </div>
 }
 
@@ -210,9 +210,9 @@
         </div>
 
         <div class="action-row">
-          <button class="btn btn-primary" type="button" [disabled]="uploading || !selectedFile" (click)="uploadForSelectedRequirement()">
+          <button class="compact-action btn btn-primary" type="button" [disabled]="uploading || !selectedFile" (click)="uploadForSelectedRequirement()" title="Upload File" aria-label="Upload File" data-action-label="Upload File" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
             {{ uploading ? 'Uploading...' : (selected.uploadId ? 'Reupload File' : 'Upload File') }}
-          </button>
+          </span></button>
         </div>
       </article>
 } @else {

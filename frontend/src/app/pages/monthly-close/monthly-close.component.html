@@ -17,11 +17,11 @@
       <option value="">Choose branch</option>@for (branch of branches(); track branch.id) { <option [value]="branch.id">{{ branch.branchName }}</option> }
     </select></label>
     <label>Reporting month<input name="month" type="month" min="2000-01" max="2099-12" [(ngModel)]="month" (ngModelChange)="invalidate()" required></label>
-    <button type="submit" [disabled]="busy() || optionsBusy() || !branchId">{{ busy() ? 'Checking…' : 'Review month' }}</button>
+    <button type="submit" [disabled]="busy() || optionsBusy() || !branchId" class="standard-action">{{ busy() ? 'Checking…' : 'Review month' }}</button>
   </form>
 
   <p class="scope-note">This review checks recorded data for your enabled services. It does not close the month, verify payments or certify compliance.</p>
-  @if (error()) { <div role="alert" class="message error">{{ error() }} @if (!clients().length) { <button type="button" (click)="loadClients()">Retry</button> }</div> }
+  @if (error()) { <div role="alert" class="message error">{{ error() }} @if (!clients().length) { <button type="button" (click)="loadClients()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button> }</div> }
   @if (optionsBusy()) { <p role="status" class="message">Loading your available companies and branches…</p> }
   @if (busy()) { <p role="status" class="message">Checking recorded data for this branch and month…</p> }
   @if (!optionsBusy() && !busy() && !error() && !data()) {
@@ -63,7 +63,7 @@
             }
             @if (stage.truncated) { <p class="scope-note">Showing the first 100 actions. Open the source workspace to review all {{ stage.outstanding }} outstanding checks.</p> }
             @if (stage.state !== 'UNAVAILABLE') {
-              @if (actionPath(stage.area); as path) { <a class="action" [routerLink]="path" [queryParams]="{branchId: review.branchId, month: review.month, clientId: review.clientId}">Open {{ stage.title | lowercase }} workspace <span aria-hidden="true">→</span></a> }
+              @if (actionPath(stage.area); as path) { <a class="compact-action action" [routerLink]="path" [queryParams]="{branchId: review.branchId, month: review.month, clientId: review.clientId}" title="Open {{ stage.title | lowercase }} workspace →" aria-label="Open {{ stage.title | lowercase }} workspace →" attr.data-action-label="Open {{ stage.title | lowercase }} workspace →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">Open {{ stage.title | lowercase }} workspace <span aria-hidden="true">→</span></span></a> }
               @else { <p class="scope-note">{{ stage.area === 'returns' ? 'Ask the compliance team to review these records in the returns workspace.' : 'Ask the attendance reviewer to resolve these checks in the branch attendance workspace.' }}</p> }
             }
           </section>

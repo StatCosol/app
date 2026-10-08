@@ -1,4 +1,5 @@
-﻿import {
+import { IconComponent } from '../../shared/ui/icon/icon.component';
+import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -96,7 +97,7 @@ interface GuardrailCheck {
 @Component({
   selector: 'app-payroll-structures',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     ClientContextStripComponent,

@@ -5,7 +5,7 @@
   >
     <div class="flex items-center gap-2">
       <ui-button variant="secondary" size="sm" (clicked)="goBack()">← Back</ui-button>
-      <ui-button variant="secondary" size="sm" (clicked)="load(page)">Refresh</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="load(page)" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
     </div>
   </ui-page-header>
 
@@ -22,7 +22,7 @@
     ></ui-stat-card>
   </div>
 
-  <div class="filter-bar">
+  <div class="filter-bar aligned-filter-controls">
     <div class="filter-field">
       <label for="ca-month">Month</label>
       <input
@@ -64,8 +64,8 @@
       </select>
     </div>
     <div class="filter-actions">
-      <ui-button variant="primary" size="sm" (clicked)="load(1)">Apply</ui-button>
-      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()">Reset</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="load(1)" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
+      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
     </div>
   </div>
 
@@ -180,15 +180,13 @@
                         size="sm"
                         (clicked)="sendReminder(item)"
                         [disabled]="actionBusy"
-                        >Record Follow-up</ui-button
-                      >
+                         icon="plus" [iconOnly]="true" label="Record Follow-up">Record Follow-up</ui-button>
                       <ui-button
                         variant="secondary"
                         size="sm"
                         (clicked)="returnForUpdate(item)"
                         [disabled]="actionBusy"
-                        >Return</ui-button
-                      >
+                         icon="undo" [iconOnly]="true" label="Return">Return</ui-button>
                     </div>
                   </td>
                 </tr>
@@ -336,7 +334,7 @@
                 size="sm"
                 (clicked)="approve(item)"
                 [disabled]="actionBusy || !canApprove(item)"
-              >
+               icon="check-circle" [iconOnly]="true" label="Approve">
                 Approve
               </ui-button>
               <ui-button
@@ -344,7 +342,7 @@
                 size="sm"
                 (clicked)="returnForUpdate(item)"
                 [disabled]="actionBusy"
-              >
+               icon="undo" [iconOnly]="true" label="Return">
                 Return
               </ui-button>
               <ui-button
@@ -352,7 +350,7 @@
                 size="sm"
                 (clicked)="reject(item)"
                 [disabled]="actionBusy || item.status === 'REJECTED'"
-              >
+               icon="x-circle" [iconOnly]="true" label="Reject">
                 Reject
               </ui-button>
               <ui-button
@@ -360,7 +358,7 @@
                 size="sm"
                 (clicked)="addComment(item)"
                 [disabled]="actionBusy"
-              >
+               icon="plus" [iconOnly]="true" label="Add Comment">
                 Add Comment
               </ui-button>
               <ui-button
@@ -368,21 +366,19 @@
                 size="sm"
                 (clicked)="sendReminder(item)"
                 [disabled]="actionBusy"
-              >
+               icon="plus" [iconOnly]="true" label="Record Follow-up">
                 Record Follow-up
               </ui-button>
               @if (item.evidenceUrl) {
-                <a [href]="item.evidenceUrl" target="_blank" class="evidence-link">Open Evidence</a>
+                <a [href]="item.evidenceUrl" target="_blank" class="compact-action evidence-link" title="Open Evidence" aria-label="Open Evidence" data-action-label="Open Evidence" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               }
               @if (selectedDetail?.ackFilePath) {
-                <a [href]="selectedDetail?.ackFilePath" target="_blank" class="evidence-link"
-                  >Open Ack</a
-                >
+                <a [href]="selectedDetail?.ackFilePath" target="_blank" class="compact-action evidence-link"
+                   title="Open Ack" aria-label="Open Ack" data-action-label="Open Ack" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               }
               @if (selectedDetail?.challanFilePath) {
-                <a [href]="selectedDetail?.challanFilePath" target="_blank" class="evidence-link"
-                  >Open Challan</a
-                >
+                <a [href]="selectedDetail?.challanFilePath" target="_blank" class="compact-action evidence-link"
+                   title="Open Challan" aria-label="Open Challan" data-action-label="Open Challan" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               }
             </div>
 

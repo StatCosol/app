@@ -114,7 +114,7 @@ import {
           </div>
 
           <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
-            <ui-button variant="secondary" (clicked)="loadConfig()">Reset</ui-button>
+            <ui-button variant="secondary" (clicked)="loadConfig()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
             <ui-button variant="primary" [disabled]="saving" (clicked)="save()">
               {{ saving ? 'Saving...' : 'Save Configuration' }}
             </ui-button>

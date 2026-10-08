@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -18,7 +19,7 @@ type TrackerTab = 'DOCS' | 'MCD' | 'EXPIRY' | 'AUDIT_CLOSURES' | 'TASKS';
 @Component({
   selector: 'app-crm-compliance',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent],
   templateUrl: './crm-compliance.component.html',
   styleUrls: ['./crm-compliance.component.scss'],
 })

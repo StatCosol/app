@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -63,7 +64,7 @@ function coerceDateValue(value: unknown): string {
 @Component({
   selector: 'app-crm-dashboard',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     PageHeaderComponent,
     ActionButtonComponent,

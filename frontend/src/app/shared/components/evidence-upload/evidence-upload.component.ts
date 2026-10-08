@@ -1,3 +1,4 @@
+import { IconComponent } from '../../ui/icon/icon.component';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -5,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-evidence-upload',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   template: `
     <div class="p-4 border border-gray-200 rounded-lg bg-white">
       <div class="text-sm font-semibold text-gray-800 mb-3">{{ title }}</div>
@@ -63,12 +64,10 @@ import { FormsModule } from '@angular/forms';
 
         @if (selectedFile && !uploading) {
 <button
-         
-          class="px-3 py-2 rounded-md text-sm text-gray-600 hover:text-gray-800"
+
+          class="compact-action px-3 py-2 rounded-md text-sm text-gray-600 hover:text-gray-800"
           (click)="clear()"
-        >
-          Clear
-        </button>
+         title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
 }
       </div>
 

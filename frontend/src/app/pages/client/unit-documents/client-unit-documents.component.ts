@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -34,7 +35,7 @@ type ScopeFilter = '' | CrmDocumentScope;
 @Component({
   standalone: true,
   selector: 'app-client-unit-documents',
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -160,12 +161,8 @@ type ScopeFilter = '' | CrmDocumentScope;
                 <td class="px-4 py-3 text-sm text-gray-600">{{ doc.documentType }}</td>
                 <td class="px-4 py-3 text-sm text-gray-500">{{ doc.createdAt | date:'short' }}</td>
                 <td class="px-4 py-3 text-sm">
-                  <button (click)="view(doc)" class="text-emerald-600 hover:text-emerald-800 font-medium text-sm mr-3">
-                    View
-                  </button>
-                  <button (click)="download(doc)" class="text-brand-600 hover:text-brand-800 font-medium text-sm">
-                    Download
-                  </button>
+                  <button (click)="view(doc)" class="compact-action text-emerald-600 hover:text-emerald-800 font-medium text-sm mr-3" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
+                  <button (click)="download(doc)" class="compact-action text-brand-600 hover:text-brand-800 font-medium text-sm" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
                 </td>
               </tr>
 }

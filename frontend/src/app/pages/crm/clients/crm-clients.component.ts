@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
 @Component({
   selector: 'app-crm-clients',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterModule, PageHeaderComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="My Clients" description="Manage your assigned clients" icon="office-building"></ui-page-header>
@@ -65,16 +66,12 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
               </td>
               <td class="px-4 py-3 text-sm">
                 <a [routerLink]="['/crm/clients', c.id, 'branches']"
-                   class="text-brand-600 hover:text-brand-800 font-medium">
-                  View branches
-                </a>
+                   class="compact-action text-brand-600 hover:text-brand-800 font-medium" title="View branches" aria-label="View branches" data-action-label="View branches" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               </td>
               <td class="px-4 py-3 text-sm">
                 <a [routerLink]="['/crm/clients', c.id, 'overview']"
-                   class="inline-flex items-center gap-1 bg-brand-50 text-brand-700 px-3 py-1.5 rounded-lg
-                          text-xs font-medium hover:bg-brand-100 transition-colors">
-                  Open Workspace →
-                </a>
+                   class="compact-action inline-flex items-center gap-1 bg-brand-50 text-brand-700 px-3 py-1.5 rounded-lg
+                          text-xs font-medium hover:bg-brand-100 transition-colors" title="Open Workspace →" aria-label="Open Workspace →" data-action-label="Open Workspace →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               </td>
             </tr>
 }

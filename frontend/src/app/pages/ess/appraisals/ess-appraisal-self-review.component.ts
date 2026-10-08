@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-ess-appraisal-self-review',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (appraisal) {
@@ -123,9 +124,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <!-- Submit Button -->
       @if (canSelfReview) {
 <div class="flex items-center gap-3 mt-6">
-        <button (click)="submitSelfReview()" [disabled]="submitting" class="btn-primary">
+        <button (click)="submitSelfReview()" [disabled]="submitting" class="compact-action btn-primary" title="Submit Self-Review" aria-label="Submit Self-Review" data-action-label="Submit Self-Review" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
           {{ submitting ? 'Submitting...' : 'Submit Self-Review' }}
-        </button>
+        </span></button>
         @if (successMsg) {
 <span class="text-sm text-emerald-600 font-medium">{{ successMsg }}</span>
 }

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../ui/icon/icon.component';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -5,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'ui-reply-composer',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   template: `
     <div class="border border-gray-200 rounded-lg bg-white p-3">
       <textarea autocomplete="off"
@@ -18,9 +19,9 @@ import { FormsModule } from '@angular/forms';
       ></textarea>
       <div class="flex justify-between items-center mt-2">
         <span class="text-xs text-gray-400">{{ text.length }}/{{ maxLength }}</span>
-        <button type="button" class="px-3 py-2 rounded-lg bg-brand-700 text-white text-sm font-semibold disabled:opacity-60" [disabled]="busy || !text.trim()" (click)="submit()">
+        <button type="button" class="compact-action px-3 py-2 rounded-lg bg-brand-700 text-white text-sm font-semibold disabled:opacity-60" [disabled]="busy || !text.trim()" (click)="submit()" title="Send Reply" aria-label="Send Reply" data-action-label="Send Reply" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
           {{ busy ? 'Sending...' : 'Send Reply' }}
-        </button>
+        </span></button>
       </div>
     </div>
   `,

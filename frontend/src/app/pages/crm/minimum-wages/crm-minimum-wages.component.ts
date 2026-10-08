@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -42,7 +43,7 @@ interface FormState extends UpsertWagePayload {
   standalone: true,
   selector: 'app-crm-minimum-wages',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -59,7 +60,7 @@ interface FormState extends UpsertWagePayload {
 
     <!-- Filters -->
     <div class="card mb-4 p-4">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 aligned-filter-controls">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">State Code</label>
           <input type="text" name="fState" [(ngModel)]="filters.stateCode"
@@ -83,16 +84,16 @@ interface FormState extends UpsertWagePayload {
             class="w-full rounded-lg border-gray-300" />
         </div>
         <div class="flex items-end gap-2">
-          <ui-button variant="primary" (clicked)="load()">Apply</ui-button>
-          <ui-button variant="secondary" (clicked)="resetFilters()">Reset</ui-button>
+          <ui-button variant="primary" (clicked)="load()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
+          <ui-button variant="secondary" (clicked)="resetFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
         </div>
       </div>
     </div>
 
     <!-- Toolbar -->
     <div class="flex flex-wrap items-center gap-2 mb-3">
-      <ui-button variant="primary" (clicked)="openAdd()">+ Add Wage</ui-button>
-      <ui-button variant="secondary" (clicked)="downloadTemplate()">Download Template</ui-button>
+      <ui-button variant="primary" (clicked)="openAdd()" icon="plus" [iconOnly]="true" label="Add Wage">+ Add Wage</ui-button>
+      <ui-button variant="secondary" (clicked)="downloadTemplate()" icon="download" [iconOnly]="true" label="Download Template">Download Template</ui-button>
       <label class="inline-flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium rounded cursor-pointer">
         Bulk Upload (Excel)
         <input type="file" accept=".xlsx,.xls,.csv" (change)="onBulkFile($event)" hidden />
@@ -106,7 +107,7 @@ interface FormState extends UpsertWagePayload {
 
     @if (!loading) {
 <ui-data-table
-     
+
       [columns]="cols"
       [data]="rows"
       emptyMessage="No minimum-wage rows found.">
@@ -116,8 +117,8 @@ interface FormState extends UpsertWagePayload {
       <ng-template uiTableCell="scheduledEmployment" let-row>{{ row.scheduledEmployment || 'Default' }}</ng-template>
       <ng-template uiTableCell="actions" let-row>
         <div class="flex gap-2">
-          <button class="text-brand-600 hover:underline text-sm" (click)="openEdit(row)">Edit</button>
-          <button class="text-red-600 hover:underline text-sm" (click)="remove(row)">Delete</button>
+          <button class="compact-action text-brand-600 hover:underline text-sm" (click)="openEdit(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
+          <button class="compact-action text-red-600 hover:underline text-sm" (click)="remove(row)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
         </div>
       </ng-template>
     </ui-data-table>

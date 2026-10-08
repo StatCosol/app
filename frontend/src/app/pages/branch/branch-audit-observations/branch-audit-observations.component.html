@@ -47,12 +47,12 @@
   <section class="filters card">
     <div class="chip-row">
       <button type="button" [class.active]="statusFilter==='ALL'" (click)="setStatusFilter('ALL')">All</button>
-      <button type="button" [class.active]="statusFilter==='OPEN'" (click)="setStatusFilter('OPEN')">Open</button>
+      <button type="button" [class.active]="statusFilter==='OPEN'" (click)="setStatusFilter('OPEN')" class="compact-action" title="Open" aria-label="Open" data-action-label="Open" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
       <button type="button" [class.active]="statusFilter==='IN_PROGRESS'" (click)="setStatusFilter('IN_PROGRESS')">In Progress</button>
       <button type="button" [class.active]="statusFilter==='CLOSED'" (click)="setStatusFilter('CLOSED')">Closed</button>
     </div>
 
-    <div class="filter-row">
+    <div class="filter-row aligned-filter-controls">
       <label>
         Severity
         <select id="bao-severity-filter" name="severityFilter" [(ngModel)]="severityFilter" (ngModelChange)="applyFilters()">
@@ -66,7 +66,7 @@
         Search
         <input autocomplete="off" id="bao-search-term" type="text" name="searchTerm" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" placeholder="Ref, category, description" />
       </label>
-      <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
+      <button type="button" class="compact-action btn btn-ghost" (click)="clearFilters()" title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
     </div>
   </section>
 
@@ -199,7 +199,7 @@
           <div class="capa-status-row">
             <span>Quick Move</span>
             <div class="owner-chip-row">
-              <button type="button" [class.active]="isCapaStatus('OPEN')" (click)="setCapaStatus('OPEN')">OPEN</button>
+              <button type="button" [class.active]="isCapaStatus('OPEN')" (click)="setCapaStatus('OPEN')" class="compact-action" title="OPEN" aria-label="OPEN" data-action-label="OPEN" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
               <button type="button" [class.active]="isCapaStatus('IN_PROGRESS')" (click)="setCapaStatus('IN_PROGRESS')">IN_PROGRESS</button>
               <button type="button" [class.active]="isCapaStatus('READY_FOR_VERIFICATION')" (click)="setCapaStatus('READY_FOR_VERIFICATION')">READY_FOR_VERIFICATION</button>
               <button type="button" [class.active]="isCapaStatus('CLOSED')" (click)="setCapaStatus('CLOSED')">CLOSED</button>
@@ -216,10 +216,10 @@
         </div>
 
         <div class="action-row">
-          <button type="button" class="btn btn-primary" [disabled]="saving || uploading" (click)="submitClosureResponse()">
+          <button type="button" class="compact-action btn btn-primary" [disabled]="saving || uploading" (click)="submitClosureResponse()" title="Create Closure Case" aria-label="Create Closure Case" data-action-label="Create Closure Case" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
             {{ saving ? 'Submitting...' : (activeCase ? 'Update Closure Case' : 'Create Closure Case') }}
-          </button>
-          <button type="button" class="btn btn-secondary" [disabled]="saving || uploading" (click)="addComment()">Add Progress Comment</button>
+          </span></button>
+          <button type="button" class="compact-action btn btn-secondary" [disabled]="saving || uploading" (click)="addComment()" title="Add Progress Comment" aria-label="Add Progress Comment" data-action-label="Add Progress Comment" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
         </div>
       </article>
 
@@ -241,8 +241,8 @@
 <div class="file-item">
             <span>{{ file.name }}</span>
             <div class="file-actions">
-              <button type="button" (click)="previewSelectedEvidence(file)">Preview</button>
-              <button type="button" (click)="removeEvidence(i)">Remove</button>
+              <button type="button" (click)="previewSelectedEvidence(file)" class="compact-action" title="Preview" aria-label="Preview" data-action-label="Preview" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
+              <button type="button" (click)="removeEvidence(i)" class="compact-action" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
             </div>
           </div>
 }

@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "source": "local production build with intercepted synthetic API data",
+  "checks": [
+    "profile outage/retry",
+    "assignment outage/retry",
+    "sample workers",
+    "assignment deployment list",
+    "October selection",
+    "October attendance",
+    "October wages",
+    "mobile viewport"
+  ],
+  "pageErrors": []
+}

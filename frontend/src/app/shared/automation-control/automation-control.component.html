@@ -6,7 +6,7 @@
       <p>Keep routine work moving with clear scope, schedules and execution history.</p>
     </div>
     <a routerLink="/admin/audit-follow-ups">Audit follow-ups</a>
-    <button (click)="refresh()" [disabled]="busy() || loading()">Refresh</button>
+    <button (click)="refresh()" [disabled]="busy() || loading()" class="compact-action" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </header>
   @if (error()) {
     <div class="notice error" role="alert">{{ error() }}</div>
@@ -256,15 +256,14 @@
           <div class="actions">
             <button
               type="button"
-              class="secondary"
+              class="compact-action secondary"
               (click)="showPreview()"
               [disabled]="busy() || previewing()"
-            >
-              {{ previewing() ? 'Preparing preview…' : 'Preview affected work' }}</button
-            ><button
+             title="Preview affected work" aria-label="Preview affected work" data-action-label="Preview affected work" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
+              {{ previewing() ? 'Preparing preview…' : 'Preview affected work' }}</span></button><button
               type="submit"
               [disabled]="busy() || !dirty || !localTime || (enabled && !preview())"
-            >
+             class="standard-action">
               Save settings
             </button>
           </div>
@@ -310,9 +309,7 @@
           <button
             (click)="run()"
             [disabled]="busy() || dirty || !p.plan.enabled || !p.plan.controlId"
-          >
-            Run now
-          </button>
+           class="compact-action" title="Run now" aria-label="Run now" data-action-label="Run now" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         } @else {
           <div class="empty">
             <h3>See the work before it runs</h3>
@@ -354,7 +351,7 @@
     <section class="panel history">
       <div class="section-heading">
         <h2>Execution history</h2>
-        <button class="secondary" (click)="history()">Refresh history</button>
+        <button class="compact-action secondary" (click)="history()" title="Refresh history" aria-label="Refresh history" data-action-label="Refresh history" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
       @if (!runs().length) {
         <p>No recorded runs yet. Preview a rule to get started.</p>
@@ -405,14 +402,13 @@
             }
           </div>
           @if (['FAILED', 'PARTIAL', 'INTERRUPTED'].includes(run.status)) {
-            <button class="secondary" [disabled]="busy()" (click)="retry(run)">Retry safely</button>
+            <button class="compact-action secondary" [disabled]="busy()" (click)="retry(run)" title="Retry safely" aria-label="Retry safely" data-action-label="Retry safely" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           }
         </article>
       }
       <div class="pagination">
-        <button class="secondary" (click)="movePage(-1)" [disabled]="page <= 1">Previous</button
-        ><span>Page {{ page }} · {{ total }} runs</span
-        ><button class="secondary" (click)="movePage(1)" [disabled]="page * 25 >= total">
+        <button class="standard-action secondary" (click)="movePage(-1)" [disabled]="page <= 1">Previous</button><span>Page {{ page }} · {{ total }} runs</span
+        ><button class="standard-action secondary" (click)="movePage(1)" [disabled]="page * 25 >= total">
           Next
         </button>
       </div>

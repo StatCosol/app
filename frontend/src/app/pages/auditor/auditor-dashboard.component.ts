@@ -1,3 +1,5 @@
+import { ActionIconPipe } from '../../shared/ui/action-icon.pipe';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -43,7 +45,7 @@ import {
   selector: 'app-auditor-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [ActionIconPipe, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -48,7 +49,7 @@ interface ChecklistItem {
 @Component({
   selector: 'app-payroll-fnf',
   standalone: true,
-  imports: [FormsModule, ClientContextStripComponent, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, ClientContextStripComponent, PageHeaderComponent],
   templateUrl: './payroll-fnf.component.html',
   styleUrls: ['./payroll-fnf.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

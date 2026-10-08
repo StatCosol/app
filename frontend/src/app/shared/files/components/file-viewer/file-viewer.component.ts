@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../ui/icon/icon.component';
 import { Component, Input } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FileMeta } from '../../models/file.model';
@@ -5,7 +6,7 @@ import { FileMeta } from '../../models/file.model';
 @Component({
   selector: 'app-file-viewer',
   standalone: true,
-  imports: [CommonModule, DatePipe],
+  imports: [IconComponent, CommonModule, DatePipe],
   templateUrl: './file-viewer.component.html',
 })
 export class FileViewerComponent {

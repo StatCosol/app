@@ -26,7 +26,7 @@
       </div>
     </div>
 
-    <div class="controls">
+    <div class="controls aligned-filter-controls">
       <input autocomplete="off" id="bc-month" type="month" name="compMonth" [(ngModel)]="month" (change)="load()" />
 
       <select id="bc-branch-id" name="compBranchId" [(ngModel)]="branchId" (change)="load()">
@@ -41,7 +41,7 @@
         <option value="MCD">MCD</option>
       </select>
 
-      <button class="btn2" type="button" (click)="load()">Refresh</button>
+      <button class="compact-action btn2" type="button" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   </div>
 
@@ -254,7 +254,7 @@
       @if (canOpenDocumentLibrary(item)) {
 <button class="btn2" type="button" (click)="openDocumentLibrary(item)">{{ documentLibraryLabel(item) }}</button>
 }
-      <button class="btn2" type="button" (click)="load()">Refresh Schedule</button>
+      <button class="compact-action btn2" type="button" (click)="load()" title="Refresh Schedule" aria-label="Refresh Schedule" data-action-label="Refresh Schedule" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   </div>
 }

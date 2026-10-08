@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnDestroy, ViewEncapsulation } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ type Step = 'email' | 'sent';
 
 @Component({
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   encapsulation: ViewEncapsulation.ShadowDom,
   selector: 'app-ess-forgot-password',
   template: `
@@ -62,7 +63,7 @@ type Step = 'email' | 'sent';
                 </div>
               </div>
 
-              <button class="btn-primary" type="submit" [disabled]="isLoading">
+              <button class="standard-action btn-primary" type="submit" [disabled]="isLoading">
                 @if (!isLoading) {
 Send Reset Link
 }
@@ -91,10 +92,10 @@ Send Reset Link
 
               <div class="resend-row">
                 <span>Didn't receive the email?</span>
-                <button type="button" class="accent-btn" (click)="resendEmail()" [disabled]="isLoading">Resend</button>
+                <button type="button" class="compact-action accent-btn" (click)="resendEmail()" [disabled]="isLoading" title="Resend" aria-label="Resend" data-action-label="Resend" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
               </div>
 
-              <button class="btn-primary" type="button" (click)="goToLogin()" style="margin-top: 20px;">
+              <button class="standard-action btn-primary" type="button" (click)="goToLogin()" style="margin-top: 20px;">
                 Back to Sign In
               </button>
             </div>
@@ -103,7 +104,7 @@ Send Reset Link
             <!-- Back to login -->
             @if (step === 'email') {
 <div class="back-row">
-              <button type="button" class="back-link" (click)="goToLogin()">
+              <button type="button" class="standard-action back-link" (click)="goToLogin()">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 Back to Sign In
               </button>

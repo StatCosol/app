@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -10,7 +11,7 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
 @Component({
   standalone: true,
   selector: 'app-approval-details',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent],
   template: `
     <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
       <a (click)="goBack()" class="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-800 mb-4 cursor-pointer">
@@ -95,15 +96,15 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
 
           <div class="flex gap-3">
             <button (click)="onApprove()" [disabled]="submitting"
-                    class="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium
-                           hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    class="compact-action bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium
+                           hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /><span class="compact-action-label">
               {{ submitting ? 'Processing...' : 'Approve' }}
-            </button>
+            </span></button>
             <button (click)="onReject()" [disabled]="submitting || !remarks.trim()"
-                    class="bg-red-600 text-white px-5 py-2 rounded-lg text-sm font-medium
-                           hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    class="compact-action bg-red-600 text-white px-5 py-2 rounded-lg text-sm font-medium
+                           hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /><span class="compact-action-label">
               {{ submitting ? 'Processing...' : 'Reject' }}
-            </button>
+            </span></button>
           </div>
         </div>
 }

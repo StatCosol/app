@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../ui/icon/icon.component';
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { FileUploadService } from '../../services/file-upload.service';
@@ -6,7 +7,7 @@ import { UploadConfig, UploadResult } from '../../models/file.model';
 @Component({
   selector: 'app-upload-widget',
   standalone: true,
-  imports: [],
+  imports: [IconComponent, ],
   templateUrl: './upload-widget.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

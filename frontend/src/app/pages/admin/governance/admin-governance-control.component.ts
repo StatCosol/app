@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -51,7 +52,7 @@ interface GovernanceGuardrail {
 @Component({
   selector: 'app-admin-governance-control',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
+  imports: [IconComponent, CommonModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
   templateUrl: './admin-governance-control.component.html',
   styleUrls: ['./admin-governance-control.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

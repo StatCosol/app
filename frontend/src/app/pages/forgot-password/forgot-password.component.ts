@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ type Step = 'email' | 'sent';
 
 @Component({
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [IconComponent, FormsModule, RouterLink],
   templateUrl: './forgot-password.component.html',
   styleUrls: ['./forgot-password.component.scss'],
 })

@@ -3,7 +3,7 @@
     title="Client Payroll Monitoring"
     subtitle="Track payroll progress and download payslips, full and final statements, relieving letters, and registers.">
     <a [routerLink]="registersRoute" class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Registers Download</a>
-    <ui-button variant="secondary" (clicked)="loadInputs()" [disabled]="loading">Refresh</ui-button>
+    <ui-button variant="secondary" (clicked)="loadInputs()" [disabled]="loading" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
   </ui-page-header>
 
   <section class="workspace-card mb-6">
@@ -42,17 +42,17 @@
 }
         </select>
       </label>
-      <label class="wide">
-        <span>Search</span>
+      <div class="search-filter">
+        <label for="cp-search">Search</label>
+        <div class="search-controls">
         <input autocomplete="off" id="cp-search"
           type="text"
           name="filterSearch"
           [(ngModel)]="filters.search"
           (ngModelChange)="onFiltersChanged()"
           placeholder="Title, branch, input id" />
-      </label>
-      <div class="actions">
-        <ui-button variant="secondary" (clicked)="clearFilters()">Reset</ui-button>
+        <ui-button variant="secondary" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
+        </div>
       </div>
     </div>
   </section>
@@ -89,7 +89,7 @@
       <h3>Employee payroll records</h3>
       <span class="muted">{{ filters.periodMonth ? periodLabel(filters) : 'Select a month' }}</span>
       @if (bulkPayslipAvailable) {
-        <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy || employeeRecordsLoading" (clicked)="downloadPayslipPack()">Download payslips for this month</ui-button>
+        <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy || employeeRecordsLoading" (clicked)="downloadPayslipPack()" icon="download" [iconOnly]="true" label="Download payslips for this month">Download payslips for this month</ui-button>
       }
     </div>
     @if (employeeRecordsLoading) {
@@ -122,7 +122,7 @@
                 <td>{{ row.settlementAvailable ? 'Available' : '—' }}</td>
                 <td>{{ row.relievingAvailable ? 'Available' : '—' }}</td>
                 <td>
-                  <ui-button size="sm" variant="secondary" (clicked)="selectEmployeeRecord(row)">Open</ui-button>
+                  <ui-button size="sm" variant="secondary" (clicked)="selectEmployeeRecord(row)" icon="eye" [iconOnly]="true" label="Open">Open</ui-button>
                 </td>
               </tr>
             }
@@ -139,13 +139,13 @@
         </div>
         <div class="record-actions">
           @if (selectedEmployeeRecord.payslipAvailable) {
-            <ui-button size="sm" variant="primary" [disabled]="documentDownloadBusy" (clicked)="downloadEmployeePayslip(selectedEmployeeRecord)">Download payslip</ui-button>
+            <ui-button size="sm" variant="primary" [disabled]="documentDownloadBusy" (clicked)="downloadEmployeePayslip(selectedEmployeeRecord)" icon="download" [iconOnly]="true" label="Download payslip">Download payslip</ui-button>
           }
           @if (selectedEmployeeRecord.settlementAvailable) {
-            <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadSettlement(selectedEmployeeRecord)">Download settlement statement</ui-button>
+            <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadSettlement(selectedEmployeeRecord)" icon="download" [iconOnly]="true" label="Download settlement statement">Download settlement statement</ui-button>
           }
           @if (selectedEmployeeRecord.relievingAvailable) {
-            <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadRelievingLetter(selectedEmployeeRecord)">Download relieving letter</ui-button>
+            <ui-button size="sm" variant="secondary" [disabled]="documentDownloadBusy" (clicked)="downloadRelievingLetter(selectedEmployeeRecord)" icon="download" [iconOnly]="true" label="Download relieving letter">Download relieving letter</ui-button>
           }
         </div>
       </div>
@@ -196,7 +196,7 @@
                     size="sm"
                     variant="secondary"
                     [disabled]="!row.latestInputId"
-                    (clicked)="openBranchLatest(row)">
+                    (clicked)="openBranchLatest(row)" icon="eye" [iconOnly]="true" label="Open">
                     Open
                   </ui-button>
                 </td>
@@ -280,7 +280,7 @@
                 <td><ui-status-badge [status]="row.status"></ui-status-badge></td>
                 <td>{{ row.filesCount }}</td>
                 <td>
-                  <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)">Open</ui-button>
+                  <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)" icon="eye" [iconOnly]="true" label="Open">Open</ui-button>
                 </td>
               </tr>
 }
@@ -321,7 +321,7 @@
                 <td><ui-status-badge [status]="row.status"></ui-status-badge></td>
                 <td>{{ row.createdAt | date:'dd MMM yyyy' }}</td>
                 <td>
-                  <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)">Open</ui-button>
+                  <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)" icon="eye" [iconOnly]="true" label="Open">Open</ui-button>
                 </td>
               </tr>
 }
@@ -421,7 +421,7 @@
           </label>
         </div>
         <div class="inline-actions">
-          <ui-button variant="primary" (clicked)="createInput()" [disabled]="creatingInput" [loading]="creatingInput">
+          <ui-button variant="primary" (clicked)="createInput()" [disabled]="creatingInput" [loading]="creatingInput" icon="plus" [iconOnly]="true" label="Create Input">
             Create Input
           </ui-button>
           @if (inputError) {
@@ -466,7 +466,7 @@
             (clicked)="cancelSelectedInput()">
             Cancel
           </ui-button>
-          <ui-button variant="ghost" [disabled]="detailLoading" (clicked)="refreshSelectedInput()">Reload Detail</ui-button>
+          <ui-button variant="ghost" [disabled]="detailLoading" (clicked)="refreshSelectedInput()" icon="refresh" [iconOnly]="true" label="Reload Detail">Reload Detail</ui-button>
         </div>
 
         <label class="mb-4 block">
@@ -488,7 +488,7 @@
               variant="secondary"
               [disabled]="!detailUploadFile || uploadingFile"
               [loading]="uploadingFile"
-              (clicked)="uploadDetailAttachment()">
+              (clicked)="uploadDetailAttachment()" icon="upload" [iconOnly]="true" label="Upload">
               Upload
             </ui-button>
           </div>
@@ -535,7 +535,7 @@
                   <div class="name">{{ file.fileName }}</div>
                   <div class="meta">{{ file.createdAt | date:'dd MMM yyyy, hh:mm a' }}</div>
                 </div>
-                <ui-button size="sm" variant="secondary" (clicked)="downloadInputFile(file)">Download</ui-button>
+                <ui-button size="sm" variant="secondary" (clicked)="downloadInputFile(file)" icon="download" [iconOnly]="true" label="Download">Download</ui-button>
               </article>
 }
             </div>

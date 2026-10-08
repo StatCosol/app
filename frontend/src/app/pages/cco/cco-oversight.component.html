@@ -41,7 +41,7 @@
     <section class="workspace-card">
       <div class="panel-head">
         <h3>Governance Guardrails</h3>
-        <a routerLink="/cco/escalations" class="panel-link">Open escalations</a>
+        <a routerLink="/cco/escalations" class="compact-action panel-link" title="Open escalations" aria-label="Open escalations" data-action-label="Open escalations" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
       </div>
       @if (oversightGuardrails.length) {
 <div class="p-4 space-y-2">
@@ -205,7 +205,7 @@
       <article class="workspace-card">
         <div class="panel-head">
           <h3>CRM Performance Snapshot</h3>
-          <a routerLink="/cco/crm-performance" class="panel-link">Open full page</a>
+          <a routerLink="/cco/crm-performance" class="compact-action panel-link" title="Open full page" aria-label="Open full page" data-action-label="Open full page" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </div>
         @if (crmSnapshot.length) {
 <div class="table-wrap">
@@ -249,7 +249,7 @@
       <article class="workspace-card">
         <div class="panel-head">
           <h3>Escalations Queue</h3>
-          <a routerLink="/cco/escalations" class="panel-link">Open full queue</a>
+          <a routerLink="/cco/escalations" class="compact-action panel-link" title="Open full queue" aria-label="Open full queue" data-action-label="Open full queue" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </div>
 
         <div class="filter-row">

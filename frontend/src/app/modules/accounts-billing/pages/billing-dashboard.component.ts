@@ -29,13 +29,13 @@ import {
       <ui-page-header
         title="Accounts & Billing"
         subtitle="Overview of invoices, payments and revenue">
-        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()">
+        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Refresh">
           <span class="flex items-center gap-1.5">
             <ui-icon name="refresh" [size]="14" />
             Refresh
           </span>
         </ui-button>
-        <ui-button variant="primary" (clicked)="goTo('/accounts/invoices/new')">
+        <ui-button variant="primary" (clicked)="goTo('/accounts/invoices/new')" icon="plus" [iconOnly]="true" label="New Invoice">
           <span class="flex items-center gap-2">
             <ui-icon name="plus" [size]="16" />
             New Invoice
@@ -58,7 +58,7 @@ import {
         @if (error()) {
           <div class="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             <p class="text-sm text-red-700">{{ error() }}</p>
-            <ui-button size="sm" variant="secondary" (clicked)="reload()">Retry</ui-button>
+            <ui-button size="sm" variant="secondary" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Retry">Retry</ui-button>
           </div>
         }
 

@@ -361,3 +361,28 @@ th {
   }
 }
 
+
+.search-filter {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.search-filter > label {
+  color: #4b5563;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.search-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.search-controls input {
+  flex: 1;
+  min-width: 0;
+}
+.search-controls ui-button {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}

@@ -7,12 +7,12 @@
 
   <!-- Toggle upload form -->
   <div class="mb-4">
-    <button type="button" class="btn-upload" (click)="toggleUploadForm()">
+    <button type="button" class="compact-action btn-upload" (click)="toggleUploadForm()" title="Upload Document" aria-label="Upload Document" data-action-label="Upload Document" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
       </svg>
       {{ showUploadForm ? 'Cancel' : 'Upload Document' }}
-    </button>
+    </span></button>
   </div>
 
   <!-- Upload form -->
@@ -185,7 +185,7 @@
       <span class="text-gray-500 text-xs">{{ row.createdAt | date:'mediumDate' }}</span>
     </ng-template>
     <ng-template uiTableCell="actions" let-row>
-      <a class="text-brand-600 hover:text-brand-800 text-sm font-medium mr-3" [href]="getDownloadUrl(row.id)" target="_blank">Download</a>
+      <a class="compact-action text-brand-600 hover:text-brand-800 text-sm font-medium mr-3" [href]="getDownloadUrl(row.id)" target="_blank" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></a>
       <span class="text-red-600 hover:text-red-800 text-sm font-medium cursor-pointer" (click)="deleteDoc(row)">Delete</span>
     </ng-template>
   </ui-data-table>

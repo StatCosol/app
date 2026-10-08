@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -23,7 +24,7 @@ import { ClientContextStripComponent } from '../../../shared/ui';
 @Component({
   standalone: true,
   selector: 'app-auditor-report-builder',
-  imports: [FormsModule, RouterModule, ClientContextStripComponent],
+  imports: [IconComponent, FormsModule, RouterModule, ClientContextStripComponent],
   templateUrl: './auditor-report-builder.component.html',
   styleUrls: ['./auditor-report-builder.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

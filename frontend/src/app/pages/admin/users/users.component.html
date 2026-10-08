@@ -36,7 +36,7 @@
           <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          <span>Client users are now created automatically during <strong>Client Registration</strong>. Use <a class="underline font-medium cursor-pointer" routerLink="/admin/clients">Manage Clients</a> to register new clients with their master user.</span>
+          <span>Client users are now created automatically during <strong>Client Registration</strong>. Use <a class="compact-action underline font-medium cursor-pointer" routerLink="/admin/clients" title="Manage Clients" aria-label="Manage Clients" data-action-label="Manage Clients" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></a> to register new clients with their master user.</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
           <ui-form-select
@@ -97,7 +97,7 @@
             variant="primary"
             (click)="create()"
             [disabled]="isLoading || rolesLoading || clientsLoading"
-            class="w-full">
+            class="w-full" icon="plus" [iconOnly]="true" label="Create">
             <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
             </svg>
@@ -128,7 +128,7 @@
           </svg>
           Edit User — {{ editingUser.name }} ({{ editingUser.email }})
         </h3>
-        <button type="button" class="text-sm text-gray-500 hover:text-gray-700 font-medium" (click)="cancelEdit()">Cancel ✕</button>
+        <button type="button" class="standard-action text-sm text-gray-500 hover:text-gray-700 font-medium" (click)="cancelEdit()">Cancel ✕</button>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
         <ui-form-input
@@ -160,7 +160,7 @@
           variant="secondary"
           (click)="resetPassword()"
           [disabled]="isLoading"
-          class="w-full">
+          class="w-full" icon="undo" [iconOnly]="true" label="Reset Password">
           Reset Password
         </ui-button>
 }
@@ -214,7 +214,7 @@
                 variant="secondary"
                 (click)="resetFilters()"
                 [disabled]="usersLoading"
-                class="flex-grow">
+                class="flex-grow" icon="undo" [iconOnly]="true" label="Clear">
                 Clear
               </ui-button>
               <ui-status-badge variant="info" class="whitespace-nowrap">
@@ -270,7 +270,7 @@
                 variant="secondary"
                 size="sm"
                 (click)="editUser(row)"
-                [disabled]="actionUserId === row.id">
+                [disabled]="actionUserId === row.id" icon="pencil" [iconOnly]="true" label="Edit">
                 Edit
               </ui-button>
               @if (canModifyUser(row) && !row.isActive) {
@@ -279,7 +279,7 @@
                 variant="primary"
                 size="sm"
                 (click)="toggle(row)"
-                [disabled]="actionUserId === row.id">
+                [disabled]="actionUserId === row.id" icon="check-circle" [iconOnly]="true" label="Activate">
                 {{ actionUserId === row.id ? 'Processing...' : 'Activate' }}
               </ui-button>
 }
@@ -290,7 +290,7 @@
                 size="sm"
                 class="text-amber-600 border-amber-300 hover:bg-amber-50"
                 (click)="toggle(row)"
-                [disabled]="actionUserId === row.id">
+                [disabled]="actionUserId === row.id" icon="x-circle" [iconOnly]="true" label="Deactivate">
                 {{ actionUserId === row.id ? 'Processing...' : 'Deactivate' }}
               </ui-button>
 }
@@ -300,7 +300,7 @@
                 variant="danger"
                 size="sm"
                 (click)="deleteUser(row)"
-                [disabled]="actionUserId === row.id">
+                [disabled]="actionUserId === row.id" icon="trash" [iconOnly]="true" label="Delete">
                 {{ actionUserId === row.id ? 'Deleting...' : 'Delete' }}
               </ui-button>
 }

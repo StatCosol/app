@@ -8,14 +8,14 @@
   @if (loadErrors.length) {
     <div role="alert" class="mb-4 rounded border border-amber-300 bg-amber-50 p-3">
       Could not refresh: {{ loadErrors.join(', ') }}. Previously loaded items may be out of date.
-      <button type="button" (click)="load()" [disabled]="loading">Retry</button>
+      <button type="button" (click)="load()" [disabled]="loading" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   }
 
   <div class="summary-grid">
     @for (card of summaryCards; track card) {
 <div
-     
+
       class="summary-card"
       [ngClass]="{
         'summary-card--neutral': card.tone === 'neutral',
@@ -140,13 +140,13 @@
 }
 
     @if (checklistError) {
-      <div role="alert">Could not load this checklist. <button type="button" (click)="reloadChecklist()">Retry</button></div>
+      <div role="alert">Could not load this checklist. <button type="button" (click)="reloadChecklist()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
     }
     @if (!checklistLoading && !checklistError) {
 <div class="checklist-items">
       @for (item of monthlyChecklist?.items; track item) {
 <div
-       
+
         class="checklist-row"
         [class.checklist-row--done]="item.uploaded && item.uploadedDocs[0]?.status === 'APPROVED'"
         [class.checklist-row--rejected]="item.uploadedDocs[0]?.status === 'REJECTED'">
@@ -204,12 +204,12 @@
           </div>
 }
         </div>
-        <button class="btn-upload" type="button"
+        <button class="compact-action btn-upload" type="button"
                 (click)="openChecklistUpload(item)"
                 [class.btn-upload--reupload]="item.uploaded && item.uploadedDocs[0]?.status !== 'REJECTED'"
-                [class.btn-upload--rejected]="item.uploadedDocs[0]?.status === 'REJECTED'">
+                [class.btn-upload--rejected]="item.uploadedDocs[0]?.status === 'REJECTED'" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
           {{ item.uploadedDocs[0]?.status === 'REJECTED' ? 'Re-upload' : (item.uploaded ? 'Replace' : 'Upload') }}
-        </button>
+        </span></button>
       </div>
 }
 
@@ -263,7 +263,7 @@
 }
           {{ checklistUploading ? 'Uploading…' : 'Submit' }}
         </button>
-        <button type="button" class="btn-secondary" (click)="cancelChecklistUpload()">Cancel</button>
+        <button type="button" class="standard-action btn-secondary" (click)="cancelChecklistUpload()">Cancel</button>
       </div>
     </div>
 }
@@ -350,7 +350,7 @@
 
   @if (loading) {
 <ui-loading-spinner
-   
+
     size="lg"
     text="Loading your workboard...">
   </ui-loading-spinner>
@@ -368,7 +368,7 @@
 <div class="list-scroll">
         @for (row of filteredRows; track row) {
 <button
-         
+
           type="button"
           class="list-row"
           [class.list-row--active]="selectedRow?.id === row.id && selectedRow?.rowType === row.rowType"
@@ -405,10 +405,10 @@
           title="No items found"
           description="Try changing filters to see your pending work.">
         </ui-empty-state>
-      
+
 }
 
-      
+
     </section>
 
     @if (selectedRow) {
@@ -454,11 +454,9 @@
           </button>
           <button
             type="button"
-            class="btn btn--primary"
+            class="compact-action btn btn--primary"
             [disabled]="actionBusy || selectedRow.status === 'SUBMITTED' || selectedRow.status === 'APPROVED'"
-            (click)="submitSelectedTask()">
-            Submit task
-          </button>
+            (click)="submitSelectedTask()" title="Submit task" aria-label="Submit task" data-action-label="Submit task" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
         </div>
 
         <div class="action-card">
@@ -472,11 +470,9 @@
             placeholder="Optional note (example: salary sheet for April)"></textarea>
           <button
             type="button"
-            class="btn btn--primary"
+            class="compact-action btn btn--primary"
             [disabled]="actionBusy || !taskUploadFile"
-            (click)="uploadTaskEvidence()">
-            Upload document
-          </button>
+            (click)="uploadTaskEvidence()" title="Upload document" aria-label="Upload document" data-action-label="Upload document" data-action-icon="upload"><ui-icon name="upload" [size]="20" /></button>
         </div>
 
         <div class="action-card">
@@ -489,11 +485,9 @@
             placeholder="Add a reply or clarification"></textarea>
           <button
             type="button"
-            class="btn btn--ghost"
+            class="compact-action btn btn--ghost"
             [disabled]="actionBusy || !taskReply.trim()"
-            (click)="sendTaskReply()">
-            Send message
-          </button>
+            (click)="sendTaskReply()" title="Send message" aria-label="Send message" data-action-label="Send message" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
         </div>
 
         @if (relatedReuploads.length) {
@@ -531,9 +525,9 @@
 } @else {
 
             <div class="timeline-empty">No events available yet.</div>
-          
+
 }
-          
+
         </div>
       </div>
 }
@@ -571,18 +565,14 @@
           <div class="action-row">
             <button
               type="button"
-              class="btn btn--primary"
+              class="compact-action btn btn--primary"
               [disabled]="actionBusy || !reuploadFile"
-              (click)="uploadReuploadFile()">
-              Upload corrected file
-            </button>
+              (click)="uploadReuploadFile()" title="Upload corrected file" aria-label="Upload corrected file" data-action-label="Upload corrected file" data-action-icon="upload"><ui-icon name="upload" [size]="20" /></button>
             <button
               type="button"
-              class="btn btn--ghost"
+              class="compact-action btn btn--ghost"
               [disabled]="actionBusy || (selectedRow.status !== 'OPEN' && selectedRow.status !== 'PENDING')"
-              (click)="submitReupload()">
-              Submit for review
-            </button>
+              (click)="submitReupload()" title="Submit for review" aria-label="Submit for review" data-action-label="Submit for review" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
           </div>
         </div>
 
@@ -606,9 +596,9 @@
 } @else {
 
             <div class="timeline-empty">No timeline events available.</div>
-          
+
 }
-          
+
         </div>
       </div>
 }
@@ -654,9 +644,9 @@
           @if (selectedRow.status !== 'PLANNED') {
 <div class="alert alert--neutral">Score not yet calculated for this audit.</div>
 }
-        
+
 }
-        
+
 
         <!-- Schedule & metadata -->
         <div class="entity-meta">
@@ -750,7 +740,7 @@
                 type="button"
                 class="wizard-tab"
                 role="tab"
-               
+
                 [class.wizard-tab--active]="(auditDocActiveSection || visibleAuditDocSections[0]) === section"
                 (click)="auditDocActiveSection = section">
                 {{ section.replace(/^[IVX]+\.\s*/, '') }}
@@ -763,7 +753,7 @@
 <button
                 type="button"
                 class="wizard-chip"
-               
+
                 [class.wizard-chip--active]="auditDocType === item.docType"
                 [class.wizard-chip--uploaded]="auditDocIsUploaded(item.docType) && auditDocStatus(item.docType) !== 'REJECTED'"
                 [class.wizard-chip--rejected]="auditDocStatus(item.docType) === 'REJECTED'"
@@ -793,7 +783,7 @@
 <div class="wizard-selected">
             <span class="wizard-selected__label">Selected:</span>
             <span class="wizard-selected__badge">{{ auditDocType }}</span>
-            <button type="button" class="wizard-selected__clear" (click)="auditDocType=''; auditDocTitle=''">✕</button>
+            <button type="button" class="compact-action wizard-selected__clear" (click)="auditDocType=''; auditDocTitle=''" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
 }
 
@@ -869,11 +859,9 @@
                 <input type="file" (change)="onAuditNcFileSelected($event, nc.id)" />
                 <button
                   type="button"
-                  class="btn btn--primary"
+                  class="compact-action btn btn--primary"
                   [disabled]="actionBusy || !auditNcFiles[nc.id]"
-                  (click)="uploadAuditNcFile(nc.id)">
-                  Upload corrected file
-                </button>
+                  (click)="uploadAuditNcFile(nc.id)" title="Upload corrected file" aria-label="Upload corrected file" data-action-label="Upload corrected file" data-action-icon="upload"><ui-icon name="upload" [size]="20" /></button>
               </div>
             </div>
 }
@@ -885,10 +873,10 @@
             <strong>No corrections pending.</strong>
             If the auditor marks any documents as non-compliant, they will appear here for you to upload corrected versions.
           </div>
-        
+
 }
 
-        
+
       </div>
 }
     </section>
@@ -900,10 +888,10 @@
         description="Then follow the simple steps shown here.">
       </ui-empty-state>
     </section>
-  
+
 }
   </div>
 }
 
-  
+
 </div>

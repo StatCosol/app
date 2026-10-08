@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { ContractorPayrollOversightComponent } from '../../shared/contractor-payroll/contractor-payroll-oversight.component';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 
@@ -34,7 +35,7 @@ type PayrollRunRow = {
 @Component({
   selector: 'app-cco-payroll-approvals',
   standalone: true,
-  imports: [FormsModule, ContractorPayrollOversightComponent],
+  imports: [IconComponent, FormsModule, ContractorPayrollOversightComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './cco-payroll-approvals.component.html',
   styleUrls: ['./cco-payroll-approvals.component.scss'],

@@ -72,12 +72,12 @@
         (click)="filterDocsByKpi('APPROVED')">
         Approved <span class="font-bold">{{ docKpis.approved || 0 }}</span>
       </button>
-      <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
+      <button type="button" class="compact-action inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
         [class.bg-red-100]="docFilters.status==='REJECTED'" [class.border-red-300]="docFilters.status==='REJECTED'"
         [class.bg-white]="docFilters.status!=='REJECTED'" [class.border-gray-300]="docFilters.status!=='REJECTED'"
-        (click)="filterDocsByKpi('REJECTED')">
+        (click)="filterDocsByKpi('REJECTED')" title="Reupload Req. {{ docKpis.reupload_required || 0 }}" aria-label="Reupload Req. {{ docKpis.reupload_required || 0 }}" attr.data-action-label="Reupload Req. {{ docKpis.reupload_required || 0 }}" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
         Reupload Req. <span class="font-bold">{{ docKpis.reupload_required || 0 }}</span>
-      </button>
+      </span></button>
       <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
         [class.bg-orange-100]="docFilters.status==='EXPIRED'" [class.border-orange-300]="docFilters.status==='EXPIRED'"
         [class.bg-white]="docFilters.status!=='EXPIRED'" [class.border-gray-300]="docFilters.status!=='EXPIRED'"
@@ -86,16 +86,14 @@
       </button>
       @if (docFilters.status) {
 <button type="button"
-        class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
-        (click)="docFilters.status=''; loadDocs()">
-        Clear Filter &times;
-      </button>
+        class="compact-action inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
+        (click)="docFilters.status=''; loadDocs()" title="Clear Filter &times;" aria-label="Clear Filter &times;" data-action-label="Clear Filter &times;" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
 }
     </div>
 
     <!-- Doc Filters -->
     <div class="card mb-6">
-      <div class="flex flex-wrap gap-3 items-end">
+      <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
         @if (!routeClientId) {
 <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-client-id">Client</label>
@@ -134,9 +132,9 @@
           </select>
         </div>
         <button type="button"
-          class="rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px] disabled:opacity-50"
+          class="compact-action rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px] disabled:opacity-50"
           [disabled]="docLoading"
-          (click)="loadDocs()">{{ docLoading ? 'Loading...' : 'Search' }}</button>
+          (click)="loadDocs()" title="Search" aria-label="Search" data-action-label="Search" data-action-icon="search"><ui-icon name="search" [size]="20" /><span class="compact-action-label">{{ docLoading ? 'Loading...' : 'Search' }}</span></button>
       </div>
     </div>
 
@@ -209,31 +207,25 @@
                 <div class="flex items-center justify-end gap-1.5">
                   @if (d.filePath) {
 <button type="button" (click)="openFile(d.filePath, d.fileName)"
-                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                    View
-                  </button>
+                     class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 <button type="button" (click)="openFile(d.filePath, d.fileName, 'download')"
-                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                    Download
-                  </button>
+                     class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
                   @if (d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
 <button
                     type="button"
-                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                     [disabled]="reviewingDocId === d.id"
-                    (click)="reviewDoc(d,'APPROVED')">
+                    (click)="reviewDoc(d,'APPROVED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /><span class="compact-action-label">
                     {{ reviewingDocId === d.id ? '...' : 'Approve' }}
-                  </button>
+                  </span></button>
 }
                   @if (d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
 <button
                     type="button"
-                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                     [disabled]="reviewingDocId === d.id"
-                    (click)="reviewDoc(d,'REJECTED')">
-                    Reject
-                  </button>
+                    (click)="reviewDoc(d,'REJECTED')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
                 </div>
               </td>
@@ -264,10 +256,10 @@
         </h3>
         @if (routeClientId) {
 <button type="button"
-          class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
-          (click)="showComplianceUpload = !showComplianceUpload; loadReturnMaster()">
+          class="compact-action inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
+          (click)="showComplianceUpload = !showComplianceUpload; loadReturnMaster()" title="⬆ Upload on Behalf" aria-label="⬆ Upload on Behalf" data-action-label="⬆ Upload on Behalf" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
           {{ showComplianceUpload ? 'Cancel' : '⬆ Upload on Behalf' }}
-        </button>
+        </span></button>
 }
       </div>
 
@@ -343,11 +335,11 @@
           </div>
         </div>
         <button type="button"
-          class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:opacity-50"
+          class="compact-action inline-flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:opacity-50"
           [disabled]="complianceUploading"
-          (click)="submitComplianceUpload()">
+          (click)="submitComplianceUpload()" title="Upload on Behalf" aria-label="Upload on Behalf" data-action-label="Upload on Behalf" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
           {{ complianceUploading ? 'Uploading...' : 'Upload on Behalf' }}
-        </button>
+        </span></button>
       </div>
 }
       <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
@@ -420,20 +412,18 @@
                   @if (cd.status==='SUBMITTED' || cd.status==='RESUBMITTED') {
 <button
                     type="button"
-                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                     [disabled]="reviewingCompDocId === cd.id"
-                    (click)="reviewComplianceDoc(cd,'APPROVED')">
+                    (click)="reviewComplianceDoc(cd,'APPROVED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /><span class="compact-action-label">
                     {{ reviewingCompDocId === cd.id ? '...' : 'Approve' }}
-                  </button>
+                  </span></button>
 }
                   @if (cd.status==='SUBMITTED' || cd.status==='RESUBMITTED') {
 <button
                     type="button"
-                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                     [disabled]="reviewingCompDocId === cd.id"
-                    (click)="reviewComplianceDoc(cd,'REUPLOAD_REQUIRED')">
-                    Reupload
-                  </button>
+                    (click)="reviewComplianceDoc(cd,'REUPLOAD_REQUIRED')" title="Reupload" aria-label="Reupload" data-action-label="Reupload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /></button>
 }
                 </div>
               </td>
@@ -457,7 +447,7 @@
 <div>
     <!-- MCD Filters -->
     <div class="card mb-6">
-      <div class="flex flex-wrap gap-3 items-end">
+      <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-mcd-year">Year</label>
           <select id="cc-mcd-year" name="mcdYear" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="mcdYear" (ngModelChange)="onMcdFilterChange()">
@@ -486,14 +476,14 @@
         </div>
 }
         <button type="button"
-          class="rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
-          (click)="loadMcd()">Refresh</button>
+          class="compact-action rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
+          (click)="loadMcd()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         <button type="button"
-          class="rounded-lg bg-gray-900 text-white font-semibold text-sm px-5 py-2 hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed h-[38px]"
+          class="compact-action rounded-lg bg-gray-900 text-white font-semibold text-sm px-5 py-2 hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed h-[38px]"
           [disabled]="mcdLoading || exportingPack"
-          (click)="exportMcdPack()">
+          (click)="exportMcdPack()" title="Export Pack" aria-label="Export Pack" data-action-label="Export Pack" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
           {{ exportingPack ? 'Exporting…' : 'Export Pack' }}
-        </button>
+        </span></button>
       </div>
     </div>
 
@@ -588,10 +578,10 @@
             </td>
             <td class="p-2">
               <div class="flex gap-1">
-                <button type="button" class="px-2 py-1 text-xs border rounded text-brand-600 hover:bg-brand-50"
-                  (click)="toggleMcdItems(row)">
+                <button type="button" class="compact-action px-2 py-1 text-xs border rounded text-brand-600 hover:bg-brand-50"
+                  (click)="toggleMcdItems(row)" title="View Items" aria-label="View Items" data-action-label="View Items" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
                   {{ expandedMcdBranchId === getBranchId(row) ? 'Hide Items' : 'View Items' }}
-                </button>
+                </span></button>
                 <button type="button" class="px-2 py-1 text-xs border rounded"
                   [disabled]="row.finalized || finalizingBranchId === getBranchId(row)"
                   (click)="finalizeMcd(getBranchId(row))">
@@ -669,25 +659,23 @@
                                 (change)="onMcdItemFileSelected($event, item)"
                                 [disabled]="mcdUploadingItemId === item.id">
                             </label>
-                          
+
 }
                           <!-- Approve/Reject buttons for SUBMITTED items -->
                           @if (item.status === 'SUBMITTED' && rejectingItemId !== item.id) {
 
                             <div class="flex gap-1">
                               <button type="button"
-                                class="px-2 py-1 text-xs font-medium border rounded text-green-700 border-green-300 bg-green-50 hover:bg-green-100"
+                                class="compact-action px-2 py-1 text-xs font-medium border rounded text-green-700 border-green-300 bg-green-50 hover:bg-green-100"
                                 [disabled]="approvingItemId === item.id"
-                                (click)="approveMcdItem(item)">
+                                (click)="approveMcdItem(item)" title="✓ Approve" aria-label="✓ Approve" data-action-label="✓ Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /><span class="compact-action-label">
                                 {{ approvingItemId === item.id ? 'Approving...' : '✓ Approve' }}
-                              </button>
+                              </span></button>
                               <button type="button"
-                                class="px-2 py-1 text-xs font-medium border rounded text-red-700 border-red-300 bg-red-50 hover:bg-red-100"
-                                (click)="startRejectMcdItem(item)">
-                                ✗ Reject
-                              </button>
+                                class="compact-action px-2 py-1 text-xs font-medium border rounded text-red-700 border-red-300 bg-red-50 hover:bg-red-100"
+                                (click)="startRejectMcdItem(item)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
                             </div>
-                          
+
 }
                           <!-- Reject remarks input -->
                           @if (rejectingItemId === item.id) {
@@ -699,18 +687,18 @@
                                 (keyup.enter)="confirmRejectMcdItem(item)" />
                               <div class="flex gap-1">
                                 <button type="button"
-                                  class="px-2 py-1 text-xs font-medium border rounded text-red-700 border-red-300 bg-red-50 hover:bg-red-100"
+                                  class="standard-action px-2 py-1 text-xs font-medium border rounded text-red-700 border-red-300 bg-red-50 hover:bg-red-100"
                                   (click)="confirmRejectMcdItem(item)">
                                   Confirm Reject
                                 </button>
                                 <button type="button"
-                                  class="px-2 py-1 text-xs font-medium border rounded text-gray-600 hover:bg-gray-100"
+                                  class="standard-action px-2 py-1 text-xs font-medium border rounded text-gray-600 hover:bg-gray-100"
                                   (click)="cancelReject()">
                                   Cancel
                                 </button>
                               </div>
                             </div>
-                          
+
 }
                           @if (item.status === 'APPROVED' || item.status === 'VERIFIED') {
 <span class="text-xs text-green-600">Done</span>
@@ -752,7 +740,7 @@
                       </td>
                     </tr>
 }
-                    
+
 }
                   </tbody>
                 </table></div>
@@ -761,7 +749,7 @@
             </td>
           </tr>
 }
-          
+
 }
           @if (!mcdRows.length) {
 <tr>
@@ -788,7 +776,7 @@
 
     <!-- Expiry filters -->
     <div class="card mb-6">
-      <div class="flex flex-wrap gap-3 items-end">
+      <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
         <div class="w-48">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-expiry-days">Expiring In</label>
           <select id="cc-expiry-days" name="expiryDays" class="w-full rounded-lg border-gray-300 focus:border-accent-500 focus:ring-accent-500" [(ngModel)]="expiryDays" (change)="loadExpiry()">
@@ -798,8 +786,8 @@
           </select>
         </div>
         <button type="button"
-          class="rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
-          (click)="loadExpiry()">Refresh</button>
+          class="compact-action rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
+          (click)="loadExpiry()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
     </div>
 
@@ -853,31 +841,23 @@
                 <div class="flex items-center justify-end gap-1.5">
                   @if (d.filePath) {
 <button type="button" (click)="openFile(d.filePath, d.fileName)"
-                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                    View
-                  </button>
+                     class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 <button type="button" (click)="openFile(d.filePath, d.fileName, 'download')"
-                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                    Download
-                  </button>
+                     class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
                   @if (d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
 <button
                     type="button"
-                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                     [disabled]="reviewingDocId === d.id"
-                    (click)="reviewDoc(d,'APPROVED')">
-                    Approve
-                  </button>
+                    (click)="reviewDoc(d,'APPROVED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
                   @if (d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
 <button
                     type="button"
-                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                     [disabled]="reviewingDocId === d.id"
-                    (click)="reviewDoc(d,'REJECTED')">
-                    Reject
-                  </button>
+                    (click)="reviewDoc(d,'REJECTED')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
                 </div>
               </td>
@@ -901,7 +881,7 @@
 <div>
     <!-- Audit Closures Filter -->
     <div class="card mb-6">
-      <div class="flex flex-wrap gap-3 items-end">
+      <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
         @if (!routeClientId) {
 <div class="w-56">
           <label class="block text-sm font-medium text-gray-700 mb-2" for="cc-audit-closures-client-id">Client</label>
@@ -914,8 +894,8 @@
         </div>
 }
         <button type="button"
-          class="rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
-          (click)="loadAuditClosures()">Refresh</button>
+          class="compact-action rounded-lg bg-brand-800 text-white font-semibold text-sm px-5 py-2 hover:bg-brand-950 focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 transition-all h-[38px]"
+          (click)="loadAuditClosures()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
     </div>
 
@@ -1004,12 +984,7 @@
       <h3 class="text-lg font-semibold text-gray-900 mb-2">Compliance Tasks</h3>
       <p class="text-sm text-gray-500 mb-6">Task approvals, rejections, and assignments have moved to a dedicated page for a better experience.</p>
       <a routerLink="/crm/compliance/tasks"
-        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-800 rounded-lg hover:bg-brand-950 transition-colors">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-        </svg>
-        Open Tasks Page
-      </a>
+        class="compact-action inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-800 rounded-lg hover:bg-brand-950 transition-colors" title="Open Tasks Page" aria-label="Open Tasks Page" data-action-label="Open Tasks Page" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
     </div>
   </div>
 }

@@ -129,7 +129,7 @@
 }
 
       <footer class="section-actions">
-        <button class="btn btn-primary" type="button" [disabled]="savingSection.statutory" (click)="saveStatutory()">
+        <button class="standard-action btn btn-primary" type="button" [disabled]="savingSection.statutory" (click)="saveStatutory()">
           {{ savingSection.statutory ? 'Saving...' : 'Save Statutory Config' }}
         </button>
       </footer>
@@ -206,7 +206,7 @@
 }
 
       <footer class="section-actions">
-        <button class="btn btn-primary" type="button" [disabled]="savingSection['pay-cycle']" (click)="savePayCycle()">
+        <button class="standard-action btn btn-primary" type="button" [disabled]="savingSection['pay-cycle']" (click)="savePayCycle()">
           {{ savingSection['pay-cycle'] ? 'Saving...' : 'Save Pay Cycle' }}
         </button>
       </footer>
@@ -259,7 +259,7 @@
 }
 
       <footer class="section-actions">
-        <button class="btn btn-primary" type="button" [disabled]="savingSection['leave-policy']" (click)="saveLeavePolicy()">
+        <button class="standard-action btn btn-primary" type="button" [disabled]="savingSection['leave-policy']" (click)="saveLeavePolicy()">
           {{ savingSection['leave-policy'] ? 'Saving...' : 'Save Leave Policy' }}
         </button>
       </footer>
@@ -287,9 +287,9 @@
 }
             </select>
           </label>
-          <button class="btn btn-primary" type="button" [disabled]="elAccruing" (click)="accrueEL()">
+          <button class="compact-action btn btn-primary" type="button" [disabled]="elAccruing" (click)="accrueEL()" title="Run EL Accrual" aria-label="Run EL Accrual" data-action-label="Run EL Accrual" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
             {{ elAccruing ? 'Processing...' : 'Run EL Accrual' }}
-          </button>
+          </span></button>
         </div>
         @if (elAccrualResult) {
 <div class="text-sm mt-2" [class.text-green-700]="!elAccrualError" [class.text-red-600]="elAccrualError">
@@ -344,7 +344,7 @@
 }
 
       <footer class="section-actions">
-        <button class="btn btn-primary" type="button" [disabled]="savingSection.attendance" (click)="saveAttendanceConfig()">
+        <button class="standard-action btn btn-primary" type="button" [disabled]="savingSection.attendance" (click)="saveAttendanceConfig()">
           {{ savingSection.attendance ? 'Saving...' : 'Save Attendance Config' }}
         </button>
       </footer>
@@ -393,7 +393,7 @@
 }
 
       <footer class="section-actions">
-        <button class="btn btn-primary" type="button" [disabled]="savingSection.deductions" (click)="saveDeductionsConfig()">
+        <button class="standard-action btn btn-primary" type="button" [disabled]="savingSection.deductions" (click)="saveDeductionsConfig()">
           {{ savingSection.deductions ? 'Saving...' : 'Save Deductions Config' }}
         </button>
       </footer>
@@ -408,7 +408,7 @@
 
       <header class="section-head top-gap">
         <h2>Component & Rule Management</h2>
-        <button class="btn btn-secondary" type="button" (click)="openCompForm()">+ Add Component</button>
+        <button class="compact-action btn btn-secondary" type="button" (click)="openCompForm()" title="Add Component" aria-label="Add Component" data-action-label="Add Component" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
       </header>
 
       <div class="inline-filters">
@@ -465,10 +465,10 @@
 }
               </td>
               <td class="text-right">
-                <button class="link" type="button" (click)="openCompForm(c)">Edit</button>
+                <button class="compact-action link" type="button" (click)="openCompForm(c)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                 <button class="link" type="button" (click)="openFormulaEditor(c)">Formula</button>
                 <button class="link" type="button" (click)="openRules(c)">Rules</button>
-                <button class="link link-danger" type="button" (click)="deleteComp(c)">Delete</button>
+                <button class="compact-action link link-danger" type="button" (click)="deleteComp(c)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -489,7 +489,7 @@
 <section class="rules-panel">
         <header class="section-head top-gap">
           <h2>Rules - {{ selectedComponent.name }} ({{ selectedComponent.code }})</h2>
-          <button class="btn btn-secondary" type="button" (click)="openRuleForm()">+ Add Rule</button>
+          <button class="compact-action btn btn-secondary" type="button" (click)="openRuleForm()" title="Add Rule" aria-label="Add Rule" data-action-label="Add Rule" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
         </header>
 
         <div class="bg-brand-50 border-l-4 border-brand-500 text-brand-900 my-2 py-2 px-3 text-sm rounded-r-lg">
@@ -522,7 +522,7 @@
                 <td>{{ ruleSummary(r) }}</td>
                 <td>{{ r.priority }}</td>
                 <td class="text-right">
-                  <button class="link link-danger" type="button" (click)="deleteRule(r)">Delete</button>
+                  <button class="compact-action link link-danger" type="button" (click)="deleteRule(r)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                 </td>
               </tr>
 }
@@ -565,7 +565,7 @@
 
         <header class="section-head top-gap">
           <h2 style="font-size:1.05em;">Active Salary Structures</h2>
-          <button class="btn btn-secondary" type="button" (click)="goToStructureBuilder()">Edit in Builder</button>
+          <button class="compact-action btn btn-secondary" type="button" (click)="goToStructureBuilder()" title="Edit in Builder" aria-label="Edit in Builder" data-action-label="Edit in Builder" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
         </header>
 
         @if (!clientStructures.length) {
@@ -747,9 +747,9 @@
         </div>
 
         <footer class="section-actions">
-          <button class="btn btn-primary" type="button" [disabled]="previewLoading || !selectedStructureId" (click)="runPreview()">
+          <button class="compact-action btn btn-primary" type="button" [disabled]="previewLoading || !selectedStructureId" (click)="runPreview()" title="Run Live Preview" aria-label="Run Live Preview" data-action-label="Run Live Preview" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
             {{ previewLoading ? 'Calculating...' : 'Run Live Preview' }}
-          </button>
+          </span></button>
         </footer>
 
         @if (previewResult) {
@@ -798,7 +798,7 @@
   <div class="modal-card">
     <header>
       <h3>{{ editingComp ? 'Edit Component' : 'Add Component' }}</h3>
-      <button type="button" class="link" (click)="showCompModal = false">Close</button>
+      <button type="button" class="standard-action link" (click)="showCompModal = false">Close</button>
     </header>
 
     <div class="modal-grid">
@@ -833,8 +833,8 @@
 }
 
     <footer>
-      <button class="btn btn-ghost" type="button" (click)="showCompModal = false">Cancel</button>
-      <button class="btn btn-primary" type="button" [disabled]="savingComp" (click)="saveComp()">
+      <button class="standard-action btn btn-ghost" type="button" (click)="showCompModal = false">Cancel</button>
+      <button class="standard-action btn btn-primary" type="button" [disabled]="savingComp" (click)="saveComp()">
         {{ savingComp ? 'Saving...' : 'Save Component' }}
       </button>
     </footer>
@@ -848,7 +848,7 @@
   <div class="modal-card">
     <header>
       <h3>Add Rule</h3>
-      <button type="button" class="link" (click)="showRuleModal = false">Close</button>
+      <button type="button" class="standard-action link" (click)="showRuleModal = false">Close</button>
     </header>
 
     <div class="modal-grid">
@@ -898,8 +898,8 @@
 }
 
     <footer>
-      <button class="btn btn-ghost" type="button" (click)="showRuleModal = false">Cancel</button>
-      <button class="btn btn-primary" type="button" [disabled]="savingRule" (click)="saveRule()">
+      <button class="standard-action btn btn-ghost" type="button" (click)="showRuleModal = false">Cancel</button>
+      <button class="standard-action btn btn-primary" type="button" [disabled]="savingRule" (click)="saveRule()">
         {{ savingRule ? 'Saving...' : 'Save Rule' }}
       </button>
     </footer>
@@ -913,7 +913,7 @@
   <div class="modal-card">
     <header>
       <h3>Calculation &mdash; {{ formulaTargetComponent?.name }} ({{ formulaTargetComponent?.code }})</h3>
-      <button type="button" class="link" (click)="showFormulaModal = false">Close</button>
+      <button type="button" class="standard-action link" (click)="showFormulaModal = false">Close</button>
     </header>
 
     <div class="bg-brand-50 border-l-4 border-brand-500 text-brand-900 mb-2 py-2 px-3 text-sm rounded-r-lg">
@@ -978,11 +978,9 @@
               </option>
 }
             </select>
-            <button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:12px;"
-                    [disabled]="!selectedTemplateId" (click)="applySelectedTemplate()">
-              Load
-            </button>
-            <button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:12px;"
+            <button type="button" class="compact-action btn btn-ghost" style="padding:3px 8px;font-size:12px;"
+                    [disabled]="!selectedTemplateId" (click)="applySelectedTemplate()" title="Load" aria-label="Load" data-action-label="Load" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+            <button type="button" class="standard-action btn btn-ghost" style="padding:3px 8px;font-size:12px;"
                     [disabled]="!formulaForm.formulaJson || savingTemplate"
                     (click)="saveAsTemplate()">
               {{ savingTemplate ? 'Saving…' : 'Save as template' }}
@@ -1052,8 +1050,8 @@
     </details>
 
     <footer>
-      <button class="btn btn-ghost" type="button" (click)="showFormulaModal = false">Cancel</button>
-      <button class="btn btn-primary" type="button" [disabled]="savingFormula" (click)="saveFormula()">
+      <button class="standard-action btn btn-ghost" type="button" (click)="showFormulaModal = false">Cancel</button>
+      <button class="standard-action btn btn-primary" type="button" [disabled]="savingFormula" (click)="saveFormula()">
         {{ savingFormula ? 'Saving...' : 'Save Formula' }}
       </button>
     </footer>

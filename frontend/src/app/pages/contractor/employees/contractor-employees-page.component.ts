@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -116,7 +117,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
   host: { class: 'bs-surface' },
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -203,29 +204,19 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
             type="button"
             (click)="downloadWorkers()"
             [disabled]="loading || downloading || !!errorMsg || filteredRows.length === 0"
-            title="Download the workers matching the current branch, status and search filters as Excel"
-            class="btn btn-primary"
-          >
+
+            class="compact-action btn btn-primary"
+           title="Download Workers" aria-label="Download Workers" data-action-label="Download Workers" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
             {{ downloading ? 'Preparing download…' : 'Download Workers' }}
-          </button>
+          </span></button>
           <button
             (click)="openBulkUpload()"
-            class="btn btn-outline-primary"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12"/>
-            </svg>
-            Bulk Upload
-          </button>
+            class="compact-action btn btn-outline-primary"
+           title="Bulk Upload" aria-label="Bulk Upload" data-action-label="Bulk Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /></button>
           <button
             (click)="openAdd()"
-            class="btn btn-outline-primary"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            Add Employee
-          </button>
+            class="compact-action btn btn-outline-primary"
+           title="Add Employee" aria-label="Add Employee" data-action-label="Add Employee" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
         </div>
       </div>
 
@@ -360,8 +351,8 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                       </span>
                       <button
                         (click)="openEdit(emp)"
-                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100"
-                      >Edit</button>
+                        class="compact-action inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100"
+                       title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                     
 } @else {
 
@@ -376,23 +367,23 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
 
                     <button
                       (click)="openEdit(emp)"
-                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100"
-                    >Edit</button>
+                        class="compact-action inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100"
+                     title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
 
                     @if (emp.isActive) {
 <button
                      
                       (click)="confirmDeactivate(emp)"
                         [disabled]="saving"
-                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 disabled:opacity-50"
-                    >Deactivate</button>
+                        class="compact-action inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 disabled:opacity-50"
+                     title="Deactivate" aria-label="Deactivate" data-action-label="Deactivate" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
 
                     <button
                       (click)="requestDelete(emp)"
                         [disabled]="saving"
-                        class="inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50"
-                      >Delete</button>
+                        class="compact-action inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50"
+                       title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                     
 }
 
@@ -712,7 +703,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
             <button
               type="submit"
               [disabled]="saving || !form.name.trim()"
-              class="flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+              class="standard-action flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
             >
               @if (saving) {
 <span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -722,7 +713,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
             <button
               type="button"
               (click)="closeDrawer()"
-              class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              class="standard-action px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
               Cancel
             </button>
@@ -756,9 +747,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
         </p>
 
         <div class="flex flex-wrap gap-3 items-center mb-4">
-          <button type="button" (click)="downloadTemplate()" class="text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200">
-            ⬇ Download Template
-          </button>
+          <button type="button" (click)="downloadTemplate()" class="compact-action text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200" title="Download Template" aria-label="Download Template" data-action-label="Download Template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           <label class="text-xs text-gray-600">
             Default Branch:
             <select [(ngModel)]="bulkBranchId" (ngModelChange)="revalidateBulkBranch()" [disabled]="bulkUploading" class="ml-2 text-xs border border-gray-200 rounded px-2 py-1">
@@ -870,7 +859,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
 <span>Upload {{ bulkValidCount }} valid row(s)</span>
 }
           </button>
-          <button type="button" (click)="closeBulk()" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
+          <button type="button" (click)="closeBulk()" class="standard-action px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
             Close
           </button>
         </div>
@@ -910,7 +899,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
           <button
             type="button"
             (click)="deactivateTarget = null"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            class="standard-action px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >Cancel</button>
         </div>
       </div>

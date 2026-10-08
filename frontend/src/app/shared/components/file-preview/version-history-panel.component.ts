@@ -1,11 +1,12 @@
-﻿import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { IconComponent } from '../../ui/icon/icon.component';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FileVersionItem } from './file-preview.model';
 
 @Component({
   selector: 'ui-version-history-panel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [IconComponent, CommonModule],
   template: `
     <div class="border border-gray-200 rounded-lg p-3">
       <div class="text-sm font-semibold text-gray-800 mb-2">Version History</div>
@@ -22,10 +23,10 @@ import { FileVersionItem } from './file-preview.model';
         </div>
         <button
           type="button"
-          class="text-xs font-semibold text-brand-700 hover:underline"
+          class="compact-action text-xs font-semibold text-brand-700 hover:underline"
           (click)="open.emit(v)"
           [disabled]="!v.url"
-        >Open</button>
+         title="Open" aria-label="Open" data-action-label="Open" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
       </div>
 }
     </div>

@@ -1,4 +1,5 @@
-﻿import {
+import { ActionIconPipe } from '../../../shared/ui/action-icon.pipe';
+import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -58,7 +59,7 @@ interface AdminTicketItem extends ThreadListItem {
 @Component({
   selector: 'app-admin-notifications',
   standalone: true,
-  imports: [
+  imports: [ActionIconPipe,
     CommonModule,
     FormsModule,
     PageHeaderComponent,

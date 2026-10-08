@@ -63,7 +63,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon.component';
       @if (loading) { <p role="status" class="text-sm text-gray-500">Loading tickets...</p> }
       @if (loadError) {
         <div role="alert" class="text-sm text-red-700">{{ loadError }}
-          <button type="button" (click)="loadTickets()" class="underline ml-2">Retry tickets</button>
+          <button type="button" (click)="loadTickets()" class="compact-action underline ml-2" title="Retry tickets" aria-label="Retry tickets" data-action-label="Retry tickets" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
       }
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">

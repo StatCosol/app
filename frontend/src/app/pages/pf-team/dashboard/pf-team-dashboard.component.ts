@@ -36,7 +36,7 @@ interface ClientStat {
       <ui-page-header
         title="PF & ESI Helpdesk Dashboard"
         subtitle="Manage employee PF, ESI, and Payslip queries">
-        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()">
+        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Refresh">
           <span class="flex items-center gap-1.5">
             <ui-icon name="refresh" [size]="14" />
             Refresh
@@ -54,7 +54,7 @@ interface ClientStat {
       } @else if (error()) {
         <div class="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
           <p class="text-sm text-red-700">{{ error() }}</p>
-          <ui-button size="sm" variant="secondary" (clicked)="reload()">Retry</ui-button>
+          <ui-button size="sm" variant="secondary" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Retry">Retry</ui-button>
         </div>
       } @else {
         <!-- Stats -->
@@ -160,7 +160,7 @@ interface ClientStat {
           <div class="bg-white rounded-xl border border-gray-200 p-6">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-base font-semibold text-gray-900">Recent Open Tickets</h2>
-              <a routerLink="/pf-team/tickets" class="text-sm text-brand-600 hover:text-brand-700 font-medium">View All →</a>
+              <a routerLink="/pf-team/tickets" class="compact-action text-sm text-brand-600 hover:text-brand-700 font-medium" title="View All →" aria-label="View All →" data-action-label="View All →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
             </div>
             @if (recentOpen().length === 0) {
               <div class="text-sm text-gray-400 py-4 text-center">No open tickets</div>

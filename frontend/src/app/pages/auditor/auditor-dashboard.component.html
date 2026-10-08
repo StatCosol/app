@@ -8,7 +8,7 @@
     @if (errorMsg) {
 <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
       <span>{{ errorMsg }}</span>
-      <button type="button" (click)="errorMsg = null; loadAllData()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+      <button type="button" (click)="errorMsg = null; loadAllData()" class="compact-action text-red-800 font-semibold hover:underline ml-4" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
 }
 
@@ -17,7 +17,7 @@
       description="See what needs attention first, continue active audits, and return to corrections without hunting through multiple screens."
       icon="clipboard-check">
     </ui-page-header>
-  <div class="mb-4"><ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']">Conduct Audit</ui-button></div>
+  <div class="mb-4"><ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']" icon="eye" [iconOnly]="true" label="Conduct Audit">Conduct Audit</ui-button></div>
 
     <div class="card dashboard-priority mb-6">
       <div>
@@ -27,7 +27,7 @@
       </div>
       <div class="dashboard-priority__actions">
         <div class="dashboard-priority__meta">{{ totalUrgentItems }} active work item(s)</div>
-        <ui-button variant="primary" (clicked)="openPriorityAction()">Open Priority Queue</ui-button>
+        <ui-button variant="primary" (clicked)="openPriorityAction()" icon="eye" [iconOnly]="true" label="Open Priority Queue">Open Priority Queue</ui-button>
       </div>
     </div>
 
@@ -57,7 +57,7 @@
           [(ngModel)]="selectedQuickAuditId"
           [options]="quickAuditOptions">
         </ui-form-select>
-        <ui-button variant="primary" [disabled]="!selectedQuickAuditId" (clicked)="startSelectedAudit()">
+        <ui-button variant="primary" [disabled]="!selectedQuickAuditId" (clicked)="startSelectedAudit()" icon="eye" [iconOnly]="true" label="Start / Continue Audit →">
           Start / Continue Audit →
         </ui-button>
       </div>
@@ -96,8 +96,8 @@
           placeholder="YYYY-MM-DD">
         </ui-form-input>
         <div class="flex gap-2">
-          <ui-button variant="primary" (clicked)="applyFilters()" [fullWidth]="true">Apply</ui-button>
-          <ui-button variant="secondary" (clicked)="resetFilters()">Reset</ui-button>
+          <ui-button variant="primary" (clicked)="applyFilters()" [fullWidth]="true" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
+          <ui-button variant="secondary" (clicked)="resetFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
         </div>
       </div>
     </div>
@@ -221,7 +221,7 @@
           <ui-button
             variant="primary"
             size="sm"
-            (clicked)="openAudit(row)">
+            (clicked)="openAudit(row)" [icon]="getAuditActionLabel(row) | actionIcon" [iconOnly]="true" [label]="getAuditActionLabel(row)">
             {{ getAuditActionLabel(row) }}
           </ui-button>
         </ng-template>
@@ -271,7 +271,7 @@
                 <td class="px-4 py-2 text-sm">{{ a.periodCode }}</td>
                 <td class="px-4 py-2 text-center"><ui-status-badge [status]="formatStatus(a.status)"></ui-status-badge></td>
                 <td class="px-4 py-2 text-center">
-                  <ui-button variant="primary" size="sm" (clicked)="openAudit({ auditId: a.id })">Open</ui-button>
+                  <ui-button variant="primary" size="sm" (clicked)="openAudit({ auditId: a.id })" icon="eye" [iconOnly]="true" label="Open">Open</ui-button>
                 </td>
               </tr>
 }
@@ -392,9 +392,9 @@
 
           <ng-template uiTableCell="actions" let-row>
             <div class="flex flex-col gap-1.5 w-24">
-              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="followUpObservation(row)">Follow-up</ui-button>
-              <ui-button variant="primary" size="sm" [fullWidth]="true" (clicked)="updateObservation(row)">Update</ui-button>
-              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="closeObservation(row)">Review closure</ui-button>
+              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="followUpObservation(row)" icon="undo" [iconOnly]="true" label="Follow-up">Follow-up</ui-button>
+              <ui-button variant="primary" size="sm" [fullWidth]="true" (clicked)="updateObservation(row)" icon="pencil" [iconOnly]="true" label="Update">Update</ui-button>
+              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="closeObservation(row)" icon="eye" [iconOnly]="true" label="Review closure">Review closure</ui-button>
             </div>
           </ng-template>
         </ui-data-table>
@@ -458,7 +458,7 @@
 
           <ng-template uiTableCell="actions" let-row>
             <div class="flex gap-2 justify-center flex-wrap">
-              <ui-button variant="secondary" size="sm" (clicked)="remindEvidence(row)">Remind</ui-button>
+              <ui-button variant="secondary" size="sm" (clicked)="remindEvidence(row)" icon="send" [iconOnly]="true" label="Remind">Remind</ui-button>
               <ui-button variant="secondary" size="sm" (clicked)="markNotRequired(row)">Not Required</ui-button>
             </div>
           </ng-template>

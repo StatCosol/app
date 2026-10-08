@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -18,7 +19,7 @@ import { AuditorReportPending } from '../auditor-dashboard.dto';
 @Component({
   selector: 'app-auditor-reports',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule, RouterModule, FormsModule, PageHeaderComponent, DataTableComponent,
     TableCellDirective, StatusBadgeComponent, ActionButtonComponent,
     EmptyStateComponent, LoadingSpinnerComponent, FormSelectComponent,

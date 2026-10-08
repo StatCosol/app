@@ -80,7 +80,7 @@
           @for (d of docsByCode[it.code]; track d) {
 <div class="doc-chip">
             {{ d.fileName }}
-            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" title="Delete">&times;</button>
+            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" class="compact-action" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
           </div>
 }
         </div>
@@ -123,7 +123,7 @@
           @for (d of docsByCode[it.code]; track d) {
 <div class="doc-chip">
             {{ d.fileName }}
-            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" title="Delete">&times;</button>
+            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" class="compact-action" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
           </div>
 }
         </div>

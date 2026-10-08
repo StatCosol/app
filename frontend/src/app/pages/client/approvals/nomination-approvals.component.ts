@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-nomination-approvals',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, PageHeaderComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       <ui-page-header
@@ -69,12 +70,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
 
           <div class="flex flex-col gap-2 min-w-[160px]">
-            <button (click)="approve(nom)" class="btn-approve" [disabled]="processing.has(nom.id)">
-              Approve
-            </button>
-            <button (click)="startReject(nom)" class="btn-reject" [disabled]="processing.has(nom.id)">
-              Reject
-            </button>
+            <button (click)="approve(nom)" class="compact-action btn-approve" [disabled]="processing.has(nom.id)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+            <button (click)="startReject(nom)" class="compact-action btn-reject" [disabled]="processing.has(nom.id)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
         </div>
 
@@ -84,10 +81,10 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <label class="text-xs font-medium text-gray-600" for="na-reject-reason">Reason for rejection:</label>
           <textarea autocomplete="off" id="na-reject-reason" name="rejectReason" [(ngModel)]="rejectReason" rows="2" class="field-input mt-1"></textarea>
           <div class="flex gap-2 mt-2">
-            <button (click)="confirmReject(nom)" class="btn-reject" [disabled]="!rejectReason.trim()">
+            <button (click)="confirmReject(nom)" class="standard-action btn-reject" [disabled]="!rejectReason.trim()">
               Confirm Reject
             </button>
-            <button (click)="rejectId = ''" class="btn-secondary">Cancel</button>
+            <button (click)="rejectId = ''" class="standard-action btn-secondary">Cancel</button>
           </div>
         </div>
 }

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -29,7 +30,7 @@ const TYPE_LABELS: Record<ClientCommType, string> = {
 @Component({
   selector: 'app-admin-mail-templates',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <ui-page-header
       title="Monthly Mail Templates"
@@ -71,11 +72,11 @@ const TYPE_LABELS: Record<ClientCommType, string> = {
             </p>
           </div>
           <div class="space-x-2">
-            <button class="px-3 py-1.5 text-sm rounded border border-slate-300 hover:bg-slate-50"
-                    (click)="resetToDefault(t)" [disabled]="state[t.commType].saving">Reset to default</button>
-            <button class="px-3 py-1.5 text-sm rounded border border-slate-300 hover:bg-slate-50"
-                    (click)="preview(t)">Preview</button>
-            <button class="px-3 py-1.5 text-sm rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+            <button class="compact-action px-3 py-1.5 text-sm rounded border border-slate-300 hover:bg-slate-50"
+                    (click)="resetToDefault(t)" [disabled]="state[t.commType].saving" title="Reset to default" aria-label="Reset to default" data-action-label="Reset to default" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
+            <button class="compact-action px-3 py-1.5 text-sm rounded border border-slate-300 hover:bg-slate-50"
+                    (click)="preview(t)" title="Preview" aria-label="Preview" data-action-label="Preview" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
+            <button class="standard-action px-3 py-1.5 text-sm rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
                     (click)="save(t)" [disabled]="state[t.commType].saving">
               {{ state[t.commType].saving ? 'Saving…' : 'Save' }}
             </button>

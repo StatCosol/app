@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -52,7 +53,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 @Component({
   selector: 'app-admin-client-contacts',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, PageHeaderComponent],
   template: `
     <ui-page-header
       title="Client Department Contacts"
@@ -83,12 +84,12 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 }
             @if (!loadingClients()) {
 <ul
-             
+
               class="max-h-[70vh] overflow-y-auto divide-y divide-gray-100"
             >
               @for (c of filteredClients(); track c) {
 <li
-               
+
                 class="cursor-pointer px-3 py-2.5 hover:bg-brand-50 transition-colors"
                 [class.bg-brand-50]="selectedClient()?.id === c.id"
                 [class.border-l-4]="selectedClient()?.id === c.id"
@@ -101,7 +102,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                 @if (c.clientCode) {
 <div
                   class="text-xs text-gray-500 truncate"
-                 
+
                 >
                   {{ c.clientCode }}
                 </div>
@@ -110,7 +111,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 }
               @if (filteredClients().length === 0) {
 <li
-               
+
                 class="p-4 text-sm text-gray-400 text-center"
               >
                 No clients match your search.
@@ -125,7 +126,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
         <div class="lg:col-span-8 space-y-4">
           @if (!selectedClient()) {
 <div
-           
+
             class="bg-white border border-dashed border-gray-300 rounded-xl p-12 text-center text-gray-500"
           >
             Select a client from the list to manage their department contacts.
@@ -151,35 +152,27 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
               <div class="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  class="px-3 py-1.5 text-xs font-medium rounded-md border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  class="compact-action px-3 py-1.5 text-xs font-medium rounded-md border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                   (click)="triggerPayrollMail(client)"
                   [disabled]="busyTrigger()"
-                >
-                  ▶ Send Payroll Mail Now
-                </button>
+                 title="Send Payroll Mail Now" aria-label="Send Payroll Mail Now" data-action-label="Send Payroll Mail Now" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
                 <button
                   type="button"
-                  class="px-3 py-1.5 text-xs font-medium rounded-md border border-purple-300 text-purple-700 hover:bg-purple-50"
+                  class="compact-action px-3 py-1.5 text-xs font-medium rounded-md border border-purple-300 text-purple-700 hover:bg-purple-50"
                   (click)="triggerMcdMail(client)"
                   [disabled]="busyTrigger()"
-                >
-                  ▶ Send MCD Mail Now
-                </button>
+                 title="Send MCD Mail Now" aria-label="Send MCD Mail Now" data-action-label="Send MCD Mail Now" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
                 <button
                   type="button"
-                  class="px-3 py-1.5 text-xs font-medium rounded-md border border-sky-300 text-sky-700 hover:bg-sky-50"
+                  class="compact-action px-3 py-1.5 text-xs font-medium rounded-md border border-sky-300 text-sky-700 hover:bg-sky-50"
                   (click)="triggerWeeklyNewsMail(client)"
                   [disabled]="busyTrigger()"
-                >
-                  Send News Mail Now
-                </button>
+                 title="Send News Mail Now" aria-label="Send News Mail Now" data-action-label="Send News Mail Now" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
                 <button
                   type="button"
-                  class="px-3 py-1.5 text-xs font-medium rounded-md bg-brand-600 text-white hover:bg-brand-700"
+                  class="compact-action px-3 py-1.5 text-xs font-medium rounded-md bg-brand-600 text-white hover:bg-brand-700"
                   (click)="openCreate()"
-                >
-                  + Add Contact
-                </button>
+                 title="Add Contact" aria-label="Add Contact" data-action-label="Add Contact" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
               </div>
             </div>
 
@@ -194,7 +187,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 <div class="space-y-3">
               @for (dept of departments; track dept) {
 <div
-               
+
                 class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden"
               >
                 <div
@@ -212,11 +205,11 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                     </span>
                   </div>
                   <button
-                    class="text-xs font-medium text-brand-600 hover:text-brand-800"
+                    class="compact-action text-xs font-medium text-brand-600 hover:text-brand-800"
                     (click)="openCreate(dept)"
-                  >
+                   title="Add to {{ deptLabel(dept) }}" aria-label="Add to {{ deptLabel(dept) }}" attr.data-action-label="Add to {{ deptLabel(dept) }}" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
                     + Add to {{ deptLabel(dept) }}
-                  </button>
+                  </span></button>
                 </div>
                 @if (contactsByDept(dept).length === 0) {
 <div class="p-4 text-sm text-gray-400">
@@ -225,7 +218,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
 }
                 @if (contactsByDept(dept).length > 0) {
 <div class="table-wrap"><table
-                 
+
                   class="w-full text-sm"
                 >
                   <thead class="bg-gray-50 text-gray-600">
@@ -262,17 +255,13 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                       </td>
                       <td class="px-4 py-2 text-right space-x-2">
                         <button
-                          class="text-xs text-brand-600 hover:text-brand-800"
+                          class="compact-action text-xs text-brand-600 hover:text-brand-800"
                           (click)="openEdit(c)"
-                        >
-                          Edit
-                        </button>
+                         title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                         <button
-                          class="text-xs text-red-600 hover:text-red-800"
+                          class="compact-action text-xs text-red-600 hover:text-red-800"
                           (click)="remove(c)"
-                        >
-                          Delete
-                        </button>
+                         title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                       </td>
                     </tr>
 }
@@ -292,7 +281,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
     <!-- ────── Modal: Create/Edit ────── -->
     @if (formOpen()) {
 <div
-     
+
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       (click)="closeForm()"
     >
@@ -305,11 +294,9 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
             {{ form.id ? 'Edit Contact' : 'New Contact' }}
           </h3>
           <button
-            class="text-gray-400 hover:text-gray-700"
+            class="compact-action text-gray-400 hover:text-gray-700"
             (click)="closeForm()"
-          >
-            ✕
-          </button>
+           type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
         </div>
 
         <div class="space-y-3">
@@ -401,19 +388,19 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
         <div class="mt-5 flex justify-end gap-2">
           <button
             type="button"
-            class="px-3 py-1.5 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+            class="standard-action px-3 py-1.5 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
             (click)="closeForm()"
           >
             Cancel
           </button>
           <button
             type="button"
-            class="px-3 py-1.5 text-sm rounded-md bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-60"
+            class="compact-action px-3 py-1.5 text-sm rounded-md bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-60"
             (click)="save()"
             [disabled]="busySave()"
-          >
+           title="Create" aria-label="Create" data-action-label="Create" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
             {{ form.id ? 'Update' : 'Create' }}
-          </button>
+          </span></button>
         </div>
       </div>
     </div>
@@ -422,7 +409,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
     <!-- Toast -->
     @if (toast(); as t) {
 <div
-     
+
       class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-sm text-white"
       [class.bg-emerald-600]="t.kind === 'ok'"
       [class.bg-red-600]="t.kind === 'err'"

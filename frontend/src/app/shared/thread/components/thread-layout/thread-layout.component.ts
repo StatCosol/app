@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../ui/icon/icon.component';
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { ThreadApi } from '../../services/thread-api.interface';
@@ -16,7 +17,7 @@ import { PriorityChipComponent } from '../../../components/status/priority-chip.
 @Component({
   selector: 'app-thread-layout',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     ThreadFiltersComponent,
     ThreadInboxListComponent,
     ThreadMessagePanelComponent,

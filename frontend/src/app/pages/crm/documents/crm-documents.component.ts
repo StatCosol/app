@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +21,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 @Component({
   standalone: true,
   selector: 'app-crm-documents',
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -79,7 +80,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 
     @if (!loading && filtered.length === 0) {
 <ui-empty-state
-     
+
       title="No documents found"
       [description]="searchTerm || filterStatus ? 'Try adjusting your filters.' : 'Contractor documents will appear here once uploaded.'"
       icon="document">
@@ -119,17 +120,17 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 <button
                         type="button"
                         (click)="openDocument(doc)"
-                        class="btn-sm btn-outline">Download</button>
+                        class="compact-action btn-sm btn-outline" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
                 @if ((doc.status || 'PENDING') === 'PENDING') {
 <button
-                        (click)="review(doc, 'APPROVED')" class="btn-sm btn-approve"
-                        [disabled]="processing.has(doc.id)">Approve</button>
+                        (click)="review(doc, 'APPROVED')" class="compact-action btn-sm btn-approve"
+                        [disabled]="processing.has(doc.id)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
                 @if ((doc.status || 'PENDING') === 'PENDING') {
 <button
-                        (click)="review(doc, 'REJECTED')" class="btn-sm btn-reject"
-                        [disabled]="processing.has(doc.id)">Reject</button>
+                        (click)="review(doc, 'REJECTED')" class="compact-action btn-sm btn-reject"
+                        [disabled]="processing.has(doc.id)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
               </div>
             </td>
@@ -154,8 +155,8 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
         </div>
 }
         <div class="modal-actions">
-          <button (click)="reviewingDoc = null" class="btn-sm btn-outline">Cancel</button>
-          <button (click)="confirmReview()" class="btn-sm"
+          <button (click)="reviewingDoc = null" class="standard-action btn-sm btn-outline">Cancel</button>
+          <button (click)="confirmReview()" class="standard-action btn-sm"
                   [class.btn-approve]="reviewAction === 'APPROVED'"
                   [class.btn-reject]="reviewAction === 'REJECTED'"
                   [disabled]="reviewAction === 'REJECTED' && !reviewNotes.trim()">

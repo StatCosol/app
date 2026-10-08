@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { filterFaceDeskRows } from '../../../shared/utils/facedesk-search.util';
 import { EmployeeSelectorComponent } from '../../../shared/ui/entity-selectors/employee-selector.component';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -54,7 +55,7 @@ type Tab =
 @Component({
   standalone: true,
   selector: 'app-facedesk',
-  imports: [
+  imports: [IconComponent,
     EmployeeSelectorComponent,
     CommonModule,
     FormsModule,
@@ -111,7 +112,7 @@ type Tab =
               placeholder="Search name, code or branch…" />
             @if (recordSearch.trim() && !loading) {
               <span class="search-count" role="status">{{ matchingRecordCount }} matches</span>
-              <button type="button" class="link" (click)="recordSearch = ''" aria-label="Clear search">Clear</button>
+              <button type="button" class="compact-action link" (click)="recordSearch = ''" title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
             }
           </div>
         }
@@ -162,7 +163,7 @@ type Tab =
           <label class="text-sm">Location<input [(ngModel)]="newDevice.location" class="inp" placeholder="optional"></label>
           <label class="text-sm">Admin PIN<input [(ngModel)]="newDevice.adminPin" class="inp" placeholder="4–12 digits" maxlength="12"></label>
           <button class="btn primary" (click)="provision()">Provision device</button>
-          <button class="btn" (click)="switch('devices')">Refresh</button>
+          <button class="compact-action btn" (click)="switch('devices')" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
 
         @if (newInstallToken) {
@@ -200,7 +201,7 @@ type Tab =
 <button class="link red" (click)="revoke(d)">Revoke</button>
 }
                 @if (d.deviceStatus === 'REVOKED') {
-<button class="link red" (click)="deleteDevice(d)">Delete</button>
+<button class="compact-action link red" (click)="deleteDevice(d)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
               </td>
             </tr>
@@ -284,7 +285,7 @@ type Tab =
               @if (branchMode) {
                 <td>
                   @if (r.hasEnrolledPhoto) {
-                    <button type="button" class="link" (click)="viewEnrolledPhoto(r)">View</button>
+                    <button type="button" class="compact-action link" (click)="viewEnrolledPhoto(r)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
                   } @else {
                     <span class="text-xs text-gray-400">—</span>
                   }
@@ -293,8 +294,8 @@ type Tab =
               <td class="right nowrap">
                 <button class="link green" [disabled]="!enrollDeviceReady || enrollingId === r.employeeId"
                   (click)="enroll(r)">Re-enroll</button>
-                <button class="link red" [disabled]="deletingId === r.employeeId"
-                  (click)="deleteEnrollment(r)">Delete</button>
+                <button class="compact-action link red" [disabled]="deletingId === r.employeeId"
+                  (click)="deleteEnrollment(r)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -308,9 +309,9 @@ type Tab =
             <p class="text-xs text-gray-500">After an employee is enrolled, enter their code and generate a PIN. Shown once — note it and hand it to the employee.</p>
             <div class="pin-row">
               <input class="inp" placeholder="Employee code" [(ngModel)]="pinCode">
-              <button class="btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()">
+              <button class="compact-action btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()" title="Generate PIN" aria-label="Generate PIN" data-action-label="Generate PIN" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
                 {{ pinBusy ? 'Generating…' : 'Generate PIN' }}
-              </button>
+              </span></button>
             </div>
             @if (lastPin) {
               <div class="pin-result">
@@ -339,13 +340,13 @@ type Tab =
           <tbody>
             @for (a of searchRows(duplicates); track a) {
 <tr>
-              <td>{{ a.newEmployeeName || a.newEmployeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span>@if (a.hasNewPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.newEmployeeId, a.newSubjectType, a.newEmployeeCode)">View face</button>}</td>
-              <td>{{ a.matchedEmployeeName || a.matchedEmployeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span>@if (a.hasMatchedPhoto) {<br><button type="button" class="link" (click)="viewDupeFace(a.matchedEmployeeId, a.matchedSubjectType, a.matchedEmployeeCode)">View face</button>}</td>
+              <td>{{ a.newEmployeeName || a.newEmployeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ a.newEmployeeCode || '' }}{{ a.newSubjectType ? ' · ' + a.newSubjectType : '' }} · {{ branchName(a.newBranchId) }}</span>@if (a.hasNewPhoto) {<br><button type="button" class="compact-action link" (click)="viewDupeFace(a.newEmployeeId, a.newSubjectType, a.newEmployeeCode)" title="View face" aria-label="View face" data-action-label="View face" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>}</td>
+              <td>{{ a.matchedEmployeeName || a.matchedEmployeeCode || 'Employee name unavailable' }}<br><span class="mono text-xs text-gray-500">{{ a.matchedEmployeeCode || '' }}{{ a.matchedSubjectType ? ' · ' + a.matchedSubjectType : '' }} · {{ branchName(a.matchedBranchId) }}</span>@if (a.hasMatchedPhoto) {<br><button type="button" class="compact-action link" (click)="viewDupeFace(a.matchedEmployeeId, a.matchedSubjectType, a.matchedEmployeeCode)" title="View face" aria-label="View face" data-action-label="View face" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>}</td>
               <td>{{ (+a.similarityScore).toFixed(3) }}</td>
               <td>{{ a.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
-                <button class="link green" (click)="dupeAction(a, 'APPROVE')">Approve</button>
-                <button class="link red" (click)="dupeAction(a, 'REJECT')">Reject</button>
+                <button class="compact-action link green" (click)="dupeAction(a, 'APPROVE')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                <button class="compact-action link red" (click)="dupeAction(a, 'REJECT')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
                 <button class="link gray" (click)="dupeAction(a, 'FALSE_ALERT')">False</button>
               </td>
             </tr>
@@ -397,8 +398,8 @@ type Tab =
               <td class="text-xs">{{ r.punchType || '' }} {{ r.punchTime ? (r.punchTime | date: 'HH:mm') : '' }}</td>
               <td>{{ r.createdAt | date: 'dd MMM, HH:mm' }}</td>
               <td class="right nowrap">
-                <button class="link green" (click)="reviewAction(r, 'APPROVE')">Approve</button>
-                <button class="link red" (click)="reviewAction(r, 'REJECT')">Reject</button>
+                <button class="compact-action link green" (click)="reviewAction(r, 'APPROVE')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                <button class="compact-action link red" (click)="reviewAction(r, 'REJECT')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -467,7 +468,7 @@ type Tab =
               <td class="right nowrap">
                 <button class="link green" [disabled]="dayBusy" (click)="dayAction(d, 'FULL_DAY')">Full day</button>
                 <button class="link" [disabled]="dayBusy" (click)="dayAction(d, 'HALF_DAY')">Half day</button>
-                <button class="link red" [disabled]="dayBusy" (click)="dayAction(d, 'REJECT')">Reject</button>
+                <button class="compact-action link red" [disabled]="dayBusy" (click)="dayAction(d, 'REJECT')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -498,7 +499,7 @@ type Tab =
             <option value="device-sync">Device sync</option>
             <option value="payroll-export">Payroll export</option>
           </select>
-          <button class="btn" (click)="runReport()">Run</button>
+          <button class="compact-action btn" (click)="runReport()" title="Run" aria-label="Run" data-action-label="Run" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           <button class="btn primary" (click)="syncPayroll()">Sync to Payroll</button>
         </div>
         <div class="correction-box mb-4">
@@ -513,9 +514,9 @@ type Tab =
             </select>
             <input class="inp" placeholder="Reason (optional)" [(ngModel)]="correctionReason">
           </div>
-          <button class="btn primary mt-2" [disabled]="correctionBusy" (click)="submitCorrection()">
+          <button class="compact-action btn primary mt-2" [disabled]="correctionBusy" (click)="submitCorrection()" title="Submit correction" aria-label="Submit correction" data-action-label="Submit correction" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
             {{ correctionBusy ? 'Submitting…' : 'Submit correction' }}
-          </button>
+          </span></button>
         </div>
         @if (loading) {
 <ui-loading-spinner text="Running report..." size="lg"></ui-loading-spinner>
@@ -605,16 +606,16 @@ type Tab =
             Percentages map to the model's calibrated cosine thresholds (accept ≈ {{ settings.acceptCosine }},
             retry ≈ {{ settings.retryCosine }}). Tune per site.
           </p>
-          <div class="col-span-2"><button class="btn primary" (click)="saveSettings()">Save settings</button></div>
+          <div class="col-span-2"><button class="standard-action btn primary" (click)="saveSettings()">Save settings</button></div>
 
             <div class="col-span-2 pin-box">
               <h4>Set employee attendance PIN</h4>
               <p class="text-xs text-gray-500">Enter an enrolled employee's code and generate a PIN. The PIN is shown once — note it and hand it to the employee.</p>
               <div class="pin-row">
                 <input class="inp" placeholder="Employee code" [(ngModel)]="pinCode">
-                <button class="btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()">
+                <button class="compact-action btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()" title="Generate PIN" aria-label="Generate PIN" data-action-label="Generate PIN" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
                   {{ pinBusy ? 'Generating…' : 'Generate PIN' }}
-                </button>
+                </span></button>
               </div>
               @if (lastPin) {
                 <div class="pin-result">

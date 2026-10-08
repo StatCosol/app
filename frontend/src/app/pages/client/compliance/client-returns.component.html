@@ -18,7 +18,7 @@
 }
 
   <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
-    <div class="flex flex-wrap gap-3 items-end">
+    <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
       <div class="w-full sm:w-52">
         <label class="form-label" for="cr-branch-id">Branch</label>
         <select id="cr-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (ngModelChange)="loadFilings()" [disabled]="singleBranch">
@@ -56,12 +56,12 @@
 }
         </select>
       </div>
-      <button type="button" class="btn btn-secondary ml-auto" (click)="loadFilings()" [disabled]="loading">Refresh</button>
+      <button type="button" class="compact-action btn btn-secondary ml-auto" (click)="loadFilings()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   </div>
 
   <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-3">
-    <div class="flex flex-wrap gap-3 items-end">
+    <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
       <div class="w-full sm:w-52">
         <label class="form-label" for="cr-branch-id-2">Branch (upload)</label>
         <select id="cr-branch-id-2" name="branchId" class="form-select" [(ngModel)]="newFiling.branchId" (ngModelChange)="onCreateBranchChange()">
@@ -96,7 +96,7 @@
 }
         </select>
       </div>
-      <button type="button" class="btn btn-primary" (click)="create()" [disabled]="creating">Create filing</button>
+      <button type="button" class="compact-action btn btn-primary" (click)="create()" [disabled]="creating" title="Create filing" aria-label="Create filing" data-action-label="Create filing" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
     </div>
   </div>
 
@@ -159,7 +159,7 @@
                   <span class="w-20 text-slate-500">Ack</span>
                   @if (f.ackFilePath) {
 
-                    <a [href]="f.ackFilePath" target="_blank" class="link">View</a>
+                    <a [href]="f.ackFilePath" target="_blank" class="compact-action link" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
                   
 } @else {
 
@@ -177,7 +177,7 @@
                     @if (!canUpload()) {
 <span class="text-slate-400">Branch only</span>
 }
-                  
+
 }
                   
                 </div>
@@ -185,7 +185,7 @@
                   <span class="w-20 text-slate-500">Challan</span>
                   @if (f.challanFilePath) {
 
-                    <a [href]="f.challanFilePath" target="_blank" class="link">View</a>
+                    <a [href]="f.challanFilePath" target="_blank" class="compact-action link" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
                   
 } @else {
 
@@ -205,7 +205,7 @@
 }
                   
 }
-                  
+
                 </div>
               </div>
             </td>

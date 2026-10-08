@@ -24,7 +24,7 @@
       <option value="EXPIRED">Expired</option>
     </select>
 
-    <button type="button" class="btn" (click)="openCreate()" [disabled]="!selectedBranchId">+ Add</button>
+    <button type="button" class="compact-action btn" (click)="openCreate()" [disabled]="!selectedBranchId" title="Add" aria-label="Add" data-action-label="Add" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
   </div>
 
   @if (loading) {
@@ -129,9 +129,7 @@
           <td>
             <div class="flex flex-col gap-1">
               @if (r.documentUrl) {
-<a [href]="r.documentUrl" target="_blank" class="btn secondary text-[11px] px-2 py-1">
-                📄 View
-              </a>
+<a [href]="r.documentUrl" target="_blank" class="compact-action btn secondary text-[11px] px-2 py-1" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
 }
               @if (!r.documentUrl) {
 <span class="muted text-[11px]">No file</span>
@@ -148,7 +146,7 @@
           <!-- Actions column -->
           <td class="actions-cell">
             <div class="inline-flex gap-1.5 items-center">
-              <button type="button" class="btn secondary sm" (click)="openEdit(r)">Edit</button>
+              <button type="button" class="compact-action btn secondary sm" (click)="openEdit(r)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
 
               <label class="btn secondary sm cursor-pointer m-0">
                 Upload
@@ -160,9 +158,9 @@
                 <input type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="uploadFile($event, r, 'renewal')" />
               </label>
 
-              <button type="button" class="btn danger sm" (click)="deleteRow(r)" [disabled]="deletingId === r.id">
+              <button type="button" class="compact-action btn danger sm" (click)="deleteRow(r)" [disabled]="deletingId === r.id" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /><span class="compact-action-label">
                 {{ deletingId === r.id ? '…' : 'Delete' }}
-              </button>
+              </span></button>
             </div>
           </td>
         </tr>
@@ -188,8 +186,8 @@
         {{ editingId ? 'Edit Registration / License' : 'Add Registration / License' }}
       </div>
       <div class="flex gap-2 flex-wrap">
-        <button type="button" class="btn secondary" (click)="closeForm()">Cancel</button>
-        <button type="button" class="btn" (click)="save()" [disabled]="saving">
+        <button type="button" class="standard-action btn secondary" (click)="closeForm()">Cancel</button>
+        <button type="button" class="standard-action btn" (click)="save()" [disabled]="saving">
           {{ saving ? 'Saving…' : 'Save' }}
         </button>
       </div>
@@ -240,7 +238,7 @@
         <span class="block font-medium">Document (PDF, PNG, JPG)</span>
         @if (existingDocumentUrl && !documentFile) {
 <div class="flex items-center gap-2 mb-1.5">
-          <a [href]="existingDocumentUrl" target="_blank" class="btn secondary text-xs px-2 py-1">📄 View current</a>
+          <a [href]="existingDocumentUrl" target="_blank" class="compact-action btn secondary text-xs px-2 py-1" title="View current" aria-label="View current" data-action-label="View current" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </div>
 }
         <label class="btn secondary cursor-pointer inline-flex items-center gap-1.5 m-0">
@@ -248,7 +246,7 @@
           <input type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="onFormFileSelected($event)" />
         </label>
         @if (documentFile) {
-<button type="button" class="btn secondary ml-1.5 text-xs px-2 py-1" (click)="removeFormFile()">✕ Remove</button>
+<button type="button" class="compact-action btn secondary ml-1.5 text-xs px-2 py-1" (click)="removeFormFile()" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
         <div class="muted mt-1.5">Optional. Upload a scanned copy of the registration certificate or license.</div>
       </div>

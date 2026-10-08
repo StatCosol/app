@@ -1,3 +1,5 @@
+import { ActionIconPipe } from '../../shared/ui/action-icon.pipe';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -78,7 +80,7 @@ interface WorkspaceTabItem {
 @Component({
   standalone: true,
   selector: 'app-auditor-audit-workspace',
-  imports: [CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [ActionIconPipe, IconComponent, CommonModule, FormsModule, ClientContextStripComponent],
   templateUrl: './auditor-audit-workspace.component.html',
   styleUrls: ['./auditor-audit-workspace.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

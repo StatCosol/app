@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component } from '@angular/core';
 
 import { ThreadLayoutComponent } from '../../shared/thread';
@@ -9,7 +10,7 @@ import { PageHeaderComponent } from '../../shared/ui';
 @Component({
   selector: 'app-contractor-support',
   standalone: true,
-  imports: [ThreadLayoutComponent, CreateQueryComponent, PageHeaderComponent],
+  imports: [IconComponent, ThreadLayoutComponent, CreateQueryComponent, PageHeaderComponent],
   template: `
     <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
@@ -20,10 +21,8 @@ import { PageHeaderComponent } from '../../shared/ui';
       <!-- Tabs -->
       <div class="flex items-center gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
         <button (click)="tab='raise'"
-          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm transition-all"
-          [class]="tab === 'raise' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-700'">
-          Raise Query
-        </button>
+          class="compact-action inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm transition-all"
+          [class]="tab === 'raise' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-700'" title="Raise Query" aria-label="Raise Query" data-action-label="Raise Query" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
         <button (click)="tab='threads'"
           class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm transition-all"
           [class]="tab === 'threads' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-700'">

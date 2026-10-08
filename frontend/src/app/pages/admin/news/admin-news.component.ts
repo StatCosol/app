@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,7 +16,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 @Component({
   selector: 'app-admin-news',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, DatePipe, PageHeaderComponent],
   template: `
     <ui-page-header
       title="Latest News Management"
@@ -93,16 +94,14 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 }
                 @if (isPdf(form.imageUrl)) {
 <a [href]="form.imageUrl" target="_blank"
-                   class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-brand-700 hover:bg-brand-50">
-                  📄 View PDF
-                </a>
+                   class="compact-action inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-brand-700 hover:bg-brand-50" title="View PDF" aria-label="View PDF" data-action-label="View PDF" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
 }
                 <button
                   type="button"
                   (click)="removeImage()"
-                  class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-600"
-                  title="Remove file"
-                >&times;</button>
+                  class="compact-action absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-600"
+
+                 title="Remove file" aria-label="Remove file" data-action-label="Remove file" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
               </div>
 }
               <!-- Upload input -->
@@ -139,16 +138,16 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <button
               (click)="save()"
               [disabled]="!form.title.trim() || !form.body.trim()"
-              class="px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 transition-colors"
+              class="standard-action px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 transition-colors"
               style="background: linear-gradient(135deg, #0A1F44, #1a3a6e);"
             >
               {{ editing ? 'Update' : 'Publish' }}
             </button>
             @if (editing) {
 <button
-             
+
               (click)="cancelEdit()"
-              class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              class="standard-action px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Cancel
             </button>
@@ -223,7 +222,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 <div class="divide-y divide-gray-100">
           @for (item of newsItems; track item) {
 <div
-           
+
             class="px-6 py-4 flex items-start justify-between gap-4 hover:bg-gray-50 transition-colors"
           >
             <!-- Thumbnail -->
@@ -234,8 +233,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 }
               @if (isPdf(item.imageUrl)) {
 <a [href]="item.imageUrl" target="_blank"
-                 class="w-16 h-16 rounded-lg border border-gray-200 bg-red-50 flex items-center justify-center text-red-600 text-xs font-bold"
-                 title="View PDF">PDF</a>
+                 class="compact-action w-16 h-16 rounded-lg border border-gray-200 bg-red-50 flex items-center justify-center text-red-600 text-xs font-bold"
+                 title="View PDF" aria-label="View PDF" data-action-label="View PDF" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
 }
             </div>
 }
@@ -264,7 +263,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 <!-- Expired -->
                 @if (isExpired(item)) {
 <span
-                 
+
                   class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"
                 >
                   Expired
@@ -287,17 +286,17 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <div class="flex items-center gap-2 flex-shrink-0">
               <button
                 (click)="togglePin(item)"
-                class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+                class="compact-action px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
                 [class]="item.pinned
                   ? 'border-amber-300 text-amber-700 hover:bg-amber-50'
                   : 'border-gray-300 text-gray-600 hover:bg-gray-50'"
                 [title]="item.pinned ? 'Unpin' : 'Pin to top'"
-              >
+               title="Pin" aria-label="Pin" data-action-label="Pin" data-action-icon="cog"><ui-icon name="cog" [size]="20" /><span class="compact-action-label">
                 {{ item.pinned ? 'Unpin' : 'Pin' }}
-              </button>
+              </span></button>
               <button
                 (click)="toggleActive(item)"
-                class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+                class="standard-action px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
                 [class]="item.isActive
                   ? 'border-yellow-300 text-yellow-700 hover:bg-yellow-50'
                   : 'border-green-300 text-green-700 hover:bg-green-50'"
@@ -306,16 +305,12 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               </button>
               <button
                 (click)="startEdit(item)"
-                class="px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-300 text-brand-700 hover:bg-brand-50 transition-colors"
-              >
-                Edit
-              </button>
+                class="compact-action px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-300 text-brand-700 hover:bg-brand-50 transition-colors"
+               title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
               <button
                 (click)="deleteItem(item)"
-                class="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
-              >
-                Delete
-              </button>
+                class="compact-action px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
+               title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
             </div>
           </div>
 }
@@ -330,14 +325,14 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <button
               (click)="goPage(page - 1)"
               [disabled]="page <= 1"
-              class="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+              class="standard-action px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 transition-colors"
             >
               Previous
             </button>
             <button
               (click)="goPage(page + 1)"
               [disabled]="page >= totalPages"
-              class="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+              class="standard-action px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 transition-colors"
             >
               Next
             </button>

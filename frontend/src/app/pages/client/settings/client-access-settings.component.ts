@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -25,7 +26,7 @@ interface BranchItem {
 @Component({
   standalone: true,
   selector: 'app-client-access-settings',
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     PageHeaderComponent,
     LoadingSpinnerComponent,
@@ -115,7 +116,7 @@ interface BranchItem {
                 <div class="flex gap-2">
                   <button type="button" class="text-xs text-brand-600 hover:underline" (click)="selectAllBranches()" [disabled]="!isMaster || saving">Select All</button>
                   <span class="text-gray-300">|</span>
-                  <button type="button" class="text-xs text-brand-600 hover:underline" (click)="clearAllBranches()" [disabled]="!isMaster || saving">Clear All</button>
+                  <button type="button" class="compact-action text-xs text-brand-600 hover:underline" (click)="clearAllBranches()" [disabled]="!isMaster || saving" title="Clear All" aria-label="Clear All" data-action-label="Clear All" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
                 </div>
               </div>
               @if (branches.length === 0) {
@@ -139,7 +140,7 @@ interface BranchItem {
         </div>
 
         <div class="mt-6 flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading || saving" (clicked)="load()">Refresh</ui-button>
+          <ui-button variant="secondary" [disabled]="loading || saving" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
           <ui-button [disabled]="!isMaster || saving" (clicked)="save()">Save</ui-button>
           @if (saving) {
 <span class="text-xs text-gray-500">Saving...</span>

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,11 +12,11 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-ess-nominations',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="max-w-5xl mx-auto space-y-6">
       <ui-page-header title="Nominations" subtitle="Statutory nominees for PF, ESI, and gratuity">
-        <button (click)="openForm()" class="btn-primary">+ Add Nomination</button>
+        <button (click)="openForm()" class="compact-action btn-primary" title="Add Nomination" aria-label="Add Nomination" data-action-label="Add Nomination" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
       </ui-page-header>
 
       @if (loading) {
@@ -57,14 +58,14 @@ import { PageHeaderComponent } from '../../../shared/ui';
             @if (m.address) {
 
               <span class="text-xs text-gray-500"><strong>{{ m.memberName }}</strong> address: {{ m.address }}</span>
-            
+
 }
             @if (m.isMinor && m.guardianName) {
 
               <span class="text-xs text-brand-700 ml-4">Guardian: {{ m.guardianName }}@if (m.guardianRelationship) {
  ({{ m.guardianRelationship }})
 }</span>
-            
+
 }
           </div>
 }
@@ -88,19 +89,18 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <div class="flex gap-2 mt-3">
           @if (nom.status === 'DRAFT') {
 <button (click)="submitNomination(nom)" [disabled]="actionPending"
-                  class="action-btn submit-btn">Submit for Approval</button>
+                  class="compact-action action-btn submit-btn" title="Submit for Approval" aria-label="Submit for Approval" data-action-label="Submit for Approval" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
 }
           @if (nom.status === 'DRAFT') {
 <button (click)="openEditForm(nom)" [disabled]="actionPending"
-                  class="action-btn edit-btn">Edit</button>
+                  class="compact-action action-btn edit-btn" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
 }
           @if (nom.status === 'APPROVED') {
 <button (click)="openEditForm(nom)"
-                  class="action-btn edit-btn">Edit / Update</button>
+                  class="compact-action action-btn edit-btn" title="Edit / Update" aria-label="Edit / Update" data-action-label="Edit / Update" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
 }
           @if (nom.status === 'REJECTED') {
-<button (click)="openResubmitForm(nom)" class="action-btn resubmit-btn">
-            Edit &amp; Resubmit</button>
+<button (click)="openResubmitForm(nom)" class="compact-action action-btn resubmit-btn" title="Edit &amp; Resubmit" aria-label="Edit &amp; Resubmit" data-action-label="Edit &amp; Resubmit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
 }
         </div>
       </div>
@@ -112,7 +112,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <div class="modal-panel" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h2 class="text-lg font-semibold">{{ editId ? 'Edit Nomination' : resubmitId ? 'Edit &amp; Resubmit' : 'Add Nomination' }}</h2>
-            <button (click)="closeForm()" class="text-gray-400 hover:text-gray-600">&times;</button>
+            <button (click)="closeForm()" class="compact-action text-gray-400 hover:text-gray-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
           <div class="modal-body space-y-4">
             <div class="grid grid-cols-2 gap-4">
@@ -144,7 +144,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <div>
               <div class="flex justify-between items-center mb-2">
                 <span class="field-label">Nominee Members</span>
-                <button class="text-xs text-brand-600 hover:underline" (click)="addMember()">+ Add Member</button>
+                <button class="compact-action text-xs text-brand-600 hover:underline" (click)="addMember()" title="Add Member" aria-label="Add Member" data-action-label="Add Member" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
               </div>
               @for (m of form.members; track m; let i = $index) {
 <div class="member-form-block">
@@ -152,7 +152,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   <span class="text-sm font-semibold text-gray-700">Nominee {{ i + 1 }}</span>
                   @if (form.members.length > 1) {
 <button (click)="form.members.splice(i, 1)"
-                          class="text-xs text-red-600 hover:underline">Remove</button>
+                          class="compact-action text-xs text-red-600 hover:underline" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -217,24 +217,24 @@ import { PageHeaderComponent } from '../../../shared/ui';
 }
           </div>
           <div class="modal-footer">
-            <button (click)="closeForm()" class="btn-secondary">Cancel</button>
+            <button (click)="closeForm()" class="standard-action btn-secondary">Cancel</button>
             @if (!resubmitId && !editId) {
-<button (click)="save(true)" [disabled]="saving" class="btn-secondary">
+<button (click)="save(true)" [disabled]="saving" class="standard-action btn-secondary">
               {{ saving ? 'Saving...' : 'Save as Draft' }}
             </button>
 }
             @if (!resubmitId && !editId) {
-<button (click)="save(false)" [disabled]="saving" class="btn-primary">
+<button (click)="save(false)" [disabled]="saving" class="standard-action btn-primary">
               {{ saving ? 'Saving...' : 'Save & Submit' }}
             </button>
 }
             @if (editId) {
-<button (click)="saveEdit(true)" [disabled]="saving" class="btn-secondary">
+<button (click)="saveEdit(true)" [disabled]="saving" class="standard-action btn-secondary">
               {{ saving ? 'Saving...' : 'Save as Draft' }}
             </button>
 }
             @if (editId) {
-<button (click)="saveEdit(false)" [disabled]="saving" class="btn-primary">
+<button (click)="saveEdit(false)" [disabled]="saving" class="standard-action btn-primary">
               {{ saving ? 'Saving...' : 'Save & Submit' }}
             </button>
 }

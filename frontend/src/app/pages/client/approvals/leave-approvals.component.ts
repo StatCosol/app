@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-leave-approvals',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, PageHeaderComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       <ui-page-header
@@ -57,12 +58,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
               <td class="text-sm text-gray-500">{{ lv.appliedAt }}</td>
               <td class="text-right">
                 <div class="flex justify-end gap-2">
-                  <button (click)="approve(lv)" class="btn-approve" [disabled]="processing.has(lv.id)">
-                    Approve
-                  </button>
-                  <button (click)="startReject(lv)" class="btn-reject" [disabled]="processing.has(lv.id)">
-                    Reject
-                  </button>
+                  <button (click)="approve(lv)" class="compact-action btn-approve" [disabled]="processing.has(lv.id)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                  <button (click)="startReject(lv)" class="compact-action btn-reject" [disabled]="processing.has(lv.id)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
                 </div>
               </td>
             </tr>
@@ -75,10 +72,10 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   <label class="text-xs font-medium text-gray-600" for="la-reject-reason">Reason for rejection:</label>
                   <div class="flex gap-2 mt-1 items-start">
                     <textarea autocomplete="off" id="la-reject-reason" name="rejectReason" [(ngModel)]="rejectReason" rows="2" class="field-input flex-1"></textarea>
-                    <button (click)="confirmReject()" class="btn-reject" [disabled]="!rejectReason.trim()">
+                    <button (click)="confirmReject()" class="standard-action btn-reject" [disabled]="!rejectReason.trim()">
                       Confirm
                     </button>
-                    <button (click)="rejectId = ''" class="btn-secondary">Cancel</button>
+                    <button (click)="rejectId = ''" class="standard-action btn-secondary">Cancel</button>
                   </div>
                 </div>
               </td>

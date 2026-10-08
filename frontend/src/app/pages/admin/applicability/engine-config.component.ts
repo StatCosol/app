@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -18,7 +19,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   selector: 'app-engine-config',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
@@ -67,7 +68,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
               <ui-form-select label="Applies To" [(ngModel)]="itemForm.appliesTo" [options]="appliesToOptions" />
             </div>
             <div class="flex gap-2 mt-4">
-              <ui-button variant="primary" (click)="saveItem()">{{ editingItem ? 'Update' : 'Add Item' }}</ui-button>
+              <ui-button variant="primary" (click)="saveItem()" icon="plus" [iconOnly]="true" label="Add Item">{{ editingItem ? 'Update' : 'Add Item' }}</ui-button>
               @if (editingItem) {
                 <ui-button variant="secondary" (click)="cancelEditItem()">Cancel</ui-button>
               }
@@ -79,10 +80,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <h3 class="text-sm font-semibold text-slate-700 mb-4">Bulk Upload (Excel)</h3>
             <div class="flex flex-wrap items-center gap-3">
               <button (click)="downloadTemplate()"
-                      class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
-                Download Template
-              </button>
+                      class="compact-action inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-brand-600 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100" title="Download Template" aria-label="Download Template" data-action-label="Download Template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
               <input #fileInput type="file" accept=".xlsx,.xls" (change)="onBulkFileSelected($event)" class="text-sm text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-300 file:text-sm file:font-medium file:bg-white file:text-slate-700 hover:file:bg-slate-50" />
               <button (click)="uploadBulkFile()" [disabled]="!bulkFile || bulkUploading"
                       class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50"
@@ -141,8 +139,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
                       </td>
                       <td class="px-4 py-3 text-right">
                         <div class="flex justify-end gap-2">
-                          <ui-button variant="outline" size="sm" (click)="editItem(item)">Edit</ui-button>
-                          <ui-button variant="danger" size="sm" (click)="deleteItem(item)">Delete</ui-button>
+                          <ui-button variant="outline" size="sm" (click)="editItem(item)" icon="pencil" [iconOnly]="true" label="Edit">Edit</ui-button>
+                          <ui-button variant="danger" size="sm" (click)="deleteItem(item)" icon="trash" [iconOnly]="true" label="Delete">Delete</ui-button>
                         </div>
                       </td>
                     </tr>
@@ -165,7 +163,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
               <ui-form-input label="Applies To" [(ngModel)]="packageForm.appliesTo" placeholder="Optional" />
             </div>
             <div class="flex gap-2 mt-4">
-              <ui-button variant="primary" (click)="savePackage()">{{ editingPackage ? 'Update' : 'Add Package' }}</ui-button>
+              <ui-button variant="primary" (click)="savePackage()" icon="plus" [iconOnly]="true" label="Add Package">{{ editingPackage ? 'Update' : 'Add Package' }}</ui-button>
               @if (editingPackage) {
                 <ui-button variant="secondary" (click)="cancelEditPackage()">Cancel</ui-button>
               }
@@ -186,8 +184,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
                     <ui-status-badge class="ml-2" [status]="pkg.isActive ? 'Active' : 'Inactive'" />
                   </div>
                   <div class="flex gap-2">
-                    <ui-button variant="outline" size="sm" (click)="editPackage(pkg)">Edit</ui-button>
-                    <ui-button variant="primary" size="sm" (click)="togglePackageExpand(pkg.id)">
+                    <ui-button variant="outline" size="sm" (click)="editPackage(pkg)" icon="pencil" [iconOnly]="true" label="Edit">Edit</ui-button>
+                    <ui-button variant="primary" size="sm" (click)="togglePackageExpand(pkg.id)" icon="cog" [iconOnly]="true" label="Manage Items">
                       {{ expandedPackage === pkg.id ? 'Hide Items' : 'Manage Items' }}
                     </ui-button>
                   </div>
@@ -204,8 +202,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
                                         [options]="availableItemsForPackage[pkg.id] || []" />
                       </div>
                       <ui-button variant="primary" size="sm" (click)="addItemToPackage(pkg.id)"
-                                 [disabled]="!selectedComplianceForPackage">Add</ui-button>
-                      <ui-button variant="outline" size="sm" (click)="addAllItemsToPackage(pkg.id)">Add All</ui-button>
+                                 [disabled]="!selectedComplianceForPackage" icon="plus" [iconOnly]="true" label="Add">Add</ui-button>
+                      <ui-button variant="outline" size="sm" (click)="addAllItemsToPackage(pkg.id)" icon="plus" [iconOnly]="true" label="Add All">Add All</ui-button>
                     </div>
 
                     <!-- Package Items List -->
@@ -227,7 +225,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                                 <td class="px-3 py-2 text-slate-700">{{ pi.compliance?.name }}</td>
                                 <td class="px-3 py-2 text-slate-500">{{ pi.compliance?.category }}</td>
                                 <td class="px-3 py-2 text-right">
-                                  <ui-button variant="danger" size="sm" (click)="removeItemFromPackage(pkg.id, pi.id)">Remove</ui-button>
+                                  <ui-button variant="danger" size="sm" (click)="removeItemFromPackage(pkg.id, pi.id)" icon="trash" [iconOnly]="true" label="Remove">Remove</ui-button>
                                 </td>
                               </tr>
                             }
@@ -248,8 +246,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
                                           [options]="availableRulesForPackage[pkg.id] || []" />
                         </div>
                         <ui-button variant="primary" size="sm" (click)="addRuleToPackage(pkg.id)"
-                                   [disabled]="!selectedRuleForPackage">Add</ui-button>
-                        <ui-button variant="outline" size="sm" (click)="addAllRulesToPackage(pkg.id)">Add All</ui-button>
+                                   [disabled]="!selectedRuleForPackage" icon="plus" [iconOnly]="true" label="Add">Add</ui-button>
+                        <ui-button variant="outline" size="sm" (click)="addAllRulesToPackage(pkg.id)" icon="plus" [iconOnly]="true" label="Add All">Add All</ui-button>
                       </div>
 
                       @if (packageRules[pkg.id]?.length) {
@@ -276,7 +274,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                                   <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ pr.rule?.targetCompliance?.code }}</td>
                                   <td class="px-3 py-2 text-slate-500">{{ pr.rule?.priority }}</td>
                                   <td class="px-3 py-2 text-right">
-                                    <ui-button variant="danger" size="sm" (click)="removeRuleFromPackage(pkg.id, pr.id)">Remove</ui-button>
+                                    <ui-button variant="danger" size="sm" (click)="removeRuleFromPackage(pkg.id, pr.id)" icon="trash" [iconOnly]="true" label="Remove">Remove</ui-button>
                                   </td>
                                 </tr>
                               }
@@ -322,7 +320,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </div>
 
             <div class="flex gap-2 mt-4">
-              <ui-button variant="primary" (click)="saveRule()">{{ editingRule ? 'Update' : 'Add Rule' }}</ui-button>
+              <ui-button variant="primary" (click)="saveRule()" icon="plus" [iconOnly]="true" label="Add Rule">{{ editingRule ? 'Update' : 'Add Rule' }}</ui-button>
               @if (editingRule) {
                 <ui-button variant="secondary" (click)="cancelEditRule()">Cancel</ui-button>
               }
@@ -363,8 +361,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
                       </td>
                       <td class="px-4 py-3 text-right">
                         <div class="flex justify-end gap-2">
-                          <ui-button variant="outline" size="sm" (click)="editRule(rule)">Edit</ui-button>
-                          <ui-button variant="danger" size="sm" (click)="deleteRule(rule)">Delete</ui-button>
+                          <ui-button variant="outline" size="sm" (click)="editRule(rule)" icon="pencil" [iconOnly]="true" label="Edit">Edit</ui-button>
+                          <ui-button variant="danger" size="sm" (click)="deleteRule(rule)" icon="trash" [iconOnly]="true" label="Delete">Delete</ui-button>
                         </div>
                       </td>
                     </tr>

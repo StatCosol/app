@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ContractorLoginSelectorComponent } from '../../../shared/ui/entity-selectors/contractor-login-selector.component';
 import {
   ChangeDetectionStrategy,
@@ -41,7 +42,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 @Component({
   selector: 'app-crm-clra-workspace',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     ContractorLoginSelectorComponent,
     CommonModule,
     FormsModule,
@@ -88,12 +89,12 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
         <div class="mt-6">
           <div class="flex justify-between items-center mb-3">
             <span class="text-sm text-gray-600">{{ peEstablishments.length }} PE establishment(s)</span>
-            <ui-button variant="primary" (clicked)="openPeForm()">+ Add PE Establishment</ui-button>
+            <ui-button variant="primary" (clicked)="openPeForm()" icon="plus" [iconOnly]="true" label="Add PE Establishment">+ Add PE Establishment</ui-button>
           </div>
           <ui-data-table [columns]="peCols" [data]="peEstablishments" emptyMessage="No PE establishments yet.">
             <ng-template uiTableCell="stateCode" let-row>{{ row.stateCode }}</ng-template>
             <ng-template uiTableCell="actions" let-row>
-              <button class="text-brand-600 hover:underline text-sm" (click)="openPeForm(row)">Edit</button>
+              <button class="compact-action text-brand-600 hover:underline text-sm" (click)="openPeForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
             </ng-template>
           </ui-data-table>
         </div>
@@ -103,11 +104,11 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
         <div class="mt-6">
           <div class="flex justify-between items-center mb-3">
             <span class="text-sm text-gray-600">{{ contractors.length }} contractor(s)</span>
-            <ui-button variant="primary" (clicked)="openContractorForm()">+ Add Contractor</ui-button>
+            <ui-button variant="primary" (clicked)="openContractorForm()" icon="plus" [iconOnly]="true" label="Add Contractor">+ Add Contractor</ui-button>
           </div>
           <ui-data-table [columns]="contractorCols" [data]="contractors" emptyMessage="No CLRA contractors registered.">
             <ng-template uiTableCell="actions" let-row>
-              <button class="text-brand-600 hover:underline text-sm" (click)="openContractorForm(row)">Edit</button>
+              <button class="compact-action text-brand-600 hover:underline text-sm" (click)="openContractorForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
             </ng-template>
           </ui-data-table>
         </div>
@@ -126,7 +127,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
               </select>
             </div>
             @if (workerContractorId) {
-              <ui-button variant="primary" (clicked)="openWorkerForm()">+ Add Worker</ui-button>
+              <ui-button variant="primary" (clicked)="openWorkerForm()" icon="plus" [iconOnly]="true" label="Add Worker">+ Add Worker</ui-button>
             }
           </div>
           @if (!workerContractorId) {
@@ -135,7 +136,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
             <ui-data-table [columns]="workerCols" [data]="workers" emptyMessage="No workers for this contractor.">
               <ng-template uiTableCell="category" let-row>{{ row.category || '—' }}</ng-template>
               <ng-template uiTableCell="actions" let-row>
-                <button class="text-brand-600 hover:underline text-sm" (click)="openWorkerForm(row)">Edit</button>
+                <button class="compact-action text-brand-600 hover:underline text-sm" (click)="openWorkerForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
               </ng-template>
             </ui-data-table>
           }
@@ -164,7 +165,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
               </select>
             </div>
             <div class="flex items-end">
-              <ui-button variant="primary" (clicked)="openAssignmentForm()">+ Add Assignment</ui-button>
+              <ui-button variant="primary" (clicked)="openAssignmentForm()" icon="plus" [iconOnly]="true" label="Add Assignment">+ Add Assignment</ui-button>
             </div>
           </div>
           <ui-data-table [columns]="assignmentCols" [data]="assignments" emptyMessage="No assignments found.">
@@ -173,8 +174,8 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
             <ng-template uiTableCell="status" let-row><ui-status-badge [label]="row.status || 'ACTIVE'" /></ng-template>
             <ng-template uiTableCell="actions" let-row>
               <div class="flex gap-2">
-                <button class="text-emerald-700 hover:underline text-sm" (click)="selectAssignment(row)">Manage</button>
-                <button class="text-brand-600 hover:underline text-sm" (click)="openAssignmentForm(row)">Edit</button>
+                <button class="compact-action text-emerald-700 hover:underline text-sm" (click)="selectAssignment(row)" title="Manage" aria-label="Manage" data-action-label="Manage" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></button>
+                <button class="compact-action text-brand-600 hover:underline text-sm" (click)="openAssignmentForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
               </div>
             </ng-template>
           </ui-data-table>

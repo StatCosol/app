@@ -36,7 +36,7 @@ import {
       <ui-page-header title="AI Audit Insights"
                       subtitle="Generate DTSS-style audit observations, review process flows and resolve issues">
         <div slot="actions" class="flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="loadObservations()">Refresh</ui-button>
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="loadObservations()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
           <ui-button variant="primary" (clicked)="showGenerate = !showGenerate">
             {{ showGenerate ? 'Cancel' : '+ Generate Observation' }}
           </ui-button>
@@ -91,7 +91,7 @@ import {
         </div>
         <div class="flex justify-end">
           <ui-button variant="primary" [disabled]="generating || !genForm.clientId || !genForm.findingDescription"
-                     (clicked)="generate()">
+                     (clicked)="generate()" icon="refresh" [iconOnly]="true" label="Generate Observation">
             {{ generating ? 'Generating...' : 'Generate Observation' }}
           </ui-button>
         </div>
@@ -138,7 +138,7 @@ import {
                 </p>
               </div>
               <div class="flex gap-2 shrink-0">
-                <ui-button variant="ghost" size="sm" (clicked)="selectObs(obs)">View</ui-button>
+                <ui-button variant="ghost" size="sm" (clicked)="selectObs(obs)" icon="eye" [iconOnly]="true" label="View">View</ui-button>
               </div>
             </div>
 

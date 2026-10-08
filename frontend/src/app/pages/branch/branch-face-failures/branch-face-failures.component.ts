@@ -1,3 +1,5 @@
+import { failureDetail, failureScore, KIOSK_FAILURE_DETAILS } from '../../../shared/utils/face-failure-display';
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,6 +23,7 @@ type SubjectFilter = 'ALL' | 'EMPLOYEE' | 'CONTRACTOR';
 // Mirror of backend reason taxonomy in face_failed_scan_logs.reason.
 const REASONS: { value: string; label: string }[] = [
   { value: '', label: 'Any reason' },
+  ...Object.keys(KIOSK_FAILURE_DETAILS).map(value => ({ value, label: value.toLowerCase().replace(/_/g, ' ') })),
   { value: 'FACE_MISMATCH', label: 'Face mismatch' },
   { value: 'LIVENESS_FAIL', label: 'Liveness fail' },
   { value: 'MULTI_FACE', label: 'Multiple faces' },
@@ -41,7 +44,7 @@ const REASONS: { value: string; label: string }[] = [
 @Component({
   selector: 'app-branch-face-failures',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -54,6 +57,10 @@ const REASONS: { value: string; label: string }[] = [
       title="Face Attendance Failures"
       subtitle="Rejected face-attendance scans for in-house employees and contractor workers in your branch"
     ></ui-page-header>
+    <p class="mb-4 rounded-lg bg-sky-50 px-4 py-3 text-sm text-sky-800">
+      Unrecognised scans may have no person linked. Explanations describe the recorded failure reason;
+      scores marked “Not recorded” were not saved for that attempt.
+    </p>
 
     <div class="p-4 md:p-6 space-y-4">
       @if (visibleAlerts().length) {
@@ -65,7 +72,7 @@ const REASONS: { value: string; label: string }[] = [
             <span class="text-sm font-semibold">Recent face-failure spike alerts</span>
             <span class="text-xs text-rose-600">({{ visibleAlerts().length }} of last 7 days)</span>
           </div>
-          <button type="button" class="text-xs font-medium text-rose-700 hover:text-rose-900"
+          <button type="button" class="standard-action text-xs font-medium text-rose-700 hover:text-rose-900"
                   (click)="dismissAllAlerts()">Dismiss all</button>
         </div>
         <ul class="space-y-1.5">
@@ -84,8 +91,8 @@ const REASONS: { value: string; label: string }[] = [
                       class="text-xs px-2 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-100 font-medium"
                       title="Filter the dashboard to the 24h window of this alert"
                       (click)="investigateAlert(a)">Investigate</button>
-              <button type="button" class="text-rose-400 hover:text-rose-700 text-lg leading-none"
-                      title="Dismiss this alert" (click)="dismissAlert(a.id)">×</button>
+              <button type="button" class="compact-action text-rose-400 hover:text-rose-700 text-lg leading-none"
+                      (click)="dismissAlert(a.id)" title="Dismiss this alert" aria-label="Dismiss this alert" data-action-label="Dismiss this alert" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
             </div>
           </li>
 }
@@ -184,11 +191,9 @@ const REASONS: { value: string; label: string }[] = [
                 hits
               </label>
               <button type="button"
-                      class="text-[10px] text-brand-700 hover:underline disabled:text-gray-400"
+                      class="compact-action text-[10px] text-brand-700 hover:underline disabled:text-gray-400"
                       [disabled]="!topSubjects.length"
-                      (click)="exportOffendersCsv()">
-                Export CSV
-              </button>
+                      (click)="exportOffendersCsv()" title="Export CSV" aria-label="Export CSV" data-action-label="Export CSV" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
             </div>
           </div>
           <ul class="divide-y divide-gray-100">
@@ -263,11 +268,11 @@ const REASONS: { value: string; label: string }[] = [
 }
                 </ul>
 }
-              
+
 }
             </li>
 }
-            
+
 }
             @if (!topSubjects.length) {
 <li class="px-4 py-3 text-xs text-gray-400 text-center">
@@ -405,7 +410,7 @@ const REASONS: { value: string; label: string }[] = [
 <span class="text-gray-400">(custom range)</span>
 }
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 aligned-filter-controls">
         <div>
           <label for="subj" class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
           <select id="subj" name="subject" [(ngModel)]="subject"
@@ -438,10 +443,8 @@ const REASONS: { value: string; label: string }[] = [
         </div>
 
         <div class="flex items-end">
-          <button type="button" class="ui-btn-secondary w-full"
-                  [disabled]="loading" (click)="load()">
-            Refresh
-          </button>
+          <button type="button" class="compact-action ui-btn-secondary w-full"
+                  [disabled]="loading" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
         </div>
       </div>
@@ -454,35 +457,35 @@ const REASONS: { value: string; label: string }[] = [
             @if (subject !== 'ALL') {
 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Subject: {{ subject === 'EMPLOYEE' ? 'Employees' : 'Contractors' }}
-              <button type="button" class="text-brand-400 hover:text-brand-700" title="Clear subject" (click)="clearSubject()">×</button>
+              <button type="button" class="compact-action text-brand-400 hover:text-brand-700" (click)="clearSubject()" title="Clear subject" aria-label="Clear subject" data-action-label="Clear subject" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
             </span>
 }
             @if (reason) {
 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Reason: {{ reason }}
-              <button type="button" class="text-brand-400 hover:text-brand-700" title="Clear reason" (click)="clearReason()">×</button>
+              <button type="button" class="compact-action text-brand-400 hover:text-brand-700" (click)="clearReason()" title="Clear reason" aria-label="Clear reason" data-action-label="Clear reason" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
             </span>
 }
             @if (focusLabel) {
 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Person: {{ focusLabel }}
-              <button type="button" class="text-brand-400 hover:text-brand-700" title="Clear person" (click)="clearFocus()">×</button>
+              <button type="button" class="compact-action text-brand-400 hover:text-brand-700" (click)="clearFocus()" title="Clear person" aria-label="Clear person" data-action-label="Clear person" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
             </span>
 }
             @if (activeRange === null && (from || to)) {
 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Range: {{ from || '…' }} → {{ to || '…' }}
-              <button type="button" class="text-brand-400 hover:text-brand-700" title="Reset to last 7 days" (click)="clearCustomRange()">×</button>
+              <button type="button" class="compact-action text-brand-400 hover:text-brand-700" (click)="clearCustomRange()" title="Reset to last 7 days" aria-label="Reset to last 7 days" data-action-label="Reset to last 7 days" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
             </span>
 }
             @if (minCount !== 5) {
 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-brand-200 text-xs text-brand-800">
               Top offenders ≥ {{ minCount }}
-              <button type="button" class="text-brand-400 hover:text-brand-700" title="Reset min hits" (click)="clearMinCount()">×</button>
+              <button type="button" class="compact-action text-brand-400 hover:text-brand-700" (click)="clearMinCount()" title="Reset min hits" aria-label="Reset min hits" data-action-label="Reset min hits" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
             </span>
 }
           </div>
-          <button type="button" class="text-xs font-medium text-brand-700 hover:text-brand-900" (click)="resetFilters()">Reset all</button>
+          <button type="button" class="compact-action text-xs font-medium text-brand-700 hover:text-brand-900" (click)="resetFilters()" title="Reset all" aria-label="Reset all" data-action-label="Reset all" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
         </div>
 }
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -495,19 +498,19 @@ const REASONS: { value: string; label: string }[] = [
 }
           </h3>
           <div class="flex items-center gap-2">
-            <button type="button" class="ui-btn-secondary text-xs"
-                    title="Copy a shareable link to this filtered view"
-                    (click)="copyLink()">
+            <button type="button" class="compact-action ui-btn-secondary text-xs"
+
+                    (click)="copyLink()" title="Copy link" aria-label="Copy link" data-action-label="Copy link" data-action-icon="document"><ui-icon name="document" [size]="20" /><span class="compact-action-label">
               {{ copiedLink ? 'Link copied' : 'Copy link' }}
-            </button>
-            <button type="button" class="ui-btn-secondary text-xs"
-                    [disabled]="exportingStats || loading" (click)="exportStatsCsv()">
+            </span></button>
+            <button type="button" class="compact-action ui-btn-secondary text-xs"
+                    [disabled]="exportingStats || loading" (click)="exportStatsCsv()" title="Export stats CSV" aria-label="Export stats CSV" data-action-label="Export stats CSV" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
               {{ exportingStats ? 'Exporting…' : 'Export stats CSV' }}
-            </button>
-            <button type="button" class="ui-btn-secondary text-xs"
-                    [disabled]="exporting || loading" (click)="exportCsv()">
+            </span></button>
+            <button type="button" class="compact-action ui-btn-secondary text-xs"
+                    [disabled]="exporting || loading" (click)="exportCsv()" title="Export CSV" aria-label="Export CSV" data-action-label="Export CSV" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
               {{ exporting ? 'Exporting…' : 'Export CSV' }}
-            </button>
+            </span></button>
           </div>
         </div>
 
@@ -538,7 +541,7 @@ const REASONS: { value: string; label: string }[] = [
                   <th class="px-4 py-2">Name</th>
                   <th class="px-4 py-2">Contractor</th>
                   <th class="px-4 py-2">Reason</th>
-                  <th class="px-4 py-2">Detail</th>
+                  <th class="px-4 py-2">Failure explanation</th>
                   <th class="px-4 py-2">Match</th>
                   <th class="px-4 py-2">Liveness</th>
                 </tr>
@@ -566,7 +569,7 @@ const REASONS: { value: string; label: string }[] = [
                             [class.cursor-default]="!r.employeeId && !r.contractorEmployeeId"
                             (click)="focusOn(r)"
                             title="Filter to this person">
-                      <div>{{ r.employeeName || r.contractorEmployeeName || '—' }}</div>
+                      <div>{{ r.employeeName || r.contractorEmployeeName || 'Person not identified' }}</div>
                       @if (r.employeeCode) {
 <div class="text-xs text-gray-500">
                         {{ r.employeeCode }}
@@ -575,7 +578,7 @@ const REASONS: { value: string; label: string }[] = [
                     </button>
                   </td>
                   <td class="px-4 py-2 text-xs text-gray-600">
-                    {{ r.contractorName || '—' }}
+                    {{ r.contractorName || (r.contractorEmployeeId ? 'Not recorded' : 'Not applicable') }}
                   </td>
                   <td class="px-4 py-2">
                     <span class="inline-flex items-center px-2 py-0.5 rounded bg-rose-100 text-rose-700 text-xs font-medium">
@@ -583,17 +586,17 @@ const REASONS: { value: string; label: string }[] = [
                     </span>
                   </td>
                   <td class="px-4 py-2 text-xs text-gray-600">
-                    {{ r.reasonDetail || '—' }}
+                    {{ failureDetail(r) }}
                   </td>
-                  <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.matchScore) }}</td>
-                  <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.livenessScore) }}</td>
+                  <td class="px-4 py-2 text-xs text-gray-600">{{ failureScore(r.matchScore) }}</td>
+                  <td class="px-4 py-2 text-xs text-gray-600">{{ failureScore(r.livenessScore) }}</td>
                 </tr>
 }
               </tbody>
             </table>
           </div>
 }
-        
+
 }
       </div>
     </div>
@@ -601,6 +604,8 @@ const REASONS: { value: string; label: string }[] = [
 })
 export class BranchFaceFailuresComponent implements OnInit {
   readonly reasons = REASONS;
+  readonly failureDetail = failureDetail;
+  readonly failureScore = failureScore;
 
   rows: FailedScanRow[] = [];
   stats: FailedScanStats | null = null;

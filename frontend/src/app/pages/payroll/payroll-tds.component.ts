@@ -79,7 +79,7 @@ interface CompareResult {
             </div>
 
             <div class="flex gap-3 pt-2">
-              <ui-button variant="primary" [disabled]="calculating" (clicked)="compareBoth()">
+              <ui-button variant="primary" [disabled]="calculating" (clicked)="compareBoth()" icon="eye" [iconOnly]="true" label="Compare Both Regimes">
                 {{ calculating ? 'Calculating...' : 'Compare Both Regimes' }}
               </ui-button>
             </div>

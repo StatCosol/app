@@ -1,3 +1,4 @@
+import { ActionIconPipe } from '../../shared/ui/action-icon.pipe';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -38,7 +39,7 @@ type AuditorScheduleAudit = {
 @Component({
   selector: 'app-auditor-audits',
   standalone: true,
-  imports: [
+  imports: [ActionIconPipe,
     FormsModule,
     PageHeaderComponent,
     FormSelectComponent,

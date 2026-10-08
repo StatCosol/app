@@ -5,28 +5,28 @@
       <p>Recheck corrected submissions, review open non-compliances, and close only the assigned scheduled audit items that are ready for verification.</p>
     </div>
     <div class="head-controls">
-      @if (selected?.auditId) { <a class="btn btn-secondary" [routerLink]="['/auditor/audits', selected.auditId, 'workspace']">Open assigned audit</a> }
-      <button type="button" class="btn btn-secondary" [disabled]="loading || busy || !filteredRows.length" (click)="nextObservation()">Next finding</button>
-      <button type="button" class="btn btn-secondary" [disabled]="!filterAuditId" (click)="exportPdf()">Export PDF</button>
+      @if (selected?.auditId) { <a class="compact-action btn btn-secondary" [routerLink]="['/auditor/audits', selected.auditId, 'workspace']" title="Open assigned audit" aria-label="Open assigned audit" data-action-label="Open assigned audit" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a> }
+      <button type="button" class="standard-action btn btn-secondary" [disabled]="loading || busy || !filteredRows.length" (click)="nextObservation()">Next finding</button>
+      <button type="button" class="compact-action btn btn-secondary" [disabled]="!filterAuditId" (click)="exportPdf()" title="Export PDF" aria-label="Export PDF" data-action-label="Export PDF" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
     </div>
   </header>
 
-  @if (loadError) { <div role="alert" class="card">{{ loadError }} <button type="button" (click)="loadObservations()">Retry</button></div> }
+  @if (loadError) { <div role="alert" class="card">{{ loadError }} <button type="button" (click)="loadObservations()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div> }
   <section class="summary-grid">
     <article class="summary-card summary-card--warn">
       <span class="label">Open</span>
       <strong>{{ openCount }}</strong>
-      <span class="sub">Needs action</span><button type="button" class="btn btn-ghost" (click)="chooseStatus('NEEDS_ACTION')">Review findings</button>
+      <span class="sub">Needs action</span><button type="button" class="compact-action btn btn-ghost" (click)="chooseStatus('NEEDS_ACTION')" title="Review findings" aria-label="Review findings" data-action-label="Review findings" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
     </article>
     <article class="summary-card summary-card--info">
       <span class="label">Verification Pending</span>
       <strong>{{ verificationPendingCount }}</strong>
-      <span class="sub">Resolved, not closed</span><button type="button" class="btn btn-ghost" (click)="chooseStatus('RESOLVED')">Verify corrections</button>
+      <span class="sub">Resolved, not closed</span><button type="button" class="compact-action btn btn-ghost" (click)="chooseStatus('RESOLVED')" title="Verify corrections" aria-label="Verify corrections" data-action-label="Verify corrections" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
     </article>
     <article class="summary-card summary-card--good">
       <span class="label">Closed</span>
       <strong>{{ closedCount }}</strong>
-      <span class="sub">Verified</span><button type="button" class="btn btn-ghost" (click)="chooseStatus('CLOSED')">View closed</button>
+      <span class="sub">Verified</span><button type="button" class="compact-action btn btn-ghost" (click)="chooseStatus('CLOSED')" title="View closed" aria-label="View closed" data-action-label="View closed" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
     </article>
   </section>
 
@@ -67,7 +67,7 @@
         <input class="workspace-search" autocomplete="off" id="ao-filter-search" type="search" name="filterSearch" [(ngModel)]="filterSearch" (ngModelChange)="applyFilters()" placeholder="Clause / recommendation / text" />
       </label>
 
-      <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
+      <button type="button" class="compact-action btn btn-ghost" (click)="clearFilters()" title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
     </div>
   </section>
 
@@ -158,13 +158,11 @@
         <div class="action-row">
           <button
             type="button"
-            class="btn btn-ghost"
+            class="compact-action btn btn-ghost"
             [disabled]="busy || !canAcknowledge"
             [title]="canAcknowledge ? '' : actionGuardrails[0].detail"
             (click)="markAcknowledged()"
-          >
-            Acknowledge
-          </button>
+           title="Acknowledge" aria-label="Acknowledge" data-action-label="Acknowledge" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
           <button
             type="button"
             class="btn btn-secondary"
@@ -176,22 +174,18 @@
           </button>
           <button
             type="button"
-            class="btn btn-primary"
+            class="compact-action btn btn-primary"
             [disabled]="busy || !canVerifyClosure"
             [title]="canVerifyClosure ? '' : actionGuardrails[2].detail"
             (click)="verifyClosure()"
-          >
-            Verify &amp; Close
-          </button>
+           title="Verify &amp; Close" aria-label="Verify &amp; Close" data-action-label="Verify &amp; Close" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
           <button
             type="button"
-            class="btn btn-danger"
+            class="compact-action btn btn-danger"
             [disabled]="busy || !canReopen"
             [title]="canReopen ? '' : actionGuardrails[3].detail"
             (click)="reopenSelected()"
-          >
-            Reopen
-          </button>
+           title="Reopen" aria-label="Reopen" data-action-label="Reopen" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
         </div>
 
         <div class="guardrail-card">
@@ -229,7 +223,7 @@
         </label>
 
         <div class="action-row">
-          <button type="button" class="btn btn-primary" [disabled]="busy || loading || selected?.status === 'CLOSED'" (click)="saveCapaDetails()">Save CAPA Details</button>
+          <button type="button" class="standard-action btn btn-primary" [disabled]="busy || loading || selected?.status === 'CLOSED'" (click)="saveCapaDetails()">Save CAPA Details</button>
         </div>
 
         <div class="obs-preview">

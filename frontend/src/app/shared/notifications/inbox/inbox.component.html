@@ -104,7 +104,7 @@
               placeholder="Type your reply..."
             ></textarea>
             <div class="flex gap-2">
-              <ui-button variant="primary" (clicked)="sendReply()" [disabled]="sending" [loading]="sending">Send Reply</ui-button>
+              <ui-button variant="primary" (clicked)="sendReply()" [disabled]="sending" [loading]="sending" icon="send" [iconOnly]="true" label="Send Reply">Send Reply</ui-button>
               <ui-button variant="secondary" (clicked)="closeThread()" [disabled]="closing" [loading]="closing">Close</ui-button>
             </div>
           </div>
@@ -113,7 +113,7 @@
           @if (thread.status === 'CLOSED') {
 <div class="border-t border-gray-200 pt-4">
             <p class="text-gray-500 italic mb-3">This thread is closed.</p>
-            <ui-button variant="secondary" (clicked)="reopenThread()" [disabled]="reopening" [loading]="reopening">Reopen</ui-button>
+            <ui-button variant="secondary" (clicked)="reopenThread()" [disabled]="reopening" [loading]="reopening" icon="undo" [iconOnly]="true" label="Reopen">Reopen</ui-button>
           </div>
 }
         </div>

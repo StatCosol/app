@@ -37,13 +37,13 @@ import {
       <ui-page-header
         title="My Pipeline"
         subtitle="Open leads, pipeline value and overdue follow-ups">
-        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()">
+        <ui-button variant="secondary" size="sm" [disabled]="loading()" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Refresh">
           <span class="flex items-center gap-1.5">
             <ui-icon name="refresh" [size]="14" />
             Refresh
           </span>
         </ui-button>
-        <ui-button variant="primary" (clicked)="goTo('/sales/leads/new')">
+        <ui-button variant="primary" (clicked)="goTo('/sales/leads/new')" icon="plus" [iconOnly]="true" label="New Lead">
           <span class="flex items-center gap-2">
             <ui-icon name="plus" [size]="16" />
             New Lead
@@ -61,7 +61,7 @@ import {
         <div class="skeleton-table"></div>
       } @else if (error()) {
         <ui-empty-state title="Unable to Load Pipeline" [description]="error()!">
-          <ui-button slot="action" variant="secondary" (clicked)="reload()">Retry</ui-button>
+          <ui-button slot="action" variant="secondary" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Retry">Retry</ui-button>
         </ui-empty-state>
       } @else {
         <!-- KPI tiles -->
@@ -119,9 +119,7 @@ import {
         <div>
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-lg font-semibold text-gray-900">Overdue Follow-ups</h3>
-            <a routerLink="/sales/followups" class="text-sm text-emerald-600 hover:underline">
-              View all →
-            </a>
+            <a routerLink="/sales/followups" class="compact-action text-sm text-emerald-600 hover:underline" title="View all →" aria-label="View all →" data-action-label="View all →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
           </div>
           <ui-data-table
             [columns]="followupColumns"
@@ -145,7 +143,7 @@ import {
               <span class="text-sm text-gray-700">₹ {{ row.estimatedValue | number: '1.0-0' }}</span>
             </ng-template>
             <ng-template uiTableCell="actions" let-row>
-              <ui-button size="sm" variant="secondary" (clicked)="openLead(row)">Open</ui-button>
+              <ui-button size="sm" variant="secondary" (clicked)="openLead(row)" icon="eye" [iconOnly]="true" label="Open">Open</ui-button>
             </ng-template>
           </ui-data-table>
         </div>
