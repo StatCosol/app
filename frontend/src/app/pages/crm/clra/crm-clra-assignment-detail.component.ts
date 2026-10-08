@@ -4,10 +4,12 @@ import {
   Component,
   Input,
   OnChanges,
+  OnDestroy,
   SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ClraListState } from '../../../shared/utils/clra-list-state';
 import { finalize } from 'rxjs/operators';
 import {
   ClraApiService,
@@ -74,11 +76,17 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
       </div>
 
       <div class="p-5">
+        @if (loadError) {
+          <div role="alert" class="mb-4 rounded-lg bg-amber-50 p-4 text-amber-900">
+            {{ loadError }}
+            <button type="button" class="ml-3 underline" (click)="retryDetail()">Retry</button>
+          </div>
+        }
         @if (loading) {
           <ui-loading-spinner size="sm" />
         }
 
-        @if (!loading && detailTab === 'deployments') {
+        @if (!loading && !loadError && detailTab === 'deployments') {
           <div class="flex justify-between items-center mb-3">
             <span class="text-sm text-gray-600">{{ deployments.length }} deployment(s)</span>
             <ui-button variant="primary" (clicked)="openDeploymentForm()">+ Add Deployment</ui-button>
@@ -117,7 +125,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           }
         }
 
-        @if (!loading && detailTab === 'wage-periods') {
+        @if (!loading && !loadError && detailTab === 'wage-periods') {
           <div class="flex justify-between items-center mb-3">
             <span class="text-sm text-gray-600">{{ wagePeriods.length }} wage period(s)</span>
             <ui-button variant="primary" (clicked)="openWagePeriodForm()">+ Add Wage Period</ui-button>
@@ -160,7 +168,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           }
         }
 
-        @if (!loading && detailTab === 'attendance') {
+        @if (!loading && !loadError && detailTab === 'attendance') {
           @if (!selectedWagePeriodId) {
             <ui-empty-state message="Select a wage period from the Wage Periods tab first." />
           } @else {
@@ -201,7 +209,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           }
         }
 
-        @if (!loading && detailTab === 'wages') {
+        @if (!loading && !loadError && detailTab === 'wages') {
           @if (!selectedWagePeriodId) {
             <ui-empty-state message="Select a wage period from the Wage Periods tab first." />
           } @else {
@@ -242,7 +250,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           }
         }
 
-        @if (!loading && detailTab === 'registers') {
+        @if (!loading && !loadError && detailTab === 'registers') {
           <div class="flex justify-between items-center mb-3">
             <span class="text-sm text-gray-600">{{ registerRuns.length }} register run(s)</span>
             <ui-button variant="primary" (clicked)="openRegisterForm()">+ Record Register Run</ui-button>
@@ -522,7 +530,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
     }
   `,
 })
-export class CrmClraAssignmentDetailComponent implements OnChanges {
+export class CrmClraAssignmentDetailComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) assignment!: ClraAssignment;
   @Input() contractors: ClraContractor[] = [];
   @Input() portalMode = false;
@@ -537,15 +545,23 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
   readonly attendanceStatuses = ['P', 'A', 'H', 'L', 'WO'];
 
   detailTab: DetailTab = 'deployments';
-  loading = false;
+  get loading(): boolean { return this.listStates.some(state => state.loading); }
+  get loadError(): string { return this.listStates.map(state => state.error).filter(Boolean).join(' '); }
   saving = false;
 
-  deployments: ClraDeployment[] = [];
-  wagePeriods: ClraWagePeriod[] = [];
-  attendance: ClraAttendance[] = [];
-  wages: ClraWage[] = [];
-  registerRuns: ClraRegisterRun[] = [];
-  contractorWorkers: ClraWorker[] = [];
+  readonly deploymentsState = new ClraListState<ClraDeployment>(() => this.cdr.markForCheck());
+  get deployments(): ClraDeployment[] { return this.deploymentsState.rows; }
+  readonly wagePeriodsState = new ClraListState<ClraWagePeriod>(() => this.cdr.markForCheck());
+  get wagePeriods(): ClraWagePeriod[] { return this.wagePeriodsState.rows; }
+  readonly attendanceState = new ClraListState<ClraAttendance>(() => this.cdr.markForCheck());
+  get attendance(): ClraAttendance[] { return this.attendanceState.rows; }
+  readonly wagesState = new ClraListState<ClraWage>(() => this.cdr.markForCheck());
+  get wages(): ClraWage[] { return this.wagesState.rows; }
+  readonly registerRunsState = new ClraListState<ClraRegisterRun>(() => this.cdr.markForCheck());
+  get registerRuns(): ClraRegisterRun[] { return this.registerRunsState.rows; }
+  readonly contractorWorkersState = new ClraListState<ClraWorker>(() => this.cdr.markForCheck());
+  get contractorWorkers(): ClraWorker[] { return this.contractorWorkersState.rows; }
+  private get listStates() { return [this.deploymentsState, this.wagePeriodsState, this.attendanceState, this.wagesState, this.registerRunsState, this.contractorWorkersState]; }
   selectedWagePeriodId = '';
 
   showDeploymentForm = false;
@@ -570,6 +586,9 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['assignment'] && this.assignment?.id) {
+      this.listStates.forEach(state => state.reset());
+      this.closeForms();
+      this.detailTab = 'deployments';
       this.selectedWagePeriodId = '';
       this.loadContractorWorkers();
       this.reloadDetail();
@@ -585,8 +604,24 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
   }
 
   selectWagePeriod(row: ClraWagePeriod): void {
+    if (this.saving) return;
+    this.attendanceState.reset();
+    this.wagesState.reset();
+    this.closeForms();
     this.selectedWagePeriodId = row.id;
     this.cdr.markForCheck();
+  }
+
+  ngOnDestroy(): void {
+    this.listStates.forEach(state => state.reset());
+  }
+
+  retryDetail(): void {
+    this.loadContractorWorkers();
+    this.reloadDetail();
+    this.loadRegisterRuns();
+    this.loadAttendance();
+    this.loadWages();
   }
 
   workerLabel(workerId: string): string {
@@ -707,6 +742,7 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
   }
 
   saveRegisterRun(): void {
+    if (this.saving) return;
     if (!this.registerForm.registerCode) {
       this.toast.error('Validation', 'Register code is required.');
       return;
@@ -753,6 +789,7 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
   }
 
   saveDeployment(): void {
+    if (this.saving) return;
     if (!this.deploymentForm.workerId || !this.deploymentForm.deploymentStart) {
       this.toast.error('Validation', 'Worker and start date are required.');
       return;
@@ -776,6 +813,7 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
   }
 
   saveWagePeriod(): void {
+    if (this.saving) return;
     if (!this.wagePeriodForm.periodFrom || !this.wagePeriodForm.periodTo) {
       this.toast.error('Validation', 'Period dates are required.');
       return;
@@ -809,6 +847,11 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
   }
 
   saveAttendance(): void {
+    if (this.saving) return;
+    if (!this.selectedWagePeriodId || this.attendanceForm.wagePeriodId !== this.selectedWagePeriodId) {
+      this.toast.error('Period changed', 'Reopen the form for the selected wage period.');
+      return;
+    }
     if (!this.attendanceForm.workerDeploymentId || !this.attendanceForm.attendanceDate) {
       this.toast.error('Validation', 'Deployment and date are required.');
       return;
@@ -831,6 +874,11 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
   }
 
   saveWage(): void {
+    if (this.saving) return;
+    if (!this.selectedWagePeriodId || this.wageForm.wagePeriodId !== this.selectedWagePeriodId) {
+      this.toast.error('Period changed', 'Reopen the form for the selected wage period.');
+      return;
+    }
     if (!this.wageForm.workerDeploymentId) {
       this.toast.error('Validation', 'Deployment is required.');
       return;
@@ -859,93 +907,35 @@ export class CrmClraAssignmentDetailComponent implements OnChanges {
 
   private loadContractorWorkers(): void {
     if (!this.assignment?.contractorId && !this.portalMode) return;
-    const req = this.portalMode
-      ? this.clra.listMyWorkers()
-      : this.clra.listWorkers(this.assignment.contractorId);
-    req.subscribe({
-      next: (rows) => {
-        this.contractorWorkers = rows || [];
-        this.cdr.markForCheck();
-      },
-    });
+    this.contractorWorkersState.load(this.portalMode
+      ? this.clra.listMyWorkers() : this.clra.listWorkers(this.assignment.contractorId), 'workers');
   }
 
   private loadDeployments(): void {
-    this.loading = true;
-    this.cdr.markForCheck();
-    const req = this.portalMode
-      ? this.clra.listMyDeployments(this.assignment.id)
-      : this.clra.listDeployments(this.assignment.id);
-    req
-      .pipe(finalize(() => { this.loading = false; this.cdr.markForCheck(); }))
-      .subscribe({
-        next: (rows) => {
-          this.deployments = rows || [];
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.deployments = [];
-          this.cdr.markForCheck();
-        },
-      });
+    this.deploymentsState.load(this.portalMode
+      ? this.clra.listMyDeployments(this.assignment.id) : this.clra.listDeployments(this.assignment.id), 'deployments');
   }
 
   private loadWagePeriods(): void {
-    const req = this.portalMode
-      ? this.clra.listMyWagePeriods(this.assignment.id)
-      : this.clra.listWagePeriods(this.assignment.id);
-    req.subscribe({
-      next: (rows) => {
-        this.wagePeriods = rows || [];
-        this.cdr.markForCheck();
-      },
-    });
+    this.wagePeriodsState.load(this.portalMode
+      ? this.clra.listMyWagePeriods(this.assignment.id) : this.clra.listWagePeriods(this.assignment.id), 'wage periods');
   }
 
   private loadAttendance(): void {
     if (!this.selectedWagePeriodId) return;
-    this.loading = true;
-    this.cdr.markForCheck();
-    const req = this.portalMode
-      ? this.clra.listMyAttendance(this.selectedWagePeriodId)
-      : this.clra.listAttendance(this.selectedWagePeriodId);
-    req
-      .pipe(finalize(() => { this.loading = false; this.cdr.markForCheck(); }))
-      .subscribe({
-        next: (rows) => {
-          this.attendance = rows || [];
-          this.cdr.markForCheck();
-        },
-      });
+    this.attendanceState.load(this.portalMode
+      ? this.clra.listMyAttendance(this.selectedWagePeriodId) : this.clra.listAttendance(this.selectedWagePeriodId), 'attendance');
   }
 
   private loadWages(): void {
     if (!this.selectedWagePeriodId) return;
-    this.loading = true;
-    this.cdr.markForCheck();
-    const req = this.portalMode
-      ? this.clra.listMyWages(this.selectedWagePeriodId)
-      : this.clra.listWages(this.selectedWagePeriodId);
-    req
-      .pipe(finalize(() => { this.loading = false; this.cdr.markForCheck(); }))
-      .subscribe({
-        next: (rows) => {
-          this.wages = rows || [];
-          this.cdr.markForCheck();
-        },
-      });
+    this.wagesState.load(this.portalMode
+      ? this.clra.listMyWages(this.selectedWagePeriodId) : this.clra.listWages(this.selectedWagePeriodId), 'wages');
   }
 
   private loadRegisterRuns(): void {
-    const req = this.portalMode
-      ? this.clra.listMyRegisterRuns(this.assignment.id)
-      : this.clra.listRegisterRuns(this.assignment.id);
-    req.subscribe({
-      next: (rows) => {
-        this.registerRuns = rows || [];
-        this.cdr.markForCheck();
-      },
-    });
+    this.registerRunsState.load(this.portalMode
+      ? this.clra.listMyRegisterRuns(this.assignment.id) : this.clra.listRegisterRuns(this.assignment.id), 'registers');
   }
 
   private emptyDeploymentForm(): CreateDeploymentPayload & { id?: string } {

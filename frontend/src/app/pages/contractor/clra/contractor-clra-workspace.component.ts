@@ -3,9 +3,12 @@ import {
   ChangeDetectorRef,
   Component,
   OnInit,
+  OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
+import { ClraListState } from '../../../shared/utils/clra-list-state';
 import { finalize } from 'rxjs/operators';
 import {
   ClraApiService,
@@ -55,6 +58,7 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
       } @else if (linkError) {
         <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
           {{ linkError }}
+          <button type="button" class="ml-3 underline" (click)="reload()">Retry</button>
         </div>
       } @else {
         <div class="flex gap-2 mt-4">
@@ -68,7 +72,14 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
             (click)="setTab('workers')">Workers</button>
         </div>
 
-        @if (tab === 'assignments') {
+        @if (tab === 'assignments' && assignmentsState.loading) {
+          <ui-loading-spinner />
+        } @else if (tab === 'assignments' && assignmentsState.error) {
+          <div role="alert" class="mt-4 rounded-lg bg-amber-50 p-4 text-amber-900">
+            {{ assignmentsState.error }}
+            <button type="button" class="ml-3 underline" (click)="loadAssignments()">Retry</button>
+          </div>
+        } @else if (tab === 'assignments') {
           <div class="mt-6">
             <ui-data-table [columns]="assignmentCols" [data]="assignments" emptyMessage="No CLRA assignments linked to your account.">
               <ng-template uiTableCell="pe" let-row>{{ row.peEstablishment?.peName || 'Establishment name unavailable' }}</ng-template>
@@ -84,7 +95,14 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
           </div>
         }
 
-        @if (tab === 'workers') {
+        @if (tab === 'workers' && workersState.loading) {
+          <ui-loading-spinner />
+        } @else if (tab === 'workers' && workersState.error) {
+          <div role="alert" class="mt-4 rounded-lg bg-amber-50 p-4 text-amber-900">
+            {{ workersState.error }}
+            <button type="button" class="ml-3 underline" (click)="loadWorkers()">Retry</button>
+          </div>
+        } @else if (tab === 'workers') {
           <div class="mt-6">
             <div class="flex justify-between items-center mb-3">
               <span class="text-sm text-gray-600">{{ workers.length }} worker(s)</span>
@@ -143,7 +161,7 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
     }
   `,
 })
-export class ContractorClraWorkspaceComponent implements OnInit {
+export class ContractorClraWorkspaceComponent implements OnInit, OnDestroy {
   readonly workerCategories = WORKER_CATEGORIES;
   readonly assignmentCols: TableColumn[] = [
     { key: 'assignmentCode', header: 'Code' },
@@ -165,8 +183,11 @@ export class ContractorClraWorkspaceComponent implements OnInit {
   linkError = '';
   tab: Tab = 'assignments';
   contractor: ClraContractor | null = null;
-  assignments: ClraAssignment[] = [];
-  workers: ClraWorker[] = [];
+  readonly assignmentsState = new ClraListState<ClraAssignment>(() => this.cdr.markForCheck());
+  readonly workersState = new ClraListState<ClraWorker>(() => this.cdr.markForCheck());
+  get assignments(): ClraAssignment[] { return this.assignmentsState.rows; }
+  get workers(): ClraWorker[] { return this.workersState.rows; }
+  private profileRequest?: Subscription;
   selectedAssignment: ClraAssignment | null = null;
   showWorkerForm = false;
   workerForm: CreateWorkerPayload & { id?: string } = { contractorId: '', workerCode: '', fullName: '' };
@@ -221,6 +242,7 @@ export class ContractorClraWorkspaceComponent implements OnInit {
   }
 
   saveWorker(): void {
+    if (this.saving) return;
     if (!this.workerForm.workerCode || !this.workerForm.fullName) {
       this.toast.error('Validation', 'Worker code and name are required.');
       return;
@@ -241,11 +263,22 @@ export class ContractorClraWorkspaceComponent implements OnInit {
     });
   }
 
-  private reload(): void {
+  ngOnDestroy(): void {
+    this.profileRequest?.unsubscribe();
+    this.assignmentsState.reset();
+    this.workersState.reset();
+  }
+
+  reload(): void {
+    this.profileRequest?.unsubscribe();
+    this.assignmentsState.reset();
+    this.workersState.reset();
+    this.contractor = null;
+    this.selectedAssignment = null;
     this.loading = true;
     this.linkError = '';
     this.cdr.markForCheck();
-    this.clra.getMyContractor().pipe(finalize(() => {
+    this.profileRequest = this.clra.getMyContractor().pipe(finalize(() => {
       this.loading = false;
       this.cdr.markForCheck();
     })).subscribe({
@@ -255,27 +288,21 @@ export class ContractorClraWorkspaceComponent implements OnInit {
         this.loadWorkers();
       },
       error: (err) => {
-        this.linkError = err?.error?.message || 'Your account is not linked to a CLRA contractor profile. Ask your CRM team to link your portal user.';
+        this.linkError = err?.status === 404 && typeof err?.error?.message === 'string'
+          && err.error.message.includes('not linked')
+          ? 'Your account is not linked to a CLRA contractor profile. Ask your CRM team to link your portal user.'
+          : 'Could not load your CLRA profile. Please retry.';
         this.cdr.markForCheck();
       },
     });
   }
 
-  private loadAssignments(): void {
-    this.clra.listMyAssignments().subscribe({
-      next: (rows) => {
-        this.assignments = rows || [];
-        this.cdr.markForCheck();
-      },
-    });
+  loadAssignments(): void {
+    this.selectedAssignment = null;
+    this.assignmentsState.load(this.clra.listMyAssignments(), 'assignments');
   }
 
-  private loadWorkers(): void {
-    this.clra.listMyWorkers().subscribe({
-      next: (rows) => {
-        this.workers = rows || [];
-        this.cdr.markForCheck();
-      },
-    });
+  loadWorkers(): void {
+    this.workersState.load(this.clra.listMyWorkers(), 'workers');
   }
 }
