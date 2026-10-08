@@ -1,3 +1,4 @@
+import { failureDetail } from '../../../shared/utils/face-failure-display';
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
@@ -500,6 +501,7 @@ export class ClientMobileAttendanceService {
             'Employee Name',
             'Contractor',
             'Reason',
+            'Failure explanation',
             'Match Score',
             'Branch',
             'Device',
@@ -511,6 +513,7 @@ export class ClientMobileAttendanceService {
             r.employeeName ?? r.contractorEmployeeName ?? '',
             r.contractorName ?? '',
             r.reason,
+            failureDetail(r),
             r.matchScore ?? '',
             r.branchName || 'Branch name unavailable',
             r.deviceLabel || (r.deviceId ? 'Device name unavailable' : ''),

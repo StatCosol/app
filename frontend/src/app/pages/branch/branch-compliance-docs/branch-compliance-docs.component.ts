@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +10,7 @@ import { DataTableComponent, PageHeaderComponent, TableCellDirective, TableColum
 @Component({
   selector: 'app-branch-compliance-docs',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, TableCellDirective, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, DataTableComponent, TableCellDirective, PageHeaderComponent],
   templateUrl: './branch-compliance-docs.component.html',
 })
 export class BranchComplianceDocsComponent implements OnInit {

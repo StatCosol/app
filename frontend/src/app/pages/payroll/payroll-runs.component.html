@@ -38,7 +38,7 @@
           }
         </select>
       </div>
-      <ui-button variant="primary" size="sm" (clicked)="createRun()" [disabled]="creatingRun">
+      <ui-button variant="primary" size="sm" (clicked)="createRun()" [disabled]="creatingRun" icon="plus" [iconOnly]="true" label="+ New Run">
         {{ creatingRun ? 'Creating...' : '+ New Run' }}
       </ui-button>
     </div>
@@ -89,8 +89,8 @@
       </div>
     </div>
     <div class="filter-actions">
-      <ui-button variant="primary" size="sm" (clicked)="applyFilters()">Apply</ui-button>
-      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()">Reset</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="applyFilters()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
+      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
     </div>
   </section>
 
@@ -153,7 +153,7 @@
                   </td>
                   <td>{{ run.employeeCount || 0 }}</td>
                   <td>
-                    <ui-button variant="ghost" size="sm" (clicked)="selectRun(run)">View</ui-button>
+                    <ui-button variant="ghost" size="sm" (clicked)="selectRun(run)" icon="eye" [iconOnly]="true" label="View">View</ui-button>
                     <ui-button
                       variant="danger"
                       size="sm"
@@ -162,7 +162,7 @@
                       [title]="
                         canDeleteRun(run) ? 'Delete payroll run' : 'Approved runs are locked'
                       "
-                    >
+                     icon="trash" [iconOnly]="true" label="Delete">
                       Delete
                     </ui-button>
                   </td>
@@ -235,12 +235,11 @@
                 size="sm"
                 (clicked)="uploadRunImport()"
                 [disabled]="actionButtonDisabled(run, 'IMPORT')"
-              >
+               icon="upload" [iconOnly]="true" label="Upload Attendance">
                 {{ importBusy ? 'Uploading...' : 'Upload Attendance' }}
               </ui-button>
               <ui-button variant="ghost" size="sm" (clicked)="downloadAttendanceTemplate()"
-                >Download Template</ui-button
-              >
+                 icon="download" [iconOnly]="true" label="Download Template">Download Template</ui-button>
             </div>
             @if (!actionAllowed(run, 'IMPORT')) {
               <div class="guard-note">{{ actionGuardReason(run, 'IMPORT') }}</div>
@@ -321,7 +320,7 @@
                         ' mismatch(es) using ' +
                         bulkLeaveSource
                   "
-                >
+                 icon="check-circle" [iconOnly]="true" label="Resolve All (">
                   {{
                     bulkResolvingLeave
                       ? 'Resolving ' +
@@ -410,7 +409,7 @@
                               size="sm"
                               (clicked)="resolveLeaveValidationRow(row.empCode)"
                               [disabled]="!!row.resolving"
-                            >
+                             icon="check-circle" [iconOnly]="true" label="Resolve">
                               {{ row.resolving ? 'Resolving...' : 'Resolve' }}
                             </ui-button>
                           }
@@ -493,7 +492,7 @@
                         pendingOtCount +
                         ' mismatch(es)'
                   "
-                >
+                 icon="check-circle" [iconOnly]="true" label="Resolve All (">
                   {{
                     bulkResolvingOt
                       ? 'Resolving ' +
@@ -566,7 +565,7 @@
                               size="sm"
                               (clicked)="resolveOtValidationRow(row.empCode)"
                               [disabled]="!!row.resolving"
-                            >
+                             icon="check-circle" [iconOnly]="true" label="Resolve">
                               {{ row.resolving ? 'Resolving...' : 'Resolve' }}
                             </ui-button>
                           }
@@ -612,7 +611,7 @@
                 (clicked)="submitRun(run)"
                 [disabled]="actionButtonDisabled(run, 'SUBMIT')"
                 [title]="actionGuardReason(run, 'SUBMIT') || 'Submit for approval'"
-              >
+               icon="send" [iconOnly]="true" label="Submit">
                 Submit
               </ui-button>
               <ui-button
@@ -622,7 +621,7 @@
                 (clicked)="approveRun(run)"
                 [disabled]="actionButtonDisabled(run, 'APPROVE')"
                 [title]="actionGuardReason(run, 'APPROVE') || 'Approve run'"
-              >
+               icon="check-circle" [iconOnly]="true" label="Approve">
                 Approve
               </ui-button>
               <ui-button
@@ -631,7 +630,7 @@
                 (clicked)="publishRun(run)"
                 [disabled]="actionButtonDisabled(run, 'PUBLISH')"
                 [title]="actionGuardReason(run, 'PUBLISH') || 'Download approved payslips'"
-              >
+               icon="download" [iconOnly]="true" label="Download Payslips">
                 Download Payslips
               </ui-button>
               <ui-button
@@ -640,7 +639,7 @@
                 (clicked)="rejectRun(run)"
                 [disabled]="actionButtonDisabled(run, 'REJECT')"
                 [title]="actionGuardReason(run, 'REJECT') || 'Reject run'"
-              >
+               icon="x-circle" [iconOnly]="true" label="Reject">
                 Reject
               </ui-button>
               <ui-button
@@ -673,7 +672,7 @@
                   actionBusy || importBusy || loadingRuns || loadingRunDetail || !canDeleteRun(run)
                 "
                 [title]="canDeleteRun(run) ? 'Delete this run' : 'Approved runs are locked'"
-              >
+               icon="trash" [iconOnly]="true" label="Delete Draft">
                 Delete Draft
               </ui-button>
             </div>
@@ -799,21 +798,19 @@
               <div class="actions-title">Payroll Preview Employees</div>
               <div class="emp-preview-actions">
                 <button
-                  class="btn-outline-sm"
+                  class="compact-action btn-outline-sm"
                   type="button"
                   (click)="downloadPayheetCsv()"
                   [disabled]="!runEmployees.length"
-                  title="Download the paysheet as CSV"
-                >
-                  ⬇ Download CSV
-                </button>
+
+                 title="Download CSV" aria-label="Download CSV" data-action-label="Download CSV" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
                 <button
-                  class="btn-primary-sm"
+                  class="compact-action btn-primary-sm"
                   (click)="toggleAddEmployeePanel()"
                   [disabled]="addEmpBusy"
-                >
+                 title="+ Add Employee" aria-label="+ Add Employee" data-action-label="+ Add Employee" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
                   {{ showAddEmployeePanel ? '✕ Close' : '+ Add Employee' }}
-                </button>
+                </span></button>
               </div>
             </div>
 
@@ -828,9 +825,7 @@
                     gross, PF/ESI applicability, etc.) and then come back here to add them to this
                     run.
                   </div>
-                  <button class="btn-register-new" (click)="openNewEmployeeForm()">
-                    + Register New Employee
-                  </button>
+                  <button class="compact-action btn-register-new" (click)="openNewEmployeeForm()" title="Register New Employee" aria-label="Register New Employee" data-action-label="Register New Employee" data-action-icon="user-plus"><ui-icon name="user-plus" [size]="20" /></button>
                 </div>
 
                 <div class="add-emp-divider">OR upload a CSV of existing employees</div>
@@ -844,16 +839,16 @@
                   <div class="add-emp-upload-row">
                     <input name="addEmployeeFile" type="file" accept=".csv,.txt" (change)="onAddEmpFileSelected($event)" />
                     <button
-                      class="btn-confirm-add"
+                      class="compact-action btn-confirm-add"
                       (click)="uploadAddEmpFile()"
                       [disabled]="addEmpUploadBusy || !addEmpParsedCodes.length"
-                    >
+                     title="Upload & Add (" aria-label="Upload & Add (" data-action-label="Upload & Add (" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
                       {{
                         addEmpUploadBusy
                           ? 'Adding...'
                           : 'Upload & Add (' + addEmpParsedCodes.length + ')'
                       }}
-                    </button>
+                    </span></button>
                   </div>
                   @if (addEmpParsedCodes.length) {
                     <div class="add-emp-parsed">
@@ -901,16 +896,16 @@
                 @if (addEmpSelected.size) {
                   <div class="add-emp-actions">
                     <button
-                      class="btn-confirm-add"
+                      class="compact-action btn-confirm-add"
                       (click)="confirmAddEmployees()"
                       [disabled]="addEmpBusy"
-                    >
+                     title="Add " aria-label="Add " data-action-label="Add " data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
                       {{
                         addEmpBusy
                           ? 'Adding...'
                           : 'Add ' + addEmpSelected.size + ' Employee(s) to Run'
                       }}
-                    </button>
+                    </span></button>
                   </div>
                 }
               </div>
@@ -1030,13 +1025,11 @@
                         <td>
                           @if (editingEmpCode !== row.empCode) {
                             <button
-                              class="btn-row-edit"
+                              class="compact-action btn-row-edit"
                               (click)="startEditEmployee(row)"
                               [disabled]="editEmpBusy || isPublished(selectedRun)"
-                              title="Edit days / overrides for this employee"
-                            >
-                              Edit
-                            </button>
+
+                             title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                           }
                           <button
                             class="btn-row-check"
@@ -1327,7 +1320,7 @@
                               </div>
 
                               <div class="check-emp-actions">
-                                <button class="btn-cancel-edit" (click)="toggleCheckEmployee(row)">
+                                <button class="standard-action btn-cancel-edit" (click)="toggleCheckEmployee(row)">
                                   Close
                                 </button>
                               </div>
@@ -1426,14 +1419,14 @@
                               </div>
                               <div class="edit-emp-actions">
                                 <button
-                                  class="btn-cancel-edit"
+                                  class="standard-action btn-cancel-edit"
                                   (click)="cancelEditEmployee()"
                                   [disabled]="editEmpBusy"
                                 >
                                   Cancel
                                 </button>
                                 <button
-                                  class="btn-save-edit"
+                                  class="standard-action btn-save-edit"
                                   (click)="saveEmployeeEdit(row)"
                                   [disabled]="editEmpBusy"
                                 >

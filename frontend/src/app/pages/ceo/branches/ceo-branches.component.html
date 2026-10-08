@@ -2,8 +2,8 @@
   <ui-page-header
     title="Branch Overview"
     subtitle="Company-wide branch compliance status and risk assessment">
-    <ui-button variant="secondary" size="sm" (clicked)="exportCsv()">Export CSV</ui-button>
-    <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
+    <ui-button variant="secondary" size="sm" (clicked)="exportCsv()" icon="download" [iconOnly]="true" label="Export CSV">Export CSV</ui-button>
+    <ui-button variant="secondary" size="sm" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
   </ui-page-header>
 
   <!-- KPI Strip -->
@@ -16,7 +16,7 @@
 
   <!-- Filters -->
   <div class="card mb-4">
-    <div class="flex flex-wrap items-end gap-4 p-4">
+    <div class="flex flex-wrap items-end gap-4 p-4 aligned-filter-controls">
       <div>
         <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-month">Month</label>
         <input autocomplete="off" id="cb-month" name="month" type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
@@ -63,7 +63,7 @@
           <option value="LOW">Low</option>
         </select>
       </div>
-      <button type="button" (click)="clearFilters()" class="text-xs text-gray-500 hover:text-gray-700 underline">Clear</button>
+      <button type="button" (click)="clearFilters()" class="compact-action text-xs text-gray-500 hover:text-gray-700 underline" title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
     </div>
   </div>
 

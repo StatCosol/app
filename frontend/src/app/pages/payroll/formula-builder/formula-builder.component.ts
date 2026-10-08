@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 /**
  * No-code Visual Formula Builder.
  *
@@ -40,7 +41,7 @@ export type FormulaNode =
 @Component({
   selector: 'app-formula-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./formula-builder.component.scss'],
   templateUrl: './formula-builder.component.html',

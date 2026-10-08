@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -96,7 +97,7 @@ interface MonthlyChecklist {
 @Component({
   standalone: true,
   selector: 'app-contractor-tasks',
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     RouterModule,
     FormsModule,

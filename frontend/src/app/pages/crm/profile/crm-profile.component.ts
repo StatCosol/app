@@ -42,7 +42,7 @@ import { ChangePasswordComponent } from '../../../shared/components/change-passw
             <label for="crm-profile-phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input type="tel" id="crm-profile-phone" name="phone" autocomplete="tel" class="input w-full" [(ngModel)]="profile.phone" />
           </div>
-          <button class="btn-primary" [disabled]="saving" (click)="saveProfile()">
+          <button class="standard-action btn-primary" [disabled]="saving" (click)="saveProfile()">
             {{ saving ? 'Saving...' : 'Save Changes' }}
           </button>
         </div>

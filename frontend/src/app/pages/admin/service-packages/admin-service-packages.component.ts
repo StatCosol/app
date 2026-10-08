@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -16,13 +17,13 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
 @Component({
   selector: 'app-admin-service-packages',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
   template: `
     <section class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       <ui-page-header
         title="Client Service Packages"
         subtitle="Create package requests for CCO approval">
-        <ui-button variant="secondary" size="sm" [disabled]="loading" (clicked)="load()">
+        <ui-button variant="secondary" size="sm" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">
           {{ loading ? 'Refreshing…' : 'Refresh' }}
         </ui-button>
       </ui-page-header>
@@ -31,7 +32,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
         <ui-loading-spinner text="Loading service packages..."></ui-loading-spinner>
       }
 
-      <div class="rounded-lg border border-slate-200 bg-white p-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div class="rounded-lg border border-slate-200 bg-white p-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4 aligned-filter-controls">
         <label class="block">
           <span class="text-xs font-medium text-slate-600">Client</span>
           <select class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="clientId" [(ngModel)]="form.clientId" (ngModelChange)="onClientSelected($event)">
@@ -54,9 +55,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           <input class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" name="note" [(ngModel)]="form.note" placeholder="Reason for change">
         </label>
         <div class="flex items-end">
-          <button class="rounded-md bg-brand-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length" (click)="submit()">
-            Submit for CCO
-          </button>
+          <button class="compact-action rounded-md bg-brand-700 px-4 py-2 text-white disabled:opacity-50" [disabled]="saving || loadingClientStatus || hasPendingRequest || !form.clientId || !form.modules.length" (click)="submit()" title="Submit for CCO" aria-label="Submit for CCO" data-action-label="Submit for CCO" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
         </div>
       </div>
 
@@ -105,11 +104,11 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
           </div>
           <button
             type="button"
-            class="text-sm text-brand-700 disabled:text-slate-400"
+            class="compact-action text-sm text-brand-700 disabled:text-slate-400"
             [disabled]="!form.clientId || loadingClientStatus"
-            (click)="loadSelectedClientStatus(form.clientId)">
+            (click)="loadSelectedClientStatus(form.clientId)" title="Reload current services" aria-label="Reload current services" data-action-label="Reload current services" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
             {{ loadingClientStatus ? 'Loading...' : 'Reload current services' }}
-          </button>
+          </span></button>
         </div>
         <div class="mt-4 border-b border-slate-200 pb-4">
           <h3 class="text-sm font-semibold text-slate-800">Attendance System (Optional)</h3>
@@ -206,10 +205,8 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
             <div class="flex items-center justify-end">
               <button
                 type="button"
-                class="rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
-                (click)="reviseRequest(request)">
-                Revise request
-              </button>
+                class="compact-action rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
+                (click)="reviseRequest(request)" title="Revise request" aria-label="Revise request" data-action-label="Revise request" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
             </div>
           </div>
 }
@@ -225,7 +222,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               Showing {{ filteredRequests.length }} of {{ historyRequests.length }} request{{ historyRequests.length === 1 ? '' : 's' }}
             </p>
           </div>
-          <div class="flex flex-wrap items-center gap-3">
+          <div class="flex flex-wrap items-end gap-3 aligned-filter-controls">
             <label>
               <span class="sr-only">Filter service history by client</span>
               <select
@@ -261,7 +258,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
                 [(ngModel)]="searchTerm"
                 placeholder="Search client, package, service, or note">
             </label>
-            <button class="text-sm text-brand-700" (click)="load()">Refresh</button>
+            <button class="compact-action text-sm text-brand-700" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           </div>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
@@ -312,10 +309,8 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
 <button
                  
                   type="button"
-                  class="rounded-md bg-brand-700 px-3 py-1.5 text-xs font-medium text-white"
-                  (click)="reviseRequest(r)">
-                  Revise
-                </button>
+                  class="compact-action rounded-md bg-brand-700 px-3 py-1.5 text-xs font-medium text-white"
+                  (click)="reviseRequest(r)" title="Revise" aria-label="Revise" data-action-label="Revise" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
 }
               </td>
             </tr>
@@ -337,7 +332,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               Showing {{ filteredAuditLogs.length }} of {{ auditLogs.length }} entr{{ auditLogs.length === 1 ? 'y' : 'ies' }}
             </p>
           </div>
-          <button class="text-sm text-brand-700" (click)="load()">Refresh</button>
+          <button class="compact-action text-sm text-brand-700" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">

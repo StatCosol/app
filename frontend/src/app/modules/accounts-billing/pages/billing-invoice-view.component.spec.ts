@@ -74,9 +74,9 @@ describe('Invoice action availability', () => {
     const { create, api } = await setup({ invoiceStatus: status as string, paymentStatus: paymentStatus as string,
       invoiceType: type as string, amountReceived: received as number, balanceOutstanding: balance as number });
     const f = create(); const c = f.componentInstance;
-    const buttons = Array.from(f.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).map(b => b.textContent?.trim());
+    const buttons = Array.from(f.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).map(b => (b.getAttribute('aria-label') || b.textContent)?.trim());
     expect(buttons.includes('Cancel')).toBe(cancel);
-    expect(buttons.includes('+ Record Payment')).toBe(pay);
+    expect(buttons.includes('Record Payment')).toBe(pay);
     if (!pay) { c.submitPayment(); expect(api.recordPayment).not.toHaveBeenCalled(); }
     if (!cancel) { await c.cancel(); expect(api.cancelInvoice).not.toHaveBeenCalled(); }
   });
@@ -87,7 +87,7 @@ describe('Invoice action availability', () => {
     const f = create(); const c = f.componentInstance;
     c.approve(); c.approve(); f.detectChanges();
     expect(api.approveInvoice).toHaveBeenCalledTimes(1);
-    const approve = Array.from(f.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(b => b.textContent?.trim() === 'Approve')!;
+    const approve = Array.from(f.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(b => (b.getAttribute('aria-label') || b.textContent)?.trim() === 'Approve')!;
     expect(approve.disabled).toBe(true);
     pending.error({ error: { message: 'Invoice was cancelled by another user' } });
     expect(toast.error).toHaveBeenCalledWith('Invoice was cancelled by another user');
@@ -206,7 +206,7 @@ describe('Invoice navigation and loading', () => {
     const { create, api } = await setup(); const f = create(); const c = f.componentInstance;
     api.getInvoice.mockReturnValueOnce(throwError(() => ({ status: 403 })));
     c.loadInvoice('a'); f.detectChanges();
-    expect(c.invoice).toBeNull(); expect(f.nativeElement.textContent).toContain('Retry invoice');
+    expect(c.invoice).toBeNull(); expect(f.nativeElement.querySelector('[aria-label="Retry invoice"]')).not.toBeNull();
     c.loadInvoice('a'); expect(c.invoice?.id).toBe('a'); expect(api.recordPayment).not.toHaveBeenCalled();
   });
 

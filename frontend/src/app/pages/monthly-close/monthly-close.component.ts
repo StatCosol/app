@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +10,7 @@ import { CloseArea, CloseBranch, CloseClient, CloseStage, MonthlyCloseResponse, 
 @Component({
   standalone: true,
   selector: 'app-monthly-close',
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [IconComponent, CommonModule, FormsModule, RouterModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './monthly-close.component.html',
   styleUrl: './monthly-close.component.scss',

@@ -116,10 +116,8 @@
     <button
       type="button"
       (click)="loadTopUnits()"
-      class="px-3 py-1 text-xs font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-    >
-      Refresh
-    </button>
+      class="compact-action px-3 py-1 text-xs font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+     title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
   <div class="overflow-x-auto">
     <table class="min-w-full text-sm">
@@ -233,10 +231,8 @@
             (click)="viewDocument(row)"
             [disabled]="!row.documentFilePath"
             [title]="row.documentFilePath ? 'Open this document' : 'Document unavailable'"
-            class="text-teal-600 hover:text-teal-800 text-xs font-medium hover:underline"
-          >
-            View document
-          </button>
+            class="compact-action text-teal-600 hover:text-teal-800 text-xs font-medium hover:underline"
+           title="View document" aria-label="View document" data-action-label="View document" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </td>
       </tr>
     </tbody>
@@ -272,7 +268,7 @@
       type="button"
       (click)="goPage(page - 1)"
       [disabled]="page <= 1"
-      class="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+      class="standard-action px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       Prev
     </button>
@@ -281,7 +277,7 @@
       type="button"
       (click)="goPage(page + 1)"
       [disabled]="page >= maxPage"
-      class="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+      class="standard-action px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       Next
     </button>

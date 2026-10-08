@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../ui/icon/icon.component';
 import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
 
 import { ThreadDetail } from '../../models/thread.model';
@@ -6,7 +7,7 @@ import { MessageBubbleComponent } from '../message-bubble/message-bubble.compone
 @Component({
   selector: 'app-thread-view',
   standalone: true,
-  imports: [MessageBubbleComponent],
+  imports: [IconComponent, MessageBubbleComponent],
   templateUrl: './thread-view.component.html',
 })
 export class ThreadViewComponent implements AfterViewChecked {

@@ -74,11 +74,11 @@ describe('CRM report holds', () => {
     component.latestReportStatus = { stage: 'FINAL', status: 'SUBMITTED', held: true, holdRemarks: 'Awaiting signed evidence. '+ 'Sample-reference-'.repeat(35) };
     fixture.detectChanges(); await fixture.whenStable();
     const section = fixture.nativeElement.querySelector('[aria-label="Report status"]') as HTMLElement;
-    const findButton = (text: string) => Array.from(section.querySelectorAll('button')).find(b => b.textContent?.trim().endsWith(text));
+    const findButton = (text: string) => Array.from(section.querySelectorAll('button')).find(b => (b.getAttribute('aria-label') || b.textContent)?.trim().endsWith(text));
     expect(section.textContent).toContain('On hold');
     expect(findButton('Approve')?.disabled).toBe(true);
     expect(findButton('Release Hold')?.disabled).toBe(false);
-    expect(findButton('Hold')?.textContent?.trim()).toBe('Release Hold');
+    expect((findButton('Hold')?.getAttribute('aria-label') || findButton('Hold')?.textContent)?.trim()).toBe('Release Hold');
     const notes = section.querySelector('[role="status"] p') as HTMLElement;
     expect(notes.scrollWidth).toBeLessThanOrEqual(notes.clientWidth + 1);
     expect(section.getBoundingClientRect().width).toBeLessThanOrEqual(width);

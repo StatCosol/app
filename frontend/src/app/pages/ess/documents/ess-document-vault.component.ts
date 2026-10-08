@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { downloadBlob } from "../../../shared/utils/download-blob";
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -18,7 +19,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-ess-document-vault',
   standalone: true,
-  imports: [CommonModule, FormsModule, SharedFilePreviewModalComponent, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, SharedFilePreviewModalComponent, PageHeaderComponent],
   template: `
     <div class="space-y-6 max-w-6xl mx-auto">
       <ui-page-header
@@ -73,7 +74,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <label for="dv-search" class="block text-xs text-gray-500 mb-1">Search</label>
             <div class="flex gap-2">
               <input autocomplete="off" id="dv-search" name="searchText" class="workspace-search input-sm flex-1" [(ngModel)]="searchText" (keyup.enter)="loadDocuments()" placeholder="Search by document type, name, file" />
-              <button class="btn-secondary" (click)="loadDocuments()">Apply</button>
+              <button class="compact-action btn-secondary" (click)="loadDocuments()" title="Apply" aria-label="Apply" data-action-label="Apply" data-action-icon="search"><ui-icon name="search" [size]="20" /></button>
             </div>
           </div>
         </div>
@@ -154,9 +155,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
         </div>
         <div class="mt-3 flex items-center gap-3">
-          <button class="btn-primary" [disabled]="!uploadForm.file || uploadingDoc || !uploadForm.docType" (click)="uploadDocument()">
+          <button class="compact-action btn-primary" [disabled]="!uploadForm.file || uploadingDoc || !uploadForm.docType" (click)="uploadDocument()" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
             {{ uploadingDoc ? 'Uploading...' : 'Upload' }}
-          </button>
+          </span></button>
           @if (uploadMsg) {
 <span class="text-sm" [class.text-green-600]="!uploadError" [class.text-red-600]="uploadError">{{ uploadMsg }}</span>
 }
@@ -205,12 +206,12 @@ import { PageHeaderComponent } from '../../../shared/ui';
               <td>{{ d.createdAt | date:'d MMM y' }}</td>
               <td class="text-right">
                 <div class="flex gap-2 justify-end">
-                  <button class="btn-secondary" [disabled]="previewingId === d.id || !!downloadingId" (click)="preview(d)">
+                  <button class="compact-action btn-secondary" [disabled]="previewingId === d.id || !!downloadingId" (click)="preview(d)" title="Preview" aria-label="Preview" data-action-label="Preview" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
                     {{ previewingId === d.id ? 'Opening...' : 'Preview' }}
-                  </button>
-                  <button class="btn-primary" [disabled]="downloadingId === d.id || !!previewingId" (click)="download(d)">
+                  </span></button>
+                  <button class="compact-action btn-primary" [disabled]="downloadingId === d.id || !!previewingId" (click)="download(d)" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
                     {{ downloadingId === d.id ? 'Downloading...' : 'Download' }}
-                  </button>
+                  </span></button>
                 </div>
               </td>
             </tr>

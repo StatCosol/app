@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -33,7 +34,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
 @Component({
   selector: 'app-branch-applicability',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
@@ -52,7 +53,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             variant="secondary"
             [loading]="recomputing"
             (clicked)="recompute()"
-          >Recompute</ui-button>
+           icon="refresh" [iconOnly]="true" label="Recompute">Recompute</ui-button>
           <ui-button
             variant="primary"
             [loading]="saving"
@@ -324,11 +325,9 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
               class="w-full rounded-lg border-gray-300 shadow-sm text-sm"></textarea>
           </div>
           <div class="flex justify-end gap-3">
-            <button (click)="overrideModal = null" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+            <button (click)="overrideModal = null" class="standard-action px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
             <button (click)="addOverride()" [disabled]="!overrideReason || overrideReason.trim().length < 5"
-              class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg disabled:opacity-50">
-              Add Override
-            </button>
+              class="compact-action px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg disabled:opacity-50" title="Add Override" aria-label="Add Override" data-action-label="Add Override" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
           </div>
         </div>
       </ui-modal>

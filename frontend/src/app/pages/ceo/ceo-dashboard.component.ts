@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnInit, signal, computed, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -27,7 +28,7 @@ interface ExecutiveGuardrail {
   selector: 'app-ceo-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [IconComponent,
     CommonModule, PageHeaderComponent, ActionButtonComponent, LoadingSpinnerComponent,
     DataTableComponent, TableCellDirective, StatusBadgeComponent, EmptyStateComponent,
   ],

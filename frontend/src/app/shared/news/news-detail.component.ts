@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe, Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -8,7 +9,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 @Component({
   selector: 'app-news-detail',
   standalone: true,
-  imports: [CommonModule, DatePipe],
+  imports: [IconComponent, CommonModule, DatePipe],
   template: `
     <!-- ============== LOADING STATE ============== -->
     @if (loading) {
@@ -27,7 +28,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       <!-- ── Hero header ── -->
       <div class="hero-banner">
         <div class="hero-inner">
-          <button (click)="goBack()" class="back-btn group">
+          <button (click)="goBack()" class="standard-action back-btn group">
             <svg class="w-5 h-5 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
@@ -64,9 +65,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 }
           @if (selectedItem.imageUrl && isPdf(selectedItem.imageUrl)) {
 <a [href]="selectedItem.imageUrl" target="_blank"
-             class="flex items-center gap-2 px-6 py-4 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors">
-            📄 View attached PDF
-          </a>
+             class="compact-action flex items-center gap-2 px-6 py-4 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors" title="View attached PDF" aria-label="View attached PDF" data-action-label="View attached PDF" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
 }
           <div class="p-6 sm:p-8">
             <div class="flex items-center gap-3 mb-4 flex-wrap">
@@ -96,13 +95,11 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
             </div>
             @if (selectedItem.imageUrl) {
 <button
-             
+
               type="button"
-              class="download-btn"
+              class="compact-action download-btn"
               (click)="downloadAttachment(selectedItem, $event)"
-            >
-              Download attachment
-            </button>
+             title="Download attachment" aria-label="Download attachment" data-action-label="Download attachment" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
           </div>
         </article>
@@ -119,7 +116,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
           <div class="news-grid">
             @for (n of otherItems; track n; let i = $index) {
 <article
-             
+
               class="article-card article-card--grid animate-rise cursor-pointer"
               [style.animation-delay]="(i * 80) + 'ms'"
               (click)="selectItem(n)"
@@ -154,13 +151,11 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
                 </span>
                 @if (n.imageUrl) {
 <button
-                 
+
                   type="button"
-                  class="download-btn download-btn--sm"
+                  class="compact-action download-btn download-btn--sm"
                   (click)="downloadAttachment(n, $event)"
-                >
-                  Download
-                </button>
+                 title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
               </div>
             </article>
@@ -185,9 +180,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 }
             @if (allItems[0].imageUrl && isPdf(allItems[0].imageUrl)) {
 <a [href]="allItems[0].imageUrl" target="_blank"
-               class="flex items-center gap-2 px-5 py-3 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors">
-              📄 View attached PDF
-            </a>
+               class="compact-action flex items-center gap-2 px-5 py-3 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors" title="View attached PDF" aria-label="View attached PDF" data-action-label="View attached PDF" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
 }
           <div class="p-6 sm:p-8">
             <div class="flex items-center gap-3 mb-3 flex-wrap">
@@ -219,13 +212,11 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
             </span>
             @if (allItems[0].imageUrl) {
 <button
-             
+
               type="button"
-              class="download-btn"
+              class="compact-action download-btn"
               (click)="downloadAttachment(allItems[0], $event)"
-            >
-              Download attachment
-            </button>
+             title="Download attachment" aria-label="Download attachment" data-action-label="Download attachment" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
           </div>
         </article>
@@ -235,7 +226,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 <div class="news-grid mt-8">
           @for (n of allItems.slice(1); track n; let i = $index) {
 <article
-           
+
             class="article-card article-card--grid animate-rise cursor-pointer"
             [style.animation-delay]="(i * 80) + 'ms'"
             (click)="selectItem(n)"
@@ -270,13 +261,11 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
               </span>
               @if (n.imageUrl) {
 <button
-               
+
                 type="button"
-                class="download-btn download-btn--sm"
+                class="compact-action download-btn download-btn--sm"
                 (click)="downloadAttachment(n, $event)"
-              >
-                Download
-              </button>
+               title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
             </div>
           </article>

@@ -46,7 +46,7 @@ import {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="Payroll Anomaly Detection" subtitle="AI-powered detection of wage violations, contribution mismatches, and statutory compliance issues">
         <div slot="actions" class="flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="refresh()">Refresh</ui-button>
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="refresh()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
           <ui-button variant="primary" (clicked)="showDetectPanel = true">+ Detect Anomalies</ui-button>
         </div>
       </ui-page-header>
@@ -140,7 +140,7 @@ import {
               </div>
               @if (a.status === 'OPEN') {
 <div class="flex gap-2 shrink-0">
-                <ui-button variant="primary" size="sm" (clicked)="resolve(a, 'RESOLVED')">Resolve</ui-button>
+                <ui-button variant="primary" size="sm" (clicked)="resolve(a, 'RESOLVED')" icon="check-circle" [iconOnly]="true" label="Resolve">Resolve</ui-button>
                 <ui-button variant="ghost" size="sm" (clicked)="resolve(a, 'FALSE_POSITIVE')">False +</ui-button>
               </div>
 }
@@ -184,7 +184,7 @@ import {
           <ng-template uiTableCell="actions" let-row>
             @if (row.status === 'OPEN') {
 <div class="flex gap-1 justify-end">
-              <ui-button variant="ghost" size="sm" (clicked)="resolve(row, 'RESOLVED')">Resolve</ui-button>
+              <ui-button variant="ghost" size="sm" (clicked)="resolve(row, 'RESOLVED')" icon="check-circle" [iconOnly]="true" label="Resolve">Resolve</ui-button>
               <ui-button variant="ghost" size="sm" (clicked)="resolve(row, 'FALSE_POSITIVE')">FP</ui-button>
             </div>
 }

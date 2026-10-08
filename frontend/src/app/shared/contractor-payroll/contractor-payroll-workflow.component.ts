@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, Input, OnChanges, OnDestroy, signal } from '@angular/core';
@@ -7,7 +8,7 @@ import { Subscription } from 'rxjs';
 @Component({
   selector: 'app-contractor-payroll-workflow',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   template: `
     <section class="workflow" aria-label="Contractor payroll approvals">
       <h2>Payroll approval and verification</h2>
@@ -15,7 +16,7 @@ import { Subscription } from 'rxjs';
         Contractor submits → CRM approves → Auditor verifies and locks. Returned payroll must be
         corrected; reopening requires Admin or CCO and a reason.
       </p>
-      <button type="button" (click)="load()" [disabled]="busy()">Refresh approvals</button>
+      <button type="button" (click)="load()" [disabled]="busy()" class="compact-action" title="Refresh approvals" aria-label="Refresh approvals" data-action-label="Refresh approvals" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       @if (error()) {
         <p role="alert">{{ error() }}</p>
       }
@@ -53,13 +54,9 @@ import { Subscription } from 'rxjs';
             }
           }
           @if (item.canDownload) {
-            <button type="button" (click)="download(item)" [disabled]="busy()">
-              Download payroll working pack
-            </button>
+            <button type="button" (click)="download(item)" [disabled]="busy()" class="compact-action" title="Download payroll working pack" aria-label="Download payroll working pack" data-action-label="Download payroll working pack" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           }
-          <button type="button" (click)="showHistory(item)" [disabled]="busy()">
-            Review history
-          </button>
+          <button type="button" (click)="showHistory(item)" [disabled]="busy()" class="compact-action" title="Review history" aria-label="Review history" data-action-label="Review history" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </article>
       } @empty {
         @if (!busy() && !error()) {
@@ -70,9 +67,7 @@ import { Subscription } from 'rxjs';
         }
       }
       @if (hasMore()) {
-        <button type="button" (click)="load(true)" [disabled]="busy()">
-          Load more payroll versions
-        </button>
+        <button type="button" (click)="load(true)" [disabled]="busy()" class="compact-action" title="Load more payroll versions" aria-label="Load more payroll versions" data-action-label="Load more payroll versions" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       }
       @if (history().length) {
         <h3>Review history</h3>

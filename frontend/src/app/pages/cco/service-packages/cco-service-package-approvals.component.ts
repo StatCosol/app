@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -15,13 +16,13 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
 @Component({
   selector: 'app-cco-service-package-approvals',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
   template: `
     <section class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       <ui-page-header
         title="Service Package Approvals"
         subtitle="Review client module changes requested by Admin">
-        <ui-button variant="secondary" size="sm" [disabled]="loading" (clicked)="load()">
+        <ui-button variant="secondary" size="sm" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">
           {{ loading ? 'Refreshing…' : 'Refresh' }}
         </ui-button>
       </ui-page-header>
@@ -30,7 +31,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
         <ui-loading-spinner text="Loading service package approvals..."></ui-loading-spinner>
       }
 
-      <div class="flex flex-wrap gap-3 items-end">
+      <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
         <label>
           <span class="block text-xs font-medium text-slate-600">Client</span>
           <select
@@ -62,7 +63,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
             [(ngModel)]="searchTerm"
             placeholder="Client, package, service, or note">
         </label>
-        <button class="rounded-md border border-slate-300 px-4 py-2 text-sm" (click)="load()">Refresh</button>
+        <button class="compact-action rounded-md border border-slate-300 px-4 py-2 text-sm" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 
       @if (message) {
@@ -80,7 +81,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
                 {{ reviewRow.clientName || 'Client name unavailable' }} - {{ reviewRow.packageCode }}
               </p>
             </div>
-            <button class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
+            <button class="standard-action rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
           </div>
           <label class="mt-3 block">
             <span class="text-xs font-medium text-slate-700">Review note <span class="text-red-600">*</span></span>
@@ -96,16 +97,16 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
             <p class="mt-2 text-sm text-red-700">{{ reviewNoteError }}</p>
           }
           <div class="mt-3 flex justify-end gap-2">
-            <button class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
+            <button class="standard-action rounded-md border border-slate-300 bg-white px-4 py-2 text-sm" type="button" (click)="closeReviewPanel()">Cancel</button>
             <button
-              class="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              class="compact-action rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               [class.bg-amber-700]="reviewAction === 'CHANGES_REQUESTED'"
               [class.bg-red-700]="reviewAction === 'REJECTED'"
               type="button"
               [disabled]="actionId === reviewRow.id"
-              (click)="submitReview(reviewRow, reviewAction)">
+              (click)="submitReview(reviewRow, reviewAction)" title="Reject request" aria-label="Reject request" data-action-label="Reject request" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /><span class="compact-action-label">
               {{ reviewAction === 'REJECTED' ? 'Reject request' : 'Send change request' }}
-            </button>
+            </span></button>
           </div>
         </div>
       }
@@ -180,9 +181,9 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               <td class="px-4 py-3 text-right">
                 @if (r.status === 'PENDING_CCO') {
                   <div class="flex flex-wrap justify-end gap-2">
-                    <button type="button" class="rounded-md bg-green-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="submitReview(r, 'APPROVED')">Approve</button>
-                    <button type="button" class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'CHANGES_REQUESTED')">Request changes</button>
-                    <button type="button" class="rounded-md bg-red-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'REJECTED')">Reject</button>
+                    <button type="button" class="compact-action rounded-md bg-green-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="submitReview(r, 'APPROVED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                    <button type="button" class="compact-action rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'CHANGES_REQUESTED')" title="Request changes" aria-label="Request changes" data-action-label="Request changes" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+                    <button type="button" class="compact-action rounded-md bg-red-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" [disabled]="actionId === r.id" (click)="openReviewPanel(r, 'REJECTED')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
                   </div>
                 } @else {
                   {{ r.reviewedAt ? (r.reviewedAt | date:'dd MMM, HH:mm') : '-' }}
@@ -207,7 +208,7 @@ import { ActionButtonComponent, LoadingSpinnerComponent, PageHeaderComponent } f
               Showing {{ filteredAuditLogs.length }} of {{ auditLogs.length }} entr{{ auditLogs.length === 1 ? 'y' : 'ies' }}
             </p>
           </div>
-          <button class="text-sm text-brand-700" (click)="load()">Refresh</button>
+          <button class="compact-action text-sm text-brand-700" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
         <div class="table-wrap"><table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">

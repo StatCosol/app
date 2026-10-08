@@ -1,4 +1,5 @@
-﻿import {
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
+import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -58,7 +59,7 @@ interface SafetyRequirementRow {
 @Component({
   selector: 'app-branch-safety',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   templateUrl: './branch-safety.component.html',
   styleUrls: ['./branch-safety.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

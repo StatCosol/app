@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -23,7 +24,7 @@ type ActiveTab = 'branches' | 'tasks' | 'returns' | 'contractors' | 'audit';
 @Component({
   standalone: true,
   selector: 'app-client-compliance-status',
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     RouterModule,
     FormsModule,

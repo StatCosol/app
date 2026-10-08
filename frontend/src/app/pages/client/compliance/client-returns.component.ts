@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -31,7 +32,7 @@ type Filing = {
 @Component({
   standalone: true,
   selector: 'app-client-returns',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent],
   templateUrl: './client-returns.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-returns.component.scss'],
 })

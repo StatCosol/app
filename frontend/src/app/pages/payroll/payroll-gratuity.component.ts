@@ -53,7 +53,7 @@ interface GratuityResult {
               Death or disability (waives 5-year minimum)
             </label>
 
-            <ui-button variant="primary" [disabled]="calculating" (clicked)="calculate()">
+            <ui-button variant="primary" [disabled]="calculating" (clicked)="calculate()" icon="refresh" [iconOnly]="true" label="Calculate Gratuity">
               {{ calculating ? 'Calculating...' : 'Calculate Gratuity' }}
             </ui-button>
 

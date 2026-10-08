@@ -1,7 +1,7 @@
 @if (dataUnavailable) {
   <div role="alert" class="m-4 rounded border border-amber-300 bg-amber-50 p-4">
     Dashboard data could not be refreshed. Totals are unavailable until all required data loads.
-    <button type="button" class="underline" (click)="reload()">Retry</button>
+    <button type="button" class="compact-action underline" (click)="reload()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
 }
 @if (!dataUnavailable) {
@@ -21,7 +21,7 @@
   @if (errorMsg) {
 <div class="rounded-lg bg-red-50 border border-red-200 p-4 mb-6">
     <p class="text-sm text-red-800">{{ errorMsg }}</p>
-    <button type="button" class="mt-2 text-sm font-medium text-red-600 hover:text-red-500 underline" (click)="reload()">Try Again</button>
+    <button type="button" class="compact-action mt-2 text-sm font-medium text-red-600 hover:text-red-500 underline" (click)="reload()" title="Try Again" aria-label="Try Again" data-action-label="Try Again" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
 }
 
@@ -41,10 +41,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
       </svg>
     </div>
-    <button type="button" (click)="exportCsv()" class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-      Export
-    </button>
+    <button type="button" (click)="exportCsv()" class="compact-action ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export" aria-label="Export" data-action-label="Export" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
   </div>
   <!-- KPI Grid -->
   <div class="kpi-cards-grid">
@@ -78,7 +75,7 @@
 <div class="card mb-6">
     <div class="flex items-center justify-between mb-4">
       <h3 class="card-title">CRM Team Performance</h3>
-      <ui-button variant="secondary" size="sm" (clicked)="goToCrms()">View All CRMs</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="goToCrms()" icon="eye" [iconOnly]="true" label="View All CRMs">View All CRMs</ui-button>
     </div>
     <ui-data-table
       [columns]="crmColumns"
@@ -120,7 +117,7 @@
       </ui-data-table>
       @if (data.topOverdue.length === 0) {
 <ui-empty-state
-       
+
         title="No overdue items"
         description="All clients are up to date">
       </ui-empty-state>
@@ -141,7 +138,7 @@
       </ui-data-table>
       @if (data.crmsMostOverdue.length === 0) {
 <ui-empty-state
-       
+
         title="No overdue CRMs"
         description="All CRMs are current on tasks">
       </ui-empty-state>
@@ -175,13 +172,13 @@
   <div class="card">
     <h3 class="card-title mb-4">Quick Actions</h3>
     <div class="flex flex-wrap gap-3">
-      <ui-button variant="primary" (clicked)="goToApprovals()">
+      <ui-button variant="primary" (clicked)="goToApprovals()" icon="eye" [iconOnly]="true" label="Review Approvals ({{ data.pendingApprovals }})">
         Review Approvals ({{ data.pendingApprovals }})
       </ui-button>
       <ui-button variant="secondary" (clicked)="goToOverdueList()">
         Escalated Tasks
       </ui-button>
-      <ui-button variant="secondary" (clicked)="goToCrms()">
+      <ui-button variant="secondary" (clicked)="goToCrms()" icon="cog" [iconOnly]="true" label="Manage CRMs">
         Manage CRMs
       </ui-button>
     </div>

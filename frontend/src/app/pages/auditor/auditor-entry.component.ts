@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -6,7 +7,7 @@ import { AuditsService } from '../../core/audits.service';
 
 @Component({
   standalone: true,
-  imports: [FormsModule, RouterModule],
+  imports: [IconComponent, FormsModule, RouterModule],
   templateUrl: './auditor-entry.component.html',
   styleUrls: ['./auditor-audit-workspace.component.scss'],
 })

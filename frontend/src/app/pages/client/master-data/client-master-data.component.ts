@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -19,7 +20,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
 @Component({
   selector: 'app-client-master-data',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
@@ -46,7 +47,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
       <!-- Action Bar -->
       <div class="flex items-center justify-between mb-4">
         <span class="text-sm text-gray-500">{{ items.length }} {{ activeTab }}</span>
-        <ui-button variant="primary" (clicked)="openForm()">+ Add {{ tabLabel }}</ui-button>
+        <ui-button variant="primary" (clicked)="openForm()" icon="plus" [iconOnly]="true" label="Add {{ tabLabel }}">+ Add {{ tabLabel }}</ui-button>
       </div>
 
       @if (loading) {
@@ -55,7 +56,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
 
       @if (!loading && items.length === 0) {
 <ui-empty-state
-       
+
         [title]="'No ' + tabLabel + 's'"
         [description]="'Click + Add ' + tabLabel + ' to create one.'">
       </ui-empty-state>
@@ -86,7 +87,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
                 </span>
               </td>
               <td class="px-4 py-3 text-right">
-                <button class="text-xs text-brand-600 hover:underline" (click)="editItem(item)">Edit</button>
+                <button class="compact-action text-xs text-brand-600 hover:underline" (click)="editItem(item)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -112,7 +113,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
 }
         <div class="flex justify-end gap-3 mt-4">
           <ui-button variant="secondary" (clicked)="showModal = false">Cancel</ui-button>
-          <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()">
+          <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()" icon="plus" [iconOnly]="true" label="Create">
             {{ editingItem ? 'Update' : 'Create' }}
           </ui-button>
         </div>

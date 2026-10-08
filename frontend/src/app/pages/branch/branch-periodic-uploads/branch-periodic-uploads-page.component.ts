@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -46,7 +47,7 @@ interface ReviewerNoteEntry {
 @Component({
   selector: 'app-branch-periodic-uploads-page',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     StatusBadgeComponent,

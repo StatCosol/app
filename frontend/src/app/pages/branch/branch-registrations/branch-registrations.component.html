@@ -4,9 +4,7 @@
       <h1>Branch Registrations Workspace</h1>
       <p>Track licenses, renewal due alerts, and raise apply/amend/renew/closure requests.</p>
     </div>
-    <button type="button" class="btn btn-primary" (click)="openRequestModal('APPLY')">
-      + New Registration Request
-    </button>
+    <button type="button" class="compact-action btn btn-primary" (click)="openRequestModal('APPLY')" title="New Registration Request" aria-label="New Registration Request" data-action-label="New Registration Request" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
   </header>
 
   @if (branchOptions.length > 1) {
@@ -15,7 +13,7 @@
       @for (branch of branchOptions; track branch.id) { <option [value]="branch.id">{{branch.name}}</option> }
     </select>
   }
-  @if (loadError) { <p role="alert">{{loadError}} <button type="button" (click)="loadWorkspace()">Retry</button></p> }
+  @if (loadError) { <p role="alert">{{loadError}} <button type="button" (click)="loadWorkspace()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></p> }
   <section class="summary-grid">
     <article class="summary-card">
       <span class="label">Total</span>
@@ -108,7 +106,7 @@
           placeholder="Type, number, authority"
         />
       </label>
-      <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
+      <button type="button" class="compact-action btn btn-ghost" (click)="clearFilters()" title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
     </div>
   </section>
 
@@ -194,29 +192,25 @@
 }
 
         <div class="action-row">
-          <button type="button" class="btn btn-secondary" (click)="openRequestModal('RENEW')">Request Renewal</button>
-          <button type="button" class="btn btn-secondary" (click)="openRequestModal('AMEND')">Request Amendment</button>
-          <button type="button" class="btn btn-secondary" (click)="openRequestModal('CLOSE')">Request Closure</button>
-          <button type="button" class="btn btn-ghost" (click)="exportSelectedSummary()">Export Summary</button>
+          <button type="button" class="compact-action btn btn-secondary" (click)="openRequestModal('RENEW')" title="Request Renewal" aria-label="Request Renewal" data-action-label="Request Renewal" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+          <button type="button" class="compact-action btn btn-secondary" (click)="openRequestModal('AMEND')" title="Request Amendment" aria-label="Request Amendment" data-action-label="Request Amendment" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+          <button type="button" class="compact-action btn btn-secondary" (click)="openRequestModal('CLOSE')" title="Request Closure" aria-label="Request Closure" data-action-label="Request Closure" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+          <button type="button" class="compact-action btn btn-ghost" (click)="exportSelectedSummary()" title="Export Summary" aria-label="Export Summary" data-action-label="Export Summary" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
         </div>
 
         <div class="file-row">
           <button
             type="button"
-            class="btn btn-ghost"
+            class="compact-action btn btn-ghost"
             [disabled]="!reg.documentUrl"
             (click)="openFile(reg.documentUrl)"
-          >
-            Open Primary Document
-          </button>
+           title="Open Primary Document" aria-label="Open Primary Document" data-action-label="Open Primary Document" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
           <button
             type="button"
-            class="btn btn-ghost"
+            class="compact-action btn btn-ghost"
             [disabled]="!reg.renewalDocumentUrl"
             (click)="openFile(reg.renewalDocumentUrl)"
-          >
-            Open Renewal Document
-          </button>
+           title="Open Renewal Document" aria-label="Open Renewal Document" data-action-label="Open Renewal Document" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </div>
       </article>
 
@@ -459,7 +453,7 @@
 <section class="modal-panel">
   <header>
     <h3>Registration Request Wizard</h3>
-    <button type="button" (click)="closeRequestModal()">X</button>
+    <button type="button" (click)="closeRequestModal()" class="compact-action" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
   </header>
 
   <div class="stepper">
@@ -544,11 +538,11 @@
 }
 
   <footer>
-    <button type="button" class="btn btn-ghost" [disabled]="wizardStep === 1 || requestSaving" (click)="previousStep()">Back</button>
+    <button type="button" class="standard-action btn btn-ghost" [disabled]="wizardStep === 1 || requestSaving" (click)="previousStep()">Back</button>
     @if (wizardStep < 3) {
 <button
       type="button"
-      class="btn btn-secondary"
+      class="standard-action btn btn-secondary"
      
       [disabled]="requestSaving"
       (click)="nextStep()"
@@ -559,13 +553,13 @@
     @if (wizardStep === 3) {
 <button
       type="button"
-      class="btn btn-primary"
+      class="compact-action btn btn-primary"
      
       [disabled]="requestSaving"
       (click)="submitRequest()"
-    >
+     title="Submit Request" aria-label="Submit Request" data-action-label="Submit Request" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
       {{ requestSaving ? 'Submitting...' : 'Submit Request' }}
-    </button>
+    </span></button>
 }
   </footer>
 </section>

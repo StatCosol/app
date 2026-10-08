@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -44,7 +45,7 @@ const ATTENDANCE_STATUSES = [
 @Component({
   selector: 'app-client-daily-attendance',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     PageHeaderComponent,
     ActionButtonComponent,
@@ -56,7 +57,7 @@ const ATTENDANCE_STATUSES = [
       <ui-page-header
         title="Daily Attendance"
         subtitle="View, edit and approve employee attendance. Only approved records are sent to payroll.">
-        <ui-button variant="secondary" [disabled]="loading" (clicked)="load()">Refresh</ui-button>
+        <ui-button variant="secondary" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
       </ui-page-header>
 
       <!-- Filters -->
@@ -84,10 +85,16 @@ const ATTENDANCE_STATUSES = [
               <option value="REJECTED">Rejected</option>
             </select>
           </label>
+          <label>
+            <span>Search Employee</span>
+            <input autocomplete="off" id="da-employee-search" name="employeeSearch"
+              type="search" placeholder="Employee name or code"
+              [(ngModel)]="employeeSearch" (ngModelChange)="applyFilter()" />
+          </label>
           <div class="toolbar-actions">
-            <ui-button size="sm" variant="primary" [disabled]="loading" (clicked)="load()">Load</ui-button>
+            <ui-button size="sm" variant="primary" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Load">Load</ui-button>
             <ui-button size="sm" variant="secondary" [disabled]="loading || downloadingReport || !records.length"
-              [loading]="downloadingReport" (clicked)="downloadReport()">
+              [loading]="downloadingReport" (clicked)="downloadReport()" icon="download" [iconOnly]="true" label="Download Report">
               ⬇ Download Report
             </ui-button>
           </div>
@@ -125,16 +132,16 @@ const ATTENDANCE_STATUSES = [
 <section class="card mb">
           <div class="bulk-bar">
             <span>{{ selectedIds.size }} record(s) selected</span>
-            <ui-button size="sm" variant="primary" [disabled]="actionBusy" [loading]="actionBusy && actionType==='approve'" (clicked)="bulkApprove()">
+            <ui-button size="sm" variant="primary" [disabled]="actionBusy" [loading]="actionBusy && actionType==='approve'" (clicked)="bulkApprove()" icon="check-circle" [iconOnly]="true" label="Approve Selected">
               Approve Selected
             </ui-button>
-            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='reject'" (clicked)="bulkReject()">
+            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='reject'" (clicked)="bulkReject()" icon="x-circle" [iconOnly]="true" label="Reject Selected">
               Reject Selected
             </ui-button>
-            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='delete'" (clicked)="bulkDelete()">
+            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='delete'" (clicked)="bulkDelete()" icon="trash" [iconOnly]="true" label="Delete Selected">
               Delete Selected
             </ui-button>
-            <ui-button size="sm" variant="ghost" [disabled]="actionBusy" (clicked)="clearSelection()">
+            <ui-button size="sm" variant="ghost" [disabled]="actionBusy" (clicked)="clearSelection()" icon="undo" [iconOnly]="true" label="Clear Selection">
               Clear Selection
             </ui-button>
           </div>
@@ -149,10 +156,10 @@ const ATTENDANCE_STATUSES = [
             <ui-button size="sm" variant="secondary" (clicked)="selectAllPending()">
               Select All Pending
             </ui-button>
-            <ui-button size="sm" variant="primary" [disabled]="actionBusy" [loading]="actionBusy && actionType==='approveAll'" (clicked)="approveAllPending()">
+            <ui-button size="sm" variant="primary" [disabled]="actionBusy" [loading]="actionBusy && actionType==='approveAll'" (clicked)="approveAllPending()" icon="check-circle" [iconOnly]="true" label="Approve All Pending">
               Approve All Pending
             </ui-button>
-            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='rejectAll'" (clicked)="rejectAllPending()">
+            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='rejectAll'" (clicked)="rejectAllPending()" icon="x-circle" [iconOnly]="true" label="Reject All Pending">
               Reject All Pending
             </ui-button>
           </div>
@@ -168,7 +175,7 @@ const ATTENDANCE_STATUSES = [
 
           @if (!filteredRecords.length) {
 <ui-empty-state
-           
+
             title="No attendance records"
             description="No employee attendance found for the selected date and filters.">
           </ui-empty-state>
@@ -254,17 +261,17 @@ const ATTENDANCE_STATUSES = [
                     <!-- Even 2-per-row grid so all four buttons are the same size -->
                     <div class="actions-cell">
                       @if (row.approvalStatus !== 'APPROVED') {
-<button type="button" class="act-btn act-approve"
-                        [disabled]="actionBusy" (click)="approveSingle(row.id)">Approve</button>
+<button type="button" class="compact-action act-btn act-approve"
+                        [disabled]="actionBusy" (click)="approveSingle(row.id)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
                       @if (row.approvalStatus !== 'REJECTED') {
-<button type="button" class="act-btn act-reject"
-                        [disabled]="actionBusy" (click)="rejectSingle(row.id)">Reject</button>
+<button type="button" class="compact-action act-btn act-reject"
+                        [disabled]="actionBusy" (click)="rejectSingle(row.id)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
-                      <button type="button" class="act-btn act-edit"
-                        title="Edit record" (click)="openEdit(row)">Edit</button>
-                      <button type="button" class="act-btn act-delete"
-                        title="Delete record" [disabled]="actionBusy" (click)="deleteSingle(row.id)">Delete</button>
+                      <button type="button" class="compact-action act-btn act-edit"
+                        (click)="openEdit(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
+                      <button type="button" class="compact-action act-btn act-delete"
+                        [disabled]="actionBusy" (click)="deleteSingle(row.id)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                     </div>
                   </td>
                 </tr>
@@ -325,7 +332,7 @@ const ATTENDANCE_STATUSES = [
           </div>
         </div>
 }
-      
+
 }
     </div>
   `,
@@ -334,8 +341,9 @@ const ATTENDANCE_STATUSES = [
       .page { max-width: 1400px; margin: 0 auto; padding: 1rem; }
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1rem; box-shadow: 0 6px 20px rgba(15, 23, 42, .04); }
       .mb { margin-bottom: .85rem; }
-      .toolbar { display: grid; grid-template-columns: 200px 220px 160px auto; gap: .65rem; align-items: end; }
+      .toolbar { display: grid; grid-template-columns: repeat(3, minmax(140px, 1fr)) minmax(180px, 1.2fr) max-content; gap: .65rem; align-items: end; }
       .toolbar-actions { display: flex; align-items: end; gap: .4rem; flex-wrap: wrap; }
+      @media (max-width: 1100px) { .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .toolbar-actions { grid-column: 1 / -1; } }
       /* Pin every control on this row — inputs, selects AND the action button —
          to the SAME explicit height so the Load button can't render taller or
          shorter than the fields. border-box makes the height include padding. */
@@ -394,7 +402,7 @@ const ATTENDANCE_STATUSES = [
       .row-rejected { background: #fef2f2; }
       /* Action column: even 2-column grid so all four buttons are the same
          size and aligned; Approve stays emphasized, the rest are outlined. */
-      .actions-cell { display: grid; grid-template-columns: repeat(2, 1fr); gap: .3rem; width: 9.5rem; }
+      .actions-cell { display: flex; gap: .35rem; width: max-content; }
       .act-btn { width: 100%; text-align: center; font-size: .72rem; font-weight: 600; line-height: 1; border: 1px solid transparent; border-radius: 7px; padding: .4rem .5rem; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
       .act-btn:disabled { opacity: .5; cursor: not-allowed; }
       .act-approve { background: #16a34a; color: #fff; }
@@ -426,6 +434,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   selectedDate = this.todayStr();
   branchId = '';
   statusFilter: StatusFilter = '';
+  employeeSearch = '';
 
   loading = false;
   actionBusy = false;
@@ -549,13 +558,14 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   }
 
   applyFilter(): void {
-    if (!this.statusFilter) {
-      this.filteredRecords = [...this.records];
-    } else {
-      this.filteredRecords = this.records.filter(
-        (r) => r.approvalStatus === this.statusFilter,
-      );
-    }
+    const search = this.employeeSearch.trim().toLowerCase();
+    this.filteredRecords = this.records.filter(
+      (r) =>
+        (!this.statusFilter || r.approvalStatus === this.statusFilter) &&
+        (!search ||
+          (r.employeeName || '').toLowerCase().includes(search) ||
+          (r.employeeCode || '').toLowerCase().includes(search)),
+    );
     this.cdr.markForCheck();
   }
 

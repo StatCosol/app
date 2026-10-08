@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -20,7 +21,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
 @Component({
   selector: 'app-client-holiday-calendar',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -31,14 +32,14 @@ interface BranchOpt { value: string; label: string; state: string | null; }
 
       <!-- Upload + Apply toolbar -->
       <section class="card">
-        <div class="row">
+        <div class="row aligned-filter-controls">
           <div class="field">
             <label>Upload holiday list (Excel)</label>
             <div class="inline">
               <input id="hc-file" type="file" accept=".xlsx,.xls,.csv" (change)="onFile($event)" />
-              <button class="btn" [disabled]="!file || uploading" (click)="upload()">
+              <button class="compact-action btn" [disabled]="!file || uploading" (click)="upload()" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
                 {{ uploading ? 'Uploading…' : 'Upload' }}
-              </button>
+              </span></button>
             </div>
             <span class="hint">Columns: Date &nbsp;|&nbsp; Holiday Name &nbsp;|&nbsp; State Code (optional) &nbsp;|&nbsp; Paid (Y/N, optional)</span>
           </div>
@@ -53,9 +54,9 @@ interface BranchOpt { value: string; label: string; state: string | null; }
                   <option [value]="b.value">{{ b.label }}</option>
                 }
               </select>
-              <button class="btn" [disabled]="applying" (click)="applyMonthNow()">
+              <button class="compact-action btn" [disabled]="applying" (click)="applyMonthNow()" title="Apply to month" aria-label="Apply to month" data-action-label="Apply to month" data-action-icon="search"><ui-icon name="search" [size]="20" /><span class="compact-action-label">
                 {{ applying ? 'Applying…' : 'Apply to month' }}
-              </button>
+              </span></button>
             </div>
             <span class="hint">Marks those days HOLIDAY for employees in scope. Days already worked are left as-is.</span>
           </div>
@@ -75,7 +76,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
               <option value="">All branches</option>
               @for (b of branches; track b.value) { <option [value]="b.value">{{ b.label }}</option> }
             </select>
-            <button class="btn ghost" [disabled]="hwLoading" (click)="loadHolidayWork()">{{ hwLoading ? 'Loading…' : 'Load' }}</button>
+            <button class="compact-action btn ghost" [disabled]="hwLoading" (click)="loadHolidayWork()" title="Load" aria-label="Load" data-action-label="Load" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">{{ hwLoading ? 'Loading…' : 'Load' }}</span></button>
           </div>
         </div>
         @if (!hwLoading && !holidayWork.length) { <div class="muted">No holiday-work found for this month. (Upload &amp; apply holidays first, then mark attendance.)</div> }
@@ -120,7 +121,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
 
       <!-- Add single holiday -->
       <section class="card">
-        <div class="row">
+        <div class="row aligned-filter-controls">
           <div class="field"><label>Date</label><input type="date" [(ngModel)]="form.holidayDate" class="ctrl" /></div>
           <div class="field grow"><label>Holiday name</label><input type="text" [(ngModel)]="form.name" placeholder="e.g. Independence Day" class="ctrl" /></div>
           <div class="field">
@@ -149,7 +150,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
           </div>
           <div class="field">
             <label>&nbsp;</label>
-            <button class="btn" [disabled]="adding" (click)="add()">{{ adding ? 'Adding…' : 'Add holiday' }}</button>
+            <button class="compact-action btn" [disabled]="adding" (click)="add()" title="Add holiday" aria-label="Add holiday" data-action-label="Add holiday" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">{{ adding ? 'Adding…' : 'Add holiday' }}</span></button>
           </div>
         </div>
       </section>
@@ -161,7 +162,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
           <div class="inline">
             <label class="hint">Year</label>
             <input type="number" [(ngModel)]="year" (change)="load()" class="ctrl narrow" />
-            <button class="btn ghost" (click)="load()">Refresh</button>
+            <button class="compact-action btn ghost" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           </div>
         </div>
         @if (loading) { <div class="muted">Loading…</div> }
@@ -180,7 +181,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
                     <td class="strong">{{ h.name }}</td>
                     <td>{{ scopeLabel(h) }}</td>
                     <td>{{ h.isPaid ? 'Paid' : 'Unpaid' }}</td>
-                    <td><button class="link-danger" (click)="remove(h)">Delete</button></td>
+                    <td><button class="compact-action link-danger" (click)="remove(h)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button></td>
                   </tr>
                 }
               </tbody>

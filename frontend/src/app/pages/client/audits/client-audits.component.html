@@ -5,13 +5,8 @@
     icon="clipboard-check">
     <button type="button"
       (click)="loadAudits()"
-      class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-    >
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-      </svg>
-      Refresh
-    </button>
+      class="compact-action inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+     title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </ui-page-header>
 
   <!-- Summary Cards -->
@@ -109,10 +104,7 @@
   <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
     <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
       <span class="text-sm text-gray-500">{{ audits.length }} audit{{ audits.length === 1 ? '' : 's' }}</span>
-      <button type="button" (click)="exportCsv()" class="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        Export
-      </button>
+      <button type="button" (click)="exportCsv()" class="compact-action inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export" aria-label="Export" data-action-label="Export" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
     </div>
     <ui-data-table
       [columns]="columns"
@@ -127,7 +119,7 @@
       </ng-template>
       <ng-template uiTableCell="notes" let-row>
         @if (row.status === 'COMPLETED') {
-<button type="button" (click)="openAuditDetail(row)" class="text-xs text-brand-600 hover:text-brand-800 font-medium underline">View</button>
+<button type="button" (click)="openAuditDetail(row)" class="compact-action text-xs text-brand-600 hover:text-brand-800 font-medium underline" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 }
         @if (row.status !== 'COMPLETED') {
 <span class="text-gray-400">{{ row.notes }}</span>

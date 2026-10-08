@@ -121,8 +121,8 @@
     </div>
 
     <div class="flex items-center gap-3 mt-3">
-      <ui-button variant="primary" size="sm" (clicked)="applyFilters()">Apply Filters</ui-button>
-      <ui-button variant="secondary" size="sm" (clicked)="resetFilters()">Reset</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="applyFilters()" icon="search" [iconOnly]="true" label="Apply Filters">Apply Filters</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="resetFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
     </div>
   </div>
 
@@ -133,8 +133,8 @@
    >
     <span class="text-sm text-brand-800 font-medium">{{ selectedCount }} task(s) selected</span>
     <div class="flex items-center gap-2">
-      <ui-button variant="primary" size="sm" (clicked)="bulkApprove()">Bulk Approve</ui-button>
-      <ui-button variant="danger" size="sm" (clicked)="bulkReject()">Bulk Reject</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="bulkApprove()" icon="check-circle" [iconOnly]="true" label="Bulk Approve">Bulk Approve</ui-button>
+      <ui-button variant="danger" size="sm" (clicked)="bulkReject()" icon="x-circle" [iconOnly]="true" label="Bulk Reject">Bulk Reject</ui-button>
     </div>
   </div>
 }
@@ -160,7 +160,7 @@
     <ng-template uiTableCell="select" let-row>
       @if (canReview(row.status)) {
 <input type="checkbox"
-       
+
         [checked]="selectedIds.has(row.id)"
         (change)="toggleSelect(row.id)"
         class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
@@ -201,8 +201,8 @@
     <ng-template uiTableCell="actions" let-row>
       @if (canReview(row.status)) {
 <div class="flex items-center justify-end gap-2">
-        <ui-button variant="primary" size="sm" (clicked)="approve(row)">Approve</ui-button>
-        <ui-button variant="danger" size="sm" (clicked)="reject(row)">Reject</ui-button>
+        <ui-button variant="primary" size="sm" (clicked)="approve(row)" icon="check-circle" [iconOnly]="true" label="Approve">Approve</ui-button>
+        <ui-button variant="danger" size="sm" (clicked)="reject(row)" icon="x-circle" [iconOnly]="true" label="Reject">Reject</ui-button>
       </div>
 }
       @if (!canReview(row.status)) {

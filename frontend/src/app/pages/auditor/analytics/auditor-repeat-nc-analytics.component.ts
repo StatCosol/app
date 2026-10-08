@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -33,7 +34,7 @@ interface ClientOpt {
 @Component({
   selector: 'app-auditor-repeat-nc-analytics',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     LoadingSpinnerComponent,
@@ -69,10 +70,8 @@ interface ClientOpt {
             type="button"
             (click)="reload()"
             [disabled]="!clientId || loading"
-            class="px-4 py-2 bg-brand-600 text-white text-sm rounded-md disabled:opacity-50"
-          >
-            Refresh
-          </button>
+            class="compact-action px-4 py-2 bg-brand-600 text-white text-sm rounded-md disabled:opacity-50"
+           title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         </div>
         <p class="text-xs text-slate-500 mt-2">
           Recurring findings highlight systemic vendor issues you can flag in your next audit's preliminary publish.
@@ -139,7 +138,7 @@ interface ClientOpt {
             <tbody>
               @for (it of items; track it) {
 <tr
-               
+
                 class="border-b border-slate-100 hover:bg-slate-50"
               >
                 <td class="px-4 py-3 font-medium text-slate-800">

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, takeUntil } from 'rxjs';
@@ -17,7 +18,7 @@ const EDITABLE_STATUSES = new Set([
 @Component({
   selector: 'app-billing-create-invoice',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, RouterModule],
+  imports: [IconComponent, FormsModule, ReactiveFormsModule, RouterModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
@@ -39,10 +40,10 @@ const EDITABLE_STATUSES = new Set([
 }
 
       @if (loadError) {
-        <div role="alert" class="text-red-800 p-3">{{ loadError }} <button type="button" (click)="loadInvoice(invoiceId)">Retry</button></div>
+        <div role="alert" class="text-red-800 p-3">{{ loadError }} <button type="button" (click)="loadInvoice(invoiceId)" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
       }
       @if (clientsError) {
-        <div role="alert" class="text-red-800 p-3">{{ clientsError }} <button type="button" (click)="loadClients()">Retry</button></div>
+        <div role="alert" class="text-red-800 p-3">{{ clientsError }} <button type="button" (click)="loadClients()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
       }
       @if (!loadingInvoice && !lockedStatus && !loadError) {
 <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-6">
@@ -116,9 +117,7 @@ const EDITABLE_STATUSES = new Set([
         <div class="bg-white rounded-xl border p-6 space-y-4">
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold text-slate-700">Line Items</h2>
-            <button type="button" (click)="addItem()" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">
-              + Add Item
-            </button>
+            <button type="button" (click)="addItem()" class="compact-action px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700" title="Add Item" aria-label="Add Item" data-action-label="Add Item" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
           </div>
 
           <div class="overflow-x-auto">
@@ -165,7 +164,7 @@ const EDITABLE_STATUSES = new Set([
                   </td>
                   <td class="px-3 py-2 text-center">
                     @if (itemsArray.length > 1) {
-<button type="button" (click)="removeItem(i)" class="text-red-500 hover:text-red-700">&times;</button>
+<button type="button" (click)="removeItem(i)" class="compact-action text-red-500 hover:text-red-700" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
                   </td>
                 </tr>
@@ -178,9 +177,9 @@ const EDITABLE_STATUSES = new Set([
         <!-- Submit -->
         <div class="flex justify-end gap-3">
           <button type="button" (click)="onCancel()"
-                  class="px-6 py-2.5 border rounded-lg text-sm">Cancel</button>
+                  class="standard-action px-6 py-2.5 border rounded-lg text-sm">Cancel</button>
           <button type="submit" [disabled]="saving || form.invalid"
-                  class="px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50">
+                  class="standard-action px-6 py-2.5 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50">
             {{ saving ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Invoice') }}
           </button>
         </div>

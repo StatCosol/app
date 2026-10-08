@@ -72,7 +72,7 @@ describe('Auditor report builder holds', () => {
     expect(hold.textContent).toContain('Awaiting signed proof');
     expect(hold.scrollWidth).toBeLessThanOrEqual(hold.clientWidth + 1);
     expect(hold.getBoundingClientRect().right).toBeLessThanOrEqual(width);
-    const reopen = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(b => b.textContent?.includes('Reopen'))!;
+    const reopen = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(b => (b.getAttribute('aria-label') || b.textContent)?.includes('Reopen'))!;
     expect(reopen.disabled).toBe(true);
     reopen.click(); expect(api.auditorReopenReport).not.toHaveBeenCalled();
     hold.scrollIntoView({ block: 'center' });

@@ -75,9 +75,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs text-gray-500">{{ total }} records</span>
           <div class="flex gap-2">
-            <button [disabled]="page <= 1" (click)="page = page - 1; load()" class="appraisal-action text-xs">Prev</button>
+            <button [disabled]="page <= 1" (click)="page = page - 1; load()" class="standard-action appraisal-action text-xs">Prev</button>
             <span class="text-xs text-gray-500 self-center">Page {{ page }}</span>
-            <button [disabled]="appraisals.length < pageSize" (click)="page = page + 1; load()" class="appraisal-action text-xs">Next</button>
+            <button [disabled]="appraisals.length < pageSize" (click)="page = page + 1; load()" class="standard-action appraisal-action text-xs">Next</button>
           </div>
         </div>
 

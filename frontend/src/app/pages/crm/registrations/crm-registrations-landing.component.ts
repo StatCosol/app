@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -26,7 +27,7 @@ interface ClientOption {
 @Component({
   selector: 'app-crm-registrations-landing',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -67,12 +68,10 @@ interface ClientOption {
           </select>
           <button
             type="button"
-            class="btn"
+            class="compact-action btn"
             [disabled]="!selectedClientId"
             (click)="open()"
-          >
-            Open Registrations Workspace
-          </button>
+           title="Open Registrations Workspace" aria-label="Open Registrations Workspace" data-action-label="Open Registrations Workspace" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </div>
 
         @if (clients.length) {
@@ -82,7 +81,7 @@ interface ClientOption {
 <button
             type="button"
             class="chip"
-           
+
             (click)="goTo(c.id)"
             [title]="c.name"
           >

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
   Component,
   Input,
@@ -16,7 +17,7 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'app-register-leave-calculator',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: ` <details class="border p-3 my-3">
     <summary class="font-semibold cursor-pointer">
@@ -97,12 +98,10 @@ import { environment } from '../../../environments/environment';
     </div>
     <button
       type="button"
-      class="underline my-3"
+      class="compact-action underline my-3"
       (click)="calculate()"
       [disabled]="busy || !rows.length"
-    >
-      Calculate and validate balances
-    </button>
+     title="Calculate and validate balances" aria-label="Calculate and validate balances" data-action-label="Calculate and validate balances" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     @if (result) {
       <p>
         Statutory earned minimum: {{ result.minimumEarnedFraction }} days. Awarded:

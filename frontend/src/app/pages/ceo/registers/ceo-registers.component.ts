@@ -56,7 +56,7 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
         title="Payroll Registers"
         subtitle="View and download payroll registers across all clients">
         <div slot="actions" class="flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()">
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()" icon="refresh" [iconOnly]="true" label="Refresh">
             Refresh
           </ui-button>
         </div>
@@ -142,7 +142,7 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
         </ng-template>
 
         <ng-template uiTableCell="actions" let-row>
-          <ui-button size="sm" variant="secondary" (clicked)="download(row)">
+          <ui-button size="sm" variant="secondary" (clicked)="download(row)" icon="download" [iconOnly]="true" label="Download">
             Download
           </ui-button>
         </ng-template>

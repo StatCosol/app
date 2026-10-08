@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, Stat
 @Component({
   standalone: true,
   selector: 'app-client-mcd-uploads',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent],
   templateUrl: './client-mcd-uploads.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-mcd-uploads.component.scss'],
 })

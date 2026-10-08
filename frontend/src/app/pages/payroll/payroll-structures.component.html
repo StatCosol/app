@@ -6,17 +6,15 @@
   </ui-page-header>
 
   <div class="head-controls">
-    <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateStructure()">
-      + New Structure
-    </button>
+    <button type="button" class="compact-action btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateStructure()" title="New Structure" aria-label="New Structure" data-action-label="New Structure" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
     <button
       type="button"
-      class="btn btn-secondary"
+      class="compact-action btn btn-secondary"
       [disabled]="!selectedClientId || saving || inactiveStructureCount === 0"
       (click)="cleanupInactiveStructures()"
-    >
+     title="Remove Inactive ({{ inactiveStructureCount }})" aria-label="Remove Inactive ({{ inactiveStructureCount }})" attr.data-action-label="Remove Inactive ({{ inactiveStructureCount }})" data-action-icon="trash"><ui-icon name="trash" [size]="20" /><span class="compact-action-label">
       Remove Inactive ({{ inactiveStructureCount }})
-    </button>
+    </span></button>
   </div>
 
   @if (selectedClientId) {
@@ -136,61 +134,57 @@
                 @if (canSubmit(row)) {
 <button
                   type="button"
-                  class="link"
+                  class="compact-action link"
                  
                   [disabled]="saving"
                   (click)="submitForApproval(row); $event.stopPropagation()"
-                >Submit</button>
+                 title="Submit" aria-label="Submit" data-action-label="Submit" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
 }
                 @if (canApprove(row)) {
 <button
                   type="button"
-                  class="link"
+                  class="compact-action link"
                  
                   [disabled]="saving"
                   (click)="approveStructure(row); $event.stopPropagation()"
-                >Approve</button>
+                 title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
                 @if (canReject(row)) {
 <button
                   type="button"
-                  class="link link-danger"
+                  class="compact-action link link-danger"
                  
                   [disabled]="saving"
                   (click)="rejectStructure(row); $event.stopPropagation()"
-                >Reject</button>
+                 title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
                 @if (canWithdraw(row)) {
 <button
                   type="button"
-                  class="link"
+                  class="compact-action link"
                  
                   [disabled]="saving"
                   (click)="withdrawStructure(row); $event.stopPropagation()"
-                >Withdraw</button>
+                 title="Withdraw" aria-label="Withdraw" data-action-label="Withdraw" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
                 @if (!row.isActive) {
 <button
                   type="button"
-                  class="link"
+                  class="compact-action link"
                  
                   [disabled]="saving || !canActivateStructure(row)"
                   [title]="activateGuardReason(row) || ''"
                   (click)="activateStructure(row); $event.stopPropagation()"
-                >
-                  Activate
-                </button>
+                 title="Activate" aria-label="Activate" data-action-label="Activate" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
-                <button type="button" class="link" (click)="openEditStructure(row); $event.stopPropagation()">Edit</button>
+                <button type="button" class="compact-action link" (click)="openEditStructure(row); $event.stopPropagation()" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                 @if (canDeleteStructure(row)) {
 <button
                   type="button"
-                  class="link link-danger"
+                  class="compact-action link link-danger"
                  
                   (click)="deleteStructure(row); $event.stopPropagation()"
-                >
-                  Delete
-                </button>
+                 title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
               </td>
             </tr>
@@ -244,54 +238,52 @@
         </div>
 
         <div class="action-row">
-          <button class="btn btn-secondary" type="button" (click)="openCreateItem()">+ Add Mapping Item</button>
+          <button class="compact-action btn btn-secondary" type="button" (click)="openCreateItem()" title="Add Mapping Item" aria-label="Add Mapping Item" data-action-label="Add Mapping Item" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
           @if (canSubmit(selected)) {
 <button
-            class="btn btn-secondary"
+            class="compact-action btn btn-secondary"
             type="button"
            
             [disabled]="saving"
             (click)="submitForApproval(selected)"
-          >Submit for Approval</button>
+           title="Submit for Approval" aria-label="Submit for Approval" data-action-label="Submit for Approval" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
 }
           @if (canApprove(selected)) {
 <button
-            class="btn btn-primary"
+            class="compact-action btn btn-primary"
             type="button"
            
             [disabled]="saving"
             (click)="approveStructure(selected)"
-          >Approve</button>
+           title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
           @if (canReject(selected)) {
 <button
-            class="btn btn-secondary"
+            class="compact-action btn btn-secondary"
             type="button"
            
             [disabled]="saving"
             (click)="rejectStructure(selected)"
-          >Reject</button>
+           title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
           @if (canWithdraw(selected)) {
 <button
-            class="btn btn-secondary"
+            class="compact-action btn btn-secondary"
             type="button"
            
             [disabled]="saving"
             (click)="withdrawStructure(selected)"
-          >Withdraw</button>
+           title="Withdraw" aria-label="Withdraw" data-action-label="Withdraw" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
           @if (!selected.isActive) {
 <button
-            class="btn btn-primary"
+            class="compact-action btn btn-primary"
             type="button"
            
             [disabled]="saving || !canActivateStructure(selected, true)"
             [title]="activateGuardReason(selected, true) || ''"
             (click)="activateStructure(selected)"
-          >
-            Activate Version
-          </button>
+           title="Activate Version" aria-label="Activate Version" data-action-label="Activate Version" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
         </div>
 
@@ -339,13 +331,11 @@
             @if (selectedStructure.id !== version.id) {
 <button
               type="button"
-              class="link"
+              class="compact-action link"
              
               [disabled]="compareLoading"
               (click)="loadCompareVersion(version.id)"
-            >
-              Compare
-            </button>
+             title="Compare" aria-label="Compare" data-action-label="Compare" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 }
           </div>
 }
@@ -395,9 +385,7 @@
               <option value="SAME">Unchanged</option>
             </select>
           </label>
-          <button type="button" class="btn btn-ghost" [disabled]="!compareVersionId" (click)="clearCompareVersion()">
-            Clear
-          </button>
+          <button type="button" class="compact-action btn btn-ghost" [disabled]="!compareVersionId" (click)="clearCompareVersion()" title="Clear" aria-label="Clear" data-action-label="Clear" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
         </div>
 } @else {
 
@@ -507,8 +495,8 @@
             <td>{{ item.priority }}</td>
             <td>{{ item.enabled ? 'Yes' : 'No' }}</td>
             <td class="text-right">
-              <button type="button" class="link" (click)="openEditItem(item)">Edit</button>
-              <button type="button" class="link link-danger" (click)="deleteItem(item)">Delete</button>
+              <button type="button" class="compact-action link" (click)="openEditItem(item)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
+              <button type="button" class="compact-action link link-danger" (click)="deleteItem(item)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
             </td>
           </tr>
 }
@@ -572,9 +560,9 @@
         Payable Days (sample)
         <input id="ps-preview-payable-days" name="previewPayableDays" type="number" min="0" max="31" step="0.5" [(ngModel)]="previewForm.payableDays" (ngModelChange)="clearPreview()" />
       </label>
-      <button type="button" class="btn btn-primary" [disabled]="previewLoading || !selectedStructure" (click)="runPreview()">
+      <button type="button" class="compact-action btn btn-primary" [disabled]="previewLoading || !selectedStructure" (click)="runPreview()" title="Run Preview" aria-label="Run Preview" data-action-label="Run Preview" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
         {{ previewLoading ? 'Running...' : 'Run Preview' }}
-      </button>
+      </span></button>
     </div>
 
     <p>Enter sample attendance days to test attendance formulas. These values do not change employee attendance.</p>
@@ -650,7 +638,7 @@
   <div class="modal-card">
     <header>
       <h3>{{ editingStructure ? 'Edit Structure Version' : 'Create Structure Version' }}</h3>
-      <button type="button" class="link" (click)="showStructureModal = false">Close</button>
+      <button type="button" class="standard-action link" (click)="showStructureModal = false">Close</button>
     </header>
 
     <div class="modal-grid">
@@ -743,8 +731,8 @@
     </div>
 
     <footer>
-      <button type="button" class="btn btn-ghost" (click)="showStructureModal = false">Cancel</button>
-      <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveStructure()">
+      <button type="button" class="standard-action btn btn-ghost" (click)="showStructureModal = false">Cancel</button>
+      <button type="button" class="standard-action btn btn-primary" [disabled]="saving" (click)="saveStructure()">
         {{ saving ? 'Saving...' : 'Save Structure' }}
       </button>
     </footer>
@@ -758,7 +746,7 @@
   <div class="modal-card large">
     <header>
       <h3>{{ editingItem ? 'Edit Mapping Item' : 'Add Mapping Item' }}</h3>
-      <button type="button" class="link" (click)="showItemModal = false">Close</button>
+      <button type="button" class="standard-action link" (click)="showItemModal = false">Close</button>
     </header>
 
     <div class="modal-grid">
@@ -900,7 +888,7 @@
               <td class="text-right">
                 <button type="button" class="link" [disabled]="i === 0" (click)="moveSlab(i, -1)" title="Move up">&uarr;</button>
                 <button type="button" class="link" [disabled]="i === itemForm.slabs.length - 1" (click)="moveSlab(i, 1)" title="Move down">&darr;</button>
-                <button type="button" class="link link-danger" (click)="removeSlab(i)" title="Remove row">&times;</button>
+                <button type="button" class="compact-action link link-danger" (click)="removeSlab(i)" title="Remove row" aria-label="Remove row" data-action-label="Remove row" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -912,7 +900,7 @@
           </tbody>
         </table></div>
         <div class="token-row" style="margin-top:6px;">
-          <button type="button" class="btn btn-secondary" (click)="addSlab()">+ Add Slab</button>
+          <button type="button" class="compact-action btn btn-secondary" (click)="addSlab()" title="Add Slab" aria-label="Add Slab" data-action-label="Add Slab" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
         </div>
       </div>
 }
@@ -1012,8 +1000,8 @@
     </div>
 
     <footer>
-      <button type="button" class="btn btn-ghost" (click)="showItemModal = false">Cancel</button>
-      <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveItem()">
+      <button type="button" class="standard-action btn btn-ghost" (click)="showItemModal = false">Cancel</button>
+      <button type="button" class="standard-action btn btn-primary" [disabled]="saving" (click)="saveItem()">
         {{ saving ? 'Saving...' : 'Save Item' }}
       </button>
     </footer>

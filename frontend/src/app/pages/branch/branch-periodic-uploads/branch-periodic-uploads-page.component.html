@@ -179,18 +179,14 @@
             @if (item.document?.uploadedFileName) {
 <button type="button"
              
-              class="btn-outline"
-              (click)="previewFile(item); $event.stopPropagation()">
-              Preview
-            </button>
+              class="compact-action btn-outline"
+              (click)="previewFile(item); $event.stopPropagation()" title="Preview" aria-label="Preview" data-action-label="Preview" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 }
             @if (item.document?.uploadedFileName) {
 <button type="button"
              
-              class="btn-outline"
-              (click)="downloadFile(item); $event.stopPropagation()">
-              Download
-            </button>
+              class="compact-action btn-outline"
+              (click)="downloadFile(item); $event.stopPropagation()" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
           </div>
 }
@@ -372,16 +368,16 @@
 
       <div class="flex justify-end gap-3 pt-2">
         <button type="button"
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          class="standard-action px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
           (click)="closeUploadModal()">
           Cancel
         </button>
         <button type="button"
-          class="btn-primary"
+          class="compact-action btn-primary"
           [disabled]="!selectedFile || uploading"
-          (click)="submitUpload()">
+          (click)="submitUpload()" title="Submit to CRM" aria-label="Submit to CRM" data-action-label="Submit to CRM" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
           {{ uploading ? 'Submitting...' : 'Submit to CRM' }}
-        </button>
+        </span></button>
       </div>
     </div>
 

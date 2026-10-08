@@ -1,7 +1,7 @@
 @if (dataUnavailable) {
   <div role="alert" class="m-4 rounded border border-amber-300 bg-amber-50 p-4">
     Dashboard data could not be refreshed. Totals are unavailable until all required data loads.
-    <button type="button" class="underline" (click)="retry()">Retry</button>
+    <button type="button" class="compact-action underline" (click)="retry()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
 }
 @if (!dataUnavailable) {
@@ -28,9 +28,7 @@
         <ui-icon name="exclamation-triangle" [size]="20" class="text-red-500 flex-shrink-0"></ui-icon>
         <span>{{ errorMsg }}</span>
       </div>
-      <button type="button" (click)="retry()" class="text-red-800 font-semibold hover:underline ml-4">
-        Retry
-      </button>
+      <button type="button" (click)="retry()" class="compact-action text-red-800 font-semibold hover:underline ml-4" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   }
 
@@ -386,9 +384,7 @@
             </div>
           </div>
           <button type="button" (click)="goToTasks('')"
-                  class="text-sm font-medium text-brand-600 hover:text-brand-800 transition-colors flex items-center gap-1">
-            View all <ui-icon name="arrow-right" [size]="14"></ui-icon>
-          </button>
+                  class="compact-action text-sm font-medium text-brand-600 hover:text-brand-800 transition-colors flex items-center gap-1" title="View all" aria-label="View all" data-action-label="View all" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </div>
         @if (upcomingTasks.length) {
           <div class="space-y-2">

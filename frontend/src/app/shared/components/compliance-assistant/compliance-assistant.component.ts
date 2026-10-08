@@ -1,3 +1,4 @@
+import { IconComponent } from '../../ui/icon/icon.component';
 import {
   Component,
   Input,
@@ -67,7 +68,7 @@ interface VoiceRecognition {
 @Component({
   selector: 'app-compliance-assistant',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [IconComponent, RouterLink, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './compliance-assistant.component.html',
   styleUrl: './compliance-assistant.component.scss',

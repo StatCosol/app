@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -43,18 +44,18 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
 @Component({
   selector: 'app-ess-attendance',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="space-y-6 max-w-6xl mx-auto">
       <ui-page-header
         title="Attendance"
         subtitle="Mark your daily attendance and view monthly records">
-        <div class="flex items-end gap-2">
+        <div class="flex items-end gap-2 aligned-filter-controls">
           <div>
             <label for="att-month" class="block text-xs text-gray-500 mb-1">Month</label>
             <input autocomplete="off" type="month" id="att-month" name="selectedMonth" [(ngModel)]="selectedMonth" class="input-sm" />
           </div>
-          <button class="btn-secondary" [disabled]="loading" (click)="load()">{{ loading ? 'Loading...' : 'Refresh' }}</button>
+          <button class="compact-action btn-secondary" [disabled]="loading" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">{{ loading ? 'Loading...' : 'Refresh' }}</span></button>
         </div>
       </ui-page-header>
 
@@ -277,9 +278,9 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
             <span class="coff-val text-green-700">{{ coffBalance.available }} day(s)</span>
             <span class="text-xs text-gray-400">(Accrued: {{ coffBalance.accrued }} | Used: {{ coffBalance.used }} | Lapsed: {{ coffBalance.lapsed }})</span>
           </div>
-          <button class="btn-secondary text-xs" (click)="loadCoffLedger()">
+          <button class="compact-action btn-secondary text-xs" (click)="loadCoffLedger()" title="View Ledger" aria-label="View Ledger" data-action-label="View Ledger" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
             {{ showCoffLedger ? 'Hide Ledger' : 'View Ledger' }}
-          </button>
+          </span></button>
         </div>
 }
 
@@ -333,9 +334,9 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
           ></textarea>
           <div class="flex justify-end gap-2 mt-3">
             <button class="btn-secondary" (click)="showShortReasonModal = false">Later</button>
-            <button class="btn-primary" [disabled]="submittingReason || shortReasonText.trim().length < 5" (click)="submitShortReason()">
+            <button class="compact-action btn-primary" [disabled]="submittingReason || shortReasonText.trim().length < 5" (click)="submitShortReason()" title="Submit Reason" aria-label="Submit Reason" data-action-label="Submit Reason" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
               {{ submittingReason ? 'Submitting...' : 'Submit Reason' }}
-            </button>
+            </span></button>
           </div>
         </div>
       </div>
@@ -432,7 +433,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
 }
             <div class="flex justify-between items-center mt-2">
               <span class="text-xs text-gray-400">{{ discrepancyNote.length }}/500</span>
-              <button class="btn-primary" [disabled]="!canRaiseDiscrepancy" (click)="raiseDiscrepancy()">Raise Note</button>
+              <button class="compact-action btn-primary" [disabled]="!canRaiseDiscrepancy" (click)="raiseDiscrepancy()" title="Raise Note" aria-label="Raise Note" data-action-label="Raise Note" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
             </div>
           </div>
 

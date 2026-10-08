@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { PageHeaderComponent, FormInputComponent, FormSelectComponent, SelectOpt
 @Component({
   standalone: true,
   selector: 'app-admin-masters',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, FormInputComponent, FormSelectComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, StatusBadgeComponent, LoadingSpinnerComponent, EmptyStateComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, FormInputComponent, FormSelectComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, StatusBadgeComponent, LoadingSpinnerComponent, EmptyStateComponent],
   templateUrl: './admin-masters.component.html',
   styleUrls: ['./admin-masters.component.scss'],
 })

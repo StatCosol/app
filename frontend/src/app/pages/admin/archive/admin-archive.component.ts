@@ -78,8 +78,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
             </ng-template>
             <ng-template uiTableCell="actions" let-row>
               <div class="flex gap-2 justify-end">
-                <ui-button variant="primary" size="sm" (clicked)="openClientDetail(row)">View Data</ui-button>
-                <ui-button variant="secondary" size="sm" (clicked)="restoreClient(row)">Restore</ui-button>
+                <ui-button variant="primary" size="sm" (clicked)="openClientDetail(row)" icon="eye" [iconOnly]="true" label="View Data">View Data</ui-button>
+                <ui-button variant="secondary" size="sm" (clicked)="restoreClient(row)" icon="undo" [iconOnly]="true" label="Restore">Restore</ui-button>
               </div>
             </ng-template>
           </ui-data-table>
@@ -145,7 +145,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
               </div>
             </ng-template>
             <ng-template uiTableCell="actions" let-row>
-              <ui-button variant="primary" size="sm" (clicked)="openRetentionDetail(row)">View Snapshot</ui-button>
+              <ui-button variant="primary" size="sm" (clicked)="openRetentionDetail(row)" icon="eye" [iconOnly]="true" label="View Snapshot">View Snapshot</ui-button>
             </ng-template>
           </ui-data-table>
         </div>

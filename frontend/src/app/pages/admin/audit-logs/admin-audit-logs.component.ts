@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   Component,
   OnInit,
@@ -24,7 +25,7 @@ import {
   standalone: true,
   selector: 'app-admin-audit-logs',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -41,7 +42,7 @@ import {
       </ui-page-header>
 
       <!-- Filters -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-4 aligned-filter-controls">
         <div>
           <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1" for="aal-entity-type">Entity Type</label>
           <select id="aal-entity-type" name="entityType" [(ngModel)]="filters.entityType"
@@ -79,9 +80,7 @@ import {
         </div>
         <div class="flex items-end">
           <button (click)="page = 1; load()"
-                  class="w-full px-4 py-2 bg-brand-600 text-white text-sm rounded-md hover:bg-brand-700 transition-colors">
-            Search
-          </button>
+                  class="compact-action w-full px-4 py-2 bg-brand-600 text-white text-sm rounded-md hover:bg-brand-700 transition-colors" title="Search" aria-label="Search" data-action-label="Search" data-action-icon="search"><ui-icon name="search" [size]="20" /></button>
         </div>
       </div>
 
@@ -141,9 +140,9 @@ import {
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <button (click)="expandedId = expandedId === log.id ? null : log.id"
-                          class="text-brand-600 hover:text-brand-800 text-xs underline">
+                          class="compact-action text-brand-600 hover:text-brand-800 text-xs underline" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
                     {{ expandedId === log.id ? 'Hide' : 'View' }}
-                  </button>
+                  </span></button>
                 </td>
               </tr>
 }
@@ -173,11 +172,11 @@ import {
           </span>
           <div class="flex gap-2">
             <button [disabled]="page <= 1" (click)="page = page - 1; load()"
-                    class="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
+                    class="standard-action px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
               Previous
             </button>
             <button [disabled]="logs.length < pageSize" (click)="page = page + 1; load()"
-                    class="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
+                    class="standard-action px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
               Next
             </button>
           </div>

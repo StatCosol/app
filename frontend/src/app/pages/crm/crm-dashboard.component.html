@@ -1,7 +1,7 @@
 @if (dataUnavailable) {
   <div role="alert" class="m-4 rounded border border-amber-300 bg-amber-50 p-4">
     Dashboard data could not be refreshed. Totals are unavailable until all required data loads.
-    <button type="button" class="underline" (click)="loadAll()">Retry</button>
+    <button type="button" class="compact-action underline" (click)="loadAll()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
 }
 @if (!dataUnavailable) {
@@ -9,7 +9,7 @@
   <ui-page-header
     title="CRM Action Workbench"
     subtitle="Prioritize high-risk clients, low-coverage branches, pending reviews, and filing workflows from one board.">
-    <ui-button variant="secondary" [disabled]="loading" (clicked)="loadAll()">Refresh</ui-button>
+    <ui-button variant="secondary" [disabled]="loading" (clicked)="loadAll()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
   </ui-page-header>
 
   @if (loading) {
@@ -21,7 +21,7 @@
     @if (errorMsg) {
 <div class="error-card">
       <span>{{ errorMsg }}</span>
-      <ui-button variant="secondary" size="sm" (clicked)="loadAll()">Retry</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="loadAll()" icon="refresh" [iconOnly]="true" label="Retry">Retry</ui-button>
     </div>
 }
 
@@ -375,7 +375,7 @@
               <td>{{ row.openObservations }}</td>
               <td>{{ row.expiringCount }}</td>
               <td>
-                <ui-button size="sm" variant="secondary" (clicked)="openClientWorkspace(row.clientId)">Open</ui-button>
+                <ui-button size="sm" variant="secondary" (clicked)="openClientWorkspace(row.clientId)" icon="eye" [iconOnly]="true" label="Open">Open</ui-button>
               </td>
             </tr>
 }

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { RegisterLeaveCalculatorComponent } from './register-leave-calculator.component';
 import {
   Component,
@@ -19,7 +20,7 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'app-register-evidence',
   standalone: true,
-  imports: [FormsModule, RegisterLeaveCalculatorComponent],
+  imports: [IconComponent, FormsModule, RegisterLeaveCalculatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: ` <section class="border rounded bg-white p-3 my-3">
     @if (error) {
@@ -62,12 +63,10 @@ import { environment } from '../../../environments/environment';
           </label>
           <button
             type="button"
-            class="border rounded p-2"
+            class="compact-action border rounded p-2"
             (click)="requestReuse()"
             [disabled]="busy || !sourceId || attestation.trim().length < 10"
-          >
-            Submit reuse for approval
-          </button>
+           title="Submit reuse for approval" aria-label="Submit reuse for approval" data-action-label="Submit reuse for approval" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
         }
         @for (link of links; track link.id) {
           <div class="border-t py-2 text-sm">
@@ -84,12 +83,10 @@ import { environment } from '../../../environments/environment';
             @if (canApprove && !link.approvedAt) {
               <button
                 type="button"
-                class="underline"
+                class="compact-action underline"
                 (click)="approve('/reuse/' + link.id + '/approve')"
                 [disabled]="busy"
-              >
-                Approve reuse
-              </button>
+               title="Approve reuse" aria-label="Approve reuse" data-action-label="Approve reuse" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
             }
           </div>
         }
@@ -114,11 +111,8 @@ import { environment } from '../../../environments/environment';
         creates a new revision for review; previous evidence is retained.
       </p>
       <div class="flex gap-3">
-        <button type="button" class="underline" (click)="saveSource()" [disabled]="busy">
-          Save current details for review</button
-        ><button type="button" class="underline" (click)="load()" [disabled]="busy">
-          Load source records
-        </button>
+        <button type="button" class="standard-action underline" (click)="saveSource()" [disabled]="busy">
+          Save current details for review</button><button type="button" class="compact-action underline" (click)="load()" [disabled]="busy" title="Load source records" aria-label="Load source records" data-action-label="Load source records" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
       @if (loaded && !records.length) {
         <p class="text-sm my-2">No saved sources for this branch, form and period.</p>
@@ -130,18 +124,16 @@ import { environment } from '../../../environments/environment';
             {{ record.approvedAt ? 'Approved' : 'Awaiting source review' }}
           </p>
           <div class="flex gap-3">
-            <button type="button" class="underline" (click)="preview(record)" [disabled]="busy">
+            <button type="button" class="compact-action underline" (click)="preview(record)" [disabled]="busy" title="Review saved details" aria-label="Review saved details" data-action-label="Review saved details" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
               {{ record.approvedAt ? 'Use approved details' : 'Review saved details' }}
-            </button>
+            </span></button>
             @if (canApprove && !record.approvedAt) {
               <button
                 type="button"
-                class="underline"
+                class="compact-action underline"
                 (click)="approve('/operational-sources/' + record.id + '/approve')"
                 [disabled]="busy"
-              >
-                Approve source
-              </button>
+               title="Approve source" aria-label="Approve source" data-action-label="Approve source" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
             }
           </div>
         </div>

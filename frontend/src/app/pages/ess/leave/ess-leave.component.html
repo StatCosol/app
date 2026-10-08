@@ -1,5 +1,5 @@
 @if (loadError) {
-  <div role="alert" class="p-4">Leave data could not be loaded. <button type="button" (click)="loadAll()">Retry</button></div>
+  <div role="alert" class="p-4">Leave data could not be loaded. <button type="button" (click)="loadAll()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
 }
 @if (!loadError) {
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -9,7 +9,7 @@
       description="Apply for leave and track your applications"
       icon="calendar">
     </ui-page-header>
-    <ui-button variant="primary" (clicked)="openApplyForm()">+ Apply for Leave</ui-button>
+    <ui-button variant="primary" (clicked)="openApplyForm()" icon="search" [iconOnly]="true" label="Apply for Leave">+ Apply for Leave</ui-button>
   </div>
 
   @if (loading) {
@@ -65,7 +65,7 @@
       <div class="px-6 py-4">
         @if (applications.length) {
 <ui-data-table
-         
+
           [columns]="applicationColumns"
           [data]="applications">
 
@@ -96,7 +96,7 @@
           <ng-template uiTableCell="actions" let-row>
             @if (row.status === 'DRAFT' || row.status === 'SUBMITTED') {
 <ui-button
-             
+
               variant="danger" size="sm"
               (clicked)="cancelApplication(row)">
               Cancel
@@ -108,7 +108,7 @@
 
         @if (!applications.length) {
 <ui-empty-state
-         
+
           title="No leave applications"
           description="Click 'Apply for Leave' to submit your first application">
         </ui-empty-state>
@@ -179,7 +179,7 @@
 
   <div slot="footer">
     <ui-button variant="secondary" (clicked)="showApplyForm = false">Cancel</ui-button>
-    <ui-button variant="primary" [loading]="submitting" [disabled]="submitting" (clicked)="submitLeave()">
+    <ui-button variant="primary" [loading]="submitting" [disabled]="submitting" (clicked)="submitLeave()" icon="send" [iconOnly]="true" label="Submit Application">
       {{ submitting ? 'Submitting...' : 'Submit Application' }}
     </ui-button>
   </div>

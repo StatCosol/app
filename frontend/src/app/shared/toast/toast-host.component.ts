@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { ToastService } from './toast.service';
@@ -5,12 +6,12 @@ import { ToastService } from './toast.service';
 @Component({
   selector: 'app-toast-host',
   standalone: true,
-  imports: [CommonModule],
+  imports: [IconComponent, CommonModule],
   template: `
     <div class="toast-host">
       @for (toast of toastService.toasts$ | async; track toast) {
 <div
-       
+
         class="toast"
         [class.toast-success]="toast.type === 'success'"
         [class.toast-error]="toast.type === 'error'"
@@ -19,9 +20,7 @@ import { ToastService } from './toast.service';
       >
         <div class="toast-header">
           <strong>{{ toast.title }}</strong>
-          <button type="button" class="toast-close" (click)="remove(toast.id)">
-            ×
-          </button>
+          <button type="button" class="compact-action toast-close" (click)="remove(toast.id)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
         </div>
         <div class="toast-body">{{ toast.message }}</div>
       </div>

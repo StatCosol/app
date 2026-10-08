@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -21,7 +22,7 @@ type ObservationAction = 'ACKNOWLEDGE' | 'RESOLVE' | 'VERIFY' | 'REOPEN';
 @Component({
   standalone: true,
   selector: 'app-auditor-observations',
-  imports: [FormsModule, RouterModule],
+  imports: [IconComponent, FormsModule, RouterModule],
   templateUrl: './auditor-observations.component.html',
   styleUrls: ['./auditor-observations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

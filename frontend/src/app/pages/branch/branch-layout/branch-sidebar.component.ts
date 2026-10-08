@@ -27,7 +27,7 @@ interface SidebarItem {
     <!-- Mobile overlay -->
     @if (mobileOpen) {
 <div
-     
+
       class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="closeMobile()"
     ></div>
@@ -59,7 +59,7 @@ interface SidebarItem {
           </svg>
           <input
             type="text"
-            placeholder="Filter navigation…"
+            placeholder="Search navigation…" aria-label="Search navigation"
             [(ngModel)]="searchTerm"
             class="sidebar-search w-full pl-8 pr-3 py-1.5 text-[12px] bg-white/8 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/12 focus:border-white/20 transition-all"
           />
@@ -106,7 +106,7 @@ interface SidebarItem {
 
               @if (!link.children) {
 <a
-               
+
                 [routerLink]="link.route"
                 routerLinkActive="collapsed-active"
                 [routerLinkActiveOptions]="{ exact: link.route.endsWith('dashboard') }"
@@ -124,7 +124,7 @@ interface SidebarItem {
 
                 @for (child of link.children; track child) {
 <a
-                 
+
                   [routerLink]="child.route"
                   routerLinkActive="collapsed-active"
                   (click)="onNavClick()"
@@ -137,20 +137,20 @@ interface SidebarItem {
                   <span class="collapsed-tooltip">{{ child.label }}</span>
                 </a>
 }
-              
+
 }
-            
+
 }
           </div>
-        
+
 } @else {
 
-          @for (item of filteredNavItems; track item) {
+          @for (item of filteredNavItems; track item.label) {
 
             <!-- Regular nav item (no children) -->
             @if (!item.children) {
 <a
-             
+
               [routerLink]="item.route"
               routerLinkActive="sidebar-active"
               [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
@@ -184,7 +184,7 @@ interface SidebarItem {
               </button>
               <div class="sidebar-children" [class.sidebar-children--open]="item.expanded">
                 <div class="sidebar-children-inner">
-                @for (child of item.children; track child) {
+                @for (child of item.children; track child.route) {
 <a
 
                   [routerLink]="child.route"
@@ -205,12 +205,15 @@ interface SidebarItem {
               </div>
             </div>
 }
-          
-}
-        
+
 }
 
-        
+}
+
+
+        @if (!collapsed && searchTerm.trim() && filteredNavItems.length === 0) {
+          <p class="px-4 py-3 text-sm" role="status">No matching pages.</p>
+        }
       </nav>
 
       <!-- Version footer -->

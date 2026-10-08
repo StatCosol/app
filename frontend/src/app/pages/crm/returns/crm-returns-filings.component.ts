@@ -1,3 +1,5 @@
+import { ActionIconPipe } from '../../../shared/ui/action-icon.pipe';
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -94,7 +96,7 @@ interface ChecklistRow {
 @Component({
   standalone: true,
   selector: 'app-crm-returns-filings',
-  imports: [
+  imports: [ActionIconPipe, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,

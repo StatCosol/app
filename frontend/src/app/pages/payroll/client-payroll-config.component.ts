@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -114,7 +115,7 @@ const INDIAN_STATES = [
 @Component({
   selector: 'app-client-payroll-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ClientContextStripComponent, PageHeaderComponent, PayslipLayoutEditorComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink, ClientContextStripComponent, PageHeaderComponent, PayslipLayoutEditorComponent],
   templateUrl: './client-payroll-config.component.html',
   styleUrls: ['./client-payroll-config.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

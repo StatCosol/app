@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,7 +9,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 @Component({
   selector: 'app-billing-pending-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   template: `
     <div class="p-6 space-y-6">
       <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -26,9 +27,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
         </div>
         <div class="flex gap-2">
           <button type="button" (click)="downloadTemplate()"
-             class="px-3 py-2 text-sm border rounded text-slate-700 hover:bg-slate-50">
-            Download CSV Template
-          </button>
+             class="compact-action px-3 py-2 text-sm border rounded text-slate-700 hover:bg-slate-50" title="Download CSV Template" aria-label="Download CSV Template" data-action-label="Download CSV Template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
         </div>
       </div>
 
@@ -47,9 +46,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </label>
           <button (click)="upload(fileInput)"
                   [disabled]="!selectedFile || uploading"
-                  class="px-4 py-2 bg-brand-600 text-white rounded text-sm hover:bg-brand-700 disabled:opacity-50">
+                  class="compact-action px-4 py-2 bg-brand-600 text-white rounded text-sm hover:bg-brand-700 disabled:opacity-50" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
             {{ uploading ? 'Uploading…' : 'Upload' }}
-          </button>
+          </span></button>
         </div>
         @if (uploadResult) {
 <div class="text-sm bg-slate-50 border rounded p-3 space-y-1">
@@ -86,9 +85,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
         @if (selectedIds.size > 0) {
 <button
                 (click)="sendBulk()"
-                class="ml-auto px-3 py-1.5 bg-amber-600 text-white text-sm rounded hover:bg-amber-700">
+                class="compact-action ml-auto px-3 py-1.5 bg-amber-600 text-white text-sm rounded hover:bg-amber-700" title="Send reminder to {{ selectedIds.size }} selected" aria-label="Send reminder to {{ selectedIds.size }} selected" attr.data-action-label="Send reminder to {{ selectedIds.size }} selected" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
           Send reminder to {{ selectedIds.size }} selected
-        </button>
+        </span></button>
 }
       </div>
 
@@ -155,25 +154,25 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 @if (p.status === 'PENDING') {
 <button
                         (click)="sendOne(p)"
-                        class="text-brand-600 hover:underline text-xs mr-2">Remind</button>
+                        class="compact-action text-brand-600 hover:underline text-xs mr-2" title="Remind" aria-label="Remind" data-action-label="Remind" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
 }
                 @if (p.status === 'PENDING' && !p.remindersPaused) {
 <button
                         (click)="togglePause(p, true)"
-                        class="text-amber-600 hover:underline text-xs mr-2">Pause</button>
+                        class="compact-action text-amber-600 hover:underline text-xs mr-2" title="Pause" aria-label="Pause" data-action-label="Pause" data-action-icon="pause"><ui-icon name="pause" [size]="20" /></button>
 }
                 @if (p.status === 'PENDING' && p.remindersPaused) {
 <button
                         (click)="togglePause(p, false)"
-                        class="text-emerald-600 hover:underline text-xs mr-2">Resume</button>
+                        class="compact-action text-emerald-600 hover:underline text-xs mr-2" title="Resume" aria-label="Resume" data-action-label="Resume" data-action-icon="play"><ui-icon name="play" [size]="20" /></button>
 }
                 @if (p.status === 'PENDING') {
 <button
                         (click)="markPaid(p)"
-                        class="text-green-600 hover:underline text-xs mr-2">Mark Paid</button>
+                        class="compact-action text-green-600 hover:underline text-xs mr-2" title="Mark Paid" aria-label="Mark Paid" data-action-label="Mark Paid" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
                 <button (click)="onDelete(p)"
-                        class="text-red-600 hover:underline text-xs">Delete</button>
+                        class="compact-action text-red-600 hover:underline text-xs" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -193,9 +192,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
         <span>Page {{ page }} of {{ totalPages }}</span>
         <div class="flex gap-2">
           <button (click)="page = page - 1; load()" [disabled]="page <= 1"
-                  class="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+                  class="standard-action px-3 py-1 border rounded disabled:opacity-50">Prev</button>
           <button (click)="page = page + 1; load()" [disabled]="page >= totalPages"
-                  class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
+                  class="standard-action px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
 }

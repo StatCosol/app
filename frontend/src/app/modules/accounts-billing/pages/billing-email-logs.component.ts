@@ -19,14 +19,12 @@ import { InvoiceEmailLog, InvoiceFileInventory } from '../models/billing.models'
         <h1 class="text-2xl font-bold text-slate-800">Email Logs</h1>
         <button
           type="button"
-          class="icon-action"
-          title="Refresh email logs"
-          aria-label="Refresh email logs"
+          class="compact-action icon-action"
+
+
           (click)="load()"
           [disabled]="loading || saving"
-        >
-          <ui-icon name="refresh" />
-        </button>
+         title="Refresh email logs" aria-label="Refresh email logs" data-action-label="Refresh email logs" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </header>
       @if (error) {
         <p role="alert" class="text-red-700">{{ error }}</p>
@@ -114,12 +112,10 @@ import { InvoiceEmailLog, InvoiceFileInventory } from '../models/billing.models'
                   @if (l.delivery?.status === 'UNKNOWN' && isAdmin) {
                     <button
                       type="button"
-                      class="text-green-700 underline"
+                      class="compact-action text-green-700 underline"
                       (click)="openReview(l)"
                       [disabled]="saving"
-                    >
-                      Review outcome
-                    </button>
+                     title="Review outcome" aria-label="Review outcome" data-action-label="Review outcome" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
                   }
                 </td>
               </tr>
@@ -189,7 +185,7 @@ import { InvoiceEmailLog, InvoiceFileInventory } from '../models/billing.models'
           <div class="flex gap-3">
             <button
               type="button"
-              class="border rounded px-3 py-2"
+              class="standard-action border rounded px-3 py-2"
               (click)="resolve()"
               [disabled]="saving || !providerVerified || note.trim().length < 10"
             >
@@ -197,7 +193,7 @@ import { InvoiceEmailLog, InvoiceFileInventory } from '../models/billing.models'
             </button>
             <button
               type="button"
-              class="border rounded px-3 py-2"
+              class="standard-action border rounded px-3 py-2"
               (click)="selected = null"
               [disabled]="saving"
             >
@@ -221,12 +217,12 @@ import { InvoiceEmailLog, InvoiceFileInventory } from '../models/billing.models'
             /></label>
             <button
               type="button"
-              class="border rounded px-3 py-2"
+              class="compact-action border rounded px-3 py-2"
               (click)="loadInventory()"
               [disabled]="inventoryLoading"
-            >
+             title="Preview inventory" aria-label="Preview inventory" data-action-label="Preview inventory" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
               {{ inventoryLoading ? 'Scanning...' : 'Preview inventory' }}
-            </button>
+            </span></button>
             <span class="text-sm text-slate-500">Deletion disabled</span>
           </div>
           @if (inventoryError) {

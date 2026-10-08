@@ -1,4 +1,5 @@
 import { map } from 'rxjs/operators';
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -80,7 +81,7 @@ interface ClosureDraft {
 @Component({
   selector: 'app-branch-audit-observations',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     SharedTimelineComponent,

@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -60,7 +61,7 @@ interface Run {
 @Component({
   selector: 'app-automation-control',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink],
   templateUrl: './automation-control.component.html',
   styleUrl: './automation-control.component.scss',
 })

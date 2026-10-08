@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-client-appraisal-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
@@ -20,7 +21,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         title="Performance Appraisals"
         subtitle="Organization-wide appraisal overview and analytics">
         <a routerLink="/client/appraisals" class="appraisal-action">All Appraisals</a>
-        <a routerLink="/client/appraisal-cycles" class="appraisal-action appraisal-action--primary">Manage Cycles</a>
+        <a routerLink="/client/appraisal-cycles" class="compact-action appraisal-action appraisal-action--primary" title="Manage Cycles" aria-label="Manage Cycles" data-action-label="Manage Cycles" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></a>
       </ui-page-header>
 
       @if (loading) {
@@ -144,7 +145,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
 }
         </div>
-      
+
 }
     </div>
   `,

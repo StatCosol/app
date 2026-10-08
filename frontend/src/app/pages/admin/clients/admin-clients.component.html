@@ -71,7 +71,7 @@
           </p>
           <p class="text-xs text-green-600 mt-1">Copy this password now; it will not be shown again.</p>
         </div>
-        <button type="button" (click)="masterUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+        <button type="button" (click)="masterUserResetResult = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
       </div>
     </div>
 }
@@ -92,13 +92,13 @@
 }
           </div>
           <div class="flex items-center gap-2">
-            <ui-button variant="secondary" size="sm" (clicked)="startEditMasterUser(u)">
+            <ui-button variant="secondary" size="sm" (clicked)="startEditMasterUser(u)" icon="pencil" [iconOnly]="true" label="Edit">
               <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
               Edit
             </ui-button>
-            <ui-button variant="secondary" size="sm" (clicked)="resetMasterUserPassword(u.userId)">
+            <ui-button variant="secondary" size="sm" (clicked)="resetMasterUserPassword(u.userId)" icon="undo" [iconOnly]="true" label="Reset Password">
               <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
               </svg>
@@ -108,7 +108,7 @@
           </div>
         </div>
 }
-      
+
 }
 
       <!-- Edit Mode -->
@@ -277,7 +277,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             @for (service of serviceModuleOptions; track service) {
 <label
-             
+
               class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 cursor-pointer hover:border-brand-300">
               <input
                 type="checkbox"
@@ -321,7 +321,7 @@
 <span class="text-sm text-gray-600">{{ regLogoFile.name }}</span>
 }
             @if (regLogoFile) {
-<button type="button" (click)="removeRegLogo()" class="text-xs text-red-500 hover:text-red-700">Remove</button>
+<button type="button" (click)="removeRegLogo()" class="compact-action text-xs text-red-500 hover:text-red-700" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
           </div>
           @if (regLogoPreviewUrl) {
@@ -344,7 +344,7 @@
               </p>
               <p class="text-xs text-green-600 mt-1">Save these credentials now; the password will not be shown again.</p>
             </div>
-            <button type="button" (click)="createdMasterUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+            <button type="button" (click)="createdMasterUser = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
         </div>
 }
@@ -465,7 +465,7 @@
               <h4 id="azure-face-sync-title" class="text-lg font-semibold text-gray-900">Azure Face Sync</h4>
               <p class="mt-1 text-sm text-gray-500">{{ selectedClient.clientName }}</p>
             </div>
-            <ui-button variant="secondary" size="sm" (clicked)="loadAzureBackfillStatus()" [disabled]="loadingAzureBackfill || syncingAzureBackfill">
+            <ui-button variant="secondary" size="sm" (clicked)="loadAzureBackfillStatus()" [disabled]="loadingAzureBackfill || syncingAzureBackfill" icon="refresh" [iconOnly]="true" label="Refresh Status">
               {{ loadingAzureBackfill ? 'Refreshing...' : 'Refresh Status' }}
             </ui-button>
           </div>
@@ -489,7 +489,7 @@
               {{ !azureBackfillStatus.azureEnabled ? 'Azure unavailable' : (azureBackfillStatus.complete ? 'Synchronized' : 'Action required') }}
             </ui-status-badge>
             @if (azureBackfillStatus.azureEnabled && azureBackfillStatus.pending > 0) {
-<ui-button variant="secondary" size="sm" (clicked)="runAzureBackfillCanary()" [disabled]="syncingAzureBackfill">Run 1-Record Test</ui-button>
+<ui-button variant="secondary" size="sm" (clicked)="runAzureBackfillCanary()" [disabled]="syncingAzureBackfill" icon="refresh" [iconOnly]="true" label="Run 1-Record Test">Run 1-Record Test</ui-button>
 <ui-button variant="primary" size="sm" (clicked)="runAzureBackfillAll()" [disabled]="syncingAzureBackfill || azureBackfillStatus.storedPhotoCandidates === 0">{{ syncingAzureBackfill ? 'Synchronizing...' : 'Sync Remaining' }}</ui-button>
 }
           </div>
@@ -581,7 +581,7 @@
               @if (!readinessResult.checks?.masterUser?.ok) {
 <a
                  [routerLink]="['/admin/users']" [queryParams]="{action:'create',role:'CLIENT',clientId:selectedClient.id}"
-                 class="text-xs text-brand-600 hover:text-brand-800 underline">Create Master User</a>
+                 class="compact-action text-xs text-brand-600 hover:text-brand-800 underline" title="Create Master User" aria-label="Create Master User" data-action-label="Create Master User" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></a>
 }
             </div>
 
@@ -602,7 +602,7 @@
               @if (!readinessResult.checks?.branches?.ok && selectedClient) {
 <a
                  [routerLink]="['/admin/clients', selectedClient.id, 'branches']"
-                 class="text-xs text-brand-600 hover:text-brand-800 underline">Create Branch</a>
+                 class="compact-action text-xs text-brand-600 hover:text-brand-800 underline" title="Create Branch" aria-label="Create Branch" data-action-label="Create Branch" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></a>
 }
             </div>
 
@@ -651,7 +651,7 @@
               @if (!readinessResult.checks?.payrollUser?.ok) {
 <a
                  [routerLink]="['/admin/users']" [queryParams]="{action:'create',role:'PAYROLL',clientId:selectedClient.id}"
-                 class="text-xs text-brand-600 hover:text-brand-800 underline">Create Payroll User</a>
+                 class="compact-action text-xs text-brand-600 hover:text-brand-800 underline" title="Create Payroll User" aria-label="Create Payroll User" data-action-label="Create Payroll User" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></a>
 }
             </div>
 
@@ -671,7 +671,7 @@
               @if (!readinessResult.checks?.crmAssigned?.ok) {
 <a
                  [routerLink]="['/admin/assignments']"
-                 class="text-xs text-brand-600 hover:text-brand-800 underline">Assign CRM</a>
+                 class="compact-action text-xs text-brand-600 hover:text-brand-800 underline" title="Assign CRM" aria-label="Assign CRM" data-action-label="Assign CRM" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></a>
 }
             </div>
 
@@ -744,8 +744,8 @@
 
         <ng-template uiTableCell="actions" let-row>
           <div class="flex gap-2">
-            <ui-button variant="primary" size="sm" [routerLink]="['/admin/clients', row.id, 'branches']">Manage</ui-button>
-            <ui-button variant="danger" size="sm" (clicked)="deleteClient(row)">Delete</ui-button>
+            <ui-button variant="primary" size="sm" [routerLink]="['/admin/clients', row.id, 'branches']" icon="cog" [iconOnly]="true" label="Manage">Manage</ui-button>
+            <ui-button variant="danger" size="sm" (clicked)="deleteClient(row)" icon="trash" [iconOnly]="true" label="Delete">Delete</ui-button>
           </div>
         </ng-template>
       </ui-data-table>
@@ -905,7 +905,7 @@
           </p>
           <p class="text-xs text-green-600 mt-1">{{ createdBranchUser.linkedExisting ? 'The existing password is unchanged. This login can now access all of its assigned units.' : 'Save these credentials now; the password will not be shown again.' }}</p>
         </div>
-        <button type="button" (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+        <button type="button" (click)="createdBranchUser = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
       </div>
     </div>
 }
@@ -920,11 +920,11 @@
 
         <ng-template uiTableCell="actions" let-row>
           <div class="flex flex-wrap gap-2 justify-end">
-            <ui-button variant="outline" size="sm" (clicked)="editBranch(row)">Edit</ui-button>
+            <ui-button variant="outline" size="sm" (clicked)="editBranch(row)" icon="pencil" [iconOnly]="true" label="Edit">Edit</ui-button>
             <ui-button variant="primary" size="sm" (clicked)="selectBranchForCompliance(row)">Compliance</ui-button>
             <ui-button variant="secondary" size="sm" (clicked)="selectBranchForContractors(row)">Contractors</ui-button>
             <ui-button variant="secondary" size="sm" (clicked)="selectBranchForUsers(row)">Users</ui-button>
-            <ui-button variant="danger" size="sm" (clicked)="deleteBranch(row.id)">Delete</ui-button>
+            <ui-button variant="danger" size="sm" (clicked)="deleteBranch(row.id)" icon="trash" [iconOnly]="true" label="Delete">Delete</ui-button>
           </div>
         </ng-template>
       </ui-data-table>
@@ -962,7 +962,7 @@
 
     @if (branchContractors.length > 0) {
 <ui-data-table
-     
+
       [columns]="contractorColumns"
       [data]="branchContractors">
 
@@ -974,7 +974,7 @@
 
     @if (branchContractors.length === 0) {
 <ui-empty-state
-     
+
       title="No contractors linked"
       description="No contractors linked to this branch yet.">
     </ui-empty-state>
@@ -1014,13 +1014,13 @@
         <div><strong>New password:</strong> <span class="font-mono select-all">{{ branchUserResetResult.newPassword }}</span></div>
         <p class="text-xs text-green-600 mt-1">Copy this password now; it will not be shown again. Share it securely with the user.</p>
       </div>
-      <button type="button" (click)="branchUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+      <button type="button" (click)="branchUserResetResult = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
     </div>
 }
 
     @if (branchUsers.length > 0) {
 <ui-data-table
-     
+
       [columns]="branchUserColumns"
       [data]="branchUsers">
 
@@ -1035,7 +1035,7 @@
           variant="secondary"
           size="sm"
           (clicked)="resetBranchUserPassword(row)"
-          [disabled]="resettingBranchUserId === row.userId">
+          [disabled]="resettingBranchUserId === row.userId" icon="undo" [iconOnly]="true" label="Reset Password">
           {{ resettingBranchUserId === row.userId ? 'Resetting…' : 'Reset Password' }}
         </ui-button>
       </ng-template>
@@ -1044,7 +1044,7 @@
 
     @if (branchUsers.length === 0) {
 <ui-empty-state
-     
+
       title="No login users"
       description="No desk users assigned to this branch yet.">
     </ui-empty-state>
@@ -1087,7 +1087,7 @@
           <h3 class="text-lg font-semibold text-gray-900">Compliance Applicability for {{ branchForCompliance.branchName }}</h3>
           <p class="text-sm text-gray-500 mt-1">Auto-applicable items are prefixed and disabled</p>
         </div>
-        <ui-button variant="secondary" [disabled]="isRecomputing || !branchForCompliance" [loading]="isRecomputing" (clicked)="recomputeApplicability()">
+        <ui-button variant="secondary" [disabled]="isRecomputing || !branchForCompliance" [loading]="isRecomputing" (clicked)="recomputeApplicability()" icon="refresh" [iconOnly]="true" label="Recompute Applicability">
           Recompute Applicability
         </ui-button>
       </div>

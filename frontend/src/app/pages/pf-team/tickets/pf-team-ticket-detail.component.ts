@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -10,7 +11,7 @@ import { HelpdeskAttachmentsComponent } from '../../../shared/helpdesk/helpdesk-
 @Component({
   selector: 'app-pf-team-ticket-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, HelpdeskAttachmentsComponent],
+  imports: [IconComponent, CommonModule, RouterModule, FormsModule, HelpdeskAttachmentsComponent],
   template: `
     @if (ticket) {
 <div class="space-y-6">
@@ -94,7 +95,7 @@ import { HelpdeskAttachmentsComponent } from '../../../shared/helpdesk/helpdesk-
         @if (messagesLoading) { <p role="status" class="text-sm text-gray-500">Loading messages...</p> }
         @if (messagesError) {
           <div role="alert" class="text-sm text-red-700 mb-3">{{ messagesError }}
-            <button type="button" (click)="loadMessages()" class="underline ml-2">Retry messages</button>
+            <button type="button" (click)="loadMessages()" class="compact-action underline ml-2" title="Retry messages" aria-label="Retry messages" data-action-label="Retry messages" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           </div>
         }
         @if (messages.length === 0 && !messagesLoading && !messagesError) {
@@ -123,9 +124,7 @@ import { HelpdeskAttachmentsComponent } from '../../../shared/helpdesk/helpdesk-
           <button
             (click)="postMessage()"
             [disabled]="!canManage || !newMessage.trim() || sendingMessage"
-            class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            Send
-          </button>
+            class="compact-action px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" title="Send" aria-label="Send" data-action-label="Send" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
         </div>
       </div>
     </div>
@@ -142,7 +141,7 @@ import { HelpdeskAttachmentsComponent } from '../../../shared/helpdesk/helpdesk-
     @if (error) {
 <div class="text-center py-20">
       <p class="text-red-500 text-sm">{{ error }}</p>
-      <button type="button" (click)="loadTicket()" class="text-sm underline mt-2">Retry ticket</button>
+      <button type="button" (click)="loadTicket()" class="compact-action text-sm underline mt-2" title="Retry ticket" aria-label="Retry ticket" data-action-label="Retry ticket" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       <a routerLink="/pf-team/tickets" class="text-sm text-brand-600 hover:underline mt-2 inline-block">← Back to tickets</a>
     </div>
 }

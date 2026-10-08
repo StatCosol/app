@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -8,12 +9,12 @@ import { InvoicePayment } from '../models/billing.models';
 @Component({
   selector: 'app-billing-payments',
   standalone: true,
-  imports: [FormsModule, RouterModule],
+  imports: [IconComponent, FormsModule, RouterModule],
   template: `
     <div class="p-6 space-y-6">
       <h1 class="text-2xl font-bold text-slate-800">Payment Receipts</h1>
 
-      @if (loadError) { <div role="alert">Payments could not be loaded. <button type="button" (click)="load()">Retry</button></div> }
+      @if (loadError) { <div role="alert">Payments could not be loaded. <button type="button" (click)="load()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div> }
       @if (!loadError && !loading) {
       <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
         <table class="w-full text-sm">
@@ -60,8 +61,8 @@ import { InvoicePayment } from '../models/billing.models';
 <div class="flex items-center justify-between text-sm text-slate-500">
         <span>Page {{ page }} of {{ totalPages }}</span>
         <div class="flex gap-2">
-          <button (click)="page = page - 1; load()" [disabled]="page <= 1" class="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
-          <button (click)="page = page + 1; load()" [disabled]="page >= totalPages" class="px-3 py-1 border rounded disabled:opacity-50">Next</button>
+          <button (click)="page = page - 1; load()" [disabled]="page <= 1" class="standard-action px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+          <button (click)="page = page + 1; load()" [disabled]="page >= totalPages" class="standard-action px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
 }

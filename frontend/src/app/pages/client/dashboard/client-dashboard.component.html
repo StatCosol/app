@@ -1,6 +1,6 @@
 <div class="mx-4 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex flex-wrap items-center justify-between gap-3">
   <div><strong class="text-emerald-950">What needs attention this month?</strong><p class="text-sm text-emerald-900">Review attendance, payroll approvals and missing evidence in one place.</p></div>
-  <a routerLink="/client/monthly-close" class="font-semibold text-emerald-800 underline underline-offset-4">Open monthly close &rarr;</a>
+  <a routerLink="/client/monthly-close" class="compact-action font-semibold text-emerald-800 underline underline-offset-4" title="Open monthly close &rarr;" aria-label="Open monthly close &rarr;" data-action-label="Open monthly close &rarr;" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
 </div>
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
   <!-- Hero banner -->
@@ -42,7 +42,7 @@
   </div>
 
   <!-- Filters -->
-  <div class="filter-bar">
+  <div class="filter-bar aligned-filter-controls">
     <div class="flex flex-wrap gap-3 items-center">
       <label class="filter-group">
         <span class="filter-label">Month</span>
@@ -83,7 +83,7 @@
       <button type="button" class="toggle-chip" [class.toggle-chip--active]="filters.toggle === 'ALL'" (click)="onToggleChange('ALL')">All</button>
       <button type="button" class="toggle-chip toggle-chip--critical" [class.toggle-chip--active]="filters.toggle === 'CRITICAL'" (click)="onToggleChange('CRITICAL')">Critical</button>
       <button type="button" class="toggle-chip toggle-chip--pending" [class.toggle-chip--active]="filters.toggle === 'PENDING'" (click)="onToggleChange('PENDING')">Pending</button>
-      <button type="button" class="ghost-btn" (click)="load()">Refresh</button>
+      <button type="button" class="compact-action ghost-btn" (click)="load()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   </div>
 
@@ -109,7 +109,7 @@
   @if (!loading) {
 
     @if (errorMsg) {
-<div role="alert" class="alert-error">{{ errorMsg }} <button type="button" class="underline" (click)="load()">Retry</button></div>
+<div role="alert" class="alert-error">{{ errorMsg }} <button type="button" class="compact-action underline" (click)="load()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
 }
 
     @if (!errorMsg && data; as d) {
@@ -242,9 +242,9 @@
               <h3 class="panel-title">Company Compliance Intelligence — {{ companySummary.month }}</h3>
             </div>
           </div>
-          <button type="button" class="ghost-btn" (click)="downloadExportPack()" [disabled]="exportingPack">
+          <button type="button" class="compact-action ghost-btn" (click)="downloadExportPack()" [disabled]="exportingPack" title="📥 Export Report Pack" aria-label="📥 Export Report Pack" data-action-label="📥 Export Report Pack" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
             {{ exportingPack ? 'Generating…' : '📥 Export Report Pack' }}
-          </button>
+          </span></button>
         </div>
         <div class="panel-body">
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -407,7 +407,7 @@
               [to]="auditKpiTo">
             </app-branch-audit-kpi>
           </div>
-        
+
 }
 
         <!-- When ALL branches — show overview heatmap -->
@@ -476,7 +476,7 @@
             No branches available for risk assessment.
           </div>
 }
-        
+
 }
       </div>
 }
@@ -493,7 +493,7 @@
               <h3 class="panel-title">Registration status</h3>
             </div>
             @if (pfSummary.pendingEmployees.length) {
-<button type="button" class="ghost-btn ghost-btn--sm" (click)="togglePfModal()">View Pending</button>
+<button type="button" class="compact-action ghost-btn ghost-btn--sm" (click)="togglePfModal()" title="View Pending" aria-label="View Pending" data-action-label="View Pending" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 }
           </div>
           <div class="panel-body">
@@ -530,7 +530,7 @@
               <h3 class="panel-title">Registration status</h3>
             </div>
             @if (esiSummary.pendingEmployees.length) {
-<button type="button" class="ghost-btn ghost-btn--sm" (click)="toggleEsiModal()">View Pending</button>
+<button type="button" class="compact-action ghost-btn ghost-btn--sm" (click)="toggleEsiModal()" title="View Pending" aria-label="View Pending" data-action-label="View Pending" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 }
           </div>
           <div class="panel-body">
@@ -590,7 +590,7 @@
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h3 class="modal-title">PF &mdash; Pending Registration</h3>
-            <button type="button" class="modal-close" (click)="togglePfModal()">&times;</button>
+            <button type="button" class="compact-action modal-close" (click)="togglePfModal()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
           <div class="modal-body overflow-x-auto">
             <table class="mini-table">
@@ -628,7 +628,7 @@
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h3 class="modal-title">ESI &mdash; Pending Registration</h3>
-            <button type="button" class="modal-close" (click)="toggleEsiModal()">&times;</button>
+            <button type="button" class="compact-action modal-close" (click)="toggleEsiModal()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
           <div class="modal-body overflow-x-auto">
             <table class="mini-table">
@@ -697,9 +697,9 @@
 } @else {
 
               <p class="mini-kpi-sub">All PF applicable employees are registered.</p>
-            
+
 }
-            
+
           </div>
         </div>
 
@@ -737,9 +737,9 @@
 } @else {
 
               <p class="mini-kpi-sub">All ESI applicable employees are registered.</p>
-            
+
 }
-            
+
           </div>
         </div>
       </div>
@@ -779,9 +779,9 @@
 } @else {
 
               <p class="mini-kpi-sub">No contractor data for this month.</p>
-            
+
 }
-            
+
           </div>
         </div>
 
@@ -817,9 +817,9 @@
 } @else {
 
               <p class="mini-kpi-sub">No contractor data for this month.</p>
-            
+
 }
-            
+
           </div>
         </div>
       </div>
@@ -960,7 +960,7 @@
 } @else {
 <p class="queue-empty">No critical items</p>
 }
-              
+
             </div>
             <div class="queue-tabs">
               <div class="queue-tab queue-tab--pending">Pending ({{ d.queues.pending.length || 0 }})</div>
@@ -982,7 +982,7 @@
 } @else {
 <p class="queue-empty">No pending items</p>
 }
-              
+
             </div>
           </div>
         </div>
@@ -1085,10 +1085,10 @@
         <p class="text-sm">Refresh or check the API before retrying.</p>
       </div>
 }
-    
+
 }
 
-    
-  
+
+
 }
 </div>

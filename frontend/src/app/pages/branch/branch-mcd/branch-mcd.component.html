@@ -69,8 +69,8 @@
       </select>
     </div>
 
-    <button type="button" class="btn-refresh" (click)="load(selectedItem?.returnCode)">Refresh</button>
-    <button type="button" class="btn-refresh" (click)="exportMonthSheet()">Export Month Sheet</button>
+    <button type="button" class="compact-action btn-refresh" (click)="load(selectedItem?.returnCode)" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+    <button type="button" class="compact-action btn-refresh" (click)="exportMonthSheet()" title="Export Month Sheet" aria-label="Export Month Sheet" data-action-label="Export Month Sheet" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
   </div>
 
   <div class="summary-grid">
@@ -234,23 +234,21 @@
             <span class="attachment-file">{{ selectedLatestDoc?.uploadedFileName || 'No file uploaded yet' }}</span>
           </div>
           <button
-            class="btn-link"
+            class="compact-action btn-link"
             type="button"
             (click)="openDocument(item)"
-            [disabled]="!selectedLatestDoc?.uploadedFileUrl">
-            View file
-          </button>
+            [disabled]="!selectedLatestDoc?.uploadedFileUrl" title="View file" aria-label="View file" data-action-label="View file" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </div>
 
         <div class="actions">
           @if (canUpload(item)) {
 <button
             type="button"
-            class="btn-primary"
+            class="compact-action btn-primary"
            
-            (click)="openUploadModal(item)">
+            (click)="openUploadModal(item)" title="Upload Document" aria-label="Upload Document" data-action-label="Upload Document" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
             {{ statusOf(item) === 'REUPLOAD_REQUIRED' ? 'Reupload Document' : 'Upload Document' }}
-          </button>
+          </span></button>
 }
           @if (canMarkNa(item)) {
 <button
@@ -263,11 +261,9 @@
 }
           <button
             type="button"
-            class="btn-secondary"
+            class="compact-action btn-secondary"
             [disabled]="!selectedLatestDoc?.uploadedFileUrl"
-            (click)="openDocument(item)">
-            Open current file
-          </button>
+            (click)="openDocument(item)" title="Open current file" aria-label="Open current file" data-action-label="Open current file" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </div>
 
         <div class="timeline">
@@ -349,10 +345,10 @@
       </div>
 
       <div class="upload-actions">
-        <button class="btn-secondary" type="button" (click)="closeUploadModal()">Cancel</button>
-        <button class="btn-primary" type="button" [disabled]="!selectedFile || uploading" (click)="submitUpload()">
+        <button class="standard-action btn-secondary" type="button" (click)="closeUploadModal()">Cancel</button>
+        <button class="compact-action btn-primary" type="button" [disabled]="!selectedFile || uploading" (click)="submitUpload()" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
           {{ uploading ? 'Uploading...' : 'Upload' }}
-        </button>
+        </span></button>
       </div>
     </div>
     <div slot="footer"></div>
@@ -387,8 +383,8 @@
       </div>
 
       <div class="upload-actions">
-        <button class="btn-secondary" type="button" (click)="closeNaModal()">Cancel</button>
-        <button class="btn-na" type="button" [disabled]="!naRemarks.trim() || markingNa" (click)="submitMarkNa()">
+        <button class="standard-action btn-secondary" type="button" (click)="closeNaModal()">Cancel</button>
+        <button class="standard-action btn-na" type="button" [disabled]="!naRemarks.trim() || markingNa" (click)="submitMarkNa()">
           {{ markingNa ? 'Saving...' : 'Confirm Not Applicable' }}
         </button>
       </div>

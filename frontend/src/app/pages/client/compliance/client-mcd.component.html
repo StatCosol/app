@@ -217,7 +217,7 @@
                             !canWrite || statusBlocked(t) || uploading[t.id] || !isWindowOpen(t)
                           "
                           (clicked)="fileInput.click()"
-                        >
+                         icon="upload" [iconOnly]="true" label="Upload file">
                           {{ uploading[t.id] ? 'Uploading...' : 'Upload file' }}
                         </ui-button>
                         <input
@@ -241,7 +241,7 @@
                           !isWindowOpen(t)
                         "
                         (clicked)="submit(t)"
-                      >
+                       icon="send" [iconOnly]="true" label="Submit to CRM">
                         {{ submitting[t.id] ? 'Submitting...' : 'Submit to CRM' }}
                       </ui-button>
                     </td>

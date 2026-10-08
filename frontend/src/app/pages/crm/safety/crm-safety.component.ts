@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,7 +22,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 @Component({
   standalone: true,
   selector: 'app-crm-safety',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent, ClientContextStripComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent, ClientContextStripComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="Safety Documents" subtitle="View and verify safety documents for this client">
@@ -106,9 +107,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 }
           </select>
           <button (click)="showUploadForm = !showUploadForm" type="button"
-            class="ml-auto inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700">
+            class="compact-action ml-auto inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700" title="Upload on Behalf" aria-label="Upload on Behalf" data-action-label="Upload on Behalf" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
             {{ showUploadForm ? 'Cancel' : 'Upload on Behalf' }}
-          </button>
+          </span></button>
         </div>
       </div>
 
@@ -179,9 +180,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </div>
           <div class="flex items-end">
             <button (click)="submitUpload()" [disabled]="uploading"
-              class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50">
+              class="compact-action inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
               {{ uploading ? 'Uploading...' : 'Upload' }}
-            </button>
+            </span></button>
           </div>
         </div>
       </div>
@@ -249,12 +250,12 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   <div [class.text-green-600]="doc.verifiedByAuditor" [class.text-gray-400]="!doc.verifiedByAuditor">Auditor: {{ doc.verifiedByAuditor ? '✓' : '—' }}</div>
                 </td>
                 <td class="px-3 py-3 text-sm space-x-1">
-                  <button (click)="download(doc)" class="text-brand-600 hover:text-brand-800 font-medium text-xs">Download</button>
+                  <button (click)="download(doc)" class="compact-action text-brand-600 hover:text-brand-800 font-medium text-xs" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
                   @if (!doc.verifiedByCrm) {
 <button (click)="verify(doc)" [disabled]="doc.verifying"
-                    class="text-green-600 hover:text-green-800 font-medium text-xs disabled:opacity-50">
+                    class="compact-action text-green-600 hover:text-green-800 font-medium text-xs disabled:opacity-50" title="Verify" aria-label="Verify" data-action-label="Verify" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /><span class="compact-action-label">
                     {{ doc.verifying ? 'Verifying...' : 'Verify' }}
-                  </button>
+                  </span></button>
 }
                   @if (doc.verifiedByCrm) {
 <span class="text-green-600 text-xs font-medium">✓ Verified</span>

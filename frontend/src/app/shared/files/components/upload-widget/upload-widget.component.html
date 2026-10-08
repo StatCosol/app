@@ -41,16 +41,16 @@
   @if (config.showDropzone === false) {
 <div class="inline-block relative">
     <button type="button"
-      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
-      [disabled]="config.disabled || uploading">
+      class="compact-action inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+      (click)="compactFile.click()" [disabled]="config.disabled || uploading" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
       </svg>
       {{ config.label || 'Upload' }}
-    </button>
-    <input name="uploadWidgetButtonFile" type="file"
-      class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+    </span></button>
+    <input #compactFile name="uploadWidgetButtonFile" type="file"
+      class="hidden" tabindex="-1"
       [accept]="config.accept || ''"
       [disabled]="config.disabled || uploading"
       [multiple]="config.multiple || false"

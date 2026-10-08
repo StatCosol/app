@@ -4,10 +4,10 @@
     subtitle="Client-side branch operations workspace for compliance, uploads, returns, registrations, safety, audits, employees, and contractors">
     <ui-button variant="secondary" size="sm" (clicked)="goBack()">Back</ui-button>
     @if (hasBranchWorkspaceModules) {
-<ui-button variant="secondary" size="sm" (clicked)="refreshActiveTab()">Refresh Tab</ui-button>
+<ui-button variant="secondary" size="sm" (clicked)="refreshActiveTab()" icon="refresh" [iconOnly]="true" label="Refresh Tab">Refresh Tab</ui-button>
 }
     @if (hasBranchWorkspaceModules) {
-<ui-button variant="primary" size="sm" (clicked)="exportWorkspaceSummary()">Export Summary</ui-button>
+<ui-button variant="primary" size="sm" (clicked)="exportWorkspaceSummary()" icon="download" [iconOnly]="true" label="Export Summary">Export Summary</ui-button>
 }
   </ui-page-header>
 
@@ -140,7 +140,7 @@
                 </article>
               </div>
               <div class="toolbar">
-                <ui-button variant="secondary" size="sm" (clicked)="openComplianceModule()">Open Full Compliance Module</ui-button>
+                <ui-button variant="secondary" size="sm" (clicked)="openComplianceModule()" icon="eye" [iconOnly]="true" label="Open Full Compliance Module">Open Full Compliance Module</ui-button>
               </div>
               @if (complianceTasks.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -211,7 +211,7 @@
                   </div>
                 </div>
                 <div class="toolbar">
-                  <ui-button variant="primary" size="sm" (clicked)="uploadDocument()" [disabled]="uploadBusy">
+                  <ui-button variant="primary" size="sm" (clicked)="uploadDocument()" [disabled]="uploadBusy" icon="upload" [iconOnly]="true" label="Upload">
                     {{ uploadBusy ? 'Uploading...' : 'Upload' }}
                   </ui-button>
                 </div>
@@ -246,7 +246,7 @@
                       <td><ui-status-badge [status]="row.status || 'UPLOADED'" size="sm"></ui-status-badge></td>
                       <td>
                         <div class="row-actions">
-                          <ui-button variant="ghost" size="sm" (clicked)="openPath(documentPath(row))">Preview</ui-button>
+                          <ui-button variant="ghost" size="sm" (clicked)="openPath(documentPath(row))" icon="eye" [iconOnly]="true" label="Preview">Preview</ui-button>
                           @if ((row.status || '').toUpperCase() === 'REJECTED') {
 <ui-button
                            
@@ -275,7 +275,7 @@
                 <input type="file" (change)="onReuploadFileSelect($event)" />
                 <div class="toolbar">
                   <ui-button variant="secondary" size="sm" (clicked)="cancelReupload()">Cancel</ui-button>
-                  <ui-button variant="primary" size="sm" (clicked)="doReupload()" [disabled]="reuploadBusy">
+                  <ui-button variant="primary" size="sm" (clicked)="doReupload()" [disabled]="reuploadBusy" icon="send" [iconOnly]="true" label="Submit Re-upload">
                     {{ reuploadBusy ? 'Uploading...' : 'Submit Re-upload' }}
                   </ui-button>
                 </div>
@@ -295,7 +295,7 @@
                 <article class="mini-card"><div class="mini-label">Acknowledged</div><div class="mini-value">{{ returnsStatusCount(['APPROVED']) }}</div></article>
               </div>
               <div class="toolbar">
-                <ui-button variant="secondary" size="sm" (clicked)="openReturnsModule()">Open Full Returns Module</ui-button>
+                <ui-button variant="secondary" size="sm" (clicked)="openReturnsModule()" icon="eye" [iconOnly]="true" label="Open Full Returns Module">Open Full Returns Module</ui-button>
               </div>
               @if (returns.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -336,7 +336,7 @@
                 <article class="mini-card"><div class="mini-label">Expiring (30d)</div><div class="mini-value">{{ registrationExpiringSoonCount() }}</div></article>
               </div>
               <div class="toolbar">
-                <ui-button variant="secondary" size="sm" (clicked)="openRegistrationsModule()">Open Full Registrations Module</ui-button>
+                <ui-button variant="secondary" size="sm" (clicked)="openRegistrationsModule()" icon="eye" [iconOnly]="true" label="Open Full Registrations Module">Open Full Registrations Module</ui-button>
               </div>
               @if (registrations.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -378,7 +378,7 @@
                 <article class="mini-card"><div class="mini-label">Expired</div><div class="mini-value">{{ safetyExpiredCount() }}</div></article>
               </div>
               <div class="toolbar">
-                <ui-button variant="secondary" size="sm" (clicked)="openSafetyModule()">Open Full Safety Module</ui-button>
+                <ui-button variant="secondary" size="sm" (clicked)="openSafetyModule()" icon="eye" [iconOnly]="true" label="Open Full Safety Module">Open Full Safety Module</ui-button>
               </div>
               @if (safetyDocs.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -401,7 +401,7 @@
                       <td>{{ row.frequency || '-' }}</td>
                       <td>{{ row.validTo ? (row.validTo | date: 'dd MMM yyyy') : '-' }}</td>
                       <td><ui-status-badge [status]="row.status || 'ACTIVE'" size="sm"></ui-status-badge></td>
-                      <td><ui-button variant="ghost" size="sm" (clicked)="openPath(documentPath(row))">Preview</ui-button></td>
+                      <td><ui-button variant="ghost" size="sm" (clicked)="openPath(documentPath(row))" icon="eye" [iconOnly]="true" label="Preview">Preview</ui-button></td>
                     </tr>
 }
                   </tbody>
@@ -421,7 +421,7 @@
                 <article class="mini-card"><div class="mini-label">In Progress</div><div class="mini-value">{{ pendingCountFor('audits') }}</div></article>
               </div>
               <div class="toolbar">
-                <ui-button variant="secondary" size="sm" (clicked)="openAuditsModule()">Open Full Audits Module</ui-button>
+                <ui-button variant="secondary" size="sm" (clicked)="openAuditsModule()" icon="eye" [iconOnly]="true" label="Open Full Audits Module">Open Full Audits Module</ui-button>
               </div>
               @if (audits.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -463,7 +463,7 @@
                 <article class="mini-card"><div class="mini-label">Pending Approval</div><div class="mini-value">{{ employeesPendingApprovalCount() }}</div></article>
               </div>
               <div class="toolbar">
-                <ui-button variant="secondary" size="sm" (clicked)="openEmployeesModule()">Open Full Employees Module</ui-button>
+                <ui-button variant="secondary" size="sm" (clicked)="openEmployeesModule()" icon="eye" [iconOnly]="true" label="Open Full Employees Module">Open Full Employees Module</ui-button>
               </div>
               @if (employees.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -506,7 +506,7 @@
                 <article class="mini-card"><div class="mini-label">Upload % (Branch)</div><div class="mini-value">{{ contractorBranchView?.documentsUploadPercent || 0 }}%</div></article>
               </div>
               <div class="toolbar">
-                <ui-button variant="secondary" size="sm" (clicked)="openContractorsModule()">Open Full Contractors Module</ui-button>
+                <ui-button variant="secondary" size="sm" (clicked)="openContractorsModule()" icon="eye" [iconOnly]="true" label="Open Full Contractors Module">Open Full Contractors Module</ui-button>
               </div>
               @if (contractors.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">

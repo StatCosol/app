@@ -5,6 +5,13 @@ import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
  * Add new icons here instead of inlining <svg> markup in feature templates.
  */
 const ICON_PATHS: Record<string, string[]> = {
+  pause: ['M8 5v14M16 5v14'],
+  play: ['M8 5l11 7-11 7V5z'],
+  search: ['M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z'],
+  send: ['M22 2L9 15M22 2l-7 20-4-9-9-4 20-7z'],
+  undo: ['M3 10h11a7 7 0 017 7M3 10l5-5M3 10l5 5'],
+  upload: ['M12 16V3m0 0L7 8m5-5l5 5M3 16v3a2 2 0 002 2h14a2 2 0 002-2v-3'],
+  printer: ['M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v7H6zM18 12h.01'],
   users: [
     'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
   ],

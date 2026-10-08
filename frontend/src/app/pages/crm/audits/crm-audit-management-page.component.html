@@ -13,7 +13,7 @@
       Operational workspace for audit scheduling, tracking, and closure.
     </div>
     <div class="flex items-center gap-2">
-      <ui-button variant="secondary" size="sm" (clicked)="refreshWorkspace(selectedAudit?.id || null)">
+      <ui-button variant="secondary" size="sm" (clicked)="refreshWorkspace(selectedAudit?.id || null)" icon="refresh" [iconOnly]="true" label="Refresh">
         Refresh
       </ui-button>
       <ui-button variant="secondary" size="sm" (clicked)="autoGenerateSchedules()" [disabled]="autoGenerating">
@@ -115,7 +115,7 @@
       </div>
     </div>
     <div class="mt-3 flex justify-end">
-      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()">Clear Filters</ui-button>
+      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Clear Filters">Clear Filters</ui-button>
     </div>
   </div>
 
@@ -184,16 +184,16 @@
                     @for (action of getNextStatuses(row.status); track action) {
 <button type="button"
                      
-                      class="status-action-btn"
+                      class="compact-action status-action-btn"
                       [ngClass]="{
                         'status-action-btn--primary': action.variant === 'primary',
                         'status-action-btn--danger': action.variant === 'danger'
                       }"
                       [disabled]="actionBusy"
                       (click)="changeStatus(row, action.value)"
-                    >
+                     [attr.title]="action.label" [attr.aria-label]="action.label" [attr.data-action-label]="action.label" [attr.data-action-icon]="action.label | actionIcon"><ui-icon [name]="action.label | actionIcon" [size]="20" /><span class="compact-action-label">
                       {{ action.label }}
-                    </button>
+                    </span></button>
 }
                     <button type="button" class="status-action-btn" (click)="openScheduleModal(row)">Reassign</button>
                   </div>
@@ -367,30 +367,24 @@
 <div class="flex flex-wrap gap-2 mt-3">
           @if (latestReportStatus?.status === 'SUBMITTED') {
 <button type="button"
-            class="status-action-btn status-action-btn--primary"
+            class="compact-action status-action-btn status-action-btn--primary"
            
             [disabled]="governanceBusy || latestReportStatus?.held"
-            (click)="approveReport()">
-            ✓ Approve
-          </button>
+            (click)="approveReport()" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
           @if (latestReportStatus?.status === 'APPROVED') {
 <button type="button"
-            class="status-action-btn status-action-btn--primary"
+            class="compact-action status-action-btn status-action-btn--primary"
            
             [disabled]="governanceBusy || latestReportStatus?.held"
-            (click)="publishReport()">
-            ↑ Publish
-          </button>
+            (click)="publishReport()" title="Publish" aria-label="Publish" data-action-label="Publish" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
 }
           @if (latestReportStatus?.status === 'SUBMITTED' || latestReportStatus?.status === 'APPROVED') {
 <button type="button"
-            class="status-action-btn"
+            class="compact-action status-action-btn"
            
             [disabled]="governanceBusy"
-            (click)="sendBackReport()">
-            ← Send Back
-          </button>
+            (click)="sendBackReport()" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
 }
           @if (!latestReportStatus?.held && (latestReportStatus?.status === 'SUBMITTED' || latestReportStatus?.status === 'APPROVED')) {
 <button type="button"
@@ -451,7 +445,7 @@
 <section class="modal-panel">
   <div class="modal-head">
     <h3>{{ scheduleMode === 'ASSIGN' ? 'Assign Auditor / Reschedule' : 'Schedule Audit' }}</h3>
-    <button type="button" class="close-btn" (click)="closeScheduleModal()">X</button>
+    <button type="button" class="compact-action close-btn" (click)="closeScheduleModal()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
   </div>
   <div class="modal-body">
     @if (isAssignMode) {

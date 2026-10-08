@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -18,7 +19,7 @@ type RiskBandFilter = 'ALL' | 'LOW' | 'MEDIUM' | 'HIGH';
 @Component({
   selector: 'app-ceo-branches',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     RouterModule,
     PageHeaderComponent,

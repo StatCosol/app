@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -23,7 +24,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 @Component({
   selector: 'app-crm-branch-docs-review',
   standalone: true,
-  imports: [FormsModule, ActionButtonComponent, StatusBadgeComponent, PageHeaderComponent, ModalComponent, DataTableComponent, TableCellDirective],
+  imports: [IconComponent, FormsModule, ActionButtonComponent, StatusBadgeComponent, PageHeaderComponent, ModalComponent, DataTableComponent, TableCellDirective],
   templateUrl: './crm-branch-docs-review.component.html',
   styles: [`
     .page-container { max-width: 1400px; margin: 0 auto; padding: 0 1rem; }

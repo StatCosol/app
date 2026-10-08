@@ -12,7 +12,7 @@
       <input autocomplete="off" id="cbd-month" name="month" type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
         [(ngModel)]="month" (change)="load()" />
     </div>
-    <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
+    <ui-button variant="secondary" size="sm" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
   </div>
 
   @if (loading) {

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../ui/icon/icon.component';
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -5,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-composer',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   templateUrl: './composer.component.html',
 })
 export class ComposerComponent {

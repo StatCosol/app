@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -33,7 +34,7 @@ type UploadRegisterType = 'PF_CHALLAN_REGISTER' | 'ESI_CHALLAN_REGISTER' | 'ECR'
 @Component({
   selector: 'app-payroll-pf-esi',
   standalone: true,
-  imports: [FormsModule, ClientContextStripComponent, PageHeaderComponent],
+  imports: [IconComponent, FormsModule, ClientContextStripComponent, PageHeaderComponent],
   templateUrl: './payroll-pf-esi.component.html',
   styleUrls: ['./payroll-pf-esi.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

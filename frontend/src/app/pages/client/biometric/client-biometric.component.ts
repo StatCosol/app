@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -25,7 +26,7 @@ interface BranchOption { id: string; name: string }
 @Component({
   selector: 'app-client-biometric',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -57,7 +58,7 @@ interface BranchOption { id: string; name: string }
           <span class="text-sm text-gray-500">{{ devices.length }} device(s) registered</span>
           <div class="flex gap-2">
             <ui-button variant="secondary" (clicked)="reconcile()" [loading]="reconciling">Reconcile Unknown</ui-button>
-            <ui-button variant="primary" (clicked)="openAdd()">+ Add Device</ui-button>
+            <ui-button variant="primary" (clicked)="openAdd()" icon="plus" [iconOnly]="true" label="Add Device">+ Add Device</ui-button>
           </div>
         </div>
 
@@ -67,7 +68,7 @@ interface BranchOption { id: string; name: string }
 
         @if (!loadingDevices && devices.length === 0) {
 <ui-empty-state
-         
+
           title="No devices yet"
           description="Click + Add Device to register your first eSSL / ZKTeco machine.">
         </ui-empty-state>
@@ -109,8 +110,8 @@ interface BranchOption { id: string; name: string }
                   <button class="text-xs text-brand-600 hover:underline mr-3" (click)="toggleEnabled(d)">
                     {{ d.enabled ? 'Disable' : 'Enable' }}
                   </button>
-                  <button class="text-xs text-brand-600 hover:underline mr-3" (click)="openRotate(d)">Rotate Token</button>
-                  <button class="text-xs text-red-600 hover:underline" (click)="remove(d)">Delete</button>
+                  <button class="compact-action text-xs text-brand-600 hover:underline mr-3" (click)="openRotate(d)" title="Rotate Token" aria-label="Rotate Token" data-action-label="Rotate Token" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></button>
+                  <button class="compact-action text-xs text-red-600 hover:underline" (click)="remove(d)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                 </td>
               </tr>
 }
@@ -118,7 +119,7 @@ interface BranchOption { id: string; name: string }
           </table></div>
         </div>
 }
-      
+
 }
 
       <!-- ────── PUNCH FEED TAB ────── -->
@@ -142,7 +143,7 @@ interface BranchOption { id: string; name: string }
 }
             </select>
           </div>
-          <ui-button variant="primary" (clicked)="loadPunches()" [loading]="loadingPunches">Refresh</ui-button>
+          <ui-button variant="primary" (clicked)="loadPunches()" [loading]="loadingPunches" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
           <ui-button variant="secondary" (clicked)="reprocess()" [loading]="reprocessing">Reprocess Range</ui-button>
         </div>
 
@@ -152,7 +153,7 @@ interface BranchOption { id: string; name: string }
 
         @if (!loadingPunches && punches.length === 0) {
 <ui-empty-state
-         
+
           title="No punches in range"
           description="Try widening the date range or checking that the device is online and registered.">
         </ui-empty-state>
@@ -211,7 +212,7 @@ interface BranchOption { id: string; name: string }
           </table></div>
         </div>
 }
-      
+
 }
 
       <!-- ────── SETUP GUIDE TAB ────── -->
@@ -275,7 +276,7 @@ interface BranchOption { id: string; name: string }
           </section>
 
         </div>
-      
+
 }
 
       <!-- ───────── ADD / EDIT MODAL ───────── -->
@@ -318,7 +319,7 @@ interface BranchOption { id: string; name: string }
 }
         <div class="flex justify-end gap-3 mt-4">
           <ui-button variant="secondary" (clicked)="showModal = false">Cancel</ui-button>
-          <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()">
+          <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()" icon="user-plus" [iconOnly]="true" label="Register">
             {{ editing ? 'Update' : 'Register' }}
           </ui-button>
         </div>
@@ -335,7 +336,7 @@ interface BranchOption { id: string; name: string }
         </p>
         <div class="flex justify-end gap-3 mt-4">
           <ui-button variant="secondary" (clicked)="rotateTarget = null">Cancel</ui-button>
-          <ui-button variant="primary" [loading]="rotating" (clicked)="confirmRotate()">Rotate Token</ui-button>
+          <ui-button variant="primary" [loading]="rotating" (clicked)="confirmRotate()" icon="cog" [iconOnly]="true" label="Rotate Token">Rotate Token</ui-button>
         </div>
       </ui-modal>
 }

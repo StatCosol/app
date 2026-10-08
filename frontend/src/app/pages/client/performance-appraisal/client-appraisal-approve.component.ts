@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-client-appraisal-approve',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
@@ -101,11 +102,11 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <textarea id="client-remarks" name="clientRemarks" [(ngModel)]="clientRemarks" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Optional remarks..."></textarea>
         </div>
         <div class="flex items-center gap-3">
-          <button (click)="approve()" [disabled]="submitting" class="appraisal-action appraisal-action--primary">Approve</button>
-          <button (click)="sendBack()" [disabled]="submitting" class="appraisal-action text-amber-600">Send Back</button>
-          <button (click)="reject()" [disabled]="submitting" class="appraisal-action text-red-600">Reject</button>
+          <button (click)="approve()" [disabled]="submitting" class="compact-action appraisal-action appraisal-action--primary" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+          <button (click)="sendBack()" [disabled]="submitting" class="compact-action appraisal-action text-amber-600" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+          <button (click)="reject()" [disabled]="submitting" class="compact-action appraisal-action text-red-600" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           @if (appraisal.status === 'CLIENT_APPROVED') {
-<button (click)="lock()" [disabled]="submitting" class="appraisal-action">Lock</button>
+<button (click)="lock()" [disabled]="submitting" class="compact-action appraisal-action" title="Lock" aria-label="Lock" data-action-label="Lock" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></button>
 }
         </div>
       </div>

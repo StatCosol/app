@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,7 +22,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   standalone: true,
   selector: 'app-client-compliance-library',
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,

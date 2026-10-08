@@ -1,4 +1,4 @@
-﻿import { Component, Input } from '@angular/core';
+import { Component, Input } from '@angular/core';
 
 import { TimelineEvent } from './timeline.model';
 import { TimelineEventCardComponent } from './timeline-event-card.component';

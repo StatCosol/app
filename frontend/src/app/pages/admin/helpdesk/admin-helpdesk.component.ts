@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
@@ -9,16 +10,14 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-admin-helpdesk',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, RouterModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="space-y-6">
       <ui-page-header
         title="Helpdesk Management"
         subtitle="Monitor and manage all helpdesk tickets across clients">
         <button type="button" (click)="reload(); loadStats()"
-                class="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-          Refresh
-        </button>
+                class="compact-action text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </ui-page-header>
 
       <!-- Load error banner -->
@@ -26,7 +25,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 <div role="alert" class="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
         <span>{{ loadError || statsError }}</span>
         <button type="button" (click)="loadError = ''; loadStats(); loadTickets()"
-                class="text-xs px-2 py-1 border border-red-300 rounded hover:bg-red-100">Retry</button>
+                class="compact-action text-xs px-2 py-1 border border-red-300 rounded hover:bg-red-100" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 }
 
@@ -102,9 +101,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 
         @if (hasActiveFilters) {
 <button (click)="clearFilters()"
-                class="text-sm text-gray-500 hover:text-gray-700 underline">
-          Clear filters
-        </button>
+                class="compact-action text-sm text-gray-500 hover:text-gray-700 underline" title="Clear filters" aria-label="Clear filters" data-action-label="Clear filters" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
 }
       </div>
 
@@ -176,7 +173,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </p>
           <div class="flex flex-wrap gap-1">
             <button (click)="goToPage(currentPage - 1)" [disabled]="loading || currentPage <= 1"
-                    class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                    class="standard-action px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
               ← Prev
             </button>
             @for (p of pageNumbers; track p) {
@@ -187,7 +184,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             </button>
 }
             <button (click)="goToPage(currentPage + 1)" [disabled]="loading || currentPage >= totalPages"
-                    class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                    class="standard-action px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
               Next →
             </button>
           </div>

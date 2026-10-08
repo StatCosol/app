@@ -1,0 +1,116 @@
+/* Shared action presentation for native controls across portal modules. */
+.compact-action-label { display: none; }
+/* Plain action controls in older pages inherit the same height. Rich cards,
+   prompts and sidebar navigation retain their content-driven layout. */
+.workspace-ui main button:not(.compact-action):not(.ui-icon-action):not(:has(div, p, strong, h1, h2, h3, img)):not([class*='card']):not([class*='tile']):not([class*='summary']):not([class*='metric']):not([class*='kpi']):not([class*='prompt']):not([class*='suggest']):not([class*='question']):not([class*='fab']):not(.sidebar-toggle) {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  min-width: 40px;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.standard-action,
+.workspace-ui :is(button.btn, button.btn-primary, button.btn-secondary, button.btn-danger, button.btn-success, button.btn-warning, button.btn-outline, button.btn-ghost):not(.compact-action):not(.ui-icon-action) {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  min-width: 80px;
+  box-sizing: border-box !important;
+  padding: 0 12px !important;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.workspace-ui :is(.row-actions, .actions-cell, .employee-actions, .table-actions) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  width: max-content;
+  min-width: max-content;
+}
+.workspace-ui td > :is(div.flex, .row-actions, .actions-cell, .employee-actions, .table-actions):has(.compact-action, .ui-icon-action) {
+  flex-wrap: nowrap !important;
+  min-width: max-content !important;
+}
+:is(button, a).compact-action {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative;
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  flex: 0 0 40px;
+  border: 1px solid #dbe3ed !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #334155 !important;
+  box-shadow: none !important;
+  vertical-align: middle;
+}
+
+:is(button, a).compact-action[data-action-icon='check-circle'] { color: #15803d !important; }
+:is(button, a).compact-action[data-action-icon='x-circle'],
+:is(button, a).compact-action[data-action-icon='trash'] { color: #dc2626 !important; }
+:is(button, a).compact-action[data-action-icon='user-minus'] { color: #dc2626 !important; }
+:is(button, a).compact-action:hover:not(:disabled) { background: #eff6ff !important; border-color: #93c5fd !important; }
+:is(button, a).compact-action:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+:is(button, a).compact-action:disabled { opacity: .45; cursor: not-allowed; }
+:is(button, a).compact-action::after {
+  content: attr(data-action-label);
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: #172033;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: normal;
+  width: max-content;
+  max-width: 240px;
+  z-index: 1000;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+}
+:is(button, a).compact-action:hover::after,
+:is(button, a).compact-action:focus-visible::after { display: block; visibility: visible; opacity: 1; }
+@media (pointer: coarse) {
+  .workspace-ui main button:not(.compact-action):not(.ui-icon-action):not(:has(div, p, strong, h1, h2, h3, img)):not([class*='card']):not([class*='tile']):not([class*='summary']):not([class*='metric']):not([class*='kpi']):not([class*='prompt']):not([class*='suggest']):not([class*='question']):not([class*='fab']):not(.sidebar-toggle) { height: 44px !important; min-height: 44px !important; max-height: 44px !important; min-width: 44px; }
+  .standard-action,
+  .workspace-ui :is(button.btn, button.btn-primary, button.btn-secondary, button.btn-danger, button.btn-success, button.btn-warning, button.btn-outline, button.btn-ghost):not(.compact-action):not(.ui-icon-action) { height: 44px !important; min-height: 44px !important; max-height: 44px !important; }
+  :is(button, a).compact-action { width: 44px !important; min-width: 44px !important; max-width: 44px !important; height: 44px !important; min-height: 44px !important; max-height: 44px !important; flex-basis: 44px; }
+}
+
+// Keep filter inputs and neighbouring actions on the same baseline.
+.workspace-ui .aligned-filter-controls {
+  --filter-control-height: 40px;
+}
+.workspace-ui .aligned-filter-controls :is(input:not([type='checkbox']):not([type='radio']), select) {
+  height: var(--filter-control-height) !important;
+  min-height: var(--filter-control-height) !important;
+  box-sizing: border-box;
+}
+@media (pointer: coarse) {
+  .workspace-ui .aligned-filter-controls { --filter-control-height: 44px; }
+}
+
+.workspace-ui .aligned-filter-controls label:has(input, select) {
+  margin-bottom: 0 !important;
+}

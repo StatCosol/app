@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -30,7 +31,7 @@ interface UploadedDoc {
 @Component({
   standalone: true,
   selector: 'app-monthly-uploads',
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './monthly-uploads.component.html',
   styles: [`

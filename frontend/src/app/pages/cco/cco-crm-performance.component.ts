@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -15,7 +16,7 @@ import { ReportsService } from '../../core/reports.service';
 @Component({
   selector: 'app-cco-crm-performance',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FormsModule,
     PageHeaderComponent,
     EmptyStateComponent,
@@ -75,10 +76,7 @@ import { ReportsService } from '../../core/reports.service';
             </svg>
           </div>
           <ui-form-select label="Status" [options]="statusOptions" [(ngModel)]="statusFilter" (ngModelChange)="applyFilter()" class="w-44"></ui-form-select>
-          <button (click)="exportCsv()" class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Export
-          </button>
+          <button (click)="exportCsv()" class="compact-action ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export" aria-label="Export" data-action-label="Export" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           <span class="text-sm text-gray-500">{{ filteredCrms.length }} CRM{{ filteredCrms.length !== 1 ? 's' : '' }}</span>
         </div>
 
@@ -107,7 +105,7 @@ import { ReportsService } from '../../core/reports.service';
               <ui-status-badge [status]="row.status"></ui-status-badge>
             </ng-template>
             <ng-template uiTableCell="actions" let-row>
-              <ui-button variant="secondary" size="sm" (clicked)="viewCrm(row)">View</ui-button>
+              <ui-button variant="secondary" size="sm" (clicked)="viewCrm(row)" icon="eye" [iconOnly]="true" label="View">View</ui-button>
             </ng-template>
           </ui-data-table>
         </div>
@@ -115,7 +113,7 @@ import { ReportsService } from '../../core/reports.service';
 
         @if (filteredCrms.length === 0) {
 <ui-empty-state
-         
+
           title="No performance data"
           description="CRM performance metrics will appear here."
           icon="chart-bar">

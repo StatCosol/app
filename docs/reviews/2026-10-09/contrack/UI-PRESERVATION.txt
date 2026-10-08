@@ -1,0 +1,16 @@
+Combined release validation — 9 October 2026
+Preserved live frontend image: 20261008-all-filter-alignment-v9.
+Three-way source base: a65530ee024daf70724883365d62e6e681e914e4.
+Restoration base: 21cd80d794015aeca60cb13fd9a03aa2ae2b6114.
+320 live UI files integrated; five import overlaps resolved by retaining both sides.
+Authentication, branch routing and all restoration fixes retained.
+No Pulse Assist mounts added to the contractor, branch or client layouts.
+
+Production build: PASS. Lint: PASS.
+Browser suite: 114 files, 747 tests PASS (includes 23 new ConTrack tests).
+Frontend logic suite: 22 files, 129 tests PASS.
+Layout review: 220 pages, 13 portals, widths 1440/800/390; no reported runtime, overflow, alignment, sizing, row-group or unlabeled-icon issues.
+Real built UI with synthetic API data: PASS for CLRA profile/assignment errors and retry, worker/deployment lists, October attendance and wages, mobile viewport.
+Additional corrections during integration: hidden tooltips excluded from layout until shown; embedded BOMs removed; original text-button size classes retained. Tests use accessible action names for icon controls while preserving business assertions.
+
+Sample fixtures are fictional and were not inserted into production. Cloud storage, external delivery and physical attendance devices were not live-tested. This document reports local validation; GitHub checks, required approval, merge and deployment remain separate release gates.

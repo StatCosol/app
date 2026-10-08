@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -7,7 +8,7 @@ import { ContractorPayrollWorkflowComponent } from './contractor-payroll-workflo
 @Component({
   standalone: true,
   selector: 'app-contractor-payroll-oversight',
-  imports: [FormsModule, ContractorPayrollWorkflowComponent],
+  imports: [IconComponent, FormsModule, ContractorPayrollWorkflowComponent],
   template: `
     <details class="border rounded-lg p-4 my-4">
       <summary>Contractor payroll — approved packs and controlled reopening</summary>
@@ -17,7 +18,7 @@ import { ContractorPayrollWorkflowComponent } from './contractor-payroll-workflo
       </p>
       @if (error()) {
         <p role="alert">{{ error() }}</p>
-        <button type="button" (click)="loadClients()">Retry</button>
+        <button type="button" (click)="loadClients()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       }
       <label
         >Company

@@ -68,11 +68,11 @@
         Pending only
       </label>
 
-      <ui-button variant="secondary" size="sm" (clicked)="loadFilings()">Refresh</ui-button>
-      <ui-button variant="ghost" size="sm" (clicked)="exportCsv()">Export</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="loadFilings()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
+      <ui-button variant="ghost" size="sm" (clicked)="exportCsv()" icon="download" [iconOnly]="true" label="Export">Export</ui-button>
       <ui-button variant="ghost" size="sm" [disabled]="exportingCsv" (clicked)="exportServerCsv()">{{ exportingCsv ? 'Exporting...' : 'Server Export' }}</ui-button>
-      <ui-button variant="ghost" size="sm" [disabled]="exportingXlsx" (clicked)="exportServerXlsx()">{{ exportingXlsx ? 'Exporting...' : 'Export Excel' }}</ui-button>
-      <ui-button variant="primary" size="sm" (clicked)="toggleCreateForm()">{{ showCreateForm ? 'Cancel' : '+ Add Return' }}</ui-button>
+      <ui-button variant="ghost" size="sm" [disabled]="exportingXlsx" (clicked)="exportServerXlsx()" icon="download" [iconOnly]="true" label="Export Excel">{{ exportingXlsx ? 'Exporting...' : 'Export Excel' }}</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="toggleCreateForm()" icon="plus" [iconOnly]="true" label="+ Add Return">{{ showCreateForm ? 'Cancel' : '+ Add Return' }}</ui-button>
       <ui-button variant="ghost" size="sm" (clicked)="toggleAutomationPanel()">{{ showAutomationPanel ? 'Hide Auto' : 'Automation' }}</ui-button>
     </div>
   </section>
@@ -89,7 +89,7 @@
         <h4>Generate Monthly Filings</h4>
         <p>Creates filing rows + tasks from return master rules for the current month.</p>
         @if (canManageAutomation) {
-        <ui-button variant="primary" size="sm" [disabled]="autoGenerating" (clicked)="runAutoGenerate()">
+        <ui-button variant="primary" size="sm" [disabled]="autoGenerating" (clicked)="runAutoGenerate()" icon="refresh" [iconOnly]="true" label="Generate Filings">
           {{ autoGenerating ? 'Generating...' : 'Generate Filings' }}
         </ui-button>
         } @else { <p>Managed by your administrator in the Automation Control Centre.</p> }
@@ -105,7 +105,7 @@
         <h4>Generate Renewal Filings</h4>
         <p>Scans expiring registrations and creates renewal filing rows + tasks.</p>
         @if (canManageAutomation) {
-<ui-button variant="secondary" size="sm" [disabled]="autoRenewing" (clicked)="runAutoRenewals()">
+<ui-button variant="secondary" size="sm" [disabled]="autoRenewing" (clicked)="runAutoRenewals()" icon="refresh" [iconOnly]="true" label="Generate Renewals">
           {{ autoRenewing ? 'Scanning...' : 'Generate Renewals' }}
         </ui-button>
 } @else { <p>Managed by your administrator in the Automation Control Centre.</p> }
@@ -121,7 +121,7 @@
         <h4>Send Overdue Alerts</h4>
         <p>Escalates priority of overdue filings and sends CRM notifications.</p>
         @if (canManageAutomation) {
-<ui-button variant="danger" size="sm" [disabled]="autoAlerting" (clicked)="runOverdueAlerts()">
+<ui-button variant="danger" size="sm" [disabled]="autoAlerting" (clicked)="runOverdueAlerts()" icon="send" [iconOnly]="true" label="Send Alerts">
           {{ autoAlerting ? 'Sending...' : 'Send Alerts' }}
         </ui-button>
 } @else { <p>Managed by your administrator in the Automation Control Centre.</p> }
@@ -255,7 +255,7 @@
         <input type="date" id="nf-due" class="field" [(ngModel)]="newFiling.dueDate" name="nfDueDate">
       </div>
       <div class="form-field form-field--actions">
-        <ui-button variant="primary" [disabled]="creating" (clicked)="createFiling()">
+        <ui-button variant="primary" [disabled]="creating" (clicked)="createFiling()" icon="plus" [iconOnly]="true" label="Create Filing">
           {{ creating ? 'Creating...' : 'Create Filing' }}
         </ui-button>
       </div>
@@ -357,9 +357,9 @@
         <div class="bulk-actions">
           <button type="button" class="mini" (click)="bulkReadyForFiling()">Bulk Ready For Filing</button>
           <button type="button" class="mini" (click)="bulkMarkFiled()">Bulk Mark Filed</button>
-          <button type="button" class="mini" (click)="bulkVerify()">Bulk Verify</button>
-          <button type="button" class="mini" (click)="bulkReturnToBranch()">Bulk Return To Branch</button>
-          <button type="button" class="mini" (click)="bulkSendReminder()">Send Reminder</button>
+          <button type="button" class="compact-action mini" (click)="bulkVerify()" title="Bulk Verify" aria-label="Bulk Verify" data-action-label="Bulk Verify" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+          <button type="button" class="compact-action mini" (click)="bulkReturnToBranch()" title="Bulk Return To Branch" aria-label="Bulk Return To Branch" data-action-label="Bulk Return To Branch" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
+          <button type="button" class="compact-action mini" (click)="bulkSendReminder()" title="Send Reminder" aria-label="Send Reminder" data-action-label="Send Reminder" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
         </div>
       </div>
 }
@@ -489,14 +489,14 @@
            
             [variant]="action.variant"
             [disabled]="statusBusy || !canMoveTo(action.value, row)"
-            (clicked)="moveStatus(action.value)">
+            (clicked)="moveStatus(action.value)" [icon]="action.label | actionIcon" [iconOnly]="true" [label]="action.label">
             {{ action.label }}
           </ui-button>
 }
           <ui-button
             variant="danger"
             [disabled]="statusBusy || row.status === 'APPROVED'"
-            (clicked)="deleteFiling(row)">
+            (clicked)="deleteFiling(row)" icon="trash" [iconOnly]="true" label="Delete">
             Delete
           </ui-button>
         </div>
@@ -522,29 +522,29 @@
           <div class="proof-row">
             <span>ACK / ARN Proof</span>
             <div class="proof-actions">
-              <button type="button" class="mini" (click)="openAckUpload(row.id)" [disabled]="uploadingAck">
+              <button type="button" class="compact-action mini" (click)="openAckUpload(row.id)" [disabled]="uploadingAck" title="Upload ACK" aria-label="Upload ACK" data-action-label="Upload ACK" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
                 {{ uploadingAck && selectedFilingIdForAck === row.id ? 'Uploading...' : 'Upload ACK' }}
-              </button>
-              <button type="button" class="mini mini--view" [disabled]="!row.ackFilePath" (click)="openFile(row.ackFilePath)">View</button>
+              </span></button>
+              <button type="button" class="compact-action mini mini--view" [disabled]="!row.ackFilePath" (click)="openFile(row.ackFilePath)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
             </div>
           </div>
 
           <div class="proof-row">
             <span>Challan Proof</span>
             <div class="proof-actions">
-              <button type="button" class="mini" (click)="openChallanUpload(row.id)" [disabled]="uploadingChallan">
+              <button type="button" class="compact-action mini" (click)="openChallanUpload(row.id)" [disabled]="uploadingChallan" title="Upload Challan" aria-label="Upload Challan" data-action-label="Upload Challan" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
                 {{ uploadingChallan && selectedFilingIdForChallan === row.id ? 'Uploading...' : 'Upload Challan' }}
-              </button>
-              <button type="button" class="mini mini--view" [disabled]="!row.challanFilePath" (click)="openFile(row.challanFilePath)">View</button>
+              </span></button>
+              <button type="button" class="compact-action mini mini--view" [disabled]="!row.challanFilePath" (click)="openFile(row.challanFilePath)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
             </div>
           </div>
 
           <div class="proof-row">
             <span>General Proof</span>
             <div class="proof-actions">
-              <button type="button" class="mini" (click)="openProofUpload()" [disabled]="uploadingProof">
+              <button type="button" class="compact-action mini" (click)="openProofUpload()" [disabled]="uploadingProof" title="Upload Proof" aria-label="Upload Proof" data-action-label="Upload Proof" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
                 {{ uploadingProof ? 'Uploading...' : 'Upload Proof' }}
-              </button>
+              </span></button>
             </div>
           </div>
         </div>

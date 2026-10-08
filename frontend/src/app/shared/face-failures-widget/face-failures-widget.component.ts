@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -15,7 +16,7 @@ import {
 @Component({
   selector: 'app-face-failures-widget',
   standalone: true,
-  imports: [RouterModule],
+  imports: [IconComponent, RouterModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
@@ -36,10 +37,8 @@ import {
         </div>
         <a
           [routerLink]="route"
-          class="text-xs font-medium text-brand-600 hover:text-brand-800"
-        >
-          View all →
-        </a>
+          class="compact-action text-xs font-medium text-brand-600 hover:text-brand-800"
+         title="View all →" aria-label="View all →" data-action-label="View all →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
       </div>
 
       @if (!loading) {
@@ -73,7 +72,7 @@ import {
 
         @if (stats && topReason(); as tr) {
 <div
-         
+
           class="mt-3 text-xs text-slate-600"
         >
           Top reason:
@@ -84,7 +83,7 @@ import {
         </div>
 }
 
-        
+
       
 } @else {
 
@@ -93,7 +92,7 @@ import {
             class="h-5 w-5 border-2 border-slate-300 border-t-brand-500 rounded-full animate-spin"
           ></div>
         </div>
-      
+
 }
 
       

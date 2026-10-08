@@ -34,7 +34,7 @@ interface ReportItem {
       </div>
 
       @if (canDownloadPdf) {
-        <section class="pdf-downloads" aria-label="PDF reports" [attr.aria-busy]="pdfLoading">
+        <section class="pdf-downloads aligned-filter-controls" aria-label="PDF reports" [attr.aria-busy]="pdfLoading">
           <label for="pdf-report-type">PDF report
             <select id="pdf-report-type" [(ngModel)]="pdfType" [disabled]="pdfLoading">
               <option value="compliance">Compliance summary</option>
@@ -45,10 +45,10 @@ interface ReportItem {
           <label for="pdf-report-month">Month (optional)
             <input id="pdf-report-month" type="month" [(ngModel)]="pdfMonth" [disabled]="pdfLoading" />
           </label>
-          <button type="button" class="pdf-download-button" (click)="downloadPdf()" [disabled]="pdfLoading">
+          <button type="button" class="compact-action pdf-download-button" (click)="downloadPdf()" [disabled]="pdfLoading" title="Download PDF" aria-label="Download PDF" data-action-label="Download PDF" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
             <ui-icon name="download" [size]="18" />
             {{ pdfLoading ? 'Preparing PDF...' : 'Download PDF' }}
-          </button>
+          </span></button>
           @if (pdfError) { <p class="pdf-error" role="alert">{{ pdfError }}</p> }
         </section>
       }

@@ -9,7 +9,7 @@
         <span class="font-medium text-gray-700">Month</span>
         <input autocomplete="off" id="ccb-month" name="month" type="month" [(ngModel)]="month" (change)="onMonthChange()" class="form-input" />
       </label>
-      <button type="button" (click)="router.navigate(['/client/contractors'])" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Back</button>
+      <button type="button" (click)="router.navigate(['/client/contractors'])" class="standard-action px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Back</button>
     </div>
   </div>
 
@@ -88,7 +88,7 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       @for (c of contractors; track c) {
 <div
-       
+
         (click)="selectContractor(c)"
         class="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md hover:border-brand-800/20 transition-all duration-200 cursor-pointer group"
       >

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,23 +10,21 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-ess-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <div class="max-w-4xl mx-auto space-y-6">
       <ui-page-header title="My Profile" subtitle="Personal, employment, and bank details">
         @if (emp && !editing) {
           <button (click)="startEdit()"
-            class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition">
-            Edit Profile
-          </button>
+            class="compact-action px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition" title="Edit Profile" aria-label="Edit Profile" data-action-label="Edit Profile" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
         }
         @if (emp && editing) {
           <button (click)="cancelEdit()"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+            class="standard-action px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
             Cancel
           </button>
           <button (click)="saveEdit()" [disabled]="saving"
-            class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
+            class="standard-action px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
             {{ saving ? 'Saving...' : 'Save Changes' }}
           </button>
         }
@@ -173,7 +172,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             </div>
           </div>
         </div>
-      
+
 }
     </div>
   `,

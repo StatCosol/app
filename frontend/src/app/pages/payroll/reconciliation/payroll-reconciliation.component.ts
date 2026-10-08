@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectionStrategy, Component, DestroyRef, Input, OnChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +20,7 @@ export interface ReconciliationReport {
 }
 
 @Component({
-  standalone: true, selector: 'app-payroll-reconciliation', imports: [CommonModule, FormsModule],
+  standalone: true, selector: 'app-payroll-reconciliation', imports: [IconComponent, CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './payroll-reconciliation.component.html', styleUrl: './payroll-reconciliation.component.scss',
 })

@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -13,14 +14,12 @@ import { PageHeaderComponent } from '../../shared/ui';
 @Component({
   selector: 'app-sales-leads-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterModule, PageHeaderComponent],
   template: `
     <div class="space-y-5">
       <ui-page-header title="Leads" subtitle="Pipeline of open, won, and archived opportunities">
         <a routerLink="/sales/leads/new"
-           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
-          + New Lead
-        </a>
+           class="compact-action inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg" title="New Lead" aria-label="New Lead" data-action-label="New Lead" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></a>
       </ui-page-header>
 
       <!-- Filters -->
@@ -58,7 +57,7 @@ import { PageHeaderComponent } from '../../shared/ui';
           <input [(ngModel)]="search" (keyup.enter)="reload()" placeholder="Search…"
                  class="workspace-search w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
         </div>
-        <button (click)="reload()" class="px-3 py-1.5 text-sm font-medium text-white bg-gray-700 hover:bg-gray-800 rounded-lg">Apply</button>
+        <button (click)="reload()" class="compact-action px-3 py-1.5 text-sm font-medium text-white bg-gray-700 hover:bg-gray-800 rounded-lg" title="Apply" aria-label="Apply" data-action-label="Apply" data-action-icon="search"><ui-icon name="search" [size]="20" /></button>
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">

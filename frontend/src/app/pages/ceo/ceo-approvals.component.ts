@@ -96,17 +96,17 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             <ng-template uiTableCell="actions" let-row>
               @if (row.status === 'PENDING') {
 <div class="flex gap-2 justify-end">
-                <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)">
+                <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)" icon="check-circle" [iconOnly]="true" label="Approve">
                   {{ actionId === row.id ? '...' : 'Approve' }}
                 </ui-button>
-                <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)">
+                <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)" icon="x-circle" [iconOnly]="true" label="Reject">
                   Reject
                 </ui-button>
               </div>
 } @else {
 
                 <span class="text-gray-400">—</span>
-              
+
 }
               
             </ng-template>
@@ -116,7 +116,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
         @if (filteredApprovals.length === 0) {
 <ui-empty-state
-         
+
           title="No pending approvals"
           description="Pending approval requests will appear here."
           icon="clipboard-check">

@@ -105,7 +105,7 @@ import { PageHeaderComponent } from '../../shared/ui';
 }
         <div class="md:col-span-2 flex justify-end gap-2 pt-2">
           <a routerLink="/sales/leads" class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</a>
-          <button type="submit" [disabled]="saving" class="px-5 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50">
+          <button type="submit" [disabled]="saving" class="standard-action px-5 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50">
             {{ saving ? 'Saving…' : 'Create Lead' }}
           </button>
         </div>

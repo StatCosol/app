@@ -48,7 +48,7 @@ import { ChangePasswordComponent } from '../../shared/components/change-password
               <label for="ceo-profile-role" class="block text-sm font-medium text-gray-700 mb-1">Role</label>
               <input type="text" id="ceo-profile-role" name="role" class="input w-full" [value]="profile.role" disabled />
             </div>
-            <button class="btn-primary" [disabled]="saving" (click)="saveProfile()">
+            <button class="standard-action btn-primary" [disabled]="saving" (click)="saveProfile()">
               {{ saving ? 'Saving...' : 'Save Changes' }}
             </button>
           </div>

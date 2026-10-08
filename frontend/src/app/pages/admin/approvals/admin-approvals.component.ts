@@ -14,12 +14,12 @@ import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, Loadi
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <app-contractor-payroll-oversight />
-      <ui-page-header 
-        title="Approval Requests" 
+      <ui-page-header
+        title="Approval Requests"
         description="Review and manage system approval requests"
         icon="clipboard-check">
       </ui-page-header>
-      
+
       <div class="flex gap-3 mb-6">
         <ui-button
           [variant]="filter === 'PENDING' ? 'primary' : 'outline'"
@@ -60,8 +60,8 @@ import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, Loadi
           </div>
           @if (req.status === 'PENDING') {
 <div class="flex gap-2 mt-3 pt-3 border-t border-gray-200">
-            <ui-button variant="primary" size="sm" (click)="approve(req.id)" [disabled]="actionId === req.id">{{ actionId === req.id ? 'Processing...' : 'Approve' }}</ui-button>
-            <ui-button variant="danger" size="sm" (click)="reject(req.id)" [disabled]="actionId === req.id">{{ actionId === req.id ? 'Processing...' : 'Reject' }}</ui-button>
+            <ui-button variant="primary" size="sm" (click)="approve(req.id)" [disabled]="actionId === req.id" icon="check-circle" [iconOnly]="true" label="Approve">{{ actionId === req.id ? 'Processing...' : 'Approve' }}</ui-button>
+            <ui-button variant="danger" size="sm" (click)="reject(req.id)" [disabled]="actionId === req.id" icon="x-circle" [iconOnly]="true" label="Reject">{{ actionId === req.id ? 'Processing...' : 'Reject' }}</ui-button>
           </div>
 }
           @if (req.approverNotes) {
@@ -71,10 +71,10 @@ import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, Loadi
 }
         </div>
 }
-        
+
         @if (requests.length === 0) {
-<ui-empty-state 
-         
+<ui-empty-state
+
           [title]="'No ' + filter.toLowerCase() + ' requests'"
           icon="clipboard-check">
         </ui-empty-state>

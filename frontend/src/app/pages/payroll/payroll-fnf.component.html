@@ -98,7 +98,7 @@
               <td><span [class]="caseStatusClass(row.status)">{{ row.status }}</span></td>
               <td>{{ inr(row.settlementAmount) }}</td>
               <td class="text-right">
-                <button type="button" class="link" (click)="selectCase(row); $event.stopPropagation()">Open</button>
+                <button type="button" class="compact-action link" (click)="selectCase(row); $event.stopPropagation()" title="Open" aria-label="Open" data-action-label="Open" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -152,9 +152,9 @@
 
           <div class="action-row">
             <button type="button" class="btn btn-ghost" [disabled]="actionBusy || !canMoveToUnderReview" (click)="moveToUnderReview()">Under Review</button>
-            <button type="button" class="btn btn-secondary" [disabled]="actionBusy || !canApprove" (click)="approveCase()">Approve</button>
+            <button type="button" class="compact-action btn btn-secondary" [disabled]="actionBusy || !canApprove" (click)="approveCase()" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
             <button type="button" class="btn btn-primary" [disabled]="actionBusy || !canMarkDocsIssued" (click)="markDocumentsIssued()">Docs Issued</button>
-            <button type="button" class="btn btn-success" [disabled]="actionBusy || !canComplete" (click)="closeCaseAsCompleted()">Complete</button>
+            <button type="button" class="compact-action btn btn-success" [disabled]="actionBusy || !canComplete" (click)="closeCaseAsCompleted()" title="Complete" aria-label="Complete" data-action-label="Complete" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
           </div>
         </div>
 
@@ -225,7 +225,7 @@
         </div>
 
         <div class="action-row">
-          <button type="button" class="btn btn-secondary" [disabled]="breakupSaveBusy || actionBusy" (click)="saveBreakup()">
+          <button type="button" class="standard-action btn btn-secondary" [disabled]="breakupSaveBusy || actionBusy" (click)="saveBreakup()">
             {{ breakupSaveBusy ? 'Saving…' : 'Save Breakup' }}
           </button>
           <button type="button" class="btn btn-success" [disabled]="actionBusy || !canSettle" (click)="settleCase()">Mark Settled</button>
@@ -276,12 +276,12 @@
             @for (g of generatableDocs; track g) {
 <button
               type="button"
-              class="btn btn-primary btn-sm"
+              class="compact-action btn btn-primary btn-sm"
              
               (click)="generateSettlementDoc(g.value)"
-            >
+             title="Download {{ g.label }}" aria-label="Download {{ g.label }}" attr.data-action-label="Download {{ g.label }}" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
               Download {{ g.label }}
-            </button>
+            </span></button>
 }
           </div>
         </div>
@@ -332,8 +332,8 @@
 }
             </div>
             <div class="fnf-doc-actions">
-              <button type="button" class="link" (click)="downloadFnfDoc(doc)">Download</button>
-              <button type="button" class="link link--danger" (click)="deleteFnfDoc(doc)">Remove</button>
+              <button type="button" class="compact-action link" (click)="downloadFnfDoc(doc)" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+              <button type="button" class="compact-action link link--danger" (click)="deleteFnfDoc(doc)" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
             </div>
           </div>
 }
@@ -387,7 +387,7 @@
   <div class="modal-card">
     <header>
       <h3>Initiate Full &amp; Final</h3>
-      <button type="button" class="link" (click)="closeCreateModal()">Close</button>
+      <button type="button" class="standard-action link" (click)="closeCreateModal()">Close</button>
     </header>
 
     <div class="modal-grid">
@@ -437,10 +437,10 @@
     </div>
 
     <footer>
-      <button type="button" class="btn btn-ghost" (click)="closeCreateModal()">Cancel</button>
-      <button type="button" class="btn btn-primary" [disabled]="!canCreateCase || actionBusy" (click)="createCase()">
+      <button type="button" class="standard-action btn btn-ghost" (click)="closeCreateModal()">Cancel</button>
+      <button type="button" class="compact-action btn btn-primary" [disabled]="!canCreateCase || actionBusy" (click)="createCase()" title="Create Case" aria-label="Create Case" data-action-label="Create Case" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
         {{ actionBusy ? 'Saving...' : 'Create Case' }}
-      </button>
+      </span></button>
     </footer>
   </div>
 </div>

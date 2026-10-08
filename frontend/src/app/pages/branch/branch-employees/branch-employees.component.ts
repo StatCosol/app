@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef
 } from '@angular/core';
@@ -16,7 +17,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   selector: 'app-branch-employees',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-container">
@@ -25,7 +26,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <h1 class="page-title">Employees</h1>
           <p class="page-subtitle">Manage employee and intern registrations for this branch</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="employee-toolbar">
           <label for="emp-search" class="sr-only">Search employees</label>
           <input autocomplete="off" id="emp-search" name="searchQuery" type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search employees..." class="workspace-search search-input" />
           <label for="emp-status-filter" class="sr-only">Employment filter</label>
@@ -35,30 +36,15 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <option value="INACTIVE">Inactive</option>
             <option value="">All</option>
           </select>
-          <button (click)="showImportDialog = !showImportDialog" class="btn-secondary">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-            </svg>
-            Import Excel
-          </button>
-          <button (click)="downloadEmployees()" class="btn-secondary">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            Download List
-          </button>
-          <button [disabled]="downloadingLetters" (click)="downloadAppointmentLetters()" class="btn-secondary">
+          <button (click)="showImportDialog = !showImportDialog" class="compact-action btn-secondary" title="Import Excel" aria-label="Import Excel" data-action-label="Import Excel" data-action-icon="upload"><ui-icon name="upload" [size]="20" /></button>
+          <button (click)="downloadEmployees()" class="compact-action btn-secondary" title="Download List" aria-label="Download List" data-action-label="Download List" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+          <button [disabled]="downloadingLetters" (click)="downloadAppointmentLetters()" class="compact-action btn-secondary" title="Appointment Letters" aria-label="Appointment Letters" data-action-label="Appointment Letters" data-action-icon="document"><ui-icon name="document" [size]="20" /><span class="compact-action-label">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             {{ downloadingLetters ? 'Generating...' : 'Appointment Letters' }}
-          </button>
-          <button (click)="registerEmployee()" class="btn-primary">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-            </svg>
-            Register Employee
-          </button>
+          </span></button>
+          <button (click)="registerEmployee()" class="compact-action btn-primary" title="Register Employee" aria-label="Register Employee" data-action-label="Register Employee" data-action-icon="user-plus"><ui-icon name="user-plus" [size]="20" /></button>
         </div>
       </div>
 
@@ -67,24 +53,19 @@ import { ToastService } from '../../../shared/toast/toast.service';
 <div class="import-dialog">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-semibold text-gray-900">Bulk Import Employees from Excel</h3>
-          <button (click)="showImportDialog = false" class="text-gray-400 hover:text-gray-600">&times;</button>
+          <button (click)="showImportDialog = false" class="compact-action text-gray-400 hover:text-gray-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
         </div>
         <p class="text-xs text-gray-500 mb-3">Download the template, fill in employee details, then upload the file.</p>
         <div class="flex items-end gap-3 flex-wrap">
-          <button (click)="downloadTemplate()" class="btn-secondary text-xs">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            Download Template
-          </button>
+          <button (click)="downloadTemplate()" class="compact-action btn-secondary text-xs" title="Download Template" aria-label="Download Template" data-action-label="Download Template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           <div>
             <label class="text-xs font-medium text-gray-600 block mb-1" for="branch-emp-file">Excel File (.xlsx, .xls, .csv)</label>
             <input id="branch-emp-file" type="file" (change)="onImportFileChange($event)" accept=".xlsx,.xls,.csv"
               class="text-xs border border-gray-300 rounded-lg p-1.5 bg-white" />
           </div>
-          <button [disabled]="!importFile || importing" (click)="bulkImport()" class="btn-primary text-xs">
+          <button [disabled]="!importFile || importing" (click)="bulkImport()" class="compact-action btn-primary text-xs" title="Upload & Import" aria-label="Upload & Import" data-action-label="Upload & Import" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
             {{ importing ? 'Importing...' : 'Upload & Import' }}
-          </button>
+          </span></button>
         </div>
         @if (importResult) {
 <div class="mt-3 text-xs rounded-lg p-3" [class.bg-green-50]="!importHasError" [class.text-green-700]="!importHasError" [class.bg-red-50]="importHasError" [class.text-red-700]="importHasError">
@@ -103,9 +84,9 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <div class="text-xs text-amber-800 flex-1">
             Wrong upload? Revert to delete the {{ lastImportNewCount }} newly added employee(s) from this import. Updated existing employees will not be reverted.
           </div>
-          <button [disabled]="reverting" (click)="revertLastImport()" class="btn-danger text-xs">
+          <button [disabled]="reverting" (click)="revertLastImport()" class="compact-action btn-danger text-xs" title="Revert this Import" aria-label="Revert this Import" data-action-label="Revert this Import" data-action-icon="undo"><ui-icon name="undo" [size]="20" /><span class="compact-action-label">
             {{ reverting ? 'Reverting...' : 'Revert this Import' }}
-          </button>
+          </span></button>
         </div>
 }
       </div>
@@ -195,14 +176,12 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </td>
                 <td>
                   <div class="row-actions">
-                    <button (click)="editEmployee(emp.id)" class="text-brand-600 hover:text-brand-800 text-xs font-medium">Edit</button>
+                    <button (click)="editEmployee(emp.id)" class="compact-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                     @if (emp.isActive && !emp.dateOfExit && emp.approvalStatus !== 'PENDING') {
 <button
 
                       (click)="markExit(emp)"
-                      class="text-red-600 hover:text-red-800 text-xs font-medium">
-                      Mark Exit
-                    </button>
+                      class="compact-action text-red-600 hover:text-red-800 text-xs font-medium" title="Mark Exit" aria-label="Mark Exit" data-action-label="Mark Exit" data-action-icon="user-minus"><ui-icon name="user-minus" [size]="20" /></button>
 }
                   </div>
                 </td>
@@ -231,7 +210,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
   `,
   styles: [`
     .page-container { max-width: 1280px; margin: 0 auto; }
-    .page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
+    .page-header { display: flex; flex-direction: column; align-items: stretch; gap: 1rem; margin-bottom: 1.25rem; }
+    .employee-toolbar { display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; }
+    .employee-toolbar .search-input, .employee-toolbar .filter-select { height: 40px; box-sizing: border-box; }
+    @media (pointer: coarse) { .employee-toolbar .search-input, .employee-toolbar .filter-select { height: 44px; } }
+    @media (max-width: 640px) { .employee-toolbar { width: 100%; } .employee-toolbar .search-input { width: 100%; } }
     .page-title { font-size: 1.25rem; font-weight: 700; color: #1e293b; }
     .page-subtitle { font-size: 0.8125rem; color: #64748b; margin-top: 0.25rem; }
     .search-input {
@@ -267,7 +250,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
     .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.6875rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; border-bottom: 2px solid #f1f5f9; }
     .data-table td { padding: 0.75rem 1rem; font-size: 0.8125rem; border-bottom: 1px solid #f8fafc; }
     .data-row:hover { background: #f8fafc; }
-    .row-actions { display: flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; }
+    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; flex-wrap: nowrap; min-width: 88px; }
     .badge { display: inline-flex; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
     .spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }

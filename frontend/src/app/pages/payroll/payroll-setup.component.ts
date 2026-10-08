@@ -1,4 +1,5 @@
-﻿import {
+import { IconComponent } from '../../shared/ui/icon/icon.component';
+import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -74,7 +75,7 @@ interface LocalSetupAddon {
 @Component({
   selector: 'app-payroll-setup',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent, FormulaBuilderComponent, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, ClientContextStripComponent, FormulaBuilderComponent, PageHeaderComponent],
   templateUrl: './payroll-setup.component.html',
   styleUrls: ['./payroll-setup.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

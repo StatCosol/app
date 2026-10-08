@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -24,7 +25,7 @@ interface RegForm {
 @Component({
   selector: 'app-crm-registrations',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [IconComponent, CommonModule, FormsModule, ClientContextStripComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './crm-registrations.component.html',
   styles: [`

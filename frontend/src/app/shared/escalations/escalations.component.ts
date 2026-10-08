@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,7 +8,7 @@ import { AuthService } from '../../core/auth.service';
 @Component({
   standalone: true,
   selector: 'app-escalations',
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './escalations.component.html',
   styleUrls: ['./escalations.component.scss'],

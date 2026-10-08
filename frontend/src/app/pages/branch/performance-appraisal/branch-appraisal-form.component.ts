@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 @Component({
   selector: 'app-branch-appraisal-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (appraisal) {
@@ -143,10 +144,10 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <!-- Actions -->
       @if (canManagerReview || canBranchReview) {
 <div class="flex items-center gap-3 mt-6">
-        <button (click)="submitReview()" [disabled]="submitting" class="btn-primary">
+        <button (click)="submitReview()" [disabled]="submitting" class="compact-action btn-primary" title="Submit Branch Review" aria-label="Submit Branch Review" data-action-label="Submit Branch Review" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
           {{ submitting ? 'Submitting...' : (canManagerReview ? 'Submit Manager Review' : 'Submit Branch Review') }}
-        </button>
-        <button (click)="sendBack()" [disabled]="submitting" class="btn-secondary text-red-600">Send Back</button>
+        </span></button>
+        <button (click)="sendBack()" [disabled]="submitting" class="compact-action btn-secondary text-red-600" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
       </div>
 }
 

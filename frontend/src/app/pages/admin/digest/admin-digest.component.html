@@ -5,11 +5,11 @@
   </ui-page-header>
 
   <div class="flex flex-wrap gap-2 mb-4">
-    <ui-button variant="secondary" size="sm" (clicked)="loadAll()">Refresh</ui-button>
-    <ui-button variant="primary" size="sm" [loading]="sendingWeekly" (clicked)="runWeeklyDigest()">
+    <ui-button variant="secondary" size="sm" (clicked)="loadAll()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
+    <ui-button variant="primary" size="sm" [loading]="sendingWeekly" (clicked)="runWeeklyDigest()" icon="refresh" [iconOnly]="true" label="Run Weekly Digest">
       Run Weekly Digest
     </ui-button>
-    <ui-button variant="primary" size="sm" [loading]="sendingCritical" (clicked)="runCriticalDigest()">
+    <ui-button variant="primary" size="sm" [loading]="sendingCritical" (clicked)="runCriticalDigest()" icon="refresh" [iconOnly]="true" label="Run Critical Alerts">
       Run Critical Alerts
     </ui-button>
   </div>
@@ -98,8 +98,8 @@
     <section class="card">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h3 class="title">Digest Run History</h3>
-        <div class="flex items-center gap-2">
-          <label class="text-xs text-gray-600">
+        <div class="flex items-end gap-2 aligned-filter-controls">
+          <label class="flex flex-col gap-1 text-xs text-gray-600">
             Limit
             <select id="ad-history-limit" class="field" name="historyLimit" [(ngModel)]="historyLimit" (ngModelChange)="refreshHistory()">
               <option [ngValue]="10">10</option>
@@ -108,7 +108,7 @@
               <option [ngValue]="100">100</option>
             </select>
           </label>
-          <ui-button variant="secondary" size="sm" [loading]="historyLoading" (clicked)="refreshHistory()">Reload</ui-button>
+          <ui-button variant="secondary" size="sm" [loading]="historyLoading" (clicked)="refreshHistory()" icon="refresh" [iconOnly]="true" label="Reload">Reload</ui-button>
         </div>
       </div>
 

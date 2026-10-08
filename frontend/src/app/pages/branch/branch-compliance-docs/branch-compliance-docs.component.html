@@ -11,7 +11,7 @@
 <option [value]="m">{{ m }}</option>
 }
       </select>
-      <button type="button" class="px-3 py-2 text-sm border rounded" (click)="loadAll()">Refresh</button>
+      <button type="button" class="compact-action px-3 py-2 text-sm border rounded" (click)="loadAll()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   </ui-page-header>
 
@@ -74,11 +74,11 @@
     <textarea autocomplete="off" id="bcd-upload-notes" class="mt-2 w-full border rounded p-2 text-sm" rows="2" name="uploadNotes"
               placeholder="Notes (optional)" [(ngModel)]="uploadNotes"></textarea>
 
-    <button type="button" class="mt-3 px-3 py-2 text-sm bg-black text-white rounded"
+    <button type="button" class="compact-action mt-3 px-3 py-2 text-sm bg-black text-white rounded"
             [disabled]="uploading"
-            (click)="upload()">
+            (click)="upload()" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
       {{ uploading ? 'Uploading...' : 'Upload' }}
-    </button>
+    </span></button>
   </div>
 
   <!-- Checklist -->

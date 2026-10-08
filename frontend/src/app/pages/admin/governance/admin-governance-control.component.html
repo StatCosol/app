@@ -64,7 +64,7 @@
       <article class="workspace-card">
         <div class="panel-head">
           <h3>Unassigned Clients</h3>
-          <a routerLink="/admin/governance/unassigned" class="panel-link">Open full report</a>
+          <a routerLink="/admin/governance/unassigned" class="compact-action panel-link" title="Open full report" aria-label="Open full report" data-action-label="Open full report" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </div>
         @if (unassignedClients.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -105,7 +105,7 @@
       <article class="workspace-card">
         <div class="panel-head">
           <h3>Duplicate Mapping Alerts</h3>
-          <a routerLink="/admin/assignments" class="panel-link">Open assignments</a>
+          <a routerLink="/admin/assignments" class="compact-action panel-link" title="Open assignments" aria-label="Open assignments" data-action-label="Open assignments" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </div>
         @if (duplicateMappings.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -144,7 +144,7 @@
       <article class="workspace-card">
         <div class="panel-head">
           <h3>Stale Accounts</h3>
-          <a routerLink="/admin/users" class="panel-link">Open users</a>
+          <a routerLink="/admin/users" class="compact-action panel-link" title="Open users" aria-label="Open users" data-action-label="Open users" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
         </div>
         @if (staleUsers.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -183,7 +183,7 @@
       <article class="workspace-card">
         <div class="panel-head">
           <h3>Rotation Due</h3>
-          <a routerLink="/admin/assignments" class="panel-link">Manage rotations</a>
+          <a routerLink="/admin/assignments" class="compact-action panel-link" title="Manage rotations" aria-label="Manage rotations" data-action-label="Manage rotations" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></a>
         </div>
         @if (rotationDue.length) {
 <div class="table-wrap max-h-[600px] overflow-y-auto">
@@ -229,18 +229,9 @@
           <strong>Fix assignments</strong>
           <span>Resolve CRM/Auditor mapping gaps and overdue rotations.</span>
         </a>
-        <a routerLink="/admin/users" class="action-card">
-          <strong>Review stale users</strong>
-          <span>Deactivate or reactivate inactive users after governance checks.</span>
-        </a>
-        <a routerLink="/admin/clients" class="action-card">
-          <strong>Review client setup</strong>
-          <span>Check branch and master-user readiness for affected clients.</span>
-        </a>
-        <a routerLink="/admin/payroll-assignments" class="action-card">
-          <strong>Open payroll settings</strong>
-          <span>Complete pending payroll defaults for newly onboarded clients.</span>
-        </a>
+        <a routerLink="/admin/users" class="compact-action action-card" title="Review stale users Deactivate or reactivate inactive users after governance checks." aria-label="Review stale users Deactivate or reactivate inactive users after governance checks." data-action-label="Review stale users Deactivate or reactivate inactive users after governance checks." data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
+        <a routerLink="/admin/clients" class="compact-action action-card" title="Review client setup Check branch and master-user readiness for affected clients." aria-label="Review client setup Check branch and master-user readiness for affected clients." data-action-label="Review client setup Check branch and master-user readiness for affected clients." data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
+        <a routerLink="/admin/payroll-assignments" class="compact-action action-card" title="Open payroll settings Complete pending payroll defaults for newly onboarded clients." aria-label="Open payroll settings Complete pending payroll defaults for newly onboarded clients." data-action-label="Open payroll settings Complete pending payroll defaults for newly onboarded clients." data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
       </div>
     </section>
   </div>

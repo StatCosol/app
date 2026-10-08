@@ -3,7 +3,7 @@
     <div><h1>Conduct Audit</h1><p>Select the audit scope, review uploaded documents, and record your verified remarks.</p></div>
     <a class="btn btn-secondary" routerLink="/auditor/audits">Assigned audits</a>
   </header>
-  @if (error) { <div class="card" role="alert">{{ error }} @if (!busy) { <button class="btn btn-ghost" type="button" (click)="load()">Reload options</button> }</div> }
+  @if (error) { <div class="card" role="alert">{{ error }} @if (!busy) { <button class="compact-action btn btn-ghost" type="button" (click)="load()" title="Reload options" aria-label="Reload options" data-action-label="Reload options" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button> }</div> }
   @if (loading) { <div class="card" role="status">Loading your assigned clients and branches…</div> }
   @if (!loading) {
     <section class="card">
@@ -37,7 +37,7 @@
             @if (branchId && !contractorOptions.length) { <span>No active contractor is linked to this branch. Ask your CRM to check the contractor mapping.</span> }
           </label>
         }
-        <div class="md:col-span-2 action-row"><button class="btn btn-primary" type="submit" [disabled]="!canStart">{{ busy ? 'Opening audit…' : 'Start / Continue Audit' }}</button></div>
+        <div class="md:col-span-2 action-row"><button class="standard-action btn btn-primary" type="submit" [disabled]="!canStart">{{ busy ? 'Opening audit…' : 'Start / Continue Audit' }}</button></div>
       </form>
     </section>
     @if (selectedChecklist.length) {

@@ -1,6 +1,7 @@
 import { Component, HostBinding, Input, Output, EventEmitter , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Params, RouterModule } from '@angular/router';
+import { IconComponent, IconName } from '../icon/icon.component';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'outline' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -10,7 +11,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
   host: { class: 'bs-surface' },
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, IconComponent],
   template: `
     @if (routerLink) {
 
@@ -18,6 +19,10 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
          [queryParams]="queryParams"
          [attr.aria-disabled]="disabled || loading"
          [attr.aria-busy]="loading"
+         [attr.aria-label]="iconOnly ? label : null"
+         [attr.title]="iconOnly ? label : null"
+         [attr.data-action-icon]="iconOnly ? icon : null"
+         [class.ui-icon-action]="iconOnly"
          [attr.tabindex]="disabled || loading ? -1 : null"
          [ngClass]="buttonClasses"
          [style]="buttonStyle"
@@ -29,6 +34,10 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 } @else {
 
       <button [type]="type"
+              [attr.aria-label]="iconOnly ? label : null"
+              [attr.title]="iconOnly ? label : null"
+              [attr.data-action-icon]="iconOnly ? icon : null"
+              [class.ui-icon-action]="iconOnly"
               [disabled]="disabled || loading"
               [attr.aria-busy]="loading"
               [ngClass]="buttonClasses"
@@ -41,14 +50,18 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 
 
 
+    @if (iconOnly && label) {
+      <span class="action-tooltip" role="tooltip">{{ loading ? label + " (processing)" : label }}</span>
+    }
     <ng-template #contentTemplate>
       @if (loading) {
-<svg class="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+<svg aria-hidden="true" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
 }
-      <ng-content></ng-content>
+      @if (icon && !loading) { <ui-icon [name]="icon" [size]="20" /> }
+      <span [class.action-label-hidden]="iconOnly"><ng-content></ng-content></span>
     </ng-template>
   `,
   styles: [
@@ -56,16 +69,30 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
        height space and makes the button sit slightly high next to inputs in
        flex/grid toolbars. inline-flex makes it a tight box that aligns cleanly
        everywhere the button is used. */
-    ':host { display: inline-flex; vertical-align: middle; }',
+    ':host { display: inline-flex; vertical-align: middle; position: relative; }',
     /* fullWidth must still span the parent — an inline-flex host would shrink
        to content and defeat the inner w-full. */
     ':host(.ui-button--full) { display: flex; width: 100%; }',
+    '.ui-icon-action { width: 40px !important; min-width: 40px !important; max-width: 40px !important; height: 40px !important; min-height: 40px !important; max-height: 40px !important; box-sizing: border-box; padding: 0 !important; gap: 0; border-radius: 10px; background: #fff !important; color: #334155 !important; border: 1px solid #dbe3ed !important; box-shadow: none !important; }',
+    '.ui-icon-action[data-action-icon="check-circle"] { color: #15803d !important; }',
+    '.ui-icon-action[data-action-icon="x-circle"], .ui-icon-action[data-action-icon="trash"], .ui-icon-action[data-action-icon="user-minus"] { color: #dc2626 !important; }',
+    '.ui-icon-action:hover:not(:disabled) { background: #eff6ff !important; border-color: #93c5fd !important; }',
+    '.btn:not(.ui-icon-action) { height: 40px !important; min-height: 40px !important; max-height: 40px !important; min-width: 80px; padding: 0 12px !important; box-sizing: border-box; white-space: nowrap; }',
+    '@media (pointer: coarse) { .btn:not(.ui-icon-action) { height: 44px !important; min-height: 44px !important; max-height: 44px !important; } }',
+    '.action-label-hidden { display: none; }',
+    '.action-tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 1000; padding: 6px 10px; border-radius: 6px; background: #172033; color: white; font-size: 12px; font-weight: 500; line-height: 1.4; width: max-content; max-width: 240px; pointer-events: none; visibility: hidden; opacity: 0; }',
+    ':host(:hover) .action-tooltip, :host(:focus-within) .action-tooltip { display: block; visibility: visible; opacity: 1; }',
+    '@media (pointer: coarse) { .ui-icon-action { width: 44px !important; min-width: 44px !important; max-width: 44px !important; height: 44px !important; min-height: 44px !important; max-height: 44px !important; } }',
   ],
 })
 export class ActionButtonComponent {
   @HostBinding('class.ui-button--full') get hostFullWidth(): boolean {
-    return this.fullWidth;
+    return this.fullWidth && !this.iconOnly;
   }
+
+  @Input() icon?: IconName;
+  @Input() iconOnly = false;
+  @Input() label = '';
 
   @Input() variant: ButtonVariant = 'primary';
   @Input() size: ButtonSize = 'md';
@@ -109,11 +136,8 @@ export class ActionButtonComponent {
       primary: 'btn-primary', secondary: 'btn-outline-secondary', danger: 'btn-danger',
       success: 'btn-success', warning: 'btn-warning', outline: 'btn-outline-primary', ghost: 'btn-light',
     };
-    // The host is a .bs-surface, so Bootstrap's `.bs-surface .btn` padding and font size
-    // outrank the Tailwind size utilities above. Without the matching Bootstrap size class
-    // every size renders as a full-size button (and "sm" table actions overflow their cells).
-    const bootstrapSizes: Record<ButtonSize, string> = { sm: 'btn-sm', md: '', lg: 'btn-lg' };
-    return `btn ${bootstrapVariants[this.variant]} ${bootstrapSizes[this.size]} ${base} ${sizeClasses[this.size]} ${variantClasses[this.variant]} ${widthClass}`;
+    const bootstrapSize = this.iconOnly ? '' : this.size === 'sm' ? 'btn-sm' : this.size === 'lg' ? 'btn-lg' : '';
+    return `btn ${bootstrapSize} ${bootstrapVariants[this.variant]} ${base} ${sizeClasses[this.size]} ${variantClasses[this.variant]} ${widthClass}`;
   }
 
   readonly buttonStyle = '';

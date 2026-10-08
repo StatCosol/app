@@ -33,10 +33,7 @@
         (ngModelChange)="onStatusFilterChange($event)"
         class="w-48">
       </ui-form-select>
-      <button type="button" (click)="exportAll()" class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        Export All
-      </button>
+      <button type="button" (click)="exportAll()" class="compact-action ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export All" aria-label="Export All" data-action-label="Export All" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
       <div class="text-sm text-gray-500">
         {{ filteredReports.length }} audit{{ filteredReports.length !== 1 ? 's' : '' }}
       </div>
@@ -102,7 +99,7 @@
               size="sm"
               [disabled]="!row.auditId"
               [routerLink]="['/auditor/observations']"
-              [queryParams]="{ auditId: row.auditId }">
+              [queryParams]="{ auditId: row.auditId }" icon="eye" [iconOnly]="true" label="View">
               View
             </ui-button>
             <ui-button

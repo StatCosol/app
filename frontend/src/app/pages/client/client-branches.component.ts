@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { Router } from '@angular/router';
@@ -29,7 +30,7 @@ interface Branch {
 @Component({
   selector: 'app-client-branches',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     PageHeaderComponent,
     DataTableComponent,
     TableCellDirective,
@@ -60,7 +61,7 @@ interface Branch {
           </svg>
           <span>{{ error }}</span>
         </div>
-        <button (click)="load()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+        <button (click)="load()" class="compact-action text-red-800 font-semibold hover:underline ml-4" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       </div>
 }
 

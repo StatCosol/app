@@ -139,9 +139,7 @@
           
 
           <div class="action-row">
-            <button type="button" class="btn btn-secondary" [disabled]="!canEdit" (click)="importSelectedObservations()">
-              Import to Report
-            </button>
+            <button type="button" class="compact-action btn btn-secondary" [disabled]="!canEdit" (click)="importSelectedObservations()" title="Import to Report" aria-label="Import to Report" data-action-label="Import to Report" data-action-icon="upload"><ui-icon name="upload" [size]="20" /></button>
           </div>
         </article>
 
@@ -152,7 +150,7 @@
           </header>
 
           <div class="action-row">
-            <button type="button" class="btn btn-primary" [disabled]="!canEdit || saving" (click)="saveDraft()">
+            <button type="button" class="standard-action btn btn-primary" [disabled]="!canEdit || saving" (click)="saveDraft()">
               {{ saving ? 'Saving...' : 'Save Draft' }}
             </button>
             <button
@@ -164,13 +162,11 @@
             >
               Finalize
             </button>
-            <button type="button" class="btn btn-ghost" [disabled]="exporting || !canExportFinal" (click)="exportFinalPdf()">
+            <button type="button" class="compact-action btn btn-ghost" [disabled]="exporting || !canExportFinal" (click)="exportFinalPdf()" title="Export PDF" aria-label="Export PDF" data-action-label="Export PDF" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
               {{ exporting ? 'Exporting...' : 'Export PDF' }}
-            </button>
+            </span></button>
             @if (!canEdit) {
-<button type="button" class="btn btn-danger" [disabled]="!canReopen || saving" (click)="reopenDraft()">
-              Reopen Draft
-            </button>
+<button type="button" class="compact-action btn btn-danger" [disabled]="!canReopen || saving" (click)="reopenDraft()" title="Reopen Draft" aria-label="Reopen Draft" data-action-label="Reopen Draft" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
 }
           </div>
 

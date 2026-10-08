@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
   RegisterPreparationComponent,
   RegisterGeneratedScope,
@@ -53,7 +54,7 @@ interface Jurisdiction {
 @Component({
   selector: 'app-register-library',
   standalone: true,
-  imports: [FormsModule, RegisterPreparationComponent],
+  imports: [IconComponent, FormsModule, RegisterPreparationComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .register-choice-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
@@ -64,7 +65,7 @@ interface Jurisdiction {
     <section class="border rounded-lg p-4 mb-6 bg-white" aria-labelledby="register-formats-heading">
       <div class="flex flex-wrap justify-between gap-3">
         <h3 id="register-formats-heading" tabindex="-1" class="scroll-mt-24 text-lg font-semibold">2. Choose Act and register format</h3>
-        <button type="button" class="text-sm underline self-center" (click)="viewSavedRegisters()">View saved registers</button>
+        <button type="button" class="compact-action text-sm underline self-center" (click)="viewSavedRegisters()" title="View saved registers" aria-label="View saved registers" data-action-label="View saved registers" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
       </div>
       <p class="text-sm text-gray-600 my-3">
         The selected branch supplies its state code. Employee, attendance and payroll records are
@@ -136,7 +137,7 @@ interface Jurisdiction {
       }
       @if (error) {
         <p role="alert" class="text-red-700">{{ error }}</p>
-        <button type="button" (click)="loadBranch()" class="underline">Retry</button>
+        <button type="button" (click)="loadBranch()" class="compact-action underline" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
       }
       @if (downloadError) {
         <p role="alert" class="text-red-700">{{ downloadError }}</p>
@@ -193,32 +194,28 @@ interface Jurisdiction {
               <summary class="cursor-pointer underline">Reference downloads</summary>
             <div class="flex flex-wrap gap-4 text-sm mt-2">
               <a
-                class="underline"
+                class="compact-action underline"
                 [href]="sourceUrl(form)"
                 target="_blank"
                 rel="noopener noreferrer"
-                >Open prescribed source{{
+                 title="Open prescribed source{{ form.sourcePage ? ' (page ' + form.sourcePage + ')' : '' }}" aria-label="Open prescribed source{{ form.sourcePage ? ' (page ' + form.sourcePage + ')' : '' }}" attr.data-action-label="Open prescribed source{{ form.sourcePage ? ' (page ' + form.sourcePage + ')' : '' }}" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">Open prescribed source{{
                   form.sourcePage ? ' (page ' + form.sourcePage + ')' : ''
-                }}</a
-              >
+                }}</span></a>
               @if (form.source.corrigendumUrl) {
                 <a
-                  class="underline"
+                  class="compact-action underline"
                   [href]="form.source.corrigendumUrl"
                   target="_blank"
                   rel="noopener noreferrer"
-                  >Open official correction</a
-                >
+                   title="Open official correction" aria-label="Open official correction" data-action-label="Open official correction" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               }
               @if (form.sourceDownloadAvailable) {
                 <button
                   type="button"
-                  class="underline"
+                  class="compact-action underline"
                   [disabled]="downloading"
                   (click)="download(form)"
-                >
-                  Download source PDF
-                </button>
+                 title="Download source PDF" aria-label="Download source PDF" data-action-label="Download source PDF" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
               }
             </div>
             </details>

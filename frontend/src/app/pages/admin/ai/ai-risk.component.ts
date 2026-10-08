@@ -45,8 +45,8 @@ import {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="Risk Assessments" subtitle="AI-powered compliance risk scoring for all clients">
         <div slot="actions" class="flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="loadHighRisk()">Refresh</ui-button>
-          <ui-button variant="primary" [disabled]="assessing" (clicked)="openAssessPanel()">
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="loadHighRisk()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
+          <ui-button variant="primary" [disabled]="assessing" (clicked)="openAssessPanel()" icon="refresh" [iconOnly]="true" label="+ Run Assessment">
             {{ assessing ? 'Assessing...' : '+ Run Assessment' }}
           </ui-button>
         </div>
@@ -67,7 +67,7 @@ import {
 }
             </select>
           </div>
-          <ui-button variant="primary" [disabled]="!assessClientId || assessing" (clicked)="runAssessment()">
+          <ui-button variant="primary" [disabled]="!assessClientId || assessing" (clicked)="runAssessment()" icon="refresh" [iconOnly]="true" label="Run Assessment">
             {{ assessing ? 'Analysing...' : 'Run Assessment' }}
           </ui-button>
           <ui-button variant="ghost" (clicked)="showAssessPanel = false">Cancel</ui-button>
@@ -80,7 +80,7 @@ import {
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-gray-900">Latest Assessment Result</h2>
-          <button (click)="latestAssessment = null" class="text-gray-400 hover:text-gray-600 text-sm">✕ Close</button>
+          <button (click)="latestAssessment = null" class="standard-action text-gray-400 hover:text-gray-600 text-sm">✕ Close</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <div class="text-center">
@@ -177,7 +177,7 @@ import {
         <h2 class="text-lg font-semibold text-gray-900 mb-4">All Assessed Clients (by Risk)</h2>
         @if (highRiskClients.length > 0) {
 <ui-data-table
-         
+
           [columns]="columns"
           [data]="highRiskClients"
           [pageSize]="20">
@@ -207,7 +207,7 @@ import {
 }
         @if (highRiskClients.length === 0) {
 <ui-empty-state
-         
+
           title="No Assessments Yet"
           message="Click 'Run Assessment' to score a client's compliance risk.">
         </ui-empty-state>

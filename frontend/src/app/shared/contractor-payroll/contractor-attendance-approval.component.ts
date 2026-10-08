@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { downloadBlob } from '../utils/download-blob';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -9,7 +10,7 @@ import { AuthService } from '../../core/auth.service';
 @Component({
   selector: 'app-contractor-attendance-approval',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [IconComponent, CommonModule, FormsModule],
   template: `
     @if (visible) {
       <section class="attendance" aria-label="Contractor attendance approval">
@@ -25,9 +26,7 @@ import { AuthService } from '../../core/auth.service';
         </p>
         @if (isContractor) {
           <p>Upload attendance Excel from Monthly Documents, or submit device attendance below.</p>
-          <button type="button" (click)="downloadTemplate()" [disabled]="busy()">
-            Download attendance template
-          </button>
+          <button type="button" (click)="downloadTemplate()" [disabled]="busy()" class="compact-action" title="Download attendance template" aria-label="Download attendance template" data-action-label="Download attendance template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           <label
             >Deployment branch
             <select [(ngModel)]="branchId">
@@ -39,11 +38,11 @@ import { AuthService } from '../../core/auth.service';
               }
             </select>
           </label>
-          <button type="button" (click)="submitSystem()" [disabled]="busy() || !branchId">
+          <button type="button" (click)="submitSystem()" [disabled]="busy() || !branchId" class="compact-action" title="Submit device attendance for {{ periodMonth }}" aria-label="Submit device attendance for {{ periodMonth }}" attr.data-action-label="Submit device attendance for {{ periodMonth }}" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
             Submit device attendance for {{ periodMonth }}
-          </button>
+          </span></button>
         }
-        <button type="button" (click)="load()" [disabled]="busy()">Refresh attendance</button>
+        <button type="button" (click)="load()" [disabled]="busy()" class="compact-action" title="Refresh attendance" aria-label="Refresh attendance" data-action-label="Refresh attendance" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         @if (error()) {
           <p role="alert">{{ error() }}</p>
         }
@@ -161,16 +160,12 @@ import { AuthService } from '../../core/auth.service';
                 type="button"
                 (click)="review(batch.id, 'approve')"
                 [disabled]="busy() || (notes[batch.id] || '').trim().length < 5"
-              >
-                Approve and calculate payroll
-              </button>
+               class="compact-action" title="Approve and calculate payroll" aria-label="Approve and calculate payroll" data-action-label="Approve and calculate payroll" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
               <button
                 type="button"
                 (click)="review(batch.id, 'return')"
                 [disabled]="busy() || (notes[batch.id] || '').trim().length < 5"
-              >
-                Return for correction
-              </button>
+               class="compact-action" title="Return for correction" aria-label="Return for correction" data-action-label="Return for correction" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
             }
           </article>
         } @empty {
@@ -179,9 +174,7 @@ import { AuthService } from '../../core/auth.service';
           }
         }
         @if (hasMore()) {
-          <button type="button" (click)="load(true)" [disabled]="busy()">
-            Load more attendance
-          </button>
+          <button type="button" (click)="load(true)" [disabled]="busy()" class="compact-action" title="Load more attendance" aria-label="Load more attendance" data-action-label="Load more attendance" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
         }
       </section>
     }

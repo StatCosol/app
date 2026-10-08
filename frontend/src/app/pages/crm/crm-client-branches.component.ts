@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +13,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 @Component({
   selector: 'app-crm-client-branches',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="Branches" description="Manage branch offices for this client" icon="office-building">
@@ -148,7 +149,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
           <div>
             <button type="submit" [disabled]="branchForm.invalid || creatingBranch"
-                    class="bg-brand-600 text-white px-6 py-2 rounded-lg text-sm font-medium
+                    class="standard-action bg-brand-600 text-white px-6 py-2 rounded-lg text-sm font-medium
                            hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {{ creatingBranch ? 'Creating…' : '+ Create Branch' }}
             </button>
@@ -169,7 +170,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             </p>
             <p class="text-xs text-green-600 mt-1">Please save these credentials — the password will not be shown again.</p>
           </div>
-          <button (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold ml-4">&times;</button>
+          <button (click)="createdBranchUser = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold ml-4" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
         </div>
       </div>
 }
@@ -223,9 +224,9 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
               <td class="px-3 py-3 text-sm whitespace-nowrap">
                 <div class="inline-flex gap-3">
                   <button (click)="startEditBranch(b)"
-                          class="text-brand-600 hover:text-brand-800 text-xs font-medium">Edit</button>
+                          class="compact-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                   <button (click)="confirmDeleteBranch(b)"
-                          class="text-red-600 hover:text-red-800 text-xs font-medium">Delete</button>
+                          class="compact-action text-red-600 hover:text-red-800 text-xs font-medium" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                   <button (click)="showContractors(b)"
                           class="text-teal-600 hover:text-teal-800 text-xs font-medium">Contractors</button>
                   <button (click)="showCompliances(b)"
@@ -306,12 +307,12 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             </div>
             <div class="flex items-end gap-2">
               <button type="submit" [disabled]="editForm.invalid || updatingBranch"
-                      class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+                      class="standard-action bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium
                              hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 {{ updatingBranch ? 'Saving…' : 'Save' }}
               </button>
               <button type="button" (click)="cancelEdit()"
-                      class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                      class="standard-action bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
                 Cancel
               </button>
             </div>
@@ -371,9 +372,9 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                 <td class="px-4 py-3 text-sm">
                   <div class="flex gap-2">
                     <button (click)="removeContractor(c)"
-                            class="text-red-600 hover:text-red-800 text-xs font-medium">Remove</button>
+                            class="compact-action text-red-600 hover:text-red-800 text-xs font-medium" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                     <button (click)="openEditContractorBranches(c)"
-                            class="text-brand-600 hover:text-brand-800 text-xs font-medium">Edit Branches</button>
+                            class="compact-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Edit Branches" aria-label="Edit Branches" data-action-label="Edit Branches" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                   </div>
                 </td>
               </tr>
@@ -397,7 +398,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                    class="rounded-lg border-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm" />
           </div>
           <button type="submit" [disabled]="contractorForm.invalid || addingContractor"
-                  class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+                  class="standard-action bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium
                          hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             {{ addingContractor ? 'Linking…' : 'Add Contractor' }}
           </button>
@@ -444,12 +445,12 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
           <div class="flex gap-2">
             <button type="button" (click)="saveEditContractorBranches()" [disabled]="saveEditContractorBranchesLoading"
-                    class="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+                    class="standard-action bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium
                            hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {{ saveEditContractorBranchesLoading ? 'Saving…' : 'Save' }}
             </button>
             <button type="button" (click)="cancelEditContractorBranches()"
-                    class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                    class="standard-action bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
               Cancel
             </button>
           </div>
@@ -466,7 +467,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             Compliances for — {{ compliancesBranch.branchName }}
           </h3>
           <button (click)="compliancesBranch = null"
-                  class="text-gray-400 hover:text-gray-600 text-sm">Close</button>
+                  class="standard-action text-gray-400 hover:text-gray-600 text-sm">Close</button>
         </div>
 
         @if (compliancesError) {
@@ -548,7 +549,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
           <!-- Save button -->
           <div class="flex items-center gap-3">
             <button (click)="saveCompliances()" [disabled]="savingCompliances"
-                    class="bg-brand-600 text-white px-5 py-2 rounded-lg text-sm font-medium
+                    class="standard-action bg-brand-600 text-white px-5 py-2 rounded-lg text-sm font-medium
                            hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {{ savingCompliances ? 'Saving…' : 'Save Compliance Selections' }}
             </button>

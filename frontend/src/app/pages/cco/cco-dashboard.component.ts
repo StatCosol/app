@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -43,7 +44,7 @@ interface OversightItem {
   selector: 'app-cco-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [IconComponent,
     CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent, StatusBadgeComponent,
     DataTableComponent, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent, KpiTileComponent,
   ],

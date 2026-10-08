@@ -1,3 +1,4 @@
+import { IconComponent } from '../../ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,7 +18,7 @@ export interface FilterDropdownOption {
 @Component({
   standalone: true,
   selector: 'app-compliance-advanced-filters',
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   template: `
     <div class="adv-filters">
       <!-- Year -->
@@ -72,7 +73,7 @@ export interface FilterDropdownOption {
       </label>
 
       <!-- Reset -->
-      <button class="reset-btn" (click)="resetFilters()">Reset</button>
+      <button class="compact-action reset-btn" (click)="resetFilters()" title="Reset" aria-label="Reset" data-action-label="Reset" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
     </div>
   `,
   styles: [`

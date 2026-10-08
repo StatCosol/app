@@ -55,7 +55,7 @@
   @if (!loading && errorMsg) {
 <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
     <span>{{ errorMsg }}</span>
-    <ui-button variant="primary" size="sm" (clicked)="loadAll()">Retry</ui-button>
+    <ui-button variant="primary" size="sm" (clicked)="loadAll()" icon="refresh" [iconOnly]="true" label="Retry">Retry</ui-button>
   </div>
 }
 
@@ -89,12 +89,12 @@
       </ui-form-input>
     </div>
     <div class="flex flex-wrap gap-2">
-      <ui-button variant="primary" (clicked)="applyFilters()">Apply Filters</ui-button>
-      <ui-button variant="secondary" (clicked)="resetFilters()">Reset</ui-button>
-      <ui-button variant="secondary" [loading]="sendingDigest" (clicked)="sendDigestNow()">
+      <ui-button variant="primary" (clicked)="applyFilters()" icon="search" [iconOnly]="true" label="Apply Filters">Apply Filters</ui-button>
+      <ui-button variant="secondary" (clicked)="resetFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
+      <ui-button variant="secondary" [loading]="sendingDigest" (clicked)="sendDigestNow()" icon="send" [iconOnly]="true" label="Send Weekly Digest">
         {{ sendingDigest ? 'Sending...' : 'Send Weekly Digest' }}
       </ui-button>
-      <ui-button variant="danger" [loading]="sendingAlerts" (clicked)="sendCriticalAlertsNow()">
+      <ui-button variant="danger" [loading]="sendingAlerts" (clicked)="sendCriticalAlertsNow()" icon="send" [iconOnly]="true" label="Send Critical Alerts">
         {{ sendingAlerts ? 'Sending...' : 'Send Critical Alerts' }}
       </ui-button>
     </div>
@@ -308,8 +308,8 @@
 
           <ng-template uiTableCell="escActions" let-row>
             <div class="flex gap-2">
-              <ui-button size="sm" variant="primary">Notify</ui-button>
-              <ui-button size="sm" variant="secondary">View</ui-button>
+              <ui-button size="sm" variant="primary" icon="send" [iconOnly]="true" label="Notify">Notify</ui-button>
+              <ui-button size="sm" variant="secondary" icon="eye" [iconOnly]="true" label="View">View</ui-button>
             </div>
           </ng-template>
         </ui-data-table>
@@ -344,7 +344,7 @@
           </ng-template>
 
           <ng-template uiTableCell="asgActions" let-row>
-            <ui-button size="sm" variant="primary">Rotate</ui-button>
+            <ui-button size="sm" variant="primary" icon="cog" [iconOnly]="true" label="Rotate">Rotate</ui-button>
           </ng-template>
         </ui-data-table>
       </div>
@@ -432,7 +432,7 @@
       </ui-empty-state>
     </div>
 }
-  
+
 }
 
   <!-- Lowest Branch Compliance Widget -->

@@ -30,7 +30,7 @@ import {
   template: `
     <div class="page">
       <button (click)="goBack()"
-        class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-800 mb-4 transition-colors">
+        class="standard-action flex items-center gap-1 text-sm text-gray-500 hover:text-brand-800 mb-4 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -57,7 +57,7 @@ import {
           </svg>
           <span>{{ loadError }}</span>
         </div>
-        <button (click)="goBack()" class="text-red-800 font-semibold hover:underline ml-4">Go Back</button>
+        <button (click)="goBack()" class="standard-action text-red-800 font-semibold hover:underline ml-4">Go Back</button>
       </div>
 }
 
@@ -299,7 +299,7 @@ import {
 
         <div class="action-bar">
           <ui-button variant="secondary" (clicked)="goBack()">Cancel</ui-button>
-          <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()">
+          <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()" icon="user-plus" [iconOnly]="true" label="Register Employee">
             {{ isEdit ? 'Update Employee' : 'Register Employee' }}
           </ui-button>
         </div>

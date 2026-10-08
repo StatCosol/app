@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -39,7 +40,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
 @Component({
   selector: 'app-crm-clra-assignment-detail',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     ActionButtonComponent,
@@ -89,7 +90,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
         @if (!loading && !loadError && detailTab === 'deployments') {
           <div class="flex justify-between items-center mb-3">
             <span class="text-sm text-gray-600">{{ deployments.length }} deployment(s)</span>
-            <ui-button variant="primary" (clicked)="openDeploymentForm()">+ Add Deployment</ui-button>
+            <ui-button variant="primary" (clicked)="openDeploymentForm()" icon="plus" [iconOnly]="true" label="Add Deployment">+ Add Deployment</ui-button>
           </div>
           @if (!deployments.length) {
             <ui-empty-state message="No worker deployments for this assignment." />
@@ -115,7 +116,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                       <td class="py-2 pr-4">{{ row.ratePerMonth ?? '—' }}</td>
                       <td class="py-2 pr-4"><ui-status-badge [label]="row.status || 'ACTIVE'" /></td>
                       <td class="py-2">
-                        <button class="text-brand-600 hover:underline text-xs" (click)="openDeploymentForm(row)">Edit</button>
+                        <button class="compact-action text-brand-600 hover:underline text-xs" (click)="openDeploymentForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                       </td>
                     </tr>
                   }
@@ -128,7 +129,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
         @if (!loading && !loadError && detailTab === 'wage-periods') {
           <div class="flex justify-between items-center mb-3">
             <span class="text-sm text-gray-600">{{ wagePeriods.length }} wage period(s)</span>
-            <ui-button variant="primary" (clicked)="openWagePeriodForm()">+ Add Wage Period</ui-button>
+            <ui-button variant="primary" (clicked)="openWagePeriodForm()" icon="plus" [iconOnly]="true" label="Add Wage Period">+ Add Wage Period</ui-button>
           </div>
           @if (!wagePeriods.length) {
             <ui-empty-state message="No wage periods yet." />
@@ -150,9 +151,9 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                       <td class="py-2 pr-4">{{ row.wageMonth }}/{{ row.wageYear }}</td>
                       <td class="py-2 pr-4"><ui-status-badge [label]="row.status || 'OPEN'" /></td>
                       <td class="py-2 flex gap-2">
-                        <button class="text-emerald-700 hover:underline text-xs" (click)="selectWagePeriod(row)">Manage</button>
+                        <button class="compact-action text-emerald-700 hover:underline text-xs" (click)="selectWagePeriod(row)" title="Manage" aria-label="Manage" data-action-label="Manage" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></button>
                         @if (row.status !== 'CLOSED') {
-                          <button class="text-amber-700 hover:underline text-xs" (click)="closePeriod(row)">Close</button>
+                          <button class="standard-action text-amber-700 hover:underline text-xs" (click)="closePeriod(row)">Close</button>
                         }
                       </td>
                     </tr>
@@ -174,7 +175,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           } @else {
             <div class="flex justify-between items-center mb-3">
               <span class="text-sm text-gray-600">{{ attendance.length }} record(s)</span>
-              <ui-button variant="primary" (clicked)="openAttendanceForm()">+ Add / Update</ui-button>
+              <ui-button variant="primary" (clicked)="openAttendanceForm()" icon="plus" [iconOnly]="true" label="Add / Update">+ Add / Update</ui-button>
             </div>
             @if (!attendance.length) {
               <ui-empty-state message="No attendance records for this period." />
@@ -198,7 +199,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                         <td class="py-2 pr-4">{{ row.status }}</td>
                         <td class="py-2 pr-4">{{ row.normalHours ?? '—' }} / OT {{ row.otHours ?? '—' }}</td>
                         <td class="py-2">
-                          <button class="text-brand-600 hover:underline text-xs" (click)="openAttendanceForm(row)">Edit</button>
+                          <button class="compact-action text-brand-600 hover:underline text-xs" (click)="openAttendanceForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                         </td>
                       </tr>
                     }
@@ -215,7 +216,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
           } @else {
             <div class="flex justify-between items-center mb-3">
               <span class="text-sm text-gray-600">{{ wages.length }} wage record(s)</span>
-              <ui-button variant="primary" (clicked)="openWageForm()">+ Add / Update</ui-button>
+              <ui-button variant="primary" (clicked)="openWageForm()" icon="plus" [iconOnly]="true" label="Add / Update">+ Add / Update</ui-button>
             </div>
             @if (!wages.length) {
               <ui-empty-state message="No wage records for this period." />
@@ -239,7 +240,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                         <td class="py-2 pr-4">₹{{ row.grossWages | number:'1.2-2' }}</td>
                         <td class="py-2 pr-4">₹{{ row.netWages | number:'1.2-2' }}</td>
                         <td class="py-2">
-                          <button class="text-brand-600 hover:underline text-xs" (click)="openWageForm(row)">Edit</button>
+                          <button class="compact-action text-brand-600 hover:underline text-xs" (click)="openWageForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                         </td>
                       </tr>
                     }
@@ -253,7 +254,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
         @if (!loading && !loadError && detailTab === 'registers') {
           <div class="flex justify-between items-center mb-3">
             <span class="text-sm text-gray-600">{{ registerRuns.length }} register run(s)</span>
-            <ui-button variant="primary" (clicked)="openRegisterForm()">+ Record Register Run</ui-button>
+            <ui-button variant="primary" (clicked)="openRegisterForm()" icon="plus" [iconOnly]="true" label="Record Register Run">+ Record Register Run</ui-button>
           </div>
           @if (!registerRuns.length) {
             <ui-empty-state message="No register runs yet." />
@@ -275,7 +276,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
                       <td class="py-2 pr-4">{{ row.status || 'GENERATED' }}</td>
                       <td class="py-2 pr-4">
                         @if (row.fileUrl) {
-                          <a [href]="downloadRegisterHref(row.id)" target="_blank" class="text-brand-600 hover:underline">{{ row.fileName || 'Download' }}</a>
+                          <a [href]="downloadRegisterHref(row.id)" target="_blank" class="compact-action text-brand-600 hover:underline" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">{{ row.fileName || 'Download' }}</span></a>
                         } @else {
                           {{ row.fileName || '—' }}
                         }

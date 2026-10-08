@@ -1,3 +1,4 @@
+import { IconComponent } from '../../ui/icon/icon.component';
 import {
   Component,
   EventEmitter,
@@ -16,7 +17,7 @@ import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
 @Component({
   selector: 'ui-file-preview-modal',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     FileMetadataHeaderComponent,
     VersionHistoryPanelComponent,
     RejectionReasonBoxComponent
@@ -56,8 +57,8 @@ import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
         </div>
 
         <div class="border-t border-gray-200 p-3 flex justify-end gap-2">
-          <button type="button" class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 bg-white" (click)="closed.emit()">Close</button>
-          <button type="button" class="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-brand-700" (click)="download.emit()" [disabled]="!file">Download</button>
+          <button type="button" class="standard-action px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 bg-white" (click)="closed.emit()">Close</button>
+          <button type="button" class="compact-action px-3 py-2 rounded-lg text-sm font-semibold text-white bg-brand-700" (click)="download.emit()" [disabled]="!file" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
         </div>
       </div>
     </div>

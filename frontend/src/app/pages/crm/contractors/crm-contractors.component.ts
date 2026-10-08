@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import * as XLSX from 'xlsx';
 import { downloadBlob } from '../../../shared/utils/download-blob';
 import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
@@ -14,7 +15,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   standalone: true,
   selector: 'app-crm-contractors',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, ClientContextStripComponent],
+  imports: [IconComponent, CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, ClientContextStripComponent],
   templateUrl: './crm-contractors.component.html',
   styleUrls: ['./crm-contractors.component.scss'],
 })

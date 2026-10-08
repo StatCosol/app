@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../ui/icon/icon.component';
 import { Component, Input } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FileHistoryItem } from '../../models/file.model';
@@ -5,7 +6,7 @@ import { FileHistoryItem } from '../../models/file.model';
 @Component({
   selector: 'app-file-history',
   standalone: true,
-  imports: [CommonModule, DatePipe],
+  imports: [IconComponent, CommonModule, DatePipe],
   templateUrl: './file-history.component.html',
 })
 export class FileHistoryComponent {

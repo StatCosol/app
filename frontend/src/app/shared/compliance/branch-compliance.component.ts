@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -18,7 +19,7 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
 @Component({
   standalone: true,
   selector: 'app-branch-compliance',
-  imports: [FormsModule, ComplianceTrendComponent, RiskForecastComponent, ComplianceSummaryComponent, RiskSimulatorComponent],
+  imports: [IconComponent, FormsModule, ComplianceTrendComponent, RiskForecastComponent, ComplianceSummaryComponent, RiskSimulatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './branch-compliance.component.html',
   styles: [`
@@ -26,7 +27,7 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
     .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
     .title{font-size:18px;font-weight:800;margin:0;color:#0f172a;}
     .sub{margin-top:4px;color:#64748b;font-size:12px;}
-    .controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+    .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
     input,select{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff;font-size:13px;}
     .cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:12px 0;}
     .card{background:#fff;border:1px solid #f1f5f9;border-radius:16px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}

@@ -124,7 +124,7 @@ describe('Automation Control Centre browser behaviour', () => {
     http.expectOne((r) => r.url.endsWith('/preview')).flush(preview);
     f.detectChanges();
     const button = [...f.nativeElement.querySelectorAll('button')].find((b: any) =>
-      b.textContent.includes('Run now'),
+      (b.getAttribute('aria-label') || b.textContent).includes('Run now'),
     ) as HTMLButtonElement;
     expect(button.disabled).toBe(false);
     f.componentInstance.localTime = '09:00';
@@ -187,7 +187,7 @@ describe('Automation Control Centre browser behaviour', () => {
     f.componentInstance.runs.set([run]);
     f.detectChanges();
     const retry = [...f.nativeElement.querySelectorAll('button')].find((b: any) =>
-      b.textContent.includes('Retry safely'),
+      (b.getAttribute('aria-label') || b.textContent).includes('Retry safely'),
     ) as HTMLButtonElement;
     retry.click();
     const req = http.expectOne((r) => r.url.endsWith('/runs/run1/retry'));

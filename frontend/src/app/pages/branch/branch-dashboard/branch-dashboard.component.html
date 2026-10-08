@@ -1,13 +1,13 @@
 @if (dataUnavailable) {
   <div role="alert" class="m-4 rounded border border-amber-300 bg-amber-50 p-4">
     Dashboard data could not be refreshed. Totals are unavailable until all required data loads.
-    <button type="button" class="underline" (click)="loadDashboard()">Retry</button>
+    <button type="button" class="compact-action underline" (click)="loadDashboard()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </div>
 }
 @if (!dataUnavailable) {
 <div class="mx-4 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex flex-wrap items-center justify-between gap-3">
   <div><strong class="text-emerald-950">What needs attention this month?</strong><p class="text-sm text-emerald-900">Review attendance, payroll approvals and missing evidence in one place.</p></div>
-  <a routerLink="/branch/monthly-close" class="font-semibold text-emerald-800 underline underline-offset-4">Open monthly close &rarr;</a>
+  <a routerLink="/branch/monthly-close" class="compact-action font-semibold text-emerald-800 underline underline-offset-4" title="Open monthly close &rarr;" aria-label="Open monthly close &rarr;" data-action-label="Open monthly close &rarr;" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
 </div>
 <!-- Branch Dashboard: Execution-focused layout -->
 <div class="branch-dashboard">
@@ -82,7 +82,7 @@
               (change)="onMonthChange()"
               class="dash-hero__month"
             />
-            <button type="button" (click)="loadDashboard()" class="dash-hero__btn" title="Refresh" aria-label="Refresh dashboard">↻</button>
+            <button type="button" (click)="loadDashboard()" class="compact-action dash-hero__btn" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
           </div>
         </div>
       </div>
@@ -473,7 +473,7 @@
           </table>
           @if (pfPendingEmployees.length > 10) {
 <p class="text-xs text-slate-400 text-center mt-2">
-            + {{ pfPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="text-brand-600 hover:underline">View all</a>
+            + {{ pfPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="compact-action text-brand-600 hover:underline" title="View all" aria-label="View all" data-action-label="View all" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
           </p>
 }
         </div>
@@ -513,7 +513,7 @@
           </table>
           @if (esiPendingEmployees.length > 10) {
 <p class="text-xs text-slate-400 text-center mt-2">
-            + {{ esiPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="text-brand-600 hover:underline">View all</a>
+            + {{ esiPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="compact-action text-brand-600 hover:underline" title="View all" aria-label="View all" data-action-label="View all" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
           </p>
 }
         </div>
@@ -590,7 +590,7 @@
       </div>
 }
     </div>
-  
+
 }
 </div>
 

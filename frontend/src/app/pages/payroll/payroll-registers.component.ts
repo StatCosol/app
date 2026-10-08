@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { downloadErrorMessage } from '../../shared/files/utils/download-error';
 import { matchesRegisterAct, registerActGroup } from '../../shared/utils/register-act-filter';
 import type { RegisterGeneratedScope } from './register-preparation.component';
@@ -45,7 +46,7 @@ const STATE_NAMES: Record<string, string> = {
 @Component({
   selector: 'app-payroll-registers',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     RegisterLibraryComponent,
     FormsModule,
     PageHeaderComponent,
@@ -64,7 +65,7 @@ const STATE_NAMES: Record<string, string> = {
         subtitle="Generate, download, approve, and manage statutory registers for this client">
         <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
         <div slot="actions" class="flex items-center gap-3">
-          <ui-button variant="secondary" [disabled]="loading" (clicked)="refresh()">
+          <ui-button variant="secondary" [disabled]="loading" (clicked)="refresh()" icon="refresh" [iconOnly]="true" label="Refresh">
             Refresh
           </ui-button>
         </div>
@@ -291,24 +292,19 @@ const STATE_NAMES: Record<string, string> = {
         <ng-template uiTableCell="actions" let-row>
           <div class="flex items-center gap-2">
             <button
-              class="inline-flex items-center gap-1 rounded-md bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition"
-              (click)="download(row)">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Download
-            </button>
+              class="compact-action inline-flex items-center gap-1 rounded-md bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition"
+              (click)="download(row)" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
             @if (row.approvalStatus !== 'APPROVED') {
 <ui-button
 
-              size="sm" variant="primary" (clicked)="approve(row)">
+              size="sm" variant="primary" (clicked)="approve(row)" icon="check-circle" [iconOnly]="true" label="Approve">
               Approve
             </ui-button>
 }
             @if (row.approvalStatus !== 'REJECTED') {
 <ui-button
 
-              size="sm" variant="danger" (clicked)="reject(row)">
+              size="sm" variant="danger" (clicked)="reject(row)" icon="x-circle" [iconOnly]="true" label="Reject">
               Reject
             </ui-button>
 }

@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef
 } from '@angular/core';
@@ -23,7 +24,7 @@ interface DocumentItem {
 @Component({
   selector: 'app-branch-documents',
   standalone: true,
-  imports: [FormsModule],
+  imports: [IconComponent, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-container">
@@ -56,7 +57,7 @@ interface DocumentItem {
         </div>
       </div>
 
-      @if (loadError) { <div role="alert" class="rounded border border-amber-300 p-4">{{loadError}} <button type="button" class="underline" (click)="loadAllDocs()">Retry</button></div> }
+      @if (loadError) { <div role="alert" class="rounded border border-amber-300 p-4">{{loadError}} <button type="button" class="compact-action underline" (click)="loadAllDocs()" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div> }
       <!-- Summary -->
       <div class="summary-strip">
         <div class="summary-card border-l-4 border-emerald-500">

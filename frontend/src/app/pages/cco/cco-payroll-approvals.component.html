@@ -34,7 +34,7 @@
         </select>
       </label>
 }
-      <button type="button" class="btn btn-secondary" (click)="refresh()" [disabled]="runsLoading || loading">Refresh</button>
+      <button type="button" class="compact-action btn btn-secondary" (click)="refresh()" [disabled]="runsLoading || loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
     </div>
   </header>
 
@@ -126,8 +126,8 @@
               <td class="text-right">
                 @if (row.status === 'SUBMITTED') {
 
-                  <button type="button" class="link" [disabled]="acting" (click)="approveRun(row); $event.stopPropagation()">Approve</button>
-                  <button type="button" class="link link-danger" [disabled]="acting" (click)="rejectRun(row); $event.stopPropagation()">Reject</button>
+                  <button type="button" class="compact-action link" [disabled]="acting" (click)="approveRun(row); $event.stopPropagation()" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                  <button type="button" class="compact-action link link-danger" [disabled]="acting" (click)="rejectRun(row); $event.stopPropagation()" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
                 
 }
                 @if (row.status !== 'SUBMITTED') {
@@ -181,8 +181,8 @@
 
       @if (r.status === 'SUBMITTED') {
 <div class="action-row">
-        <button type="button" class="btn btn-primary" [disabled]="acting" (click)="approveRun(r)">Approve Run</button>
-        <button type="button" class="btn btn-danger" [disabled]="acting" (click)="rejectRun(r)">Reject Run</button>
+        <button type="button" class="compact-action btn btn-primary" [disabled]="acting" (click)="approveRun(r)" title="Approve Run" aria-label="Approve Run" data-action-label="Approve Run" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+        <button type="button" class="compact-action btn btn-danger" [disabled]="acting" (click)="rejectRun(r)" title="Reject Run" aria-label="Reject Run" data-action-label="Reject Run" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
       </div>
 }
     </aside>
@@ -251,8 +251,8 @@
               <td class="text-right">
                 @if (row.approvalStatus === 'PENDING') {
 
-                  <button type="button" class="link" [disabled]="acting" (click)="approve(row); $event.stopPropagation()">Approve</button>
-                  <button type="button" class="link link-danger" [disabled]="acting" (click)="reject(row); $event.stopPropagation()">Reject</button>
+                  <button type="button" class="compact-action link" [disabled]="acting" (click)="approve(row); $event.stopPropagation()" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                  <button type="button" class="compact-action link link-danger" [disabled]="acting" (click)="reject(row); $event.stopPropagation()" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
                 
 }
                 @if (row.approvalStatus !== 'PENDING') {
@@ -353,8 +353,8 @@
 
       @if (s.approvalStatus === 'PENDING') {
 <div class="action-row">
-        <button type="button" class="btn btn-primary" [disabled]="acting" (click)="approve(s)">Approve</button>
-        <button type="button" class="btn btn-danger" [disabled]="acting" (click)="reject(s)">Reject</button>
+        <button type="button" class="compact-action btn btn-primary" [disabled]="acting" (click)="approve(s)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+        <button type="button" class="compact-action btn btn-danger" [disabled]="acting" (click)="reject(s)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
       </div>
 }
     </aside>

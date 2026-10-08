@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { CommonModule } from '@angular/common';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
@@ -35,7 +36,7 @@ interface ReuploadRow {
 @Component({
   selector: 'app-crm-reupload-backlog',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent],
+  imports: [IconComponent, CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent],
   templateUrl: './crm-reupload-backlog.component.html',
 })
 export class CrmReuploadBacklogComponent implements OnInit, OnDestroy {

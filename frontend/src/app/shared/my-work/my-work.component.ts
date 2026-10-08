@@ -1,3 +1,4 @@
+import { IconComponent } from '../ui/icon/icon.component';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,7 +12,7 @@ import { WorkItem, WorkResult } from './my-work.models';
 @Component({
   selector: 'app-my-work',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [IconComponent, CommonModule, FormsModule, RouterModule],
   templateUrl: './my-work.component.html',
   styleUrl: './my-work.component.scss',
 })

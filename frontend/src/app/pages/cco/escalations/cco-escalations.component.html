@@ -2,7 +2,7 @@
   <ui-page-header
     title="Escalations"
     subtitle="Monitor and action compliance escalations across all portals">
-    <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
+    <ui-button variant="secondary" size="sm" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
   </ui-page-header>
 
   <!-- KPI Strip -->
@@ -78,9 +78,9 @@
     <ng-template uiTableCell="actions" let-row>
       <div class="flex justify-end gap-2">
         <ui-button variant="secondary" size="sm" (clicked)="openAssignModal(row)"
-          [disabled]="row.status === 'CLOSED'">Assign</ui-button>
+          [disabled]="row.status === 'CLOSED'" icon="cog" [iconOnly]="true" label="Assign">Assign</ui-button>
         <ui-button variant="secondary" size="sm" (clicked)="openNotifyModal(row)"
-          [disabled]="row.status === 'CLOSED'">Notify</ui-button>
+          [disabled]="row.status === 'CLOSED'" icon="send" [iconOnly]="true" label="Notify">Notify</ui-button>
         <ui-button variant="secondary" size="sm" (clicked)="closeEscalation(row)"
           [disabled]="row.status === 'CLOSED'">Close</ui-button>
       </div>
@@ -113,7 +113,7 @@
       </div>
       <div class="flex justify-end gap-3 mt-6">
         <ui-button variant="secondary" (clicked)="showAssignModal = false">Cancel</ui-button>
-        <ui-button variant="primary" (clicked)="confirmAssign()" [disabled]="!assigneeId.trim()">Assign</ui-button>
+        <ui-button variant="primary" (clicked)="confirmAssign()" [disabled]="!assigneeId.trim()" icon="cog" [iconOnly]="true" label="Assign">Assign</ui-button>
       </div>
     </div>
   </div>
@@ -128,7 +128,7 @@
         [(ngModel)]="notifyMessage" placeholder="Enter notification message..."></textarea>
       <div class="flex justify-end gap-3">
         <ui-button variant="secondary" (clicked)="showNotifyModal = false">Cancel</ui-button>
-        <ui-button variant="primary" (clicked)="sendNotification()" [disabled]="!notifyMessage.trim()">Send</ui-button>
+        <ui-button variant="primary" (clicked)="sendNotification()" [disabled]="!notifyMessage.trim()" icon="send" [iconOnly]="true" label="Send">Send</ui-button>
       </div>
     </div>
   </div>

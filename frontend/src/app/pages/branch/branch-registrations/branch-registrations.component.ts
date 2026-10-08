@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -88,7 +89,7 @@ interface RequestWizardModel {
 @Component({
   selector: 'app-branch-registrations',
   standalone: true,
-  imports: [CommonModule, FormsModule, SharedTimelineComponent],
+  imports: [IconComponent, CommonModule, FormsModule, SharedTimelineComponent],
   templateUrl: './branch-registrations.component.html',
   styleUrls: ['./branch-registrations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

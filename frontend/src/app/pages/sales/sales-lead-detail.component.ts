@@ -103,7 +103,7 @@ import { PageHeaderComponent } from '../../shared/ui';
                 <input [(ngModel)]="act.nextFollowupAt" name="nextFollowupAt" type="datetime-local" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
               </div>
               <div class="flex items-end justify-end">
-                <button type="submit" [disabled]="logging" class="px-4 py-1.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50">
+                <button type="submit" [disabled]="logging" class="standard-action px-4 py-1.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50">
                   {{ logging ? 'Saving…' : 'Log Activity' }}
                 </button>
               </div>

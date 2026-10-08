@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -7,7 +8,7 @@ import { PageHeaderComponent } from '../../shared/ui';
 @Component({
   selector: 'app-sales-followups',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageHeaderComponent],
+  imports: [IconComponent, CommonModule, RouterModule, PageHeaderComponent],
   template: `
     <div class="space-y-5">
       <ui-page-header
@@ -43,7 +44,7 @@ import { PageHeaderComponent } from '../../shared/ui';
               <td class="px-4 py-2.5 text-xs text-gray-600">{{ l.lastActivityAt ? (l.lastActivityAt | date:'short') : '—' }}</td>
               <td class="px-4 py-2.5 text-right text-gray-700">₹ {{ +l.estimatedValue | number:'1.0-0' }}</td>
               <td class="px-4 py-2.5 text-right">
-                <a [routerLink]="['/sales/leads', l.id]" class="text-emerald-600 hover:underline text-sm">Open →</a>
+                <a [routerLink]="['/sales/leads', l.id]" class="compact-action text-emerald-600 hover:underline text-sm" title="Open →" aria-label="Open →" data-action-label="Open →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
               </td>
             </tr>
 }

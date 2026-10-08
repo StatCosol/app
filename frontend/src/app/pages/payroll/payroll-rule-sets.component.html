@@ -6,9 +6,7 @@
   </ui-page-header>
 
   <div class="head-controls">
-    <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateRuleSet()">
-      + New Rule Set
-    </button>
+    <button type="button" class="compact-action btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateRuleSet()" title="New Rule Set" aria-label="New Rule Set" data-action-label="New Rule Set" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
   </div>
 
   @if (selectedClientId) {
@@ -99,17 +97,15 @@
               </td>
               <td><span [class]="ruleSetStatusClass(row.isActive)">{{ row.isActive ? 'Active' : 'Inactive' }}</span></td>
               <td class="text-right">
-                <button type="button" class="link" (click)="openEditRuleSet(row); $event.stopPropagation()">Edit</button>
+                <button type="button" class="compact-action link" (click)="openEditRuleSet(row); $event.stopPropagation()" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                 <button
                   type="button"
-                  class="link"
+                  class="compact-action link"
                   [disabled]="saving || !canActivateRuleSet(row)"
                   [title]="ruleSetActivationReason(row) || ''"
                   (click)="activateVersion(row); $event.stopPropagation()"
-                >
-                  Activate
-                </button>
-                <button type="button" class="link link-danger" (click)="deleteRuleSet(row); $event.stopPropagation()">Delete</button>
+                 title="Activate" aria-label="Activate" data-action-label="Activate" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                <button type="button" class="compact-action link link-danger" (click)="deleteRuleSet(row); $event.stopPropagation()" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -153,20 +149,18 @@
         </div>
 
         <div class="action-row">
-          <button type="button" class="btn btn-secondary" (click)="openCreateParam()">+ Add Parameter</button>
+          <button type="button" class="compact-action btn btn-secondary" (click)="openCreateParam()" title="Add Parameter" aria-label="Add Parameter" data-action-label="Add Parameter" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
           @if (!selected.isActive) {
 <button
             type="button"
-            class="btn btn-primary"
+            class="compact-action btn btn-primary"
            
             [disabled]="saving || !canActivateRuleSet(selected, true)"
             [title]="ruleSetActivationReason(selected, true) || ''"
             (click)="activateVersion(selected)"
-          >
-            Activate Version
-          </button>
+           title="Activate Version" aria-label="Activate Version" data-action-label="Activate Version" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
-          <button type="button" class="btn btn-ghost" (click)="openCompareModal()">Compare Versions</button>
+          <button type="button" class="compact-action btn btn-ghost" (click)="openCompareModal()" title="Compare Versions" aria-label="Compare Versions" data-action-label="Compare Versions" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </div>
 
         <div class="guardrail-grid">
@@ -259,8 +253,8 @@
             <td>{{ p.unit || '-' }}</td>
             <td>{{ p.notes || '-' }}</td>
             <td class="text-right">
-              <button type="button" class="link" (click)="openEditParam(p)">Edit</button>
-              <button type="button" class="link link-danger" (click)="deleteParam(p)">Delete</button>
+              <button type="button" class="compact-action link" (click)="openEditParam(p)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
+              <button type="button" class="compact-action link link-danger" (click)="deleteParam(p)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
             </td>
           </tr>
 }
@@ -286,7 +280,7 @@
   <div class="modal-card">
     <header>
       <h3>{{ editingRuleSet ? 'Edit Rule Set Version' : 'Create Rule Set Version' }}</h3>
-      <button type="button" class="link" (click)="showRuleSetModal = false">Close</button>
+      <button type="button" class="standard-action link" (click)="showRuleSetModal = false">Close</button>
     </header>
 
     <div class="modal-grid">
@@ -312,8 +306,8 @@
     </div>
 
     <footer>
-      <button type="button" class="btn btn-ghost" (click)="showRuleSetModal = false">Cancel</button>
-      <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveRuleSet()">
+      <button type="button" class="standard-action btn btn-ghost" (click)="showRuleSetModal = false">Cancel</button>
+      <button type="button" class="standard-action btn btn-primary" [disabled]="saving" (click)="saveRuleSet()">
         {{ saving ? 'Saving...' : 'Save Rule Set' }}
       </button>
     </footer>
@@ -327,7 +321,7 @@
   <div class="modal-card">
     <header>
       <h3>{{ editingParam ? 'Edit Parameter' : 'Add Parameter' }}</h3>
-      <button type="button" class="link" (click)="showParamModal = false">Close</button>
+      <button type="button" class="standard-action link" (click)="showParamModal = false">Close</button>
     </header>
 
     <div class="quick-keys">
@@ -365,8 +359,8 @@
     </div>
 
     <footer>
-      <button type="button" class="btn btn-ghost" (click)="showParamModal = false">Cancel</button>
-      <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveParam()">
+      <button type="button" class="standard-action btn btn-ghost" (click)="showParamModal = false">Cancel</button>
+      <button type="button" class="standard-action btn btn-primary" [disabled]="saving" (click)="saveParam()">
         {{ saving ? 'Saving...' : 'Save Parameter' }}
       </button>
     </footer>
@@ -380,7 +374,7 @@
   <div class="modal-card large">
     <header>
       <h3>Compare Rule Set Versions</h3>
-      <button type="button" class="link" (click)="showCompareModal = false">Close</button>
+      <button type="button" class="standard-action link" (click)="showCompareModal = false">Close</button>
     </header>
 
     @if (selectedRuleSet; as base) {
@@ -470,7 +464,7 @@
     
 
     <footer>
-      <button type="button" class="btn btn-ghost" (click)="showCompareModal = false">Close</button>
+      <button type="button" class="standard-action btn btn-ghost" (click)="showCompareModal = false">Close</button>
     </footer>
   </div>
 </div>

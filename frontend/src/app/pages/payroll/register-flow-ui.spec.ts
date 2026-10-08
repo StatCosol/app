@@ -43,7 +43,7 @@ describe('Register preparation screen', () => {
     expect(root.textContent).toContain('Integrated register — Factories');
     expect(root.textContent).not.toContain('Show registers');
     expect(root.querySelector('[aria-label="Find a register in the selected Act"]')).toBeNull();
-    [...root.querySelectorAll('button')].find(b => b.textContent?.includes('Prepare this register'))!.click();
+    [...root.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || b.textContent)?.includes('Prepare this register'))!.click();
     fixture.detectChanges();
     const particulars = [field('establishmentName', 'Name of establishment'), field('address', 'Address'),
       field('regularWorkers', 'Regular workers'), field('categoryPermanentMale', 'Permanent — male'),
@@ -86,15 +86,15 @@ describe('Register preparation screen', () => {
     expect(prep.rows[0]['occupation']).toBe('Technician');
     expect(workerA.textContent).toContain('0 required fields remaining');
     workerA.click();
-    expect(root.textContent).toContain('Download empty template (no worker data)');
-    expect(root.textContent).toContain('Generate and save register');
+    expect(root.querySelector('[aria-label="Download empty template (no worker data)"]')).not.toBeNull();
+    expect(root.querySelector('[aria-label="Generate and save register"]')).not.toBeNull();
     const saved = document.createElement('section');
     saved.id = 'saved-registers';
     saved.tabIndex = -1;
     document.body.append(saved);
     try {
       const url = window.location.href;
-      [...root.querySelectorAll('button')].find(b => b.textContent?.includes('View saved registers'))!.click();
+      [...root.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || b.textContent)?.includes('View saved registers'))!.click();
       expect(document.activeElement).toBe(saved);
       expect(window.location.href).toBe(url);
     } finally {
@@ -108,7 +108,7 @@ describe('Register preparation screen', () => {
         const columns = getComputedStyle(root.querySelector('.register-choice-grid')!).gridTemplateColumns;
         expect(columns.split(' ')).toHaveLength(1);
       }
-      const primary = [...root.querySelectorAll('button')].find(b => b.textContent?.includes('Generate and save register'))!;
+      const primary = [...root.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || b.textContent)?.includes('Generate and save register'))!;
       expect(primary.disabled).toBe(false);
       expect(primary.getBoundingClientRect().width).toBeLessThanOrEqual(width);
       root.querySelector('h3')!.scrollIntoView({ block: 'start' });

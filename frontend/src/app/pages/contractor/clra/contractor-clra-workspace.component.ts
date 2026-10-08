@@ -1,3 +1,4 @@
+import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -35,7 +36,7 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
 @Component({
   selector: 'app-contractor-clra-workspace',
   standalone: true,
-  imports: [
+  imports: [IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -84,7 +85,7 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
             <ui-data-table [columns]="assignmentCols" [data]="assignments" emptyMessage="No CLRA assignments linked to your account.">
               <ng-template uiTableCell="pe" let-row>{{ row.peEstablishment?.peName || 'Establishment name unavailable' }}</ng-template>
               <ng-template uiTableCell="actions" let-row>
-                <button class="text-rose-700 hover:underline text-sm" (click)="selectAssignment(row)">Manage</button>
+                <button class="compact-action text-rose-700 hover:underline text-sm" (click)="selectAssignment(row)" title="Manage" aria-label="Manage" data-action-label="Manage" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></button>
               </ng-template>
             </ui-data-table>
             @if (selectedAssignment) {
@@ -106,12 +107,12 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
           <div class="mt-6">
             <div class="flex justify-between items-center mb-3">
               <span class="text-sm text-gray-600">{{ workers.length }} worker(s)</span>
-              <ui-button variant="primary" (clicked)="openWorkerForm()">+ Add Worker</ui-button>
+              <ui-button variant="primary" (clicked)="openWorkerForm()" icon="plus" [iconOnly]="true" label="Add Worker">+ Add Worker</ui-button>
             </div>
             <ui-data-table [columns]="workerCols" [data]="workers" emptyMessage="No CLRA workers yet.">
               <ng-template uiTableCell="category" let-row>{{ row.category || '—' }}</ng-template>
               <ng-template uiTableCell="actions" let-row>
-                <button class="text-brand-600 hover:underline text-sm" (click)="openWorkerForm(row)">Edit</button>
+                <button class="compact-action text-brand-600 hover:underline text-sm" (click)="openWorkerForm(row)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
               </ng-template>
             </ui-data-table>
           </div>

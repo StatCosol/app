@@ -101,9 +101,9 @@
           <div class="fb-child-label">
             Value {{ i + 1 }}
             @if (holder.current.values.length > 2) {
-<button type="button" class="fb-mini-btn"
-                   
-                    (click)="removeValue(holder.current, i)">remove</button>
+<button type="button" class="compact-action fb-mini-btn"
+
+                    (click)="removeValue(holder.current, i)" title="remove" aria-label="remove" data-action-label="remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
           </div>
           <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.values[i] } }"></ng-container>
@@ -111,7 +111,7 @@
 }
       </div>
       <div class="fb-row">
-        <button type="button" class="fb-add-btn" (click)="addValue(holder.current)">+ Add value</button>
+        <button type="button" class="compact-action fb-add-btn" (click)="addValue(holder.current)" title="Add value" aria-label="Add value" data-action-label="Add value" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
       </div>
     
 }
@@ -139,9 +139,9 @@
           </select>
         </label>
         @if (holder.current.subtract.length > 1) {
-<button type="button" class="fb-mini-btn"
-               
-                (click)="removeSubtract(holder.current, i)">remove</button>
+<button type="button" class="compact-action fb-mini-btn"
+
+                (click)="removeSubtract(holder.current, i)" title="remove" aria-label="remove" data-action-label="remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
       </div>
 }
