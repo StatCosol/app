@@ -127,3 +127,15 @@
 .workspace-ui main label > input.workspace-search {
  flex: 0 0 auto; width: 100%; max-width: none;
 }
+
+/* Wrap related fields and actions together instead of stranding icons below them. */
+.workspace-ui main .field-action-group {
+ display: flex; align-items: flex-end; gap: 8px; min-width: 0; max-width: 100%;
+}
+.workspace-ui main .field-action-group > .action-field {
+ flex: 1 1 auto; min-width: 0; margin-bottom: 0;
+}
+.workspace-ui main .field-action-group > .action-field :is(input, select) { min-width: 0; width: 100%; }
+.workspace-ui main .field-action-group > .attached-actions {
+ display: flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; gap: 8px; margin: 0;
+}

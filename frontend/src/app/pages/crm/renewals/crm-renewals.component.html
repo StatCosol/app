@@ -70,7 +70,8 @@
         (keyup.enter)="load(1)"
       />
     </div>
-    <div class="filter-field">
+    <div class="field-action-group">
+    <div class="filter-field action-field">
       <label for="ren-sort">Sort</label>
       <select
         id="ren-sort"
@@ -84,9 +85,10 @@
         <option value="UPDATED_DESC">Last Updated</option>
       </select>
     </div>
-    <div class="filter-actions">
+    <div class="filter-actions attached-actions">
       <ui-button variant="primary" size="sm" (clicked)="load(1)" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
       <ui-button variant="ghost" size="sm" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
+    </div>
     </div>
   </div>
 

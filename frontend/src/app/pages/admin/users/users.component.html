@@ -187,7 +187,7 @@
 
         <!-- Filters -->
         <div class="mb-6 space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             <ui-form-input
               type="text"
               [(ngModel)]="searchTerm"
@@ -202,14 +202,15 @@
               [disabled]="usersLoading">
             </ui-form-select>
 
-            <ui-form-select
+            <div class="field-action-group sm:col-span-2 lg:col-span-1">
+            <ui-form-select class="action-field"
               [(ngModel)]="sortBy"
               (ngModelChange)="onSortChange()"
               [options]="sortOptions"
               [disabled]="usersLoading">
             </ui-form-select>
 
-            <div class="flex items-center gap-2">
+            <div class="attached-actions">
               <ui-button
                 variant="secondary"
                 (click)="resetFilters()"
@@ -220,6 +221,7 @@
               <ui-status-badge variant="info" class="whitespace-nowrap">
                 {{ currentPageCount }} / {{ totalCount }}
               </ui-status-badge>
+            </div>
             </div>
           </div>
         </div>

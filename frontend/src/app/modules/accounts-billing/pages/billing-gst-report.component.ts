@@ -99,7 +99,8 @@ interface ReportOption {
               class="w-full px-3 py-2 border rounded-lg text-sm"
             />
           </label>
-          <label class="block md:col-span-2">
+          <div class="field-action-group md:col-span-2">
+          <label class="block action-field">
             <span class="block text-xs font-medium text-slate-600 mb-1">Search</span>
             <input
               [(ngModel)]="search"
@@ -108,6 +109,22 @@ interface ReportOption {
               class="w-full px-3 py-2 border rounded-lg text-sm"
             />
           </label>
+          <div class="attached-actions">
+          <button
+            type="button"
+            (click)="clearOptionalFilters()"
+            class="compact-action px-3 py-1.5 border rounded-lg text-xs hover:bg-slate-50"
+           title="Clear filters" aria-label="Clear filters" data-action-label="Clear filters" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
+          <button
+            type="button"
+            (click)="load()"
+            [disabled]="loading"
+            class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
+           title="Generate Report" aria-label="Generate Report" data-action-label="Generate Report" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+            {{ loading ? 'Generating...' : 'Generate Report' }}
+          </span></button>
+          </div>
+          </div>
         </div>
 
         <div class="flex items-center gap-2 flex-wrap border-t pt-4">
@@ -132,19 +149,7 @@ interface ReportOption {
           >
             This FY
           </button>
-          <button
-            type="button"
-            (click)="clearOptionalFilters()"
-            class="compact-action px-3 py-1.5 border rounded-lg text-xs hover:bg-slate-50"
-           title="Clear filters" aria-label="Clear filters" data-action-label="Clear filters" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
-          <button
-            type="button"
-            (click)="load()"
-            [disabled]="loading"
-            class="compact-action ml-auto px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
-           title="Generate Report" aria-label="Generate Report" data-action-label="Generate Report" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
-            {{ loading ? 'Generating...' : 'Generate Report' }}
-          </span></button>
+
         </div>
 
         <div class="rounded-lg bg-brand-50 border border-brand-100 px-4 py-3 text-sm text-brand-900">

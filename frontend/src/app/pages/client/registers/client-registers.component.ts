@@ -130,7 +130,8 @@ type RegisterRow = {
               <option value="MANUAL">Manual</option>
             </select>
           </label>
-          <label class="wide">
+          <div class="wide field-action-group">
+          <label class="action-field">
             <span>Search</span>
             <input autocomplete="off"
               type="text"
@@ -140,9 +141,10 @@ type RegisterRow = {
               (ngModelChange)="onFiltersChange()"
               placeholder="Title, register type, branch, file name" />
           </label>
-          <div class="actions">
+          <div class="actions attached-actions">
             <ui-button variant="primary" [disabled]="loading" (clicked)="reload()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
             <ui-button variant="ghost" [disabled]="loading" (clicked)="reset()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
+          </div>
           </div>
         </div>
         @if (!loading && rows.length) {
@@ -278,7 +280,7 @@ type RegisterRow = {
     .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem; }
     label { display: flex; flex-direction: column; gap: .35rem; }
     label > span { font-size: .78rem; color: #4b5563; font-weight: 600; }
-    label.wide { grid-column: span 2; }
+    .wide { grid-column: span 2; }
     input, select { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: .5rem .6rem; font-size: .84rem; }
     .actions { display: flex; align-items: end; gap: .5rem; flex-wrap: wrap; }
     .quick-meta { margin-top: .65rem; display: flex; gap: .7rem; flex-wrap: wrap; font-size: .75rem; color: #374151; }
@@ -302,11 +304,11 @@ type RegisterRow = {
     .unsupported { min-height: 40vh; display: grid; place-content: center; gap: .6rem; color: #4b5563; }
     @media (max-width: 980px) {
       .filter-grid { grid-template-columns: 1fr 1fr; }
-      label.wide { grid-column: span 2; }
+      .wide { grid-column: span 2; }
     }
     @media (max-width: 700px) {
       .filter-grid { grid-template-columns: 1fr; }
-      label.wide { grid-column: span 1; }
+      .wide { grid-column: span 1; }
       .pager { flex-direction: column; align-items: stretch; }
     }
   `],

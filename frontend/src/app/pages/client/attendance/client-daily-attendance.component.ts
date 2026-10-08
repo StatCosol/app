@@ -84,18 +84,20 @@ const ATTENDANCE_STATUSES = [
               <option value="REJECTED">Rejected</option>
             </select>
           </label>
-          <label>
+          <div class="field-action-group attendance-search-actions">
+          <label class="action-field">
             <span>Search Employee</span>
             <input autocomplete="off" id="da-employee-search" name="employeeSearch"
               type="search" placeholder="Employee name or code"
               [(ngModel)]="employeeSearch" (ngModelChange)="applyFilter()" />
           </label>
-          <div class="toolbar-actions">
+          <div class="toolbar-actions attached-actions">
             <ui-button size="sm" variant="primary" [disabled]="loading" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
             <ui-button size="sm" variant="secondary" [disabled]="loading || downloadingReport || !records.length"
               [loading]="downloadingReport" (clicked)="downloadReport()" icon="download" [iconOnly]="true" label="Download Report">
               ⬇ Download Report
             </ui-button>
+          </div>
           </div>
         </div>
       </section>
@@ -337,9 +339,9 @@ const ATTENDANCE_STATUSES = [
       .page { max-width: 1400px; margin: 0 auto; padding: 1rem; }
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1rem; box-shadow: 0 6px 20px rgba(15, 23, 42, .04); }
       .mb { margin-bottom: .85rem; }
-      .toolbar { display: grid; grid-template-columns: repeat(3, minmax(140px, 1fr)) minmax(180px, 1.2fr) max-content; gap: .65rem; align-items: end; }
+      .toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(280px, 1.5fr); gap: .65rem; align-items: end; }
       .toolbar-actions { display: flex; align-items: end; gap: .4rem; flex-wrap: wrap; }
-      @media (max-width: 1100px) { .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .toolbar-actions { grid-column: 1 / -1; } }
+      @media (max-width: 1100px) { .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }  .attendance-search-actions { grid-column: 1 / -1; } }
       /* Pin every control on this row — inputs, selects AND the action button —
          to the SAME explicit height so the Load button can't render taller or
          shorter than the fields. border-box makes the height include padding. */

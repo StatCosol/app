@@ -82,7 +82,8 @@
           }
         </select>
       </div>
-      <div class="field field--wide">
+      <div class="field--wide field-action-group">
+      <div class="field action-field">
         <label for="run-search">Search</label>
         <input
           autocomplete="off"
@@ -94,10 +95,11 @@
           placeholder="Client, status, or period"
         />
       </div>
-    </div>
-    <div class="filter-actions">
+    <div class="filter-actions attached-actions">
       <ui-button variant="primary" size="sm" (clicked)="applyFilters()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
       <ui-button variant="ghost" size="sm" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
+    </div>
+      </div>
     </div>
   </section>
 

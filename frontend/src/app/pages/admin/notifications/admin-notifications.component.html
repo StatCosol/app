@@ -44,13 +44,19 @@
         <article class="bg-white border border-gray-200 rounded-xl p-4">
           <h3 class="text-sm font-semibold text-gray-900 mb-3">Filters</h3>
           <div class="space-y-3">
-            <div>
+            <div class="field-action-group">
+            <div class="action-field">
               <label class="block text-xs font-medium text-gray-600 mb-1" for="an-q">Search</label>
               <input autocomplete="off" id="an-q" name="q"
                 class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 type="text"
                 placeholder="Subject, client, branch..."
                 [(ngModel)]="filters.q" />
+            </div>
+            <div class="attached-actions">
+              <ui-button variant="secondary" size="sm" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Clear">Clear</ui-button>
+              <ui-button variant="primary" size="sm" (clicked)="onServerFilterChanged()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
+            </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -108,10 +114,7 @@
                 (change)="onServerFilterChanged()" />
               Unread only
             </label>
-            <div class="flex items-center justify-between">
-              <ui-button variant="secondary" size="sm" (clicked)="clearFilters()" icon="undo" [iconOnly]="true" label="Clear">Clear</ui-button>
-              <ui-button variant="primary" size="sm" (clicked)="onServerFilterChanged()" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
-            </div>
+
           </div>
         </article>
 
