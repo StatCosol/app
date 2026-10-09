@@ -133,6 +133,7 @@ describe('Integrated register HTTP preparation', () => {
     });
     for (const key of [
       'fine',
+      'overtime',
       'maternity',
       'leaveBalance',
       'nominee',
@@ -163,6 +164,24 @@ describe('Integrated register HTTP preparation', () => {
       await load().expect(status);
       expect(employeeRepo.find).not.toHaveBeenCalled();
       expect(query).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each(['0.00', '1500.00'])(
+    'loads stored overtime wages %s without treating zero as missing',
+    async (overtimeWages) => {
+      const original = query.getMockImplementation()!;
+      query.mockImplementation(async (sql: string, ...args: any[]) => {
+        const records = await original(sql, ...args);
+        return sql.includes('unit_applicable_compliance')
+          ? records
+          : records.map((row: any) => ({ ...row, overtimeWages }));
+      });
+      const response = await load().expect(200);
+      expect(response.body.rows[0].overtime).toBe(overtimeWages);
+      expect(query).toHaveBeenLastCalledWith(
+        expect.stringContaining("overtime.component_code='OT_AMOUNT'"),
+        ['run', 'client', branchId],
+      );
     },
   );
   it('loads the same employer and branch defaults for assigned contractor drafts', async () => {
