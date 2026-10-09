@@ -151,6 +151,32 @@ describe('Integrated register HTTP preparation', () => {
       ['run', 'client', branchId],
     );
   });
+  it('prefills enrollment particulars and approved nomination details', async () => {
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (sql: string, ...args: any[]) => {
+      const records = await original(sql, ...args);
+      return sql.includes('unit_applicable_compliance')
+        ? records
+        : records.map((row: any) => ({
+            ...row,
+            address: '12 Sample Street, Hyderabad',
+            education: 'Diploma',
+            skillCategory: 'SEMI_SKILLED',
+            nominee: 'Sample Nominee — 12 Sample Street',
+          }));
+    });
+    const response = await load().expect(200);
+    expect(response.body.rows[0]).toMatchObject({
+      address: '12 Sample Street, Hyderabad',
+      educationSkill: 'Diploma / SEMI SKILLED',
+      nominee: 'Sample Nominee — 12 Sample Street',
+    });
+    const sql = query.mock.calls.at(-1)![0];
+    expect(sql).toContain("n.status='APPROVED'");
+    expect(sql).toContain('n.employee_id=e.id AND n.client_id=e.client_id');
+    expect(sql).toContain('n.branch_id=e.branch_id');
+    expect(sql).toContain('DISTINCT ON (n.nomination_type)');
+  });
   it.each([
     ['status', 'DRAFT', 400],
     ['periodMonth', 4, 400],

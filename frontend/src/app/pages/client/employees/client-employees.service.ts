@@ -14,6 +14,9 @@ export type Employee = {
   dateOfBirth: string | null;
   gender: string | null;
   fatherName: string | null;
+  address?: string | null;
+  education?: string | null;
+  skillCategory?: string | null;
   phone: string | null;
   email: string | null;
   aadhaar: string | null;
@@ -191,6 +194,9 @@ export class ClientEmployeesService {
       dateOfBirth: r?.dateOfBirth ?? r?.date_of_birth ?? null,
       gender: r?.gender ?? null,
       fatherName: r?.fatherName ?? r?.father_name ?? null,
+      address: r?.address ?? null,
+      education: r?.education ?? null,
+      skillCategory: r?.skillCategory ?? r?.skill_category ?? null,
       phone: r?.phone ?? null,
       email: r?.email ?? null,
       aadhaar: r?.aadhaar ?? null,

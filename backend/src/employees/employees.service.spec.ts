@@ -81,6 +81,30 @@ describe('EmployeesService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
+  it('saves enrollment particulars used by registers', async () => {
+    employeeRepo.findOne.mockResolvedValue({
+      id: 'e1',
+      clientId: 'c1',
+      branchId: 'b1',
+      monthlyGross: 25000,
+    });
+    employeeRepo.save.mockImplementation(async (employee: any) => employee);
+    jest
+      .spyOn(service as any, 'assertMonthlyGrossMeetsMinimumWage')
+      .mockResolvedValue(undefined);
+    await service.update('c1', 'e1', {
+      address: '12 Sample Street',
+      education: 'Diploma',
+      skillCategory: 'SKILLED',
+    });
+    expect(employeeRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: '12 Sample Street',
+        education: 'Diploma',
+        skillCategory: 'SKILLED',
+      }),
+    );
+  });
 
   it('rechecks the effective wage for a category-only transition to regular payroll', async () => {
     employeeRepo.findOne.mockResolvedValue({

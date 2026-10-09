@@ -9,6 +9,7 @@ import {
   IsUUID,
   IsNumber,
   IsIn,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -26,6 +27,8 @@ export class UpdateMasterDataItemDto {
 
 // ── Employee Create / Update ─────────────────────────────
 export class CreateEmployeeDto {
+  @IsOptional() @IsString() @MaxLength(2000) address?: string;
+  @IsOptional() @IsString() @MaxLength(250) education?: string;
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() employeeCode?: string;
   /**
@@ -77,6 +80,8 @@ export class CreateEmployeeDto {
 }
 
 export class UpdateEmployeeDto {
+  @IsOptional() @IsString() @MaxLength(2000) address?: string;
+  @IsOptional() @IsString() @MaxLength(250) education?: string;
   @IsOptional() @IsString() id?: string;
   @IsOptional() @IsString() clientId?: string;
   @IsOptional() @IsString() employeeCode?: string;
