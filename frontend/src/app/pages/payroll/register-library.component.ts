@@ -153,6 +153,18 @@ interface Jurisdiction {
           <article class="border-t py-4">
             <h4 class="font-semibold">Form {{ form.formNumber }} — {{ form.title }}</h4>
             <p class="text-sm text-gray-600">{{ kindLabel(form.kind) }} · {{ form.preparationAvailable ? 'Available for preparation after branch checks' : 'Reference only' }}</p>
+            @if (preparationChoices(form).length) {
+              <div class="my-3 rounded border border-teal-200 bg-teal-50 p-3">
+                <p class="text-sm mb-2">To generate Forms II and III, choose the Act that applies to this branch. The next step checks branch applicability and loads the preparation form.</p>
+                <div class="flex flex-wrap gap-2">
+                  @for (choice of preparationChoices(form); track choice.id) {
+                    <button type="button" class="border rounded px-3 py-2 bg-white" (click)="prepareRelatedForm(form, choice)">
+                      Prepare {{ choice.title }}
+                    </button>
+                  }
+                </div>
+              </div>
+            }
             <details class="my-3 text-sm">
               <summary class="cursor-pointer underline">Requirements and legal source</summary>
             <p class="text-sm">{{ form.source.title }}</p>
@@ -411,6 +423,18 @@ export class RegisterLibraryComponent implements OnInit, OnChanges, OnDestroy {
   submitAct() {
     this.selectedForm = null;
     this.submittedActCode = this.acts.some((a) => a.code === this.actCode) ? this.actCode : '';
+  }
+  preparationChoices(form: LibraryForm): LibraryForm[] {
+    if (form.actCode !== 'MULTI_ACT' || form.preparationAvailable) return [];
+    return this.forms.filter(candidate => candidate.preparationAvailable &&
+      candidate.actCode !== 'MULTI_ACT' && candidate.rulesCode === form.rulesCode &&
+      candidate.formNumber === form.formNumber && candidate.kind === form.kind);
+  }
+  prepareRelatedForm(reference: LibraryForm, choice: LibraryForm): void {
+    if (!this.preparationChoices(reference).includes(choice)) return;
+    this.actCode = choice.actCode;
+    this.changeAct();
+    this.selectedForm = choice;
   }
   get visibleForms() {
     const q = this.query.trim().toLowerCase();
