@@ -4,9 +4,21 @@
   padding: 0 1rem 1.2rem;
 }
 
-.header-actions {
-  justify-content: flex-end;
-  flex-wrap: nowrap;
+.runs-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.runs-heading-copy {
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+
+.runs-heading-actions {
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 
 .client-strip-bar {
@@ -17,7 +29,8 @@
 
 .new-run-period {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  width: max-content;
   max-width: 100%;
   align-items: center;
   gap: 0.3rem;
@@ -40,7 +53,8 @@
     font-size: 0.75rem;
     color: #1e3a8a;
     font-weight: 600;
-    margin-right: 0.15rem;
+    margin: 0 0.15rem 0 0;
+    white-space: nowrap;
   }
 }
 
@@ -48,7 +62,7 @@
 .new-run-date {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.3rem;
   min-width: 0;
 }
@@ -64,6 +78,8 @@
 }
 
 @media (max-width: 640px) {
+  .runs-heading-actions, .new-run-period { width: 100%; }
+  .new-run-period, .new-run-date { flex-wrap: wrap; }
   .new-run-category, .new-run-date { width: 100%; }
   .new-run-date-actions { width: 100%; }
   #new-run-month { flex: 1 1 auto; }

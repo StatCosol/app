@@ -2,11 +2,12 @@
   <div class="client-strip-bar">
     <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </div>
-  <ui-page-header
-    title="Payroll Runs Console"
-    subtitle="Step-based payroll execution console with import status, validation exceptions, preview totals, approval, publish, and rerun controls"
-  >
-    <div class="flex items-center gap-3 flex-wrap header-actions">
+  <header class="page-heading runs-heading mb-6">
+    <div class="runs-heading-copy">
+      <h1 class="text-2xl font-semibold text-gray-900 tracking-tight">Payroll Runs Console</h1>
+      <p class="mt-1 text-sm text-gray-500">Step-based payroll execution console with import status, validation exceptions, preview totals, approval, publish, and rerun controls</p>
+    </div>
+    <div class="runs-heading-actions">
       <div
         class="new-run-period"
         title="Pay period for the new run. Defaults to the previous month (e.g. in May, run April's payroll)."
@@ -49,7 +50,7 @@
       </div>
 
     </div>
-  </ui-page-header>
+  </header>
 
   @if (newRunCategory === 'INTERN') {
     <p class="hint">Intern payroll uses the employee's monthly stipend, prorated by payable attendance days using the client's 26-day or calendar-day divisor, capped at the full monthly stipend. Mark employees as Intern in their employee record before creating the run.</p>
