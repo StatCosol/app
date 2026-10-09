@@ -78,6 +78,11 @@ import {
           <div class="section-grid">
             <ui-form-input label="Name as per Aadhaar *" [(ngModel)]="form.name" name="name"
                            placeholder="Enter full name as per Aadhaar"></ui-form-input>
+            <div class="form-field">
+              <label class="form-label" for="cef-address">Residential address</label>
+              <textarea id="cef-address" class="form-textarea" [(ngModel)]="form.address" name="address" maxlength="2000" rows="3"></textarea>
+            </div>
+            <ui-form-input label="Education / qualification" [(ngModel)]="form.education" name="education"></ui-form-input>
             <ui-form-select label="Gender" [options]="genderOptions" [(ngModel)]="form.gender"
                             name="gender"></ui-form-select>
             <div class="form-field">

@@ -73,6 +73,20 @@ export class EmployeeEntity {
   @Column({ name: 'father_name', type: 'varchar', length: 200, nullable: true })
   fatherName: string | null;
 
+  @Column({ name: 'address', type: 'text', nullable: true })
+  address: string | null;
+
+  @Column({ name: 'education', type: 'varchar', length: 250, nullable: true })
+  education: string | null;
+
+  @Column({
+    name: 'skill_category',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
+  skillCategory: string | null;
+
   @Column({
     name: 'marital_status',
     type: 'varchar',

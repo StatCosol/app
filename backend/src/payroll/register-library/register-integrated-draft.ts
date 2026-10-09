@@ -16,12 +16,30 @@ export async function integratedRegisterDraft(
   const defaults = await integratedRegisterDefaults(ds, branch);
   const profiles = await ds.query(
     `SELECT re.id AS "runEmployeeId", e.date_of_birth::text AS "birthDate",
-            e.gender, e.father_name AS "relativeName", worked.amount AS "workedDays"
+            e.gender, e.father_name AS "relativeName", worked.amount AS "workedDays",
+            overtime.amount AS "overtimeWages", e.address, e.education,
+            e.skill_category AS "skillCategory", nominees.details AS nominee
        FROM payroll_run_employees re
        LEFT JOIN employees e ON e.id=re.employee_id AND e.client_id=re.client_id
          AND e.branch_id=re.branch_id AND e.approval_status='APPROVED'
        LEFT JOIN payroll_run_component_values worked ON worked.run_employee_id=re.id
          AND worked.run_id=re.run_id AND worked.component_code='WORKED_DAYS'
+       LEFT JOIN payroll_run_component_values overtime ON overtime.run_employee_id=re.id
+         AND overtime.run_id=re.run_id AND overtime.component_code='OT_AMOUNT'
+       LEFT JOIN LATERAL (
+         SELECT CASE WHEN bool_and(NULLIF(trim(m.member_name), '') IS NOT NULL
+                           AND NULLIF(trim(m.address), '') IS NOT NULL)
+           THEN string_agg(DISTINCT trim(m.member_name) || ' — ' || trim(m.address), '; '
+             ORDER BY trim(m.member_name) || ' — ' || trim(m.address)) END AS details
+         FROM (
+           SELECT DISTINCT ON (n.nomination_type) n.id
+           FROM employee_nominations n
+           WHERE n.employee_id=e.id AND n.client_id=e.client_id
+             AND n.branch_id=e.branch_id AND n.status='APPROVED'
+           ORDER BY n.nomination_type, n.approved_at DESC NULLS LAST, n.created_at DESC, n.id DESC
+         ) latest
+         JOIN employee_nomination_members m ON m.nomination_id=latest.id
+       ) nominees ON true
        WHERE re.run_id=$1 AND re.client_id=$2 AND re.branch_id=$3`,
     [run.id, branch.clientId, branch.id],
   );
@@ -41,9 +59,15 @@ export async function integratedRegisterDraft(
         designation: e.designation,
         ageOrBirthDate: p?.birthDate,
         relativeName: p?.relativeName,
+        address: p?.address,
+        educationSkill: [p?.education, p?.skillCategory?.replace(/_/g, ' ')]
+          .filter(Boolean)
+          .join(' / '),
+        nominee: p?.nominee,
         sex,
         daysWorked: p?.workedDays,
         otHours: e.otHours,
+        overtime: p?.overtimeWages,
         gross: e.grossEarnings,
         net: e.netPay,
       }).filter(([, value]) => value != null && value !== ''),
