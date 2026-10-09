@@ -160,6 +160,7 @@ import {
 
           @if (contractorUserId && filteredAttendanceRows.length) {
 <div class="max-h-[600px] overflow-auto">
+            <p class="px-4 py-2 text-sm text-gray-600">Normal day: 8 hours 30 minutes, including breaks. Additional time is OT. Hours are shown in decimal format.</p>
             <table class="min-w-full text-sm">
               <thead class="sticky top-0 z-10 bg-gray-50 text-left text-xs font-medium text-gray-600 uppercase">
                 <tr>
@@ -168,6 +169,7 @@ import {
                   <th class="px-4 py-2">In Time</th>
                   <th class="px-4 py-2">Out Time</th>
                   <th class="px-4 py-2">Hours</th>
+                  <th class="px-4 py-2">OT Hours</th>
                   <th class="px-4 py-2">Punches</th>
                   <th class="px-4 py-2">Source</th>
                   <th class="px-4 py-2">Match</th>
@@ -179,7 +181,7 @@ import {
               <tbody class="divide-y divide-gray-100">
                 @for (r of filteredAttendanceRows; track r) {
 <tr class="hover:bg-gray-50">
-                  <td class="px-4 py-2 whitespace-nowrap">{{ r.date | date: 'dd MMM yyyy' }}</td>
+                  <td class="px-4 py-2 whitespace-nowrap">{{ r.date | date: 'dd MMM yyyy' : '+0530' }}</td>
                   <td class="px-4 py-2">
                     <div>{{ r.contractorEmployeeName || 'Unknown employee' }}</div>
                     @if (r.employeeCode) {
@@ -187,12 +189,13 @@ import {
                     }
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap">
-                    {{ r.inTime ? (r.inTime | date: 'HH:mm') : '-' }}
+                    {{ r.inTime ? (r.inTime | date: 'HH:mm' : '+0530') : '-' }}
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap">
-                    {{ r.outTime ? (r.outTime | date: 'HH:mm') : '-' }}
+                    {{ r.outTime ? (r.outTime | date: 'HH:mm' : '+0530') : '-' }}
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap">{{ r.hours }}</td>
+                  <td class="px-4 py-2 whitespace-nowrap">{{ r.otHours }}</td>
                   <td class="px-4 py-2">
                     <span
                       class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
@@ -316,9 +319,8 @@ export class BranchContractorAttendanceComponent implements OnInit {
     this.svc
       .listContractorPunches({
         contractorUserId: this.contractorUserId,
-        from: this.from ? `${this.from}T00:00:00.000Z` : undefined,
-        to: this.to ? `${this.to}T23:59:59.999Z` : undefined,
-        limit: 500,
+        from: this.from ? `${this.from}T00:00:00.000+05:30` : undefined,
+        to: this.to ? `${this.to}T23:59:59.999+05:30` : undefined,
       })
       .pipe(
         finalize(() => {
@@ -414,7 +416,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
     }
     const inResult = await this.dialog.prompt(
       'Edit In Time',
-      `Enter in time for ${row.contractorEmployeeName || 'contractor employee'} (${this.localDayKey(row.date)}):`,
+      `Enter in time for ${row.contractorEmployeeName || 'contractor employee'} (${this.attendanceDayKey(row.date)}, India time):`,
       {
         defaultValue: this.timeValue(row.inTime),
         placeholder: 'HH:mm',
@@ -525,7 +527,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
   private toAttendanceRows(rows: ContractorPunchRow[]): ContractorAttendanceRow[] {
     const groups = new Map<string, ContractorPunchRow[]>();
     for (const p of rows) {
-      const key = `${p.contractorEmployeeId}|${this.localDayKey(p.punchTime)}`;
+      const key = `${p.contractorEmployeeId}|${this.attendanceDayKey(p.punchTime)}`;
       const bucket = groups.get(key) ?? [];
       bucket.push(p);
       groups.set(key, bucket);
@@ -538,13 +540,17 @@ export class BranchContractorAttendanceComponent implements OnInit {
         );
         const first = sorted[0];
         const last = sorted[sorted.length - 1];
-        const inPunch = sorted.find((p) => p.direction === 'IN') ?? first;
-        const outPunch =
+        const inPunch = sorted.find((p) => p.direction === 'IN') ?? (first.direction === 'AUTO' ? first : null);
+        const candidateOut =
           [...sorted].reverse().find((p) => p.direction === 'OUT') ??
-          (sorted.length > 1 ? last : null);
+          (sorted.length > 1 && last.direction === 'AUTO' ? last : null);
+        const finalIn = [...sorted].reverse().find((p) => p.direction === 'IN');
+        const outPunch = candidateOut && (!finalIn ||
+          new Date(candidateOut.punchTime).getTime() > new Date(finalIn.punchTime).getTime())
+          ? candidateOut : null;
         const inTime = inPunch?.punchTime ?? null;
         const outTime = outPunch?.punchTime ?? null;
-        const rowKey = `${first.contractorEmployeeId}|${this.localDayKey(first.punchTime)}`;
+        const rowKey = `${first.contractorEmployeeId}|${this.attendanceDayKey(first.punchTime)}`;
         return {
           rowKey,
           date: first.punchTime,
@@ -557,10 +563,11 @@ export class BranchContractorAttendanceComponent implements OnInit {
           editable: sorted.every((p) => p.source === 'MANUAL'),
           inTime,
           outTime,
-          inPunchId: inPunch.id,
+          inPunchId: inPunch?.id ?? first.id,
           outPunchId: outPunch?.id ?? null,
           punchIds: sorted.map((p) => p.id),
           hours: this.hoursBetween(inTime, outTime),
+          otHours: this.hoursBetween(inTime, outTime, true),
           punchCount: sorted.length,
           source: last.source,
           matchScore: last.matchScore,
@@ -582,11 +589,15 @@ export class BranchContractorAttendanceComponent implements OnInit {
     return `${d.getFullYear()}-${m}-${day}`;
   }
 
-  private hoursBetween(start: string | null, end: string | null): string {
+  private attendanceDayKey(iso: string): string {
+    return new Date(new Date(iso).getTime() + 330 * 60_000).toISOString().slice(0, 10);
+  }
+
+  private hoursBetween(start: string | null, end: string | null, overtime = false): string {
     if (!start || !end) return '-';
     const ms = new Date(end).getTime() - new Date(start).getTime();
     if (!Number.isFinite(ms) || ms <= 0) return '-';
-    return (ms / 36e5).toFixed(2);
+    return (overtime ? Math.max(0, ms / 36e5 - 8.5) : ms / 36e5).toFixed(2);
   }
 
   private safeFilePart(value: string): string {
@@ -600,9 +611,9 @@ export class BranchContractorAttendanceComponent implements OnInit {
 
   private timeValue(iso: string | null): string {
     if (!iso) return '';
-    const d = new Date(iso);
-    const h = `${d.getHours()}`.padStart(2, '0');
-    const m = `${d.getMinutes()}`.padStart(2, '0');
+    const d = new Date(new Date(iso).getTime() + 330 * 60_000);
+    const h = `${d.getUTCHours()}`.padStart(2, '0');
+    const m = `${d.getUTCMinutes()}`.padStart(2, '0');
     return `${h}:${m}`;
   }
 
@@ -613,10 +624,8 @@ export class BranchContractorAttendanceComponent implements OnInit {
   }
 
   private localDateTimeToIso(dateIso: string, time: string): string {
-    const date = this.localDayKey(dateIso);
-    const [h, m] = time.split(':').map(Number);
-    const [y, month, day] = date.split('-').map(Number);
-    return new Date(y, month - 1, day, h, m, 0, 0).toISOString();
+    const date = this.attendanceDayKey(dateIso);
+    return new Date(`${date}T${time}:00+05:30`).toISOString();
   }
 }
 
@@ -633,6 +642,7 @@ interface ContractorAttendanceRow {
   outPunchId: string | null;
   punchIds: string[];
   hours: string;
+  otHours: string;
   punchCount: number;
   source: string;
   matchScore: string | null;

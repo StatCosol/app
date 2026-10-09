@@ -68,4 +68,33 @@ describe('Branch contractor attendance rows', () => {
     expect(component.sourceLabel('MANUAL')).toBe('Manual');
     expect(component.sourceLabel(undefined)).toBe('-');
   });
+  it('shows a missing exit and no OT after a later unmatched IN', () => {
+    const [row] = rows([
+      punch({ id: 'last-in', punchTime: '2026-09-19T14:30:00Z' }),
+      punch({ id: 'out', direction: 'OUT', punchTime: '2026-09-19T13:30:00Z' }),
+      punch({}),
+    ]);
+    expect(row.outTime).toBeNull();
+    expect(row.outPunchId).toBeNull();
+    expect(row.hours).toBe('-');
+    expect(row.otHours).toBe('-');
+  });
+
+  it.each([['12:30', '8.00', '0.00'], ['13:00', '8.50', '0.00'], ['13:30', '9.00', '0.50'], ['14:00', '9.50', '1.00']])(
+    'shows daily total and OT for an exit at %s UTC', (end, hours, otHours) => {
+      const [row] = rows([punch({}), punch({ id: 'out', direction: 'OUT', punchTime: `2026-09-19T${end}:00Z` })]);
+      expect(row.hours).toBe(hours);
+      expect(row.otHours).toBe(otHours);
+    },
+  );
+  it('leaves OT unknown for missing OUT or repeated IN punches', () => {
+    expect(rows([punch({})])[0].otHours).toBe('-');
+    expect(rows([punch({}), punch({ punchTime: '2026-09-19T15:30:00Z' })])[0].otHours).toBe('-');
+  });
+  it('keeps the displayed day and manual edit times in India time', () => {
+    const instance = component as any;
+    expect(instance.attendanceDayKey('2026-10-08T20:00:00Z')).toBe('2026-10-09');
+    expect(instance.timeValue('2026-10-08T20:00:00Z')).toBe('01:30');
+    expect(instance.localDateTimeToIso('2026-10-08T20:00:00Z', '01:30')).toBe('2026-10-08T20:00:00.000Z');
+  });
 });

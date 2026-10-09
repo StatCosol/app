@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as ExcelJS from 'exceljs';
 import { Repository } from 'typeorm';
 import { ContractorBiometricPunchEntity } from './contractor-punch.entity';
+import { contractorHours, contractorPunchPair } from './contractor-hours';
 
 /** Manual punches and FaceDesk web punches both carry this device id. */
 const NO_DEVICE = '00000000-0000-0000-0000-000000000000';
@@ -198,6 +199,7 @@ export class PunchContractorAdminService {
       { header: 'In Time', key: 'inTime', width: 12 },
       { header: 'Out Time', key: 'outTime', width: 12 },
       { header: 'Hours', key: 'hours', width: 10 },
+      { header: 'OT Hours (above 8h 30m)', key: 'otHours', width: 26 },
       { header: 'Punches', key: 'punches', width: 10 },
       { header: 'Source', key: 'source', width: 12 },
       { header: 'Match %', key: 'match', width: 10 },
@@ -395,10 +397,11 @@ export class PunchContractorAdminService {
         );
         const first = sorted[0];
         const last = sorted[sorted.length - 1];
-        const inPunch = sorted.find((p) => p.direction === 'IN') ?? first;
-        const outPunch =
-          [...sorted].reverse().find((p) => p.direction === 'OUT') ??
-          (sorted.length > 1 ? last : null);
+        const { inPunch, outPunch } = contractorPunchPair(sorted);
+        const duration = contractorHours(
+          inPunch?.punchTime ?? null,
+          outPunch?.punchTime ?? null,
+        );
         return {
           date: this.dayKey(first.punchTime),
           contractor: first.contractorName ?? '',
@@ -406,10 +409,8 @@ export class PunchContractorAdminService {
           employeeName: first.contractorEmployeeName ?? 'Unknown employee',
           inTime: this.timeValue(inPunch?.punchTime ?? null),
           outTime: this.timeValue(outPunch?.punchTime ?? null),
-          hours: this.hoursBetween(
-            inPunch?.punchTime ?? null,
-            outPunch?.punchTime ?? null,
-          ),
+          hours: duration?.hours ?? '',
+          otHours: duration?.otHours ?? '',
           punches: sorted.length,
           source: this.sourceLabel(last.source),
           match: this.percentValue(last.matchScore),
@@ -453,13 +454,6 @@ export class PunchContractorAdminService {
     const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
     const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
     return `${hour}:${minute}`;
-  }
-
-  private hoursBetween(start: Date | null, end: Date | null): string {
-    if (!start || !end) return '';
-    const ms = end.getTime() - start.getTime();
-    if (!Number.isFinite(ms) || ms <= 0) return '';
-    return Number(ms / 36e5).toFixed(2);
   }
 
   private percentValue(value: number | null): number | string {

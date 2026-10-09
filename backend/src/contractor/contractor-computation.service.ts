@@ -755,13 +755,16 @@ export class ContractorComputationService {
         rows: summary.rows.map((row) => ({
           employee_code: row.employeeCode,
           days_worked: row.daysWorked,
+          ot_hours: row.otHours ?? 0,
           ...(row.attendanceDates
             ? {
-                daily_attendance: row.attendanceDates.map((date) => ({
-                  date,
-                  days: 1,
-                  hours: 0,
-                })),
+                daily_attendance:
+                  row.dailyAttendance ??
+                  row.attendanceDates.map((date) => ({
+                    date,
+                    days: 1,
+                    hours: 0,
+                  })),
               }
             : {}),
         })),

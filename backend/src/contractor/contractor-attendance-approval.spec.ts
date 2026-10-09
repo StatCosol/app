@@ -63,6 +63,45 @@ function setup(batch = record()) {
   return { service, query, manager };
 }
 describe('branch-approved contractor attendance', () => {
+  it('passes device OT and its daily breakdown into the approval submission', async () => {
+    const { service } = setup();
+    const dailyAttendance = [{ date: '2026-09-01', days: 1, hours: 1.5 }];
+    service.contractorDays = {
+      summarise: jest.fn().mockResolvedValue({
+        unpayable: [],
+        rows: [
+          {
+            employeeCode: 'G001',
+            daysWorked: 1,
+            otHours: 1.5,
+            attendanceDates: ['2026-09-01'],
+            dailyAttendance,
+          },
+        ],
+      }),
+    };
+    service.submitAttendanceRows = jest
+      .fn()
+      .mockResolvedValue({ status: 'PENDING' });
+    await service.submitSystemAttendance(vendor, {
+      branchId: 'branch',
+      periodMonth: '2026-09',
+    });
+    expect(service.submitAttendanceRows).toHaveBeenCalledWith(
+      vendor,
+      expect.objectContaining({
+        rows: [
+          {
+            employee_code: 'G001',
+            days_worked: 1,
+            ot_hours: 1.5,
+            daily_attendance: dailyAttendance,
+          },
+        ],
+      }),
+      'SYSTEM',
+    );
+  });
   it.each(['CONTRACTOR', 'CRM', 'ADMIN', 'AUDITOR', 'CLIENT', 'CCO'])(
     '%s cannot approve attendance',
     async (role) => {
