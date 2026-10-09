@@ -61,6 +61,28 @@ describe('Register library Act selection', () => {
     component.query = 'V';
     expect(component.visibleForms.map((f) => f.id)).toEqual(['a']);
   });
+  it('opens the implemented Act-specific generator from the integrated reference', () => {
+    const common = { rulesCode: 'TS_INTEGRATED_2019', formNumber: 'II + III', kind: 'REGISTER', source: { title: 'Integrated order' } };
+    component.forms = [
+      { ...common, id: 'reference', actCode: 'MULTI_ACT', preparationAvailable: false },
+      { ...common, id: 'factory', actCode: 'FACTORIES_1948', preparationAvailable: true },
+      { ...common, id: 'shops', actCode: 'TS_SHOPS_1988', preparationAvailable: true },
+      { ...common, id: 'annual', actCode: 'MULTI_ACT', formNumber: 'I', kind: 'RETURN', preparationAvailable: false },
+      { ...common, id: 'other', actCode: 'OTHER', rulesCode: 'OTHER_RULES', preparationAvailable: true },
+    ] as any;
+    const [reference, factory, shops, annual] = component.forms;
+    expect(component.preparationChoices(reference)).toEqual([factory, shops]);
+    expect(component.preparationChoices(annual)).toEqual([]);
+    component.query = 'old search';
+    component.prepareRelatedForm(reference, factory);
+    expect(component.actCode).toBe('FACTORIES_1948');
+    expect(component.submittedActCode).toBe('FACTORIES_1948');
+    expect(component.selectedForm).toBe(factory);
+    expect(component.visibleForms).toEqual([factory]);
+    expect(component.query).toBe('');
+    component.prepareRelatedForm(reference, annual);
+    expect(component.selectedForm).toBe(factory);
+  });
   it('switches Shops and Contract Labour immediately on selection and clears the prior prepared form', () => {
     component.forms = [
       {
