@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorBiometricPunchEntity } from '../mobile-attendance/punch/contractor-punch.entity';
+import {
+  contractorHours,
+  contractorPunchPair,
+} from '../mobile-attendance/punch/contractor-hours';
 
 /** Minutes east of UTC used to decide which calendar day a punch belongs to. */
 const BUSINESS_TZ_OFFSET_MIN = 330; // IST
@@ -17,6 +21,8 @@ export interface ContractorDaysRow {
   skillCategory: string | null;
   daysWorked: number;
   attendanceDates?: string[];
+  otHours?: number;
+  dailyAttendance?: Array<{ date: string; days: number; hours: number }>;
   firstPunch: string;
   lastPunch: string;
 }
@@ -98,7 +104,17 @@ export class ContractorDaysService {
     // dates rather than pairing IN/OUT is deliberate: eSSL sends AUTO when the
     // worker does not press the in/out key, which is most of the time, so
     // pairing would silently undercount and underpay.
-    const rows = await this.punchRepo.manager.query<ContractorDaysRow[]>(
+    const rawRows = await this.punchRepo.manager.query<
+      Array<
+        ContractorDaysRow & {
+          punches?: Array<{
+            date: string;
+            punchTime: string;
+            direction: string;
+          }>;
+        }
+      >
+    >(
       `
       SELECT ce.id                                    AS "contractorEmployeeId",
              ce.contractor_user_id                    AS "contractorUserId",
@@ -109,6 +125,8 @@ export class ContractorDaysService {
              COUNT(DISTINCT (p.punch_time + ($4 || ' minutes')::interval)::date)::int
                                                       AS "daysWorked",
              ARRAY_AGG(DISTINCT ((p.punch_time + ($4 || ' minutes')::interval)::date)::text) AS "attendanceDates",
+             JSON_AGG(JSON_BUILD_OBJECT('date', ((p.punch_time + ($4 || ' minutes')::interval)::date)::text,
+               'punchTime', p.punch_time, 'direction', p.direction)) AS "punches",
              MIN(p.punch_time)                        AS "firstPunch",
              MAX(p.punch_time)                        AS "lastPunch"
         FROM contractor_biometric_punches p
@@ -126,6 +144,25 @@ export class ContractorDaysService {
       params,
     );
 
+    const rows = rawRows.map(({ punches, ...row }) => {
+      const dailyAttendance = (row.attendanceDates ?? []).sort().map((date) => {
+        const { inPunch, outPunch } = contractorPunchPair(
+          (punches ?? []).filter((p) => p.date === date),
+        );
+        const duration = contractorHours(
+          inPunch?.punchTime ?? null,
+          outPunch?.punchTime ?? null,
+        );
+        return { date, days: 1, hours: duration?.otHours ?? 0 };
+      });
+      return {
+        ...row,
+        dailyAttendance,
+        otHours: Number(
+          dailyAttendance.reduce((sum, day) => sum + day.hours, 0).toFixed(2),
+        ),
+      };
+    });
     const unpayable = rows.filter((r) => !(r.employeeCode || '').trim());
     if (unpayable.length) {
       this.logger.warn(
@@ -153,6 +190,7 @@ export class ContractorDaysService {
       employee_name: string;
       skill_category: string | null;
       days_worked: number;
+      ot_hours: number;
     }>
   > {
     const { rows } = await this.summarise(clientId, from, to, contractorUserId);
@@ -161,6 +199,7 @@ export class ContractorDaysService {
       employee_name: r.employeeName,
       skill_category: r.skillCategory,
       days_worked: r.daysWorked,
+      ot_hours: r.otHours ?? 0,
     }));
   }
 }

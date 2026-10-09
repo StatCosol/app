@@ -35,6 +35,53 @@ describe('ContractorDaysService', () => {
     expect(sql).not.toMatch(/direction\s*=\s*'IN'/);
   });
 
+  it('sums daily OT without offsetting it against a shorter day', async () => {
+    const { service } = makeService([
+      row({
+        daysWorked: 3,
+        attendanceDates: ['2026-10-08', '2026-10-09', '2026-10-10'],
+        punches: [
+          {
+            date: '2026-10-08',
+            direction: 'AUTO',
+            punchTime: '2026-10-08T03:30:00Z',
+          },
+          {
+            date: '2026-10-08',
+            direction: 'AUTO',
+            punchTime: '2026-10-08T13:00:00Z',
+          },
+          {
+            date: '2026-10-09',
+            direction: 'IN',
+            punchTime: '2026-10-09T03:30:00Z',
+          },
+          {
+            date: '2026-10-09',
+            direction: 'OUT',
+            punchTime: '2026-10-09T11:30:00Z',
+          },
+          {
+            date: '2026-10-10',
+            direction: 'IN',
+            punchTime: '2026-10-10T03:30:00Z',
+          },
+        ],
+      }),
+    ]);
+    const { rows } = await service.summarise(
+      'client-1',
+      '2026-10-01',
+      '2026-10-31',
+    );
+    expect(rows[0].otHours).toBe(1);
+    expect(rows[0].dailyAttendance).toEqual([
+      { date: '2026-10-08', days: 1, hours: 1 },
+      { date: '2026-10-09', days: 1, hours: 0 },
+      { date: '2026-10-10', days: 1, hours: 0 },
+    ]);
+  });
+
   it('excludes punches still awaiting face review', async () => {
     const { service, query } = makeService([]);
 
@@ -131,6 +178,7 @@ describe('ContractorDaysService', () => {
         employee_name: 'A Worker',
         skill_category: 'UNSKILLED',
         days_worked: 22,
+        ot_hours: 0,
       },
     ]);
   });

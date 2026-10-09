@@ -105,6 +105,30 @@ describe('PunchContractorAdminService edits', () => {
 });
 
 describe('PunchContractorAdminService export', () => {
+  it('exports numeric daily OT including breaks', async () => {
+    const svc = new PunchContractorAdminService({} as never);
+    jest.spyOn(svc, 'listContractorPunches').mockResolvedValue([
+      {
+        id: 'in',
+        contractorEmployeeId: 'e1',
+        punchTime: new Date('2026-10-08T03:30:00Z'),
+        direction: 'IN',
+      },
+      {
+        id: 'out',
+        contractorEmployeeId: 'e1',
+        punchTime: new Date('2026-10-08T13:00:00Z'),
+        direction: 'OUT',
+      },
+    ] as never);
+    const exported = await svc.exportContractorAttendance('c1', {});
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exported.buffer as never);
+    const sheet = workbook.getWorksheet('Contractor Attendance')!;
+    expect(sheet.getCell('G2').value).toBe(9.5);
+    expect(sheet.getCell('H1').value).toBe('OT Hours (above 8h 30m)');
+    expect(sheet.getCell('H2').value).toBe(1);
+  });
   it('formats punch dates and times in India time', async () => {
     const qb = {
       leftJoin: jest.fn().mockReturnThis(),
