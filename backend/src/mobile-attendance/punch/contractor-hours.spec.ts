@@ -1,6 +1,27 @@
 import { contractorHours, contractorPunchPair } from './contractor-hours';
 
 describe('contractor overtime including breaks', () => {
+  it.each([false, true])(
+    'requires an exit after the final entry (closed=%s)',
+    (closed) => {
+      const punches = [
+        { direction: 'IN', punchTime: '2026-10-08T03:30:00Z' },
+        { direction: 'OUT', punchTime: '2026-10-08T12:30:00Z' },
+        { direction: 'IN', punchTime: '2026-10-08T13:30:00Z' },
+        ...(closed
+          ? [{ direction: 'OUT', punchTime: '2026-10-08T14:30:00Z' }]
+          : []),
+      ];
+      const { inPunch, outPunch } = contractorPunchPair(punches.reverse());
+      expect(outPunch?.punchTime ?? null).toBe(
+        closed ? '2026-10-08T14:30:00Z' : null,
+      );
+      expect(
+        contractorHours(inPunch!.punchTime, outPunch?.punchTime ?? null)
+          ?.otHours ?? null,
+      ).toBe(closed ? 2.5 : null);
+    },
+  );
   it.each([
     ['11:30', 8, 0],
     ['12:00', 8.5, 0],

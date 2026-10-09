@@ -28,8 +28,18 @@ export function contractorPunchPair<
   const inPunch =
     sorted.find((p) => p.direction === 'IN') ??
     (first?.direction === 'AUTO' ? first : null);
-  const outPunch =
+  const candidateOut =
     [...sorted].reverse().find((p) => p.direction === 'OUT') ??
     (sorted.length > 1 && last?.direction === 'AUTO' ? last : null);
+  const finalIn = [...sorted].reverse().find((p) => p.direction === 'IN');
+  // An earlier completed pair cannot close a later entry. Tied timestamps
+  // cannot establish that the final entry was closed either.
+  const outPunch =
+    candidateOut &&
+    (!finalIn ||
+      new Date(candidateOut.punchTime).getTime() >
+        new Date(finalIn.punchTime).getTime())
+      ? candidateOut
+      : null;
   return { inPunch, outPunch };
 }

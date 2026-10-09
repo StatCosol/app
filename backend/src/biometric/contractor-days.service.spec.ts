@@ -34,6 +34,24 @@ describe('ContractorDaysService', () => {
     expect(sql).toContain('COUNT(DISTINCT');
     expect(sql).not.toMatch(/direction\s*=\s*'IN'/);
   });
+  it('does not submit OT from an earlier exit when a later entry remains open', async () => {
+    const date = '2026-10-08';
+    const { service } = makeService([
+      row({
+        daysWorked: 1,
+        attendanceDates: [date],
+        punches: [
+          { date, direction: 'IN', punchTime: `${date}T03:30:00Z` },
+          { date, direction: 'OUT', punchTime: `${date}T12:30:00Z` },
+          { date, direction: 'IN', punchTime: `${date}T13:30:00Z` },
+        ],
+      }),
+    ]);
+    const { rows } = await service.summarise('client-1', date, date);
+    expect(rows[0].daysWorked).toBe(1);
+    expect(rows[0].otHours).toBe(0);
+    expect(rows[0].dailyAttendance).toEqual([{ date, days: 1, hours: 0 }]);
+  });
 
   it('sums daily OT without offsetting it against a shorter day', async () => {
     const { service } = makeService([

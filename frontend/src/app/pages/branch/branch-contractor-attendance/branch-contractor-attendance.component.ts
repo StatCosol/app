@@ -541,9 +541,13 @@ export class BranchContractorAttendanceComponent implements OnInit {
         const first = sorted[0];
         const last = sorted[sorted.length - 1];
         const inPunch = sorted.find((p) => p.direction === 'IN') ?? (first.direction === 'AUTO' ? first : null);
-        const outPunch =
+        const candidateOut =
           [...sorted].reverse().find((p) => p.direction === 'OUT') ??
           (sorted.length > 1 && last.direction === 'AUTO' ? last : null);
+        const finalIn = [...sorted].reverse().find((p) => p.direction === 'IN');
+        const outPunch = candidateOut && (!finalIn ||
+          new Date(candidateOut.punchTime).getTime() > new Date(finalIn.punchTime).getTime())
+          ? candidateOut : null;
         const inTime = inPunch?.punchTime ?? null;
         const outTime = outPunch?.punchTime ?? null;
         const rowKey = `${first.contractorEmployeeId}|${this.attendanceDayKey(first.punchTime)}`;

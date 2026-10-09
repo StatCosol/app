@@ -105,6 +105,35 @@ describe('PunchContractorAdminService edits', () => {
 });
 
 describe('PunchContractorAdminService export', () => {
+  it('leaves exit, hours and OT blank when the last entry is unmatched', async () => {
+    const svc = new PunchContractorAdminService({} as never);
+    jest.spyOn(svc, 'listContractorPunches').mockResolvedValue([
+      {
+        id: 'in',
+        contractorEmployeeId: 'e1',
+        punchTime: new Date('2026-10-08T03:30:00Z'),
+        direction: 'IN',
+      },
+      {
+        id: 'out',
+        contractorEmployeeId: 'e1',
+        punchTime: new Date('2026-10-08T12:30:00Z'),
+        direction: 'OUT',
+      },
+      {
+        id: 'later-in',
+        contractorEmployeeId: 'e1',
+        punchTime: new Date('2026-10-08T13:30:00Z'),
+        direction: 'IN',
+      },
+    ] as never);
+    const exported = await svc.exportContractorAttendance('c1', {});
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exported.buffer as never);
+    const sheet = workbook.getWorksheet('Contractor Attendance')!;
+    for (const column of ['F', 'G', 'H'])
+      expect(sheet.getCell(`${column}2`).value ?? '').toBe('');
+  });
   it('exports numeric daily OT including breaks', async () => {
     const svc = new PunchContractorAdminService({} as never);
     jest.spyOn(svc, 'listContractorPunches').mockResolvedValue([
