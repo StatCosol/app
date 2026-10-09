@@ -18,7 +18,6 @@ import {
   ActionButtonComponent,
   EmptyStateComponent,
   LoadingSpinnerComponent,
-  PageHeaderComponent,
 } from '../../shared/ui';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { ToastService } from '../../shared/toast/toast.service';
@@ -116,7 +115,6 @@ interface GuardrailItem {
   imports: [IconComponent,
     CommonModule,
     FormsModule,
-    PageHeaderComponent,
     ActionButtonComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
