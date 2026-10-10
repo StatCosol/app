@@ -208,7 +208,7 @@ import {
                     </span>
                     <div class="mt-1 space-y-1 text-xs text-gray-600 whitespace-nowrap">
                       @for (p of r.punches; track p.id) {
-                        <div>{{ p.punchTime | date: 'HH:mm:ss' }} · {{ p.direction }}</div>
+                        <div>{{ p.punchTime | date: 'HH:mm:ss': '+0530' }} · {{ p.direction }}</div>
                       }
                     </div>
                   </td>
