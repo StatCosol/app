@@ -206,6 +206,11 @@ import {
                     >
                       {{ r.punchCount }}
                     </span>
+                    <div class="mt-1 space-y-1 text-xs text-gray-600 whitespace-nowrap">
+                      @for (p of r.punches; track p.id) {
+                        <div>{{ p.punchTime | date: 'HH:mm:ss' }} · {{ p.direction }}</div>
+                      }
+                    </div>
                   </td>
                   <td class="px-4 py-2 text-xs text-gray-600">{{ sourceLabel(r.source) }}</td>
                   <td class="px-4 py-2 text-xs text-gray-600">{{ fmtScore(r.matchScore) }}</td>
@@ -569,6 +574,7 @@ export class BranchContractorAttendanceComponent implements OnInit {
           hours: this.hoursBetween(inTime, outTime),
           otHours: this.hoursBetween(inTime, outTime, true),
           punchCount: sorted.length,
+          punches: sorted,
           source: last.source,
           matchScore: last.matchScore,
           livenessScore: last.livenessScore,
@@ -644,6 +650,7 @@ interface ContractorAttendanceRow {
   hours: string;
   otHours: string;
   punchCount: number;
+  punches: ContractorPunchRow[];
   source: string;
   matchScore: string | null;
   livenessScore: string | null;
