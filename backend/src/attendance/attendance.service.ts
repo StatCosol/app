@@ -519,14 +519,13 @@ export class AttendanceService {
     }
 
     const rows = await qb.getRawMany();
-    // Attach every ESS check-in/out punch for the day so field/sales staff who
-    // visited multiple sites show all their punches (each with its location).
+    // Include both mobile visits and accepted kiosk punches in the detail list.
     return this.attachDayPunches(rows, params.clientId, params.date);
   }
 
   /**
-   * Group the day's ess_attendance_punches by employee and attach them to the
-   * matching daily rows as a `punches` array (each with a Google Maps link).
+   * Attach the day's mobile and accepted FaceDesk punches to the daily rows.
+   * Kiosk punches have no GPS coordinates; their times still belong in the list.
    */
   private async attachDayPunches(
     rows: any[],
@@ -542,8 +541,27 @@ export class AttendanceService {
                 latitude, longitude, accuracy, capture_method AS "captureMethod"
          FROM ess_attendance_punches
          WHERE client_id = $1 AND date = $2::date
-         ORDER BY punch_time ASC, created_at ASC`,
-        [clientId, date],
+           AND employee_id = ANY($3::uuid[])
+         UNION ALL
+         SELECT f.employee_id AS "employeeId", f.punch_type AS "punchType",
+                extract(epoch FROM f.punch_time) AS epoch,
+                NULL AS latitude, NULL AS longitude, NULL AS accuracy,
+                'FACE' AS "captureMethod"
+         FROM facedesk_attendance_logs f
+         WHERE f.client_id = $1
+           AND f.employee_id = ANY($3::uuid[])
+           AND f.attendance_status IN ('MARKED', 'APPROVED')
+           AND f.punch_type IN ('IN', 'OUT')
+           AND f.punch_time >= ($2::date::timestamp AT TIME ZONE 'Asia/Kolkata')
+           AND f.punch_time < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')
+           AND NOT EXISTS (
+             SELECT 1 FROM ess_attendance_punches e
+              WHERE e.client_id = f.client_id AND e.employee_id = f.employee_id
+                AND e.date = $2::date AND e.punch_time = f.punch_time
+                AND e.punch_type = f.punch_type
+           )
+         ORDER BY epoch ASC, "punchType" ASC`,
+        [clientId, date, [...new Set(rows.map((r) => r.employeeId))]],
       );
     } catch {
       // Table may not exist yet on a brand-new deploy — degrade gracefully.

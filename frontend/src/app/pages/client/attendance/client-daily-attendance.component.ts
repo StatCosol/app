@@ -196,7 +196,7 @@ const ATTENDANCE_STATUSES = [
                   <th>Hours</th>
                   <th>OT</th>
                   <th>Source</th>
-                  <th>Location</th>
+                  <th>Punch Details</th>
                   <th>Approval</th>
                   <th>Actions</th>
                 </tr>

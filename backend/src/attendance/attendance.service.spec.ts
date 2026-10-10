@@ -59,6 +59,53 @@ describe('AttendanceService', () => {
     expect(service).toBeDefined();
   });
 
+  it('shows FaceDesk punch times without GPS alongside mobile location details', async () => {
+    const query = jest.fn().mockResolvedValue([
+      {
+        employeeId: 'employee-1',
+        punchType: 'IN',
+        epoch: Date.parse('2026-10-11T00:20:00+05:30') / 1000,
+        latitude: '17.4',
+        longitude: '78.4',
+        accuracy: '5',
+        captureMethod: 'FACE',
+      },
+      {
+        employeeId: 'employee-1',
+        punchType: 'OUT',
+        epoch: Date.parse('2026-10-11T01:20:00+05:30') / 1000,
+        latitude: null,
+        longitude: null,
+        accuracy: null,
+        captureMethod: 'FACE',
+      },
+    ]);
+    (service as any).ds = { query };
+    const rows = await (service as any).attachDayPunches(
+      [{ employeeId: 'employee-1' }, { employeeId: 'employee-2' }],
+      'client-1',
+      '2026-10-11',
+    );
+    expect(rows[0].punches).toEqual([
+      expect.objectContaining({
+        punchType: 'IN',
+        time: '00:20:00',
+        mapUrl: 'https://www.google.com/maps?q=17.4,78.4',
+      }),
+      expect.objectContaining({
+        punchType: 'OUT',
+        time: '01:20:00',
+        mapUrl: null,
+        captureMethod: 'FACE',
+      }),
+    ]);
+    expect(rows[1].punches).toEqual([]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('facedesk_attendance_logs'),
+      ['client-1', '2026-10-11', ['employee-1', 'employee-2']],
+    );
+  });
+
   it('reprocesses all biometric punches before listing daily attendance', async () => {
     const qb: any = {
       select: jest.fn().mockReturnThis(),
