@@ -547,9 +547,17 @@ describe('EnrollmentService duplicate detection', () => {
         appendTemplate: jest.fn().mockResolvedValue(undefined),
         purgeSubject: jest.fn().mockResolvedValue(undefined),
       } as any,
-      { query: jest.fn().mockResolvedValueOnce([
-        { employeeId: 'employee-existing', embedding: makeEmbeddingBuffer(existing) },
-      ]).mockResolvedValue([]) } as any,
+      {
+        query: jest
+          .fn()
+          .mockResolvedValueOnce([
+            {
+              employeeId: 'employee-existing',
+              embedding: makeEmbeddingBuffer(existing),
+            },
+          ])
+          .mockResolvedValue([]),
+      } as any,
       {} as any,
     );
 
