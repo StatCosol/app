@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AzureFaceClient, AzureLivenessSession } from './azure-face.client';
+import { activeFaceDeskSubjectSql } from './facedesk-active-subject.util';
 import {
   FaceDeskProfileEntity,
   FaceDeskSettingsEntity,
@@ -131,9 +132,15 @@ export class FaceDeskAzureFaceService {
       );
       for (const match of matches) {
         if (match.confidence < this.duplicateConfidence) continue;
-        const profile = await this.profileRepo.findOne({
-          where: { clientId, azurePersistedFaceId: match.persistedFaceId },
-        });
+        const profile = await this.profileRepo
+          .createQueryBuilder('p')
+          .where('p.client_id = :clientId', { clientId })
+          .andWhere('p.azure_persisted_face_id = :faceId', {
+            faceId: match.persistedFaceId,
+          })
+          .andWhere("p.enrollment_status = 'ENROLLED'")
+          .andWhere(activeFaceDeskSubjectSql('p'))
+          .getOne();
         if (!profile || profile.employeeId === excludeEmployeeId) continue;
         return {
           matchedEmployeeId: profile.employeeId,
