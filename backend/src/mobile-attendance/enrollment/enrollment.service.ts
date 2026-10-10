@@ -731,14 +731,20 @@ export class EnrollmentService {
     probe: Float32Array,
     opts: { excludeEmployeeId?: string; excludeContractorId?: string } = {},
   ): Promise<void> {
-    const empEnrollments = await this.enrollRepo.find({
-      where: { clientId, isActive: true },
-      select: ['employeeId', 'embedding'],
-    });
-    const conEnrollments = await this.contractorEnrollRepo.find({
-      where: { clientId, isActive: true },
-      select: ['contractorEmployeeId', 'embedding'],
-    });
+    const empEnrollments = await this.dataSource.query(
+      `SELECT f.employee_id AS "employeeId", f.embedding
+         FROM face_enrollments f
+         JOIN employees e ON e.id=f.employee_id AND e.client_id=f.client_id
+        WHERE f.client_id=$1 AND f.is_active=true AND e.is_active=true`,
+      [clientId],
+    );
+    const conEnrollments = await this.dataSource.query(
+      `SELECT f.contractor_employee_id AS "contractorEmployeeId", f.embedding
+         FROM contractor_face_enrollments f
+         JOIN contractor_employees e ON e.id=f.contractor_employee_id AND e.client_id=f.client_id
+        WHERE f.client_id=$1 AND f.is_active=true AND e.is_active=true`,
+      [clientId],
+    );
 
     for (const e of empEnrollments) {
       if (opts.excludeEmployeeId && e.employeeId === opts.excludeEmployeeId)
@@ -778,8 +784,15 @@ export class EnrollmentService {
         embedding: Buffer;
       }>
     >(
-      `SELECT subject_type, subject_id, embedding
-         FROM face_enrollment_templates WHERE client_id = $1`,
+      `SELECT t.subject_type, t.subject_id, t.embedding
+         FROM face_enrollment_templates t WHERE t.client_id = $1
+          AND ((t.subject_type='EMPLOYEE' AND EXISTS (
+            SELECT 1 FROM employees e WHERE e.id=t.subject_id
+              AND e.client_id=t.client_id AND e.is_active=true
+          )) OR (t.subject_type='CONTRACTOR' AND EXISTS (
+            SELECT 1 FROM contractor_employees e WHERE e.id=t.subject_id
+              AND e.client_id=t.client_id AND e.is_active=true
+          )))`,
       [clientId],
     );
     for (const t of templates) {

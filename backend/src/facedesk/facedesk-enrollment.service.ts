@@ -33,6 +33,7 @@ import { FaceDeskSettingsService } from './facedesk-settings.service';
 import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
 import { pinLookupHash } from './facedesk-pin.util';
 import { CheckDuplicateDto, SaveEnrollmentDto } from './facedesk.dto';
+import { activeFaceDeskSubjectSql } from './facedesk-active-subject.util';
 
 export interface DuplicateHit {
   matchedEmployeeId: string;
@@ -306,6 +307,7 @@ export class FaceDeskEnrollmentService {
         WHERE p.client_id = $1
           AND p.enrollment_status = 'ENROLLED'
           AND p.employee_id <> $2
+          AND ${activeFaceDeskSubjectSql('p')}
           AND (p.face_template IS NOT NULL OR s.embedding IS NOT NULL)`,
       [clientId, excludeEmployeeId],
     );
