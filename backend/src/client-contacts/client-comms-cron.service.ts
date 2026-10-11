@@ -4,7 +4,7 @@ import { operationalDate } from '../common/operational-date';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { createHash } from 'crypto';
 import { EmailService } from '../email/email.service';
 import { ClientContactsService } from './client-contacts.service';
@@ -962,28 +962,37 @@ export class ClientCommsCronService {
   ): Promise<void> {
     const text = await this.fetchSourceText(source.url);
     const hash = this.hashText(text);
-    const matchedKeywords = this.isRelevantComplianceText(text);
-    const rows: Array<{ last_hash: string | null }> = await this.ds.query(
-      `SELECT last_hash FROM compliance_news_source_snapshots
+    const relevant = this.isRelevantComplianceText(text);
+    await this.ds.transaction(async (manager) => {
+      // Serialize baseline creation and publication for the same source.
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`compliance-news:${source.code}`],
+      );
+      const rows: Array<{ last_hash: string | null }> = await manager.query(
+        `SELECT last_hash FROM compliance_news_source_snapshots
        WHERE source_code = $1 LIMIT 1`,
-      [source.code],
-    );
-    const previous = rows[0]?.last_hash || null;
-    await this.saveSourceSnapshot(source, hash, matchedKeywords);
-    if (!matchedKeywords || !previous || previous === hash) return;
+        [source.code],
+      );
+      const previous = rows[0]?.last_hash || null;
+      if (!previous || previous === hash || !relevant) {
+        await this.saveSourceSnapshot(source, hash, relevant, manager);
+        return;
+      }
 
-    const title = `Compliance Portal Update: ${source.label}`;
-    const body = [
-      `An automated compliance monitor detected a new update on ${source.label}.`,
-      '',
-      'This source is monitored for labour law, minimum wages, wage revision, EPF, ESI, shops and establishments, factories, BOCW, contractor compliance, and FSSAI updates.',
-      '',
-      `Official source: ${source.url}`,
-      `Detected revision: ${hash.slice(0, 16)}`,
-      '',
-      'Action: Review the official notification/order and update the applicable compliance or minimum-wage master before payroll/compliance closure.',
-    ].join('\n');
-    await this.createNewsIfMissing(title, body);
+      const title = `Compliance Portal Update: ${source.label}`;
+      const body = [
+        `An automated compliance monitor detected a new update on ${source.label}.`,
+        '',
+        'This source is monitored for labour law, minimum wages, wage revision, EPF, ESI, shops and establishments, factories, BOCW, contractor compliance, and FSSAI updates.',
+        '',
+        `Official source: ${source.url}`,
+        '',
+        'Action: Review the official notification/order and update the applicable compliance or minimum-wage master before payroll/compliance closure.',
+      ].join('\n');
+      await this.createNewsIfMissing(title, body, source.code, hash, manager);
+      await this.saveSourceSnapshot(source, hash, true, manager);
+    });
   }
 
   private async fetchSourceText(url: string): Promise<string> {
@@ -1021,8 +1030,9 @@ export class ClientCommsCronService {
     source: ComplianceNewsSource,
     hash: string,
     matchedKeywords: boolean,
+    manager: EntityManager,
   ): Promise<void> {
-    await this.ds.query(
+    await manager.query(
       `INSERT INTO compliance_news_source_snapshots
          (source_code, source_label, source_url, last_hash, matched_keywords,
           last_checked_at, updated_at)
@@ -1041,32 +1051,31 @@ export class ClientCommsCronService {
   private async createNewsIfMissing(
     title: string,
     body: string,
+    sourceCode: string,
+    sourceHash: string,
+    manager: EntityManager,
   ): Promise<void> {
-    const userId = await this.systemNewsUserId();
+    const userId = await this.systemNewsUserId(manager);
     if (!userId) {
-      this.log.warn(
-        `[compliance-news-monitor] skipped publishing ${title}: no admin user found`,
-      );
-      return;
+      throw new Error(`Cannot publish ${title}: no admin user found`);
     }
-    await this.ds.query(
+    await manager.query(
       `INSERT INTO news_items
          (title, body, category, pinned, is_active, expires_at, created_by,
-          created_at, updated_at)
-       SELECT $1, $2, 'COMPLIANCE', TRUE, TRUE, NOW() + INTERVAL '45 days',
-              $3, NOW(), NOW()
-       WHERE NOT EXISTS (
-         SELECT 1 FROM news_items
-         WHERE title = $1
-           AND body = $2
-           AND deleted_at IS NULL
-       )`,
-      [title, body, userId],
+          created_at, updated_at, source_code, source_hash)
+       VALUES ($1, $2, 'COMPLIANCE', TRUE, TRUE, NOW() + INTERVAL '45 days',
+              $3, NOW(), NOW(), $4, $5)
+       ON CONFLICT (source_code, source_hash)
+         WHERE source_code IS NOT NULL AND source_hash IS NOT NULL
+       DO NOTHING`,
+      [title, body, userId, sourceCode, sourceHash],
     );
   }
 
-  private async systemNewsUserId(): Promise<string | null> {
-    const rows: Array<{ id: string }> = await this.ds.query(
+  private async systemNewsUserId(
+    manager: EntityManager,
+  ): Promise<string | null> {
+    const rows: Array<{ id: string }> = await manager.query(
       `SELECT u.id
        FROM users u
        LEFT JOIN roles r ON r.id = u.role_id

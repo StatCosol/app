@@ -198,7 +198,7 @@ export interface DailyAttendanceRecord {
   approvedByUserId: string | null;
   approvedAt: string | null;
   rejectionReason: string | null;
-  /** Every ESS check-in/out for the day, each with its captured location. */
+  /** Mobile and accepted FaceDesk punches, with location when available. */
   punches?: DailyPunch[];
 }
 

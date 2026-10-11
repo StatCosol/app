@@ -6,7 +6,10 @@
     "analytics": false,
     "schematicCollections": [
       "angular-eslint"
-    ]
+    ],
+    "cache": {
+      "enabled": false
+    }
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -42,7 +45,9 @@
               }
             ],
             "styles": [
-              "src/styles.scss", "src/styles/bootstrap-workspace.scss", "src/styles/workspace.scss"
+              "src/styles.scss",
+              "src/styles/bootstrap-workspace.scss",
+              "src/styles/workspace.scss"
             ]
           },
           "configurations": {
