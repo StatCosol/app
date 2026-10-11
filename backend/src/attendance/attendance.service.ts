@@ -551,6 +551,12 @@ export class AttendanceService {
          WHERE f.client_id = $1
            AND f.employee_id = ANY($3::uuid[])
            AND f.attendance_status IN ('MARKED', 'APPROVED')
+           AND NOT EXISTS (
+             SELECT 1 FROM facedesk_attendance_review_queue rq
+              WHERE rq.client_id = f.client_id
+                AND rq.attendance_id = f.attendance_id
+                AND rq.status = 'PENDING'
+           )
            AND f.punch_type IN ('IN', 'OUT')
            AND f.punch_time >= ($2::date::timestamp AT TIME ZONE 'Asia/Kolkata')
            AND f.punch_time < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')

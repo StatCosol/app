@@ -81,6 +81,7 @@ jobs:
           node scripts/validate-automation-dedup.cjs
           node scripts/validate-my-work.cjs
           node scripts/validate-compliance-news.cjs
+          node scripts/validate-attendance-punch-details.cjs
           node scripts/validate-ui-automation-upgrade.cjs
           node scripts/validate-contractor-payroll-authority.cjs
           node scripts/validate-payroll-document-reconciliation.cjs
