@@ -1,3 +1,4 @@
+import { LicenceAlertsComponent } from '../../../shared/licence-alerts/licence-alerts.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy
@@ -17,7 +18,7 @@ import { FaceFailuresWidgetComponent } from '../../../shared/face-failures-widge
 @Component({
   selector: 'app-branch-dashboard',
   standalone: true,
-  imports: [ IconComponent, CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
+  imports: [LicenceAlertsComponent, IconComponent, CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './branch-dashboard.component.html',
   styleUrls: ['./branch-dashboard.component.scss'],

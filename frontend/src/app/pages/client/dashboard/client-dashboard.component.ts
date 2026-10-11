@@ -1,3 +1,4 @@
+import { LicenceAlertsComponent } from '../../../shared/licence-alerts/licence-alerts.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   AfterViewInit,
@@ -54,7 +55,7 @@ type ChartKey =
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-client-dashboard',
-  imports: [IconComponent, CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, KpiTileComponent],
+  imports: [LicenceAlertsComponent,IconComponent, CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, KpiTileComponent],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-dashboard.component.scss'],
 })

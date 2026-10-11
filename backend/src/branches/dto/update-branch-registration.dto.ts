@@ -1,3 +1,4 @@
+import { IsInt, Min, Max } from 'class-validator';
 import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 export class UpdateBranchRegistrationDto {
@@ -24,4 +25,10 @@ export class UpdateBranchRegistrationDto {
   @IsOptional()
   @IsDateString()
   expiryDate?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  licensedWorkerLimit?: number | null;
 }

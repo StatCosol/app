@@ -30,6 +30,8 @@ interface RegistrationRow {
   authority: string | null;
   issuedDate: string | null;
   expiryDate: string | null;
+  renewalDueDate?: string | null;
+  licensedWorkerLimit?: number | null;
   documentUrl: string | null;
   renewalDocumentUrl: string | null;
   renewedOn: string | null;

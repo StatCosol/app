@@ -1,3 +1,6 @@
+import { AccessModule } from '../access/access.module';
+import { LicenceAlertsController } from './licence-alerts.controller';
+import { LicenceAlertsService } from './licence-alerts.service';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BranchEntity } from './entities/branch.entity';
@@ -38,6 +41,7 @@ import { ServiceEntitlementsModule } from '../service-entitlements/service-entit
 
 @Module({
   imports: [
+    AccessModule,
     TypeOrmModule.forFeature([
       BranchEntity,
       BranchContractorEntity,
@@ -60,6 +64,7 @@ import { ServiceEntitlementsModule } from '../service-entitlements/service-entit
     ServiceEntitlementsModule,
   ],
   controllers: [
+    LicenceAlertsController,
     BranchesController,
     BranchesCommonController,
     CrmBranchesController,
@@ -73,6 +78,7 @@ import { ServiceEntitlementsModule } from '../service-entitlements/service-entit
     BranchUploadsController,
   ],
   providers: [
+    LicenceAlertsService,
     BranchesService,
     BranchDocumentsService,
     BranchRegistrationsService,
