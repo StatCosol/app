@@ -92,6 +92,7 @@
           <td [style.color]="r.computedStatus === 'EXPIRED' ? '#dc2626' : (r.computedStatus === 'EXPIRING_SOON' ? '#d97706' : '#0f172a')">
             @if (r.expiryDate) {
 <span>{{ r.expiryDate | date:'dd-MMM-yyyy' }}</span>
+@if (r.renewalDueDate) { <div class="muted">Renew by {{ r.renewalDueDate | date:'dd-MMM-yyyy' }}</div> }
 }
             @if (!r.expiryDate) {
 <span>No Expiry</span>
@@ -218,6 +219,13 @@
         <input autocomplete="off" id="cr-registration-number" name="registrationNumber" [(ngModel)]="form.registrationNumber" placeholder="Eg: AP/12345/2026" />
       </div>
 
+      @if (isFactoryLicence) {
+        <div>
+          <label for="cr-worker-limit">Licensed maximum workers</label>
+          <input id="cr-worker-limit" name="licensedWorkerLimit" type="number" min="1" max="2147483647" step="1" [(ngModel)]="form.licensedWorkerLimit" placeholder="Example: 100" />
+          <div class="muted mt-1.5">Combined on-roll and contractor workers. Daily punched attendance is checked against this limit.</div>
+        </div>
+      }
       <div>
         <label for="cr-authority">Issuing Authority</label>
         <input autocomplete="off" id="cr-authority" name="authority" [(ngModel)]="form.authority" placeholder="Eg: Factories Dept / EPFO / ESIC" />
@@ -231,7 +239,7 @@
       <div>
         <label for="cr-expiry-date">Expiry Date</label>
         <input autocomplete="off" id="cr-expiry-date" name="expiryDate" type="date" [(ngModel)]="form.expiryDate" />
-        <div class="muted mt-1.5">Leave empty if there is no expiry.</div>
+        <div class="muted mt-1.5">Renewal is due 30 days before expiry; reminders begin 60 days before. Leave empty only if the registration has no expiry.</div>
       </div>
 
       <div>

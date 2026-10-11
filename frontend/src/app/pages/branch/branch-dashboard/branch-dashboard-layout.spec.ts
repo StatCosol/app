@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { page } from 'vitest/browser';
@@ -47,6 +47,7 @@ describe('Branch dashboard layout', () => {
         b: 'Second Branch',
       };
       fixture.detectChanges();
+      TestBed.inject(HttpTestingController).expectOne(request => request.url.endsWith('/client/licence-alerts')).flush({date:'2026-10-11',renewals:[],manpower:[]});
       await fixture.whenStable();
       const host = fixture.nativeElement as HTMLElement;
       const banner = host.querySelector('a[href="/branch/monthly-close"]')!.parentElement!;

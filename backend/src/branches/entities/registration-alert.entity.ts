@@ -40,6 +40,12 @@ export class RegistrationAlertEntity {
   @Column({ type: 'boolean', default: false })
   emailed: boolean;
 
+  @Column({ type: 'text', name: 'event_key', nullable: true })
+  eventKey: string | null;
+
+  @Column({ type: 'timestamptz', name: 'email_lease_until', nullable: true })
+  emailLeaseUntil: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 }

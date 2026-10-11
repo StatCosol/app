@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { isFactoryLicence } from './licence-alerts.policy';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { BranchRegistrationEntity } from './entities/branch-registration.entity';
@@ -13,6 +18,8 @@ export interface RegistrationListRow {
   authority: string | null;
   issuedDate: string | null;
   expiryDate: string | null;
+  licensedWorkerLimit: number | null;
+  renewalDueDate: string | null;
   documentPath: string | null;
   documentUrl: string | null;
   renewalDocumentUrl: string | null;
@@ -77,6 +84,8 @@ export class BranchRegistrationsService {
         r.authority,
         r.issued_date          AS "issuedDate",
         r.expiry_date          AS "expiryDate",
+        r.licensed_worker_limit AS "licensedWorkerLimit",
+        (r.expiry_date - 30)::text AS "renewalDueDate",
         r.document_path        AS "documentPath",
         r.document_url         AS "documentUrl",
         r.renewal_document_url AS "renewalDocumentUrl",
@@ -85,13 +94,13 @@ export class BranchRegistrationsService {
         r.created_at           AS "createdAt",
         CASE
           WHEN r.expiry_date IS NULL          THEN 'ACTIVE'
-          WHEN r.expiry_date < CURRENT_DATE   THEN 'EXPIRED'
-          WHEN r.expiry_date <= CURRENT_DATE + INTERVAL '30 days' THEN 'EXPIRING_SOON'
+          WHEN r.expiry_date < (NOW() AT TIME ZONE 'Asia/Kolkata')::date   THEN 'EXPIRED'
+          WHEN r.expiry_date <= (NOW() AT TIME ZONE 'Asia/Kolkata')::date + INTERVAL '60 days' THEN 'EXPIRING_SOON'
           ELSE 'ACTIVE'
         END AS "computedStatus",
         CASE
           WHEN r.expiry_date IS NULL THEN 99999
-          ELSE (r.expiry_date - CURRENT_DATE)
+          ELSE (r.expiry_date - (NOW() AT TIME ZONE 'Asia/Kolkata')::date)
         END AS "daysRemaining"
       FROM branch_registrations r
       WHERE r.branch_id = $1
@@ -100,8 +109,8 @@ export class BranchRegistrationsService {
       ORDER BY
         CASE
           WHEN r.expiry_date IS NULL          THEN 3
-          WHEN r.expiry_date < CURRENT_DATE   THEN 1
-          WHEN r.expiry_date <= CURRENT_DATE + INTERVAL '30 days' THEN 2
+          WHEN r.expiry_date < (NOW() AT TIME ZONE 'Asia/Kolkata')::date   THEN 1
+          WHEN r.expiry_date <= (NOW() AT TIME ZONE 'Asia/Kolkata')::date + INTERVAL '60 days' THEN 2
           ELSE 3
         END,
         r.expiry_date ASC NULLS LAST`,
@@ -131,7 +140,11 @@ export class BranchRegistrationsService {
     userId: string,
   ) {
     await this.assertBranchBelongsToClient(dto.branchId, clientId);
-
+    if (dto.licensedWorkerLimit != null && !isFactoryLicence(dto.type)) {
+      throw new BadRequestException(
+        'A licensed worker limit applies to a factory licence.',
+      );
+    }
     const entity = this.regRepo.create({
       clientId,
       branchId: dto.branchId,
@@ -140,6 +153,7 @@ export class BranchRegistrationsService {
       authority: dto.authority ?? null,
       issuedDate: dto.issuedDate ? new Date(dto.issuedDate) : null,
       expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
+      licensedWorkerLimit: dto.licensedWorkerLimit ?? null,
       createdBy: userId,
     });
 
@@ -169,6 +183,15 @@ export class BranchRegistrationsService {
       }
     }
 
+    const nextType = dto.type ?? row.type;
+    if (dto.licensedWorkerLimit != null && !isFactoryLicence(nextType)) {
+      throw new BadRequestException(
+        'A licensed worker limit applies to a factory licence.',
+      );
+    }
+    if (!isFactoryLicence(nextType)) row.licensedWorkerLimit = null;
+    else if (dto.licensedWorkerLimit !== undefined)
+      row.licensedWorkerLimit = dto.licensedWorkerLimit;
     if (dto.type !== undefined) row.type = dto.type;
     if (dto.registrationNumber !== undefined)
       row.registrationNumber = dto.registrationNumber ?? null;
@@ -234,9 +257,9 @@ export class BranchRegistrationsService {
       `
       SELECT
         COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE r.expiry_date IS NULL OR r.expiry_date > CURRENT_DATE + INTERVAL '30 days')::int AS active,
-        COUNT(*) FILTER (WHERE r.expiry_date IS NOT NULL AND r.expiry_date <= CURRENT_DATE + INTERVAL '30 days' AND r.expiry_date > CURRENT_DATE)::int AS "expiringSoon",
-        COUNT(*) FILTER (WHERE r.expiry_date IS NOT NULL AND r.expiry_date < CURRENT_DATE)::int AS expired
+        COUNT(*) FILTER (WHERE r.expiry_date IS NULL OR r.expiry_date > (NOW() AT TIME ZONE 'Asia/Kolkata')::date + INTERVAL '60 days')::int AS active,
+        COUNT(*) FILTER (WHERE r.expiry_date IS NOT NULL AND r.expiry_date <= (NOW() AT TIME ZONE 'Asia/Kolkata')::date + INTERVAL '60 days' AND r.expiry_date >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date)::int AS "expiringSoon",
+        COUNT(*) FILTER (WHERE r.expiry_date IS NOT NULL AND r.expiry_date < (NOW() AT TIME ZONE 'Asia/Kolkata')::date)::int AS expired
       FROM branch_registrations r
       WHERE r.client_id = $1
         AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
@@ -282,7 +305,7 @@ export class BranchRegistrationsService {
       SELECT
         CASE
           WHEN r.expiry_date IS NULL THEN 99999
-          ELSE (r.expiry_date - CURRENT_DATE)
+          ELSE (r.expiry_date - (NOW() AT TIME ZONE 'Asia/Kolkata')::date)
         END AS "daysRemaining"
       FROM branch_registrations r
       WHERE r.client_id = $1
@@ -308,36 +331,33 @@ export class BranchRegistrationsService {
   /**
    * Get alerts for a client (or branch), for in-app notifications.
    */
-  async getAlerts(clientId: string, branchId?: string, limit = 50) {
+  async getAlerts(
+    clientId: string,
+    branchId?: string,
+    limit = 50,
+    allowedBranchIds?: string[],
+  ) {
+    if (allowedBranchIds && !allowedBranchIds.length) return [];
     const params: unknown[] = [clientId, limit];
     let branchFilter = '';
     if (branchId) {
       branchFilter = 'AND a.branch_id = $3';
       params.push(branchId);
     }
-
+    if (allowedBranchIds) {
+      params.push(allowedBranchIds);
+      branchFilter += ` AND a.branch_id = ANY($${params.length}::uuid[])`;
+    }
     return this.dataSource.query(
-      `
-      SELECT
-        a.id,
-        a.registration_id AS "registrationId",
-        a.branch_id       AS "branchId",
-        a.alert_type       AS "alertType",
-        a.priority,
-        a.title,
-        a.message,
-        a.is_read          AS "isRead",
-        a.created_at       AS "createdAt"
-      FROM registration_alerts a
-      WHERE a.client_id = $1
-        ${branchFilter}
-      ORDER BY a.created_at DESC
-      LIMIT $2
-    `,
+      `SELECT a.id,
+      a.registration_id AS "registrationId", a.branch_id AS "branchId",
+      a.alert_type AS "alertType", a.priority, a.title, a.message,
+      a.is_read AS "isRead", a.created_at AS "createdAt"
+      FROM registration_alerts a WHERE a.client_id=$1 ${branchFilter}
+      ORDER BY a.created_at DESC LIMIT $2`,
       params,
     );
   }
-
   /**
    * List audit observations for a branch.
    * Joins audit_observations → audits WHERE audits.branch_id = :branchId
