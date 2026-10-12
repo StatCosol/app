@@ -360,7 +360,35 @@ export class FaceDeskAzureFaceService {
         this.attendanceConfidence,
         5,
       );
-      const [top, second] = matches;
+      // Azure may retain a face after its local enrollment was deleted.
+      // Only active, enrolled subjects may contribute to attendance ambiguity.
+      const eligible: Array<{
+        profile: FaceDeskProfileEntity;
+        confidence: number;
+      }> = [];
+      for (const match of matches) {
+        if (match.confidence < this.attendanceConfidence) continue;
+        const profile = await this.profileRepo
+          .createQueryBuilder('p')
+          .where('p.client_id = :clientId', { clientId })
+          .andWhere('p.azure_persisted_face_id = :faceId', {
+            faceId: match.persistedFaceId,
+          })
+          .andWhere("p.enrollment_status = 'ENROLLED'")
+          .andWhere(activeFaceDeskSubjectSql('p'))
+          .getOne();
+        if (!profile) continue;
+        const existing = eligible.find(
+          (hit) => hit.profile.employeeId === profile.employeeId,
+        );
+        if (existing) {
+          existing.confidence = Math.max(existing.confidence, match.confidence);
+        } else {
+          eligible.push({ profile, confidence: match.confidence });
+        }
+      }
+      eligible.sort((a, b) => b.confidence - a.confidence);
+      const [top, second] = eligible;
       if (!top || top.confidence < this.attendanceConfidence) {
         this.logger.log(
           `Azure attendance identify: no candidate at or above ` +
@@ -373,35 +401,14 @@ export class FaceDeskAzureFaceService {
         top.confidence - second.confidence < this.attendanceMargin
       ) {
         this.logger.warn(
-          `Azure attendance identify ambiguous: ${top.confidence.toFixed(3)} vs ` +
-            `${second.confidence.toFixed(3)} — refusing rather than guessing`,
+          `Azure attendance identify ambiguous: employee=${top.profile.employeeId} ` +
+            `confidence=${top.confidence.toFixed(3)} vs employee=${second.profile.employeeId} ` +
+            `confidence=${second.confidence.toFixed(3)}`,
         );
         return { ok: false, reason: 'AMBIGUOUS' };
       }
 
-      const profile = await this.profileRepo.findOne({
-        where: { clientId, azurePersistedFaceId: top.persistedFaceId },
-      });
-      // A face in the list with no profile row is an orphan (see the deletion
-      // path). It must never resolve to an identity.
-      if (!profile) {
-        this.logger.warn(
-          `Azure attendance identify matched an orphan face ` +
-            `(persistedFaceId=${top.persistedFaceId}) with no profile row`,
-        );
-        return { ok: false, reason: 'ORPHAN_FACE' };
-      }
-      if (profile.enrollmentStatus !== 'ENROLLED') {
-        // Recognised, but the profile is not live. Telling this worker "face not
-        // recognised" sends them away to try again forever; the fix is an
-        // enrolment one and somebody has to be told that.
-        this.logger.log(
-          `Azure attendance identify matched employee=${profile.employeeId} ` +
-            `whose profile is ${profile.enrollmentStatus}, not ENROLLED`,
-        );
-        return { ok: false, reason: 'NOT_ENROLLED' };
-      }
-
+      const profile = top.profile;
       const margin = second
         ? top.confidence - second.confidence
         : top.confidence;
