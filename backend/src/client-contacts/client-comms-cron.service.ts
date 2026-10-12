@@ -804,7 +804,7 @@ export class ClientCommsCronService {
       ...contactEmails,
       client.email || '',
       ...userRows.map((r) => r.email || ''),
-    ]);
+    ]).filter((email) => email !== 'sravan.kumar@vedhaentech.com');
   }
 
   private async latestComplianceNews(
