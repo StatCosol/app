@@ -45,6 +45,13 @@ export interface UpdateContactPayload {
   notes?: string;
 }
 
+export interface WeeklyNewsRecipient {
+  email: string;
+  sources: string[];
+  included: boolean;
+  reason: string | null;
+}
+
 export interface CommRunSummary {
   summary: { total: number; sent: number; skipped: number; failed: number };
   entries: Array<{
@@ -66,6 +73,10 @@ export class ClientContactsService {
     return this.http.get<ClientDepartmentContact[]>(
       `${this.base}/client/${clientId}`,
     );
+  }
+
+  weeklyNewsRecipients(clientId: string): Observable<WeeklyNewsRecipient[]> {
+    return this.http.get<WeeklyNewsRecipient[]>(`${this.base}/client/${clientId}/weekly-news-recipients`);
   }
 
   departments(): Observable<ClientContactDepartment[]> {

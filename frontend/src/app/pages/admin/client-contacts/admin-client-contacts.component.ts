@@ -12,6 +12,7 @@ import {
   ClientContactDepartment,
   ClientDepartmentContact,
   CreateContactPayload,
+  WeeklyNewsRecipient,
 } from './client-contacts.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
@@ -174,6 +175,24 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
                   (click)="openCreate()"
                  title="Add Contact" aria-label="Add Contact" data-action-label="Add Contact" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
               </div>
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-xl p-4">
+              <h2 class="text-base font-semibold">Weekly news recipients</h2>
+              <p class="text-sm text-gray-600 mb-3">HR, compliance and payroll contacts, registered client emails, and assigned payroll users. Removed or inactive addresses are excluded across sources.</p>
+              @if (recipientError()) {
+                <p class="text-sm text-red-600">{{ recipientError() }}</p>
+              } @else {
+                @for (recipient of weeklyRecipients(); track recipient.email) {
+                  <div class="border-t py-2 text-sm">
+                    <span class="font-medium">{{ recipient.email }}</span>
+                    <span class="ml-2" [class.text-red-600]="!recipient.included">{{ recipient.included ? 'Included' : 'Excluded: ' + recipient.reason }}</span>
+                    <div class="text-gray-500">{{ recipient.sources.join(', ') }}</div>
+                  </div>
+                } @empty {
+                  <p class="text-sm text-gray-500">No weekly news recipients loaded.</p>
+                }
+              }
             </div>
 
             <!-- Contacts grouped by department -->
@@ -436,6 +455,8 @@ export class AdminClientContactsComponent implements OnInit {
 
   clients = signal<Client[]>([]);
   contacts = signal<ClientDepartmentContact[]>([]);
+  weeklyRecipients = signal<WeeklyNewsRecipient[]>([]);
+  recipientError = signal<string | null>(null);
   selectedClient = signal<Client | null>(null);
 
   clientSearch = '';
@@ -473,6 +494,16 @@ export class AdminClientContactsComponent implements OnInit {
 
   loadContacts(clientId: string): void {
     this.loadingContacts.set(true);
+    this.weeklyRecipients.set([]);
+    this.recipientError.set(null);
+    this.contactsSvc.weeklyNewsRecipients(clientId).subscribe({
+      next: (rows) => {
+        if (this.selectedClient()?.id === clientId) this.weeklyRecipients.set(rows);
+      },
+      error: () => {
+        if (this.selectedClient()?.id === clientId) this.recipientError.set('Could not load weekly recipients. Refresh to retry.');
+      },
+    });
     this.contactsSvc.list(clientId).subscribe({
       next: (rows) => {
         if (this.selectedClient()?.id !== clientId) {
@@ -597,14 +628,14 @@ export class AdminClientContactsComponent implements OnInit {
 
   async remove(c: ClientDepartmentContact): Promise<void> {
     const ok = await this.dialog.confirm(
-      'Delete Contact',
-      `Delete contact "${c.name}" (${c.email})?`,
-      { variant: 'danger', confirmText: 'Delete' },
+      'Remove Contact from Mailings',
+      `Deactivate "${c.name}" (${c.email})? This address will also be excluded from weekly news if it appears in a registered user or primary contact record.`,
+      { variant: 'danger', confirmText: 'Remove' },
     );
     if (!ok) return;
     this.contactsSvc.remove(c.id).subscribe({
       next: () => {
-        this.flash('ok', 'Contact deleted');
+        this.flash('ok', 'Contact deactivated and excluded from weekly news');
         const cl = this.selectedClient();
         if (cl) this.loadContacts(cl.id);
       },
