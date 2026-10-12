@@ -10,6 +10,7 @@ import { EmailService } from '../email/email.service';
 import { ClientContactsService } from './client-contacts.service';
 import { ClientCommTemplatesService } from './client-comm-templates.service';
 import { portalUrl } from '../common/utils/portal-url';
+import { weeklyNewsRecipientList } from './weekly-news-recipients';
 
 export interface RunOptions {
   triggeredBy: string;
@@ -785,26 +786,13 @@ export class ClientCommsCronService {
     id: string;
     email?: string | null;
   }): Promise<string[]> {
-    const contactEmails = await this.contacts.getActiveEmails(
-      client.id,
-      'COMPLIANCE',
-    );
-    const userRows: Array<{ email: string | null }> = await this.ds.query(
-      `SELECT DISTINCT LOWER(u.email) AS email
-       FROM users u
-       WHERE u.client_id = $1
-         AND u.user_type IN ('MASTER', 'BRANCH')
-         AND u.is_active = TRUE
-         AND u.deleted_at IS NULL
-         AND u.email IS NOT NULL
-         AND u.email <> ''`,
-      [client.id],
-    );
-    return this.uniqueEmails([
-      ...contactEmails,
-      client.email || '',
-      ...userRows.map((r) => r.email || ''),
-    ]).filter((email) => email !== 'sravan.kumar@vedhaentech.com');
+    return (await this.weeklyNewsRecipients(client.id))
+      .filter((row) => row.included)
+      .map((row) => row.email);
+  }
+
+  async weeklyNewsRecipients(clientId: string) {
+    return weeklyNewsRecipientList(this.ds, clientId);
   }
 
   private async latestComplianceNews(

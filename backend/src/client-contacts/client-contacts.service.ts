@@ -141,7 +141,9 @@ export class ClientContactsService {
   async remove(id: string) {
     const ent = await this.repo.findOne({ where: { id } });
     if (!ent) throw new NotFoundException('Contact not found');
-    await this.repo.remove(ent);
+    // Retain the email so other recipient sources cannot silently add it back.
+    ent.isActive = false;
+    await this.repo.save(ent);
     return { ok: true };
   }
 
