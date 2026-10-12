@@ -96,9 +96,11 @@ export class ClientContactsController {
     summary: 'Preview all weekly news recipients and exclusions',
   })
   @Get('client/:clientId/weekly-news-recipients')
-  weeklyNewsRecipients(
+  async weeklyNewsRecipients(
     @Param('clientId', new ParseUUIDPipe()) clientId: string,
+    @CurrentUser() user: ReqUser,
   ) {
+    await this.access.assertCcoClientAllowed(user, clientId);
     return this.cron.weeklyNewsRecipients(clientId);
   }
 

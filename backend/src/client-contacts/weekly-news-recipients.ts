@@ -65,7 +65,8 @@ export async function weeklyNewsRecipientList(
      SELECT u.email, 'User: ' || COALESCE(u.user_type, r.code),
             (u.deleted_at IS NOT NULL OR NOT u.is_active OR u.email LIKE '%#deleted#%' OR u.email LIKE '%#branch-deleted#%')
      FROM users u LEFT JOIN roles r ON r.id = u.role_id
-     WHERE EXISTS (SELECT 1 FROM client WHERE client.id = u.client_id)
+     WHERE (EXISTS (SELECT 1 FROM client WHERE client.id = u.client_id)
+       OR EXISTS (SELECT 1 FROM client_users cu JOIN client ON client.id = cu.client_id WHERE cu.user_id = u.id))
        AND (r.code = 'CLIENT' OR u.user_type IN ('MASTER', 'BRANCH'))
      UNION ALL
      SELECT u.email, 'Assigned payroll user',
