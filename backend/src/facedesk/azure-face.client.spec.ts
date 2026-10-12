@@ -1,5 +1,6 @@
 import { AzureFaceClient } from './azure-face.client';
 import { FaceDeskAzureFaceService } from './facedesk-azure-face.service';
+import { activeFaceDeskSubjectSql } from './facedesk-active-subject.util';
 
 /**
  * AZURE_FACE_IDENTIFICATION is an explicit deployment opt-in even though
@@ -239,11 +240,20 @@ describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
       detectFace: jest.fn().mockResolvedValue({ faceId: 'f1' }),
       findSimilar: jest.fn().mockResolvedValue(matches),
     };
-    const profileRepo = {
-      findOne: jest.fn().mockResolvedValue({
-        employeeId: 'e1',
-        enrollmentStatus: 'ENROLLED',
+    let persistedFaceId: string | undefined;
+    const query = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockImplementation((_condition, parameters) => {
+        if (parameters?.faceId) persistedFaceId = parameters.faceId;
+        return query;
       }),
+      getOne: jest.fn().mockImplementation(async () => ({
+        employeeId: persistedFaceId === 'p2' ? 'e2' : 'e1',
+        enrollmentStatus: 'ENROLLED',
+      })),
+    };
+    const profileRepo = {
+      createQueryBuilder: jest.fn().mockReturnValue(query),
     };
     return {
       svc: new FaceDeskAzureFaceService(
@@ -252,6 +262,7 @@ describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
         profileRepo as any,
       ),
       profileRepo,
+      query,
     };
   };
 
@@ -290,27 +301,27 @@ describe('FaceDeskAzureFaceService.identifyForAttendance', () => {
   });
 
   it('refuses when the matched face has no enrolled profile', async () => {
-    const { svc, profileRepo } = make([
+    const { svc, query } = make([
       { persistedFaceId: 'orphan', confidence: 0.95 },
     ]);
-    profileRepo.findOne.mockResolvedValue(null);
+    query.getOne.mockResolvedValue(null);
     await expect(svc.identifyForAttendance('c1', 'img')).resolves.toEqual({
       ok: false,
-      reason: 'ORPHAN_FACE',
+      reason: 'NO_MATCH',
     });
   });
 
   it('refuses when the profile is no longer ENROLLED', async () => {
-    const { svc, profileRepo } = make([
-      { persistedFaceId: 'p1', confidence: 0.95 },
-    ]);
-    profileRepo.findOne.mockResolvedValue({
-      employeeId: 'e1',
-      enrollmentStatus: 'BLOCKED',
-    });
+    const { svc, query } = make([{ persistedFaceId: 'p1', confidence: 0.95 }]);
+    // The repository query excludes non-enrolled profiles.
+    query.getOne.mockResolvedValue(null);
     await expect(svc.identifyForAttendance('c1', 'img')).resolves.toEqual({
       ok: false,
-      reason: 'NOT_ENROLLED',
+      reason: 'NO_MATCH',
     });
+    expect(query.andWhere).toHaveBeenCalledWith(
+      "p.enrollment_status = 'ENROLLED'",
+    );
+    expect(query.andWhere).toHaveBeenCalledWith(activeFaceDeskSubjectSql('p'));
   });
 });
