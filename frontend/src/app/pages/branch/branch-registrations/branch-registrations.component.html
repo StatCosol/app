@@ -149,7 +149,9 @@
               <td class="strong">{{ row.type }}</td>
               <td class="mono">{{ row.registrationNumber || '-' }}</td>
               <td>{{ row.authority || '-' }}</td>
-              <td>{{ row.expiryDate ? (row.expiryDate | date:'dd MMM yyyy') : 'No expiry' }}</td>
+              <td>{{ row.expiryDate ? (row.expiryDate | date:'dd MMM yyyy') : 'No expiry' }}
+@if (row.renewalDueDate) { <div>Renew by {{ row.renewalDueDate | date:'dd MMM yyyy' }}</div> }
+</td>
               <td>{{ daysText(row) }}</td>
               <td><span [class]="statusClass(row.computedStatus)">{{ statusLabel(row.computedStatus) }}</span></td>
               <td>
@@ -179,7 +181,9 @@
           <div><span>Authority</span><strong>{{ reg.authority || '-' }}</strong></div>
           <div><span>Issued Date</span><strong>{{ reg.issuedDate ? (reg.issuedDate | date:'dd MMM yyyy') : '-' }}</strong></div>
           <div><span>Expiry Date</span><strong>{{ reg.expiryDate ? (reg.expiryDate | date:'dd MMM yyyy') : 'No expiry' }}</strong></div>
-          <div><span>Days Remaining</span><strong>{{ daysText(reg) }}</strong></div>
+          @if (reg.renewalDueDate) { <div><span>Renew By</span><strong>{{ reg.renewalDueDate | date:'dd MMM yyyy' }}</strong></div> }
+@if (reg.licensedWorkerLimit !== null && reg.licensedWorkerLimit !== undefined) { <div><span>Licensed Maximum Workers</span><strong>{{ reg.licensedWorkerLimit }}</strong></div> }
+<div><span>Days Remaining</span><strong>{{ daysText(reg) }}</strong></div>
           <div><span>Last Renewed</span><strong>{{ reg.renewedOn ? (reg.renewedOn | date:'dd MMM yyyy') : '-' }}</strong></div>
           <div><span>Linked Alerts</span><strong>{{ selectedAlerts.length }}</strong></div>
         </div>

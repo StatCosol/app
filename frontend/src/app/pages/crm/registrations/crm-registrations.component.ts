@@ -20,6 +20,7 @@ interface RegForm {
   authority: string;
   issuedDate: string;
   expiryDate: string;
+  licensedWorkerLimit: number | null;
 }
 
 @Component({
@@ -93,6 +94,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   editingId: string | null = null;
 
   form: RegForm = this.emptyForm();
+  get isFactoryLicence(): boolean { return /\bfactor(?:y|ies)\b/i.test(this.form.type); }
 
   regTypes = [
     'Shops & Establishment',
@@ -218,6 +220,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
       authority: row.authority || '',
       issuedDate: this.toDateInput(row.issuedDate),
       expiryDate: this.toDateInput(row.expiryDate),
+      licensedWorkerLimit: row.licensedWorkerLimit ?? null,
     };
     this.documentFile = null;
     this.existingDocumentUrl = row.documentUrl || null;
@@ -246,8 +249,13 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
       authority: this.form.authority?.trim() || null,
       issuedDate: this.form.issuedDate || null,
       expiryDate: this.form.expiryDate || null,
+      licensedWorkerLimit: /\bfactor(?:y|ies)\b/i.test(this.form.type) ? this.form.licensedWorkerLimit : null,
     };
 
+    if (payload.licensedWorkerLimit != null && (!Number.isInteger(payload.licensedWorkerLimit) || payload.licensedWorkerLimit < 1 || payload.licensedWorkerLimit > 2147483647)) {
+      this.toast.error('Licensed worker limit must be a positive whole number.');
+      return;
+    }
     this.saving = true;
     this.cdr.markForCheck();
 
@@ -380,7 +388,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   private emptyForm(): RegForm {
-    return { branchId: '', type: '', registrationNumber: '', authority: '', issuedDate: '', expiryDate: '' };
+    return { branchId: '', type: '', registrationNumber: '', authority: '', issuedDate: '', expiryDate: '', licensedWorkerLimit: null };
   }
 
   ngOnDestroy(): void {

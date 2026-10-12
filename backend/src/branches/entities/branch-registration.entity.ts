@@ -37,6 +37,9 @@ export class BranchRegistrationEntity {
   @Column({ type: 'date', name: 'expiry_date', nullable: true })
   expiryDate: Date | null;
 
+  @Column({ type: 'integer', name: 'licensed_worker_limit', nullable: true })
+  licensedWorkerLimit: number | null;
+
   @Column({ type: 'varchar', length: 30, default: 'ACTIVE' })
   status: string;
 

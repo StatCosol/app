@@ -1,3 +1,4 @@
+import { IsInt, Min, Max } from 'class-validator';
 import {
   IsDateString,
   IsNotEmpty,
@@ -28,5 +29,11 @@ export class CreateBranchRegistrationDto {
 
   @IsOptional()
   @IsDateString()
-  expiryDate?: string; // allow null/undefined for "No Expiry"
+  expiryDate?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  licensedWorkerLimit?: number | null;
 }

@@ -193,7 +193,14 @@ export class ClientBranchDocumentsController {
     if (branchId) {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }
-    return this.regSvc.getAlerts(user.clientId!, branchId);
+    const assigned = await this.branchAccess.getUserBranchIds(user.userId);
+    const restricted = user.userType === 'BRANCH' || assigned.length > 0;
+    return this.regSvc.getAlerts(
+      user.clientId!,
+      branchId,
+      50,
+      restricted ? assigned : undefined,
+    );
   }
 
   /** GET /api/v1/client/branches/:id/audit-observations — observations for branch */

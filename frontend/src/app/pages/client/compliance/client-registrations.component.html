@@ -24,7 +24,7 @@
     <article class="summary-card summary-card--warn">
       <span class="label">Expiring Soon</span>
       <strong>{{ expiring }}</strong>
-      <span class="sub">Renewal due in 30 days</span>
+      <span class="sub">Expiry within 60 days · renew 30 days before</span>
     </article>
     <article class="summary-card summary-card--bad">
       <span class="label">Expired</span>
@@ -93,7 +93,7 @@
             <td>{{ row.registrationNumber || '—' }}</td>
             <td>{{ row.authority || '—' }}</td>
             <td>{{ row.issuedDate ? (row.issuedDate | date:'dd-MMM-yyyy') : '—' }}</td>
-            <td>{{ row.expiryDate ? (row.expiryDate | date:'dd-MMM-yyyy') : '—' }}</td>
+            <td>{{ row.expiryDate ? (row.expiryDate | date:'dd-MMM-yyyy') : '—' }} @if (row.renewalDueDate) { <div>Renew by {{ row.renewalDueDate | date:'dd-MMM-yyyy' }}</div> }</td>
             <td class="text-center">
               <span [ngClass]="{
                 'days--ok': row.daysRemaining > 30,
