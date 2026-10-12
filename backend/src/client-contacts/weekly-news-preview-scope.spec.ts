@@ -42,4 +42,3 @@ describe('weekly recipient preview scope', () => {
     },
   );
 });
-
