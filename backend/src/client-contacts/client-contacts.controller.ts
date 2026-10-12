@@ -92,9 +92,13 @@ export class ClientContactsController {
     return this.svc.listForClient(clientId);
   }
 
-  @ApiOperation({ summary: 'Preview all weekly news recipients and exclusions' })
+  @ApiOperation({
+    summary: 'Preview all weekly news recipients and exclusions',
+  })
   @Get('client/:clientId/weekly-news-recipients')
-  weeklyNewsRecipients(@Param('clientId', new ParseUUIDPipe()) clientId: string) {
+  weeklyNewsRecipients(
+    @Param('clientId', new ParseUUIDPipe()) clientId: string,
+  ) {
     return this.cron.weeklyNewsRecipients(clientId);
   }
 
