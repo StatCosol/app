@@ -1,5 +1,5 @@
-// Run after backend/frontend production builds. Uses only the isolated local test
-// PostgreSQL cluster on 55439, generated schema, fixture users and temporary files.
+// Run after the backend build (also frontend for --browser). Uses a generated
+// schema in the isolated test PostgreSQL cluster or CI database and fixture users.
 // The real document controllers, services, TypeORM, JWT strategy, role guards,
 // file authorization and production Angular bundle are exercised. Email is disabled.
 const path = require('path');
@@ -55,13 +55,14 @@ async function main(){
  try {
   await admin.query(`CREATE SCHEMA "${schema}"`);
   const emptyTables=['contractor_documents','payroll_input_files','registers_records','helpdesk_message_files'].map(name=>new EntitySchema({name,tableName:name,columns:{id:{type:'uuid',primary:true,generated:'uuid'},filePath:{name:'file_path',type:String}}}));
-  db=new DataSource({type:'postgres',host:connection.host,port:connection.port,username:connection.user,password:connection.password,database:connection.database,schema,extra:{options:`-c search_path=${schema},public`},entities:[Compliance,Master,Unit,Company,Branch,User,Assignment,...emptyTables]});
+  db=new DataSource({type:'postgres',host:connection.host,port:connection.port,username:connection.user,password:connection.password,database:connection.database,schema,extra:{options:`-c search_path=${schema},public -c timezone=UTC`},entities:[Compliance,Master,Unit,Company,Branch,User,Assignment,...emptyTables]});
   await db.initialize(); await db.synchronize();
   const registrationSchema=fs.readFileSync(path.join(backend,'migrations/20260224_branch_desk_wiring.sql'),'utf8').match(/CREATE TABLE IF NOT EXISTS branch_registrations[\s\S]*?\n\);/)[0];
   await db.query(registrationSchema);
   await db.query(fs.readFileSync(path.join(backend,'migrations/20260226_registration_documents.sql'),'utf8'));
   await db.query(fs.readFileSync(path.join(backend,'migrations/20260226_registration_alerts.sql'),'utf8'));
   await db.query('ALTER TABLE branch_registrations ADD COLUMN IF NOT EXISTS licensed_worker_limit integer');
+  await db.query('ALTER TABLE crm_unit_documents DROP COLUMN registration_id');
   const linkMigration=fs.readFileSync(path.join(backend,'migrations/20261014_unit_document_registration_link.sql'),'utf8');
   await db.query(linkMigration); await db.query(linkMigration);
   check('Registration link migration is safe to replay');
@@ -198,7 +199,7 @@ async function main(){
   assert.equal((await call('client','/api/v1/client/branches/registration-summary')).expired,1);
   assert.equal((await call('branch','/api/v1/client/branches/registration-alerts')).length,0);
   check('Branch summary excludes other branches; client summary includes them; renewed alerts are no longer current');
-  const [today]=await db.query('SELECT CURRENT_DATE::text AS day');
+  const [today]=await db.query("SELECT (NOW() AT TIME ZONE 'Asia/Kolkata')::date::text AS day");
   await upload('branch','/api/v1/branch/unit-documents/upload',{...permanent,registrationType:'Expires today',noExpiry:'false',periodTo:today.day});
   assert.equal((await call('branch','/api/v1/client/branches/registration-summary')).expiringSoon,1);
   check('A registration expiring today is counted as expiring soon');
