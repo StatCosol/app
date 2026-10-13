@@ -117,6 +117,7 @@ const serviceMigrationFiles = new Set([
   '20260912b_automation_control_center.sql',
   '20260912c_automation_expansion.sql',
   '20260912d_branch_document_expiry.sql',
+  '20261014_unit_document_registration_link.sql',
 ]);
 
 const config = {

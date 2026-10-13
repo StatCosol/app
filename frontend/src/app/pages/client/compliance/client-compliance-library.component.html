@@ -1,9 +1,12 @@
 <div class="page">
   <ui-page-header
     title="Compliance Documents"
-    subtitle="View and download compliance files shared by CRM">
+    subtitle="View and download compliance files shared by branch and CRM users">
   </ui-page-header>
+  <app-compliance-document-records [crm]="false"></app-compliance-document-records>
 
+  <details class="border rounded-xl p-4 mt-4" [open]="hasFocusContext()">
+    <summary class="cursor-pointer font-semibold">Reference files and older uploads</summary>
   @if (hasFocusContext()) {
 <div class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sky-900">
     <p class="text-sm font-semibold">Focused from Branch Compliance</p>
@@ -112,9 +115,11 @@
 <p class="text-xs text-gray-500 line-clamp-2">{{ doc.description }}</p>
 }
 
-      <a class="compact-action download-btn" [href]="getDownloadUrl(doc.id)" target="_blank" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></a>
+      <button type="button" class="compact-action download-btn" (click)="openLibraryDocument(doc, true)" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+      <button type="button" class="border rounded px-2 py-1" (click)="openLibraryDocument(doc)">View</button>
     </div>
 }
   </div>
 }
+  </details>
 </div>

@@ -170,6 +170,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },
       { path: 'compliance-items', loadComponent: BranchComplianceItemsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'compliance', loadComponent: BranchComplianceComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
+      { path: 'compliance-library', loadComponent: () => import('../client/compliance/client-compliance-library.component').then(m => m.ClientComplianceLibraryComponent), canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'compliance-docs', loadComponent: BranchComplianceDocsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'calendar', loadComponent: ComplianceCalendarComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'heatmap', loadComponent: HeatmapComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },

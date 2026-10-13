@@ -1,3 +1,5 @@
+import { UnitRegistrationFieldsComponent, emptyRegistration, appendRegistration, registrationUploadError } from '../../../shared/components/unit-registration-fields.component';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -9,6 +11,8 @@ import {
   CrmUnitDocument,
   CrmUnitDocumentsApi,
 } from '../../../core/api/crm-unit-documents.api';
+import { AuthService } from '../../../core/auth.service';
+import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   EmptyStateComponent,
@@ -16,8 +20,12 @@ import {
   PageHeaderComponent,
 } from '../../../shared/ui';
 
-const LAW_CATEGORIES = ['PF', 'ESI', 'PT', 'FACTORY', 'CLRA', 'LWF', 'OTHER'];
+const LAW_CATEGORIES = ['POLLUTION', 'PF', 'ESI', 'PT', 'FACTORY', 'CLRA', 'LWF', 'OTHER'];
 const DOC_TYPES = [
+  'Registration',
+  'Licence',
+  'Renewal',
+  'Report',
   'Return',
   'TRRN',
   'Receipt',
@@ -34,7 +42,7 @@ type ScopeFilter = '' | CrmDocumentScope;
 @Component({
   standalone: true,
   selector: 'app-branch-unit-documents',
-  imports: [IconComponent,
+  imports: [UnitRegistrationFieldsComponent, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -44,56 +52,71 @@ type ScopeFilter = '' | CrmDocumentScope;
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
-        title="CRM Shared Files"
-        subtitle="Files shared by CRM for this branch and company-wide visibility">
+        title="Unit Documents"
+        subtitle="Registrations, licences, renewals and reports shared with CRM and client users">
       </ui-page-header>
+      <form (ngSubmit)="upload()" class="bg-white rounded-xl border p-4 mb-6">
+        <h2 class="font-medium mb-3">Upload Unit Document</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          @if (branches.length > 1) {
+          <select aria-label="Branch" name="uploadBranch" [(ngModel)]="uploadBranchId" required>
+            <option value="">Select branch</option>
+            @for (b of branches; track b.id) { <option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option> }
+          </select>
+          } @else if (branches.length === 1) {
+            <span class="text-sm self-center">{{ branches[0].branchName || branches[0].name }}</span>
+          }
+          <select aria-label="Law" name="uploadLaw" [(ngModel)]="uploadLaw" required>
+            @for (law of lawCategories; track law) { <option [value]="law">{{ law }}</option> }
+          </select>
+          <select aria-label="Document type" name="uploadType" [(ngModel)]="uploadType" required>
+            @for (type of uploadDocTypes; track type) { <option [value]="type">{{ type }}</option> }
+          </select>
+          <label>Valid from <input type="date" name="validFrom" [(ngModel)]="validFrom"></label>
+          <label>Valid until <input type="date" name="validTo" [(ngModel)]="validTo" [disabled]="registration.noExpiry"></label>
+          <input #uploadInput type="file" aria-label="Document file" (change)="selectFile($event)">
+        </div>
+        <app-unit-registration-fields portal="branch" [clientId]="clientId" [branchId]="uploadBranchId" [type]="uploadType" (detailsChange)="registration = $event" />
+        <textarea class="w-full border rounded mt-3 p-2" name="remarks" [(ngModel)]="uploadRemarks" placeholder="Remarks (optional)"></textarea>
+        <button type="submit" class="border rounded px-3 py-2 mt-2" [disabled]="uploading">{{ uploading ? 'Uploading…' : 'Upload' }}</button>
+      </form>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <select
-            id="bud-scope"
-            name="scope"
-            [(ngModel)]="filters.scope"
-            (ngModelChange)="loadDocuments()"
-            class="form-select rounded-lg border-gray-300 text-sm">
-            <option value="">All Scopes</option>
-            <option value="COMPANY">Company</option>
-            <option value="BRANCH">Branch</option>
-          </select>
+        <div class="flex flex-wrap items-end gap-3">
 
-          <input autocomplete="off"
-            id="bud-month"
-            name="month"
-            type="month"
-            [(ngModel)]="filters.month"
-            (ngModelChange)="loadDocuments()"
-            class="form-input rounded-lg border-gray-300 text-sm"
-            placeholder="Month">
+          <label class="text-sm">Document type
+            <select id="bud-doctype" name="documentType" [(ngModel)]="filters.documentType" (ngModelChange)="loadDocuments()" class="form-select rounded-lg border-gray-300 text-sm">
+              <option value="">All types</option>
+              @for (t of uploadDocTypes; track t) { <option [value]="t">{{ t }}</option> }
+              <optgroup label="Older document types">
+                @for (t of legacyDocTypes; track t) { <option [value]="t">{{ t }}</option> }
+              </optgroup>
+            </select>
+          </label>
+          <label class="text-sm">Law
+            <select id="bud-law" name="lawCategory" [(ngModel)]="filters.lawCategory" (ngModelChange)="loadDocuments()" class="form-select rounded-lg border-gray-300 text-sm">
+              <option value="">All laws</option>
+              @for (law of lawCategories; track law) { <option [value]="law">{{ law }}</option> }
+            </select>
+          </label>
+          @if (filters.scope || filters.month || filters.lawCategory || filters.documentType) {
+            <button type="button" class="border rounded px-3 py-2 text-sm" (click)="clearFilters()">Clear filters</button>
+          }
 
-          <select
-            id="bud-law-category"
-            name="lawCategory"
-            [(ngModel)]="filters.lawCategory"
-            (ngModelChange)="loadDocuments()"
-            class="form-select rounded-lg border-gray-300 text-sm">
-            <option value="">All Laws</option>
-            @for (c of lawCategories; track c) {
-<option [value]="c">{{ c }}</option>
-}
-          </select>
-
-          <select
-            id="bud-doc-type"
-            name="documentType"
-            [(ngModel)]="filters.documentType"
-            (ngModelChange)="loadDocuments()"
-            class="form-select rounded-lg border-gray-300 text-sm">
-            <option value="">All Types</option>
-            @for (t of docTypes; track t) {
-<option [value]="t">{{ t }}</option>
-}
-          </select>
         </div>
+        <details class="mt-3">
+          <summary class="cursor-pointer text-sm">More filters{{ filters.scope || filters.month ? ' (active)' : '' }}</summary>
+          <div class="flex flex-wrap gap-3 mt-3">
+            <label class="text-sm">Shared with
+              <select id="bud-scope" name="scope" [(ngModel)]="filters.scope" (ngModelChange)="loadDocuments()" class="form-select rounded-lg border-gray-300 text-sm">
+                <option value="">Company and branch</option><option value="COMPANY">Whole company</option><option value="BRANCH">Specific branch</option>
+              </select>
+            </label>
+            <label class="text-sm">Period on older uploads
+              <input type="month" id="bud-month" name="month" [(ngModel)]="filters.month" (ngModelChange)="loadDocuments()" class="form-input rounded-lg border-gray-300 text-sm">
+            </label>
+          </div>
+        </details>
       </div>
 
       @if (loading) {
@@ -102,10 +125,10 @@ type ScopeFilter = '' | CrmDocumentScope;
 
       @if (!loading && documents.length === 0) {
 <ui-empty-state
-       
+
         icon="document"
         title="No Documents Found"
-        description="No CRM shared files match the selected filters.">
+        description="No unit documents match the selected filters.">
       </ui-empty-state>
 }
 
@@ -118,7 +141,7 @@ type ScopeFilter = '' | CrmDocumentScope;
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">File</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scope</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Visible To</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
+                @if (hasRecordedMonth) { <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th> }
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Law</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remarks</th>
@@ -139,13 +162,16 @@ type ScopeFilter = '' | CrmDocumentScope;
                   </span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ doc.scope === 'COMPANY' ? 'All branches' : 'This branch' }}</td>
-                <td class="px-4 py-3 text-sm text-gray-600">{{ doc.month || '—' }}</td>
+                @if (hasRecordedMonth) { <td class="px-4 py-3 text-sm text-gray-600">{{ doc.month || '—' }}</td> }
                 <td class="px-4 py-3 text-sm">
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800">
                     {{ doc.lawCategory }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600">{{ doc.documentType }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ doc.documentType }}
+    @if (doc.registration) { <div data-testid="registration-status" class="text-xs font-medium mt-1">{{ doc.registration.type }}: {{ doc.registration.status.replace('_', ' ') }}<br>Current expiry: {{ doc.registration.expiryDate || 'No expiry' }}</div> }
+    @if (doc.periodFrom || doc.periodTo) { <div class="text-xs text-gray-500">Valid: {{ doc.periodFrom || '—' }} – {{ doc.periodTo || '—' }}</div> }
+  </td>
                 <td class="px-4 py-3 text-sm text-gray-500 max-w-[180px] truncate" [title]="doc.remarks || ''">
                   {{ doc.remarks || '—' }}
                 </td>
@@ -176,7 +202,9 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
   documents: CrmUnitDocument[] = [];
 
   lawCategories = LAW_CATEGORIES;
-  docTypes = DOC_TYPES;
+  uploadDocTypes = ['Registration', 'Licence', 'Renewal', 'Report', 'Certificate', 'Approval', 'Other'];
+  legacyDocTypes = DOC_TYPES.filter(type => !this.uploadDocTypes.includes(type));
+
 
   filters: {
     scope: ScopeFilter;
@@ -190,13 +218,76 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
     documentType: '',
   };
 
+  registration = emptyRegistration();
+  uploading = false;
+  branches: any[] = [];
+  uploadBranchId = '';
+  uploadLaw = 'OTHER';
+  uploadType = 'Registration';
+  validFrom = '';
+  validTo = '';
+  uploadRemarks = '';
+  selectedFile: File | null = null;
+  fileInput: HTMLInputElement | null = null;
+
+  get clientId(): string { return this.auth.getUser()?.clientId || ''; }
+
+  selectFile(event: Event) {
+    this.fileInput = event.target as HTMLInputElement;
+    this.selectedFile = this.fileInput.files?.[0] || null;
+  }
+
+  upload() {
+    if (this.uploading) return;
+    const clientId = this.auth.getUser()?.clientId;
+    if (!clientId || !this.uploadBranchId || !this.selectedFile) {
+      this.toast.error('Select a branch and a document file.'); return;
+    }
+    if (!this.registration.noExpiry && this.validFrom && this.validTo && this.validTo < this.validFrom) {
+      this.toast.error('Valid until must be on or after valid from.'); return;
+    }
+    const registrationError = registrationUploadError(this.registration, this.uploadType, this.uploadBranchId, this.validTo, 1);
+    if (registrationError) { this.toast.error(registrationError); return; }
+    const fd = new FormData();
+    appendRegistration(fd, this.registration, this.uploadType);
+    fd.append('file', this.selectedFile);
+    fd.append('clientId', clientId);
+    fd.append('branchId', this.uploadBranchId);
+    fd.append('scope', 'BRANCH');
+    fd.append('lawCategory', this.uploadLaw);
+    fd.append('documentType', this.uploadType);
+    if (this.validFrom) fd.append('periodFrom', this.validFrom);
+    if (this.validTo && !this.registration.noExpiry) fd.append('periodTo', this.validTo);
+    if (this.uploadRemarks.trim()) fd.append('remarks', this.uploadRemarks.trim());
+    this.uploading = true;
+    this.api.uploadForBranch(fd).pipe(takeUntil(this.destroy$), finalize(() => { this.uploading = false; this.cdr.markForCheck(); })).subscribe({
+      next: () => {
+        this.toast.success('Unit document uploaded.');
+        this.selectedFile = null;
+        if (this.fileInput) this.fileInput.value = '';
+        this.uploadRemarks = '';
+        this.filters = { scope: '', month: '', lawCategory: '', documentType: '' };
+        this.loadDocuments();
+      },
+      error: err => this.toast.error(err?.error?.message || 'Unit document upload failed.'),
+    });
+  }
+
   constructor(
+    private readonly auth: AuthService,
+    private readonly branchApi: ClientBranchesService,
+    private readonly protectedFiles: ProtectedFileService,
     private readonly api: CrmUnitDocumentsApi,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
+    this.uploadBranchId = this.auth.getBranchIds()[0] || '';
+    this.branchApi.list().pipe(takeUntil(this.destroy$)).subscribe({
+      next: rows => { this.branches = rows.filter(b => this.auth.getBranchIds().includes(b.id)); this.cdr.markForCheck(); },
+      error: () => this.toast.error('Unable to load branch names.'),
+    });
     this.loadDocuments();
   }
 
@@ -204,6 +295,13 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
   }
+
+  clearFilters(): void {
+    this.filters = { scope: '', month: '', lawCategory: '', documentType: '' };
+    this.loadDocuments();
+  }
+
+  get hasRecordedMonth(): boolean { return this.documents.some(doc => !!doc.month); }
 
   loadDocuments(): void {
     this.loading = true;
@@ -241,13 +339,7 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
   }
 
   view(doc: CrmUnitDocument): void {
-    this.api.downloadBranch(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank', 'noopener');
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      },
-      error: () => this.toast.error('View failed'),
-    });
+    this.protectedFiles.open(this.api.downloadUrl(doc.id, 'branch'), doc.fileName)
+      .pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to view document.') });
   }
 }

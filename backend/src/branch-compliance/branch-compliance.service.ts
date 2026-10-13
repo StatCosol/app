@@ -527,6 +527,8 @@ export class BranchComplianceService {
     if (!master)
       throw new BadRequestException(`Invalid return code: ${dto.returnCode}`);
 
+    this.assertUploadPeriod(dto, master);
+
     const existing = await this.findExistingDoc(
       branchId,
       companyId,
@@ -575,6 +577,48 @@ export class BranchComplianceService {
     return this.docRepo.save(doc);
   }
 
+  private assertUploadPeriod(
+    dto: UploadComplianceDocDto,
+    master: ComplianceReturnMasterEntity,
+  ) {
+    if (
+      !Number.isInteger(dto.periodYear) ||
+      dto.periodYear < 2020 ||
+      dto.periodYear > 2050
+    )
+      throw new BadRequestException('Invalid compliance year');
+    if (master.isActive === false)
+      throw new BadRequestException('This compliance return is inactive');
+    if (
+      !['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY'].includes(
+        dto.frequency,
+      ) ||
+      master.frequency !== dto.frequency
+    ) {
+      throw new BadRequestException(
+        'Frequency must match the selected compliance return',
+      );
+    }
+    const fields = [
+      ['MONTHLY', 'periodMonth', 12],
+      ['QUARTERLY', 'periodQuarter', 4],
+      ['HALF_YEARLY', 'periodHalf', 2],
+    ] as const;
+    for (const [frequency, field, max] of fields) {
+      const value = dto[field];
+      if (
+        frequency === dto.frequency &&
+        (!Number.isInteger(value) || value! < 1 || value! > max)
+      ) {
+        throw new BadRequestException(field + ' is required for ' + frequency);
+      }
+      if (frequency !== dto.frequency && value != null)
+        throw new BadRequestException(
+          field + ' does not apply to ' + dto.frequency,
+        );
+    }
+  }
+
   // ─── Upload (Branch User) ─────────────────────────────────
 
   async uploadDocument(
@@ -602,6 +646,8 @@ export class BranchComplianceService {
     });
     if (!master)
       throw new BadRequestException(`Invalid return code: ${dto.returnCode}`);
+
+    this.assertUploadPeriod(dto, master);
 
     // Check if document already exists for this branch + period + returnCode
     const existing = await this.findExistingDoc(
@@ -638,10 +684,15 @@ export class BranchComplianceService {
       dto.periodMonth,
       dto.periodQuarter,
       dto.periodHalf,
+      master.dueDateRule,
     );
 
     if (existing) {
       // Reupload scenario
+      existing.moduleSource = 'BRANCHDESK';
+      existing.uploadedByRole = 'BRANCH';
+      existing.actingOnBehalf = false;
+      existing.originalOwnerRole = 'BRANCH';
       existing.uploadedFileUrl = fileUrl;
       existing.uploadedFileName = file.originalname;
       existing.uploadedByUserId = user.userId;
@@ -660,7 +711,7 @@ export class BranchComplianceService {
         existing.status = ComplianceDocStatus.SUBMITTED;
       }
 
-      return this.docRepo.save(existing);
+      return this.persistUpload(existing, fileUrl);
     }
 
     // New upload
@@ -669,6 +720,9 @@ export class BranchComplianceService {
       companyId,
       branchId,
       moduleSource: 'BRANCHDESK',
+      uploadedByRole: 'BRANCH',
+      actingOnBehalf: false,
+      originalOwnerRole: 'BRANCH',
       documentScope: 'BRANCH',
       lawArea: master.lawArea,
       returnCode: dto.returnCode,
@@ -688,7 +742,7 @@ export class BranchComplianceService {
       version: 1,
     });
 
-    return this.docRepo.save(doc);
+    return this.persistUpload(doc, fileUrl);
   }
 
   // ─── CRM Upload On Behalf ─────────────────────────────────
@@ -734,7 +788,7 @@ export class BranchComplianceService {
 
     // Verify branch belongs to client
     const branch = await this.dataSource.query(
-      `SELECT 1 FROM client_branches WHERE id = $1 AND clientid = $2 AND isactive = true LIMIT 1`,
+      `SELECT 1 FROM client_branches WHERE id = $1 AND clientid = $2 AND isactive = true AND isdeleted = false LIMIT 1`,
       [branchId, companyId],
     );
     if (!branch?.length) {
@@ -750,6 +804,8 @@ export class BranchComplianceService {
     if (!master) {
       throw new BadRequestException(`Invalid return code: ${dto.returnCode}`);
     }
+
+    this.assertUploadPeriod(dto, master);
 
     // Check existing
     const existing = await this.findExistingDoc(
@@ -783,6 +839,7 @@ export class BranchComplianceService {
       dto.periodMonth,
       dto.periodQuarter,
       dto.periodHalf,
+      master.dueDateRule,
     );
 
     if (existing) {
@@ -808,7 +865,7 @@ export class BranchComplianceService {
         existing.status = ComplianceDocStatus.SUBMITTED;
       }
 
-      const savedExisting = await this.docRepo.save(existing);
+      const savedExisting = await this.persistUpload(existing, fileUrl);
       this.auditLogs
         .log({
           entityType: 'DOCUMENT',
@@ -858,7 +915,7 @@ export class BranchComplianceService {
       originalOwnerRole: 'BRANCH',
     });
 
-    const saved = await this.docRepo.save(doc);
+    const saved = await this.persistUpload(doc, fileUrl);
     this.auditLogs
       .log({
         entityType: 'DOCUMENT',
@@ -893,6 +950,7 @@ export class BranchComplianceService {
 
     const qb = this.docRepo
       .createQueryBuilder('d')
+      .leftJoinAndSelect('d.branch', 'branch')
       .where('d.branch_id = :branchId', { branchId })
       .andWhere('d.company_id = :companyId', { companyId });
 
@@ -1084,8 +1142,20 @@ export class BranchComplianceService {
       .where('d.company_id = :companyId', { companyId });
     applyClientBranchScope(qb, user, 'd.branch_id');
 
-    if (q.branchId)
+    const allowed = await this.branchAccess.getUserBranchIds(
+      user.userId ?? user.id,
+    );
+    if (allowed.length)
+      qb.andWhere('d.branch_id IN (:...allowed)', { allowed });
+    else if (
+      user.userType === 'BRANCH' ||
+      ['BRANCH', 'BRANCH_DESK'].includes(user.roleCode)
+    )
+      return { data: [], total: 0 };
+    if (q.branchId) {
+      await this.assertBranchAccess(user, q.branchId);
       qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
+    }
     if (q.year) qb.andWhere('d.period_year = :year', { year: q.year });
     if (q.frequency === 'MONTHLY' && q.month) {
       qb.andWhere('d.period_month = :month', { month: q.month });
@@ -1740,6 +1810,24 @@ export class BranchComplianceService {
     return qb.getOne();
   }
 
+  private async persistUpload(doc: ComplianceDocumentEntity, fileUrl: string) {
+    try {
+      return await this.docRepo.save(doc);
+    } catch (error) {
+      const uploadRoot = path.resolve(process.cwd(), 'uploads');
+      const fullPath = path.resolve(process.cwd(), '.' + fileUrl);
+      const relative = path.relative(uploadRoot, fullPath);
+      if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
+        try {
+          fs.unlinkSync(fullPath);
+        } catch {
+          /* best-effort cleanup */
+        }
+      }
+      throw error;
+    }
+  }
+
   private async saveFile(
     file: UploadedFile,
     companyId: string,
@@ -1773,48 +1861,60 @@ export class BranchComplianceService {
     month?: number,
     quarter?: number,
     half?: number,
+    dueDateRule?: string | null,
   ): string | null {
+    const date = (y: number, m: number, d: number) => {
+      const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      return (
+        y +
+        '-' +
+        String(m).padStart(2, '0') +
+        '-' +
+        String(Math.min(d, last)).padStart(2, '0')
+      );
+    };
     if (!dueDay) return null;
-
-    if (frequency === 'MONTHLY' && month) {
-      // Due on dueDay of next month
-      let dueMonth = month + 1;
-      let dueYear = year;
-      if (dueMonth > 12) {
-        dueMonth = 1;
-        dueYear++;
-      }
-      return `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
-    }
-
-    if (frequency === 'QUARTERLY' && quarter) {
-      // Due on dueDay of the month after the quarter ends
-      // Q1 (Jan-Mar) → due April; Q2 (Apr-Jun) → due July; Q3 (Jul-Sep) → due Oct; Q4 (Oct-Dec) → due Jan+1
-      const quarterEndMonths: Record<number, number> = {
-        1: 4,
-        2: 7,
-        3: 10,
-        4: 1,
-      };
-      const dueMonth = quarterEndMonths[quarter] || 4;
-      let dueYear = year;
-      if (quarter === 4) dueYear++;
-      return `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
-    }
-
-    if (frequency === 'HALF_YEARLY' && half) {
-      // H1 (Apr-Sep) → due Oct same year; H2 (Oct-Mar) → due April next year
-      if (half === 1) {
-        return `${year}-10-${String(dueDay).padStart(2, '0')}`;
-      }
-      return `${year + 1}-04-${String(dueDay).padStart(2, '0')}`;
-    }
-
-    // For yearly, return April 30 of next year as default
+    if (frequency === 'MONTHLY' && month)
+      return date(
+        month === 12 ? year + 1 : year,
+        month === 12 ? 1 : month + 1,
+        dueDay,
+      );
+    if (frequency === 'QUARTERLY' && quarter)
+      return date(
+        quarter === 4 ? year + 1 : year,
+        quarter === 4 ? 1 : quarter * 3 + 1,
+        dueDay,
+      );
+    if (frequency === 'HALF_YEARLY' && half)
+      return date(half === 2 ? year + 1 : year, half === 1 ? 10 : 4, dueDay);
     if (frequency === 'YEARLY') {
-      return `${year + 1}-04-30`;
+      // Honor the existing configured fixed-date rule when present.
+      const match =
+        /^BEFORE_(\d{1,2})_(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)$/.exec(
+          dueDateRule || '',
+        );
+      if (match)
+        return date(
+          year + 1,
+          [
+            'JAN',
+            'FEB',
+            'MAR',
+            'APR',
+            'MAY',
+            'JUN',
+            'JUL',
+            'AUG',
+            'SEP',
+            'OCT',
+            'NOV',
+            'DEC',
+          ].indexOf(match[2]) + 1,
+          Number(match[1]),
+        );
+      return date(year + 1, 4, 30);
     }
-
     return null;
   }
 }

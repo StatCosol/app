@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -101,6 +102,14 @@ export class ClientComplianceDocsController {
     @CurrentUser() user: ReqUser,
     @Body() dto: UpdateCompanySettingsDto,
   ) {
+    if (
+      user.userType === 'BRANCH' ||
+      ['BRANCH', 'BRANCH_DESK'].includes(user.roleCode)
+    ) {
+      throw new ForbiddenException(
+        'Only client master users can update company settings',
+      );
+    }
     return this.svc.updateCompanySettings(
       user.clientId!,
       user.id,

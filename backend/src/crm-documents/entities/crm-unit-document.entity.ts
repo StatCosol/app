@@ -24,6 +24,10 @@ export class CrmUnitDocumentEntity {
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId!: string | null;
 
+  @Index()
+  @Column({ name: 'registration_id', type: 'uuid', nullable: true })
+  registrationId!: string | null;
+
   @Column({ name: 'month', type: 'varchar', length: 7, nullable: true })
   month!: string | null; // YYYY-MM
 

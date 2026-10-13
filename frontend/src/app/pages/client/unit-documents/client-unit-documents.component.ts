@@ -1,3 +1,4 @@
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -17,8 +18,12 @@ import {
   PageHeaderComponent,
 } from '../../../shared/ui';
 
-const LAW_CATEGORIES = ['PF', 'ESI', 'PT', 'FACTORY', 'CLRA', 'LWF', 'OTHER'];
+const LAW_CATEGORIES = ['POLLUTION', 'PF', 'ESI', 'PT', 'FACTORY', 'CLRA', 'LWF', 'OTHER'];
 const DOC_TYPES = [
+  'Registration',
+  'Licence',
+  'Renewal',
+  'Report',
   'Return',
   'TRRN',
   'Receipt',
@@ -45,69 +50,53 @@ type ScopeFilter = '' | CrmDocumentScope;
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
-        title="CRM Shared Files"
-        subtitle="View files shared by CRM at company or branch scope">
+        title="Unit Documents"
+        subtitle="View unit documents uploaded by branch and CRM users">
       </ui-page-header>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <select
-            id="cud-scope"
-            name="scope"
-            [(ngModel)]="filters.scope"
-            (ngModelChange)="onScopeChange()"
-            class="form-select rounded-lg border-gray-300 text-sm">
-            <option value="">All Scopes</option>
-            <option value="COMPANY">Company</option>
-            <option value="BRANCH">Branch</option>
-          </select>
+        <div class="flex flex-wrap items-end gap-3">
+          @if (branches.length > 1) {
+          <label class="text-sm">Unit
+            <select id="cud-branch" name="branchId" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()" [disabled]="filters.scope === 'COMPANY'" class="form-select rounded-lg border-gray-300 text-sm">
+              <option value="">All units</option>
+              @for (b of branches; track b.id) { <option [value]="b.id">{{ b.branchName }}</option> }
+            </select>
+          </label>
+          }
+          <label class="text-sm">Document type
+            <select id="cud-doctype" name="documentType" [(ngModel)]="filters.documentType" (ngModelChange)="loadDocuments()" class="form-select rounded-lg border-gray-300 text-sm">
+              <option value="">All types</option>
+              @for (t of uploadDocTypes; track t) { <option [value]="t">{{ t }}</option> }
+              <optgroup label="Older document types">
+                @for (t of legacyDocTypes; track t) { <option [value]="t">{{ t }}</option> }
+              </optgroup>
+            </select>
+          </label>
+          <label class="text-sm">Law
+            <select id="cud-law" name="lawCategory" [(ngModel)]="filters.lawCategory" (ngModelChange)="loadDocuments()" class="form-select rounded-lg border-gray-300 text-sm">
+              <option value="">All laws</option>
+              @for (law of lawCategories; track law) { <option [value]="law">{{ law }}</option> }
+            </select>
+          </label>
+          @if (filters.scope || filters.month || filters.lawCategory || filters.documentType || filters.branchId) {
+            <button type="button" class="border rounded px-3 py-2 text-sm" (click)="clearFilters()">Clear filters</button>
+          }
 
-          <select
-            id="cud-branch"
-            name="branchId"
-            [(ngModel)]="filters.branchId"
-            (ngModelChange)="loadDocuments()"
-            [disabled]="filters.scope === 'COMPANY'"
-            class="form-select rounded-lg border-gray-300 text-sm disabled:bg-gray-100">
-            <option value="">All Units</option>
-            @for (b of branches; track b) {
-<option [value]="b.id">{{ b.branchName }}</option>
-}
-          </select>
-
-          <input autocomplete="off"
-            type="month"
-            id="cud-month"
-            name="month"
-            [(ngModel)]="filters.month"
-            (ngModelChange)="loadDocuments()"
-            class="form-input rounded-lg border-gray-300 text-sm"
-            placeholder="Month">
-
-          <select
-            id="cud-law"
-            name="lawCategory"
-            [(ngModel)]="filters.lawCategory"
-            (ngModelChange)="loadDocuments()"
-            class="form-select rounded-lg border-gray-300 text-sm">
-            <option value="">All Laws</option>
-            @for (c of lawCategories; track c) {
-<option [value]="c">{{ c }}</option>
-}
-          </select>
-
-          <select
-            id="cud-doctype"
-            name="documentType"
-            [(ngModel)]="filters.documentType"
-            (ngModelChange)="loadDocuments()"
-            class="form-select rounded-lg border-gray-300 text-sm">
-            <option value="">All Types</option>
-            @for (t of docTypes; track t) {
-<option [value]="t">{{ t }}</option>
-}
-          </select>
         </div>
+        <details class="mt-3">
+          <summary class="cursor-pointer text-sm">More filters{{ filters.scope || filters.month ? ' (active)' : '' }}</summary>
+          <div class="flex flex-wrap gap-3 mt-3">
+            <label class="text-sm">Shared with
+              <select id="cud-scope" name="scope" [(ngModel)]="filters.scope" (ngModelChange)="onScopeChange()" class="form-select rounded-lg border-gray-300 text-sm">
+                <option value="">Company and branch</option><option value="COMPANY">Whole company</option><option value="BRANCH">Specific branch</option>
+              </select>
+            </label>
+            <label class="text-sm">Period on older uploads
+              <input type="month" id="cud-month" name="month" [(ngModel)]="filters.month" (ngModelChange)="loadDocuments()" class="form-input rounded-lg border-gray-300 text-sm">
+            </label>
+          </div>
+        </details>
       </div>
 
       @if (loading) {
@@ -116,10 +105,10 @@ type ScopeFilter = '' | CrmDocumentScope;
 
       @if (!loading && documents.length === 0) {
 <ui-empty-state
-       
+
         icon="document"
         title="No Documents Found"
-        description="No CRM shared files match the selected filters.">
+        description="No unit documents match the selected filters.">
       </ui-empty-state>
 }
 
@@ -132,7 +121,7 @@ type ScopeFilter = '' | CrmDocumentScope;
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">File</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scope</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
+                @if (hasRecordedMonth) { <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th> }
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Law</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Uploaded</th>
@@ -152,13 +141,16 @@ type ScopeFilter = '' | CrmDocumentScope;
                   </span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ getBranchName(doc.branchId) }}</td>
-                <td class="px-4 py-3 text-sm text-gray-600">{{ doc.month || '—' }}</td>
+                @if (hasRecordedMonth) { <td class="px-4 py-3 text-sm text-gray-600">{{ doc.month || '—' }}</td> }
                 <td class="px-4 py-3 text-sm">
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800">
                     {{ doc.lawCategory }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600">{{ doc.documentType }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ doc.documentType }}
+    @if (doc.registration) { <div data-testid="registration-status" class="text-xs font-medium mt-1">{{ doc.registration.type }}: {{ doc.registration.status.replace('_', ' ') }}<br>Current expiry: {{ doc.registration.expiryDate || 'No expiry' }}</div> }
+    @if (doc.periodFrom || doc.periodTo) { <div class="text-xs text-gray-500">Valid: {{ doc.periodFrom || '—' }} – {{ doc.periodTo || '—' }}</div> }
+  </td>
                 <td class="px-4 py-3 text-sm text-gray-500">{{ doc.createdAt | date:'short' }}</td>
                 <td class="px-4 py-3 text-sm">
                   <button (click)="view(doc)" class="compact-action text-emerald-600 hover:text-emerald-800 font-medium text-sm mr-3" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
@@ -185,7 +177,9 @@ export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
   branches: Array<{ id: string; branchName: string }> = [];
 
   lawCategories = LAW_CATEGORIES;
-  docTypes = DOC_TYPES;
+  uploadDocTypes = ['Registration', 'Licence', 'Renewal', 'Report', 'Certificate', 'Approval', 'Other'];
+  legacyDocTypes = DOC_TYPES.filter(type => !this.uploadDocTypes.includes(type));
+
 
   filters: {
     scope: ScopeFilter;
@@ -202,6 +196,7 @@ export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
   };
 
   constructor(
+    private readonly protectedFiles: ProtectedFileService,
     private readonly api: CrmUnitDocumentsApi,
     private readonly branchService: ClientBranchesService,
     private readonly toast: ToastService,
@@ -232,6 +227,13 @@ export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
         },
       });
   }
+
+  clearFilters(): void {
+    this.filters = { scope: '', month: '', lawCategory: '', documentType: '', branchId: '' };
+    this.loadDocuments();
+  }
+
+  get hasRecordedMonth(): boolean { return this.documents.some(doc => !!doc.month); }
 
   loadDocuments(): void {
     this.loading = true;
@@ -283,13 +285,7 @@ export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
   }
 
   view(doc: CrmUnitDocument): void {
-    this.api.downloadClient(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank', 'noopener');
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      },
-      error: () => this.toast.error('View failed'),
-    });
+    this.protectedFiles.open(this.api.downloadUrl(doc.id, 'client'), doc.fileName)
+      .pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to view document.') });
   }
 }

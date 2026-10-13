@@ -1,31 +1,35 @@
 <div class="page">
   <ui-page-header
-    title="Client Compliance Library"
+    title="Compliance Documents"
     subtitle="Upload compliance reference files for client and branch visibility">
     <ui-client-context-strip [inline]="true"></ui-client-context-strip>
   </ui-page-header>
+  <app-compliance-document-records [crm]="true" [companyId]="clientId"></app-compliance-document-records>
 
+  <a class="inline-block underline mb-4" [routerLink]="['/crm/clients', clientId, 'unit-documents']">Upload registrations, licences, renewals and reports</a>
+  <details class="border rounded-xl p-4 mb-4">
+    <summary class="cursor-pointer font-semibold">Reference files and older uploads</summary>
   <!-- Toggle upload form -->
   <div class="mb-4">
-    <button type="button" class="compact-action btn-upload" (click)="toggleUploadForm()" title="Upload Document" aria-label="Upload Document" data-action-label="Upload Document" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
+    <button type="button" class="compact-action btn-upload" (click)="toggleUploadForm()" title="Upload Reference File" aria-label="Upload Document" data-action-label="Upload Document" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
       </svg>
-      {{ showUploadForm ? 'Cancel' : 'Upload Document' }}
+      {{ showUploadForm ? 'Cancel' : 'Upload Reference File' }}
     </span></button>
   </div>
 
   <!-- Upload form -->
   @if (showUploadForm) {
 <div class="upload-card">
-    <h3 class="text-sm font-semibold text-gray-800 mb-3">Upload New Document</h3>
+    <h3 class="text-sm font-semibold text-gray-800 mb-3">Upload Reference File</h3>
 
     <div class="form-grid">
       <div class="form-group">
         <label for="ccd-category">Category *</label>
         <select id="ccd-category" name="category" class="input-sm" [(ngModel)]="form.category" (ngModelChange)="onCategoryChange()">
           <option value="">Select category</option>
-          @for (c of categories; track c) {
+          @for (c of referenceCategories; track c) {
 <option [value]="c.code">{{ c.label }}</option>
 }
         </select>
@@ -159,8 +163,8 @@
 
   <!-- Documents table -->
   @if (!loading && documents.length > 0) {
-<ui-data-table [enableSearch]="false"
-    [columns]="docColumns" [data]="documents" [loading]="loading"
+<ui-data-table
+    [enableSearch]="false" [allowColumnSelection]="false" [columns]="docColumns" [data]="documents" [loading]="loading"
     emptyMessage="No documents yet.">
     <ng-template uiTableCell="title" let-row>
       <span class="font-medium text-gray-900">{{ row.title }}</span>
@@ -185,9 +189,11 @@
       <span class="text-gray-500 text-xs">{{ row.createdAt | date:'mediumDate' }}</span>
     </ng-template>
     <ng-template uiTableCell="actions" let-row>
-      <a class="compact-action text-brand-600 hover:text-brand-800 text-sm font-medium mr-3" [href]="getDownloadUrl(row.id)" target="_blank" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></a>
+      <button type="button" class="compact-action text-brand-600 hover:text-brand-800 text-sm font-medium mr-3" (click)="openLibraryDocument(row, true)" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+      <button type="button" class="border rounded px-2 py-1" (click)="openLibraryDocument(row)">View</button>
       <span class="text-red-600 hover:text-red-800 text-sm font-medium cursor-pointer" (click)="deleteDoc(row)">Delete</span>
     </ng-template>
   </ui-data-table>
 }
+  </details>
 </div>

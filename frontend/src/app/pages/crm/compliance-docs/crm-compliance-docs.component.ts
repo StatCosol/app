@@ -1,8 +1,10 @@
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
+import { ComplianceDocumentRecordsComponent } from '../../../shared/compliance/compliance-document-records.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
@@ -26,7 +28,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 @Component({
   standalone: true,
   selector: 'app-crm-compliance-docs',
-  imports: [IconComponent,
+  imports: [RouterLink, ComplianceDocumentRecordsComponent, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -94,6 +96,7 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
   branches: BranchDto[] = [];
 
   constructor(
+    private readonly protectedFiles: ProtectedFileService,
     private readonly docsSvc: ComplianceDocumentsService,
     private readonly crmClients: CrmClientsApi,
     private readonly toast: ToastService,
@@ -148,6 +151,8 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
     return this.branches.find((b) => b.id === branchId)?.branchName || 'Branch name unavailable';
   }
 
+  get referenceCategories() { return this.categories.filter(c => !['RETURN', 'LICENSE'].includes(c.code)); }
+
   onCategoryChange() {
     this.form.subCategory = '';
     this.subCategories = [];
@@ -190,6 +195,10 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
   }
 
   upload() {
+    if (this.uploading) return;
+    if (['RETURN', 'LICENSE'].includes(this.form.category)) {
+      this.toast.error('Use Compliance submissions for returns or Unit Documents for licences.'); return;
+    }
     if (!this.selectedFile || !this.form.category || !this.form.title) {
       this.toast.error('Please fill all required fields and select a file');
       return;
@@ -273,6 +282,12 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
           this.toast.error(err?.error?.message || 'Delete failed');
         },
       });
+  }
+
+  openLibraryDocument(doc: ComplianceDocument, download = false) {
+    const url = this.getDownloadUrl(doc.id);
+    const request = download ? this.protectedFiles.download(url, doc.fileName) : this.protectedFiles.open(url, doc.fileName);
+    request.pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to open document.') });
   }
 
   getDownloadUrl(docId: string): string {

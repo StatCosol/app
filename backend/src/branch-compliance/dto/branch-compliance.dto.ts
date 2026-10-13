@@ -1,5 +1,9 @@
+import { Type } from 'class-transformer';
 import {
   IsString,
+  IsIn,
+  IsUUID,
+  ValidateIf,
   IsOptional,
   IsInt,
   IsNotEmpty,
@@ -17,28 +21,36 @@ export class UploadComplianceDocDto {
   @IsNotEmpty()
   returnCode: string;
 
+  @Type(() => Number)
   @IsInt()
   @Min(2020)
   @Max(2050)
   periodYear: number;
 
   @IsString()
-  @IsNotEmpty()
+  @IsIn(['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY'])
   frequency: string; // MONTHLY | QUARTERLY | HALF_YEARLY | YEARLY
 
-  @IsOptional()
+  @ValidateIf((o) => o.frequency === 'MONTHLY' || o.periodMonth !== undefined)
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(12)
   periodMonth?: number;
 
-  @IsOptional()
+  @ValidateIf(
+    (o) => o.frequency === 'QUARTERLY' || o.periodQuarter !== undefined,
+  )
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(4)
   periodQuarter?: number;
 
-  @IsOptional()
+  @ValidateIf(
+    (o) => o.frequency === 'HALF_YEARLY' || o.periodHalf !== undefined,
+  )
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(2)
@@ -47,6 +59,12 @@ export class UploadComplianceDocDto {
   @IsOptional()
   @IsString()
   remarks?: string;
+}
+
+export class CrmUploadComplianceDocDto extends UploadComplianceDocDto {
+  @IsUUID()
+  @IsNotEmpty()
+  companyId: string;
 }
 
 export class MarkNotApplicableDto {
@@ -58,28 +76,36 @@ export class MarkNotApplicableDto {
   @IsNotEmpty()
   returnCode: string;
 
+  @Type(() => Number)
   @IsInt()
   @Min(2020)
   @Max(2050)
   periodYear: number;
 
   @IsString()
-  @IsNotEmpty()
+  @IsIn(['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY'])
   frequency: string;
 
-  @IsOptional()
+  @ValidateIf((o) => o.frequency === 'MONTHLY' || o.periodMonth !== undefined)
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(12)
   periodMonth?: number;
 
-  @IsOptional()
+  @ValidateIf(
+    (o) => o.frequency === 'QUARTERLY' || o.periodQuarter !== undefined,
+  )
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(4)
   periodQuarter?: number;
 
-  @IsOptional()
+  @ValidateIf(
+    (o) => o.frequency === 'HALF_YEARLY' || o.periodHalf !== undefined,
+  )
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(2)
@@ -115,18 +141,22 @@ export class ChecklistQueryDto {
   companyId?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   year?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   month?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   quarter?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   half?: number;
 
@@ -155,10 +185,12 @@ export class ChecklistQueryDto {
   stateCode?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   pageSize?: number;
 }
@@ -226,6 +258,7 @@ export class CreateReturnMasterDto {
   applicableFor?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   dueDay?: number;
 
@@ -283,6 +316,7 @@ export class UpdateReturnMasterDto {
   applicableFor?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   dueDay?: number;
 

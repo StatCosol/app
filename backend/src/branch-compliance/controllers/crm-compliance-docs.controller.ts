@@ -18,7 +18,7 @@ import { BranchComplianceService } from '../branch-compliance.service';
 import {
   ReviewComplianceDocDto,
   ChecklistQueryDto,
-  UploadComplianceDocDto,
+  CrmUploadComplianceDocDto,
 } from '../dto/branch-compliance.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -62,10 +62,10 @@ export class CrmComplianceDocsController {
   )
   uploadOnBehalf(
     @CurrentUser() user: ReqUser,
-    @Body() dto: UploadComplianceDocDto & { companyId: string },
+    @Body() dto: CrmUploadComplianceDocDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    assertSafeFile(file);
+    assertSafeFile(file, true);
     return this.svc.crmUploadOnBehalf(user, dto, {
       originalname: file.originalname,
       buffer: file.buffer,

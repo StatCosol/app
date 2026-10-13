@@ -145,7 +145,39 @@ export class CrmDocumentsService {
 
     const prepared = this.prepareUploadRecord(dto, file, crmUserId, scope);
     try {
-      return await this.docRepo.save(prepared.doc);
+      return (await this.persistUploads([prepared], dto))[0];
+    } catch (err) {
+      this.safeUnlink(prepared.fullPath);
+      throw err;
+    }
+  }
+
+  async uploadForBranch(
+    dto: UploadCrmDocumentDto,
+    file: UploadedFile,
+    userId: string,
+    clientId: string | null,
+    branchIds: string[],
+  ) {
+    if (
+      !clientId ||
+      dto.clientId !== clientId ||
+      !dto.branchId ||
+      !branchIds.includes(dto.branchId)
+    ) {
+      throw new ForbiddenException(
+        'Upload is only allowed for your mapped branch',
+      );
+    }
+    const scope = this.resolveScope(dto);
+    if (scope !== 'BRANCH')
+      throw new ForbiddenException('Branch users must upload to a branch');
+    await this.assertBranchBelongsToClient(dto.branchId, clientId);
+    const prepared = this.prepareUploadRecord(dto, file, userId, scope);
+    prepared.doc.uploadedByRole = 'BRANCH';
+    prepared.doc.actingOnBehalf = false;
+    try {
+      return (await this.persistUploads([prepared], dto))[0];
     } catch (err) {
       this.safeUnlink(prepared.fullPath);
       throw err;
@@ -178,18 +210,135 @@ export class CrmDocumentsService {
         prepared.push(this.prepareUploadRecord(dto, file, crmUserId, scope));
       }
 
-      return await this.docRepo.manager.transaction((manager) =>
-        manager.save(
-          CrmUnitDocumentEntity,
-          prepared.map((item) => item.doc),
-        ),
-      );
+      return await this.persistUploads(prepared, dto);
     } catch (err) {
       for (const item of prepared) {
         this.safeUnlink(item.fullPath);
       }
       throw err;
     }
+  }
+
+  private isRegistration(dto: UploadCrmDocumentDto): boolean {
+    return ['registration', 'licence', 'license', 'renewal'].includes(
+      dto.documentType.toLowerCase(),
+    );
+  }
+
+  async registrationOptions(clientId: string, branchId: string) {
+    await this.assertBranchBelongsToClient(branchId, clientId);
+    return this.docRepo.manager.query(
+      `SELECT id, type, registration_number AS "registrationNumber", expiry_date::text AS "expiryDate"
+       FROM branch_registrations WHERE client_id=$1 AND branch_id=$2 AND status <> 'DELETED' ORDER BY type, registration_number`,
+      [clientId, branchId],
+    );
+  }
+
+  private async persistUploads(
+    prepared: PreparedUpload[],
+    dto: UploadCrmDocumentDto,
+  ) {
+    if (!this.isRegistration(dto)) {
+      return this.docRepo.manager.transaction((manager) =>
+        manager.save(
+          CrmUnitDocumentEntity,
+          prepared.map((p) => p.doc),
+        ),
+      );
+    }
+    if (prepared.length !== 1)
+      throw new BadRequestException(
+        'Upload one registration or renewal file at a time',
+      );
+    return this.docRepo.manager.transaction(async (manager) => {
+      const doc = prepared[0].doc;
+      const fileUrl = '/uploads/' + doc.filePath.replace(/\\/g, '/');
+      let registrationId: string;
+      if (dto.documentType.toLowerCase() === 'renewal') {
+        const [record] = await manager.query(
+          `SELECT id, expiry_date::text AS expiry_date FROM branch_registrations
+           WHERE id=$1 AND client_id=$2 AND branch_id=$3 AND status <> 'DELETED' FOR UPDATE`,
+          [dto.registrationId, dto.clientId, dto.branchId],
+        );
+        if (!record)
+          throw new ForbiddenException(
+            'Registration is not available for this branch',
+          );
+        if (
+          record.expiry_date &&
+          dto.periodTo &&
+          dto.periodTo <= record.expiry_date
+        ) {
+          throw new BadRequestException(
+            'Renewal expiry must be later than the current expiry',
+          );
+        }
+        await manager.query(
+          `UPDATE branch_registrations SET expiry_date=$2, renewal_document_url=$3,
+           renewed_on=NOW(), status=CASE WHEN status='SUSPENDED' THEN status ELSE 'ACTIVE' END, updated_at=NOW() WHERE id=$1`,
+          [record.id, dto.noExpiry === 'true' ? null : dto.periodTo, fileUrl],
+        );
+        registrationId = record.id;
+      } else {
+        const type = dto.registrationType!.trim();
+        const number = dto.registrationNumber?.trim() || null;
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          JSON.stringify([
+            dto.clientId,
+            dto.branchId,
+            type.toLowerCase(),
+            number,
+          ]),
+        ]);
+        const existing = await manager.query(
+          `SELECT id FROM branch_registrations WHERE client_id=$1 AND branch_id=$2
+           AND lower(type)=lower($3) AND registration_number IS NOT DISTINCT FROM $4 AND status <> 'DELETED'`,
+          [dto.clientId, dto.branchId, type, number],
+        );
+        if (existing.length)
+          throw new BadRequestException(
+            'This registration already exists. Select Renewal to update its expiry',
+          );
+        const [created] = await manager.query(
+          `INSERT INTO branch_registrations(client_id,branch_id,type,registration_number,authority,issued_date,expiry_date,document_url,created_by,status)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'ACTIVE') RETURNING id`,
+          [
+            dto.clientId,
+            dto.branchId,
+            type,
+            number,
+            dto.authority?.trim() || null,
+            dto.periodFrom || null,
+            dto.noExpiry === 'true' ? null : dto.periodTo,
+            fileUrl,
+            doc.uploadedBy,
+          ],
+        );
+        registrationId = created.id;
+      }
+      doc.registrationId = registrationId;
+      return manager.save(CrmUnitDocumentEntity, [doc]);
+    });
+  }
+
+  private async withRegistrationStatus(docs: CrmUnitDocumentEntity[]) {
+    const ids = [...new Set(docs.map((d) => d.registrationId).filter(Boolean))];
+    if (!ids.length) return docs;
+    const rows = await this.docRepo.manager.query(
+      `SELECT id, type, expiry_date::text AS "expiryDate", CASE
+         WHEN status='DELETED' THEN 'REMOVED'
+         WHEN expiry_date IS NULL THEN 'NO_EXPIRY'
+         WHEN expiry_date < (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN 'EXPIRED'
+         WHEN expiry_date <= (NOW() AT TIME ZONE 'Asia/Kolkata')::date + INTERVAL '60 days' THEN 'EXPIRING_SOON'
+         ELSE 'ACTIVE' END AS status
+       FROM branch_registrations WHERE id=ANY($1::uuid[])`,
+      [ids],
+    );
+    const byId = new Map(rows.map((r: any) => [r.id, r]));
+    return docs.map((doc) => ({
+      ...doc,
+      registration: byId.get(doc.registrationId) || null,
+    }));
   }
 
   private prepareUploadRecord(
@@ -207,6 +356,50 @@ export class CrmDocumentsService {
       );
     }
 
+    if (dto.periodFrom && dto.periodTo && dto.periodTo < dto.periodFrom) {
+      throw new BadRequestException(
+        'Valid until must be on or after valid from',
+      );
+    }
+    if (this.isRegistration(dto)) {
+      if (scope !== 'BRANCH')
+        throw new BadRequestException(
+          'Select a branch for registration and renewal expiry tracking',
+        );
+      if (!dto.periodTo && dto.noExpiry !== 'true')
+        throw new BadRequestException(
+          'Enter the expiry date or select No expiry',
+        );
+      if (dto.periodTo && dto.noExpiry === 'true')
+        throw new BadRequestException(
+          'Choose an expiry date or No expiry, not both',
+        );
+      if (dto.documentType.toLowerCase() === 'renewal') {
+        if (!dto.registrationId)
+          throw new BadRequestException(
+            'Select the registration being renewed',
+          );
+      } else {
+        if (dto.registrationId)
+          throw new BadRequestException(
+            'Select Renewal to update an existing registration',
+          );
+        if (!dto.registrationType?.trim())
+          throw new BadRequestException(
+            'Enter the registration or licence name',
+          );
+      }
+    } else if (
+      dto.registrationId ||
+      dto.registrationType ||
+      dto.registrationNumber ||
+      dto.authority ||
+      dto.noExpiry === 'true'
+    ) {
+      throw new BadRequestException(
+        'Registration details apply only to registrations, licences and renewals',
+      );
+    }
     // Build path: uploads/crm-documents/{clientId}/{scope}/{branchId|company}/{month}/...
     const monthDir = dto.month || 'no-month';
     const dir = path.join(
@@ -306,7 +499,7 @@ export class CrmDocumentsService {
     }
 
     qb.orderBy('d.createdAt', 'DESC');
-    return qb.getMany();
+    return this.withRegistrationStatus(await qb.getMany());
   }
 
   /* ───────── CRM: delete (soft) ───────── */
@@ -319,6 +512,10 @@ export class CrmDocumentsService {
     // Verify assignment
     await this.assertCrmAssigned(doc.clientId, crmUserId);
 
+    if (doc.registrationId)
+      throw new BadRequestException(
+        'Linked registration evidence must be retained. Upload a renewal to update expiry',
+      );
     doc.deletedAt = new Date();
     doc.deletedBy = crmUserId;
     await this.docRepo.save(doc);
@@ -368,6 +565,8 @@ export class CrmDocumentsService {
       }
     }
 
+    if (!['CRM', 'CLIENT', 'BRANCH_USER'].includes(role))
+      throw new ForbiddenException('Unsupported document role');
     const absolutePath = this.resolveUploadPath(doc.filePath);
     if (!fs.existsSync(absolutePath)) {
       throw new NotFoundException('File not found on disk');
@@ -436,7 +635,7 @@ export class CrmDocumentsService {
     }
 
     qb.orderBy('d.createdAt', 'DESC');
-    return qb.getMany();
+    return this.withRegistrationStatus(await qb.getMany());
   }
 
   /* ───────── Branch user: list ───────── */
@@ -489,6 +688,6 @@ export class CrmDocumentsService {
     }
 
     qb.orderBy('d.createdAt', 'DESC');
-    return qb.getMany();
+    return this.withRegistrationStatus(await qb.getMany());
   }
 }
