@@ -1,8 +1,15 @@
+import { ComplianceDocumentRecordsComponent } from '../../../shared/compliance/compliance-document-records.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BranchComplianceFacade } from '../services/branch-compliance.facade';
+import { BranchComplianceDocService } from '../../../core/branch-compliance-doc.service';
+import { AuthService } from '../../../core/auth.service';
+import { ClientBranchesService } from '../../../core/client-branches.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { DataTableComponent, PageHeaderComponent, TableCellDirective, TableColumn } from '../../../shared/ui';
@@ -10,15 +17,41 @@ import { DataTableComponent, PageHeaderComponent, TableCellDirective, TableColum
 @Component({
   selector: 'app-branch-compliance-docs',
   standalone: true,
-  imports: [IconComponent, CommonModule, FormsModule, DataTableComponent, TableCellDirective, PageHeaderComponent],
+  imports: [ComplianceDocumentRecordsComponent, RouterLink, IconComponent, CommonModule, FormsModule, DataTableComponent, TableCellDirective, PageHeaderComponent],
   templateUrl: './branch-compliance-docs.component.html',
 })
-export class BranchComplianceDocsComponent implements OnInit {
+export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  private checklistRequest?: Subscription;
+  confirming = false;
+  submissionsRevision = 0;
   loading = false;
   uploading = false;
 
   year = new Date().getFullYear();
   month = new Date().getMonth() + 1;
+
+  frequency = 'MONTHLY';
+  quarter = Math.ceil(this.month / 3);
+  half = this.month >= 4 && this.month <= 9 ? 1 : 2;
+  branchId = '';
+  branches: any[] = [];
+
+  get periodLabel(): string {
+    if (this.frequency === 'QUARTERLY') return this.year + ' Q' + this.quarter;
+    if (this.frequency === 'HALF_YEARLY') return this.year + ' H' + this.half;
+    if (this.frequency === 'YEARLY') return String(this.year);
+    return this.monthKey;
+  }
+
+  get periodQuery() {
+    return { branchId: this.branchId, year: this.year, frequency: this.frequency,
+      month: this.frequency === 'MONTHLY' ? this.month : undefined,
+      quarter: this.frequency === 'QUARTERLY' ? this.quarter : undefined,
+      half: this.frequency === 'HALF_YEARLY' ? this.half : undefined };
+  }
+
+  get availableReturns() { return this.checklistRows.filter(r => !r.document?.isLocked); }
 
   get monthKey(): string {
     return `${this.year}-${String(this.month).padStart(2, '0')}`;
@@ -26,80 +59,87 @@ export class BranchComplianceDocsComponent implements OnInit {
 
   kpis: any = null;
   checklistRows: any[] = [];
-  returnMaster: any[] = [];
 
   readonly checklistColumns: TableColumn[] = [
     { key: 'name', header: 'Item' },
     { key: 'category', header: 'Category' },
     { key: 'dueDate', header: 'Due' },
     { key: 'status', header: 'Status' },
-    { key: 'pct', header: '%', align: 'center' },
+    { key: 'actions', header: 'File' },
   ];
 
   // upload meta
-  uploadCategory = '';
-  uploadSubCategory = '';
   uploadReturnCode = '';
   uploadNotes = '';
   selectedFile: File | null = null;
+  fileInput: HTMLInputElement | null = null;
 
   constructor(
-    private facade: BranchComplianceFacade,
+    private docs: BranchComplianceDocService,
+    private auth: AuthService,
+    private branchApi: ClientBranchesService,
+    private files: ProtectedFileService,
     private toast: ToastService,
     private dialog: ConfirmDialogService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
+    this.branchId = this.auth.getBranchIds()[0] || '';
     this.loadAll();
-    this.loadReturnMaster();
+    this.branchApi.list().pipe(takeUntil(this.destroy$)).subscribe({
+      next: rows => {
+        const mapped = this.auth.getBranchIds();
+        this.branches = mapped.length ? rows.filter(b => mapped.includes(b.id)) : rows;
+        this.branchId = this.branches.some(b => b.id === this.branchId) ? this.branchId : (this.branches[0]?.id || '');
+        this.loadAll();
+        this.cdr.markForCheck();
+      },
+      error: () => this.toast.error('Unable to load branch names.'),
+    });
+  }
+
+  ngOnDestroy() {
+    this.checklistRequest?.unsubscribe();
+    this.destroy$.next(); this.destroy$.complete();
   }
 
   loadAll() {
+    this.checklistRequest?.unsubscribe();
+    this.checklistRows = []; this.kpis = null;
+    if (!this.branchId) { this.loading = false; return; }
     this.loading = true;
-
-    this.facade.kpis(this.monthKey).subscribe({
-      next: (res) => (this.kpis = res),
-      error: () => this.toast.error('Failed to load dashboard KPIs.'),
-    });
-
-    this.facade.checklist(this.monthKey).subscribe({
-      next: (res: any) => {
-        this.checklistRows = Array.isArray(res) ? res : (res?.items || []);
+    this.checklistRequest = this.docs.getChecklist(this.periodQuery).pipe(takeUntil(this.destroy$)).subscribe({
+      next: res => {
+        this.checklistRows = res.data || [];
+        if (!this.availableReturns.some(r => r.returnCode === this.uploadReturnCode)) this.uploadReturnCode = '';
+        const uploaded = this.checklistRows.filter(r => !!r.document?.uploadedFileUrl).length;
+        this.kpis = { uploadPct: this.checklistRows.length ? Math.round(uploaded * 100 / this.checklistRows.length) : 0,
+          pending: this.checklistRows.filter(r => !r.document || ['SUBMITTED', 'RESUBMITTED', 'NOT_UPLOADED', 'OVERDUE'].includes(r.document.status)).length,
+          returned: this.checklistRows.filter(r => r.document?.status === 'REUPLOAD_REQUIRED').length,
+          reviewed: this.checklistRows.filter(r => r.document?.status === 'APPROVED').length };
         this.loading = false;
+        this.cdr.markForCheck();
       },
-      error: () => {
-        this.loading = false;
-        this.toast.error('Failed to load checklist. Please try again.');
-      },
+      error: () => { this.loading = false; this.cdr.markForCheck(); this.toast.error('Failed to load checklist.'); },
     });
   }
 
-  onPeriodChange() {
-    this.loadAll();
-  }
+  refresh() { this.submissionsRevision++; this.loadAll(); }
 
-  loadReturnMaster() {
-    this.facade.returnMaster().subscribe({
-      next: (res: any) => (this.returnMaster = Array.isArray(res) ? res : (res?.items || [])),
-      error: () => this.toast.error('Failed to load return master.'),
-    });
+  onPeriodChange() { this.uploadReturnCode = ''; this.loadAll(); }
+
+  openFile(row: any, download = false) {
+    const doc = row.document;
+    if (!doc?.uploadedFileUrl) return;
+    const request = download ? this.files.download(doc.uploadedFileUrl, doc.uploadedFileName)
+      : this.files.open(doc.uploadedFileUrl, doc.uploadedFileName);
+    request.pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to open document.') });
   }
 
   onFileChange(e: any) {
+    this.fileInput = e.target;
     this.selectedFile = e?.target?.files?.[0] || null;
-  }
-
-  /* ═══════ Defensive camelCase / snake_case helpers ═══════ */
-
-  private pick<T = any>(row: any, ...keys: string[]): T | undefined {
-    for (const k of keys) {
-      if (row && row[k] !== undefined && row[k] !== null) return row[k];
-    }
-    return undefined;
-  }
-
-  getPct(row: any, camel: string, snake: string): number {
-    return Number(this.pick(row, camel, snake) || 0);
   }
 
   clampPct(pct: number): number {
@@ -123,35 +163,47 @@ export class BranchComplianceDocsComponent implements OnInit {
   }
 
   async upload() {
+    if (this.uploading || this.confirming || this.loading) return;
+    if (!this.branchId || !this.uploadReturnCode || !this.availableReturns.some(r => r.returnCode === this.uploadReturnCode)) {
+      this.toast.error('Please select a branch and a return for this frequency.');
+      return;
+    }
     if (!this.selectedFile) {
       this.toast.error('Please choose a file to upload.');
       return;
     }
 
-    const ok = await this.dialog.confirm('Upload Document', `Upload document for ${this.monthKey}?`);
+    const fd = new FormData();
+    fd.append('file', this.selectedFile);
+    fd.append('branchId', this.branchId);
+    fd.append('returnCode', this.uploadReturnCode);
+    fd.append('frequency', this.frequency);
+    fd.append('periodYear', String(this.year));
+    if (this.frequency === 'MONTHLY') fd.append('periodMonth', String(this.month));
+    if (this.frequency === 'QUARTERLY') fd.append('periodQuarter', String(this.quarter));
+    if (this.frequency === 'HALF_YEARLY') fd.append('periodHalf', String(this.half));
+    if (this.uploadNotes.trim()) fd.append('remarks', this.uploadNotes.trim());
+
+    this.confirming = true;
+    let ok = false;
+    try { ok = await this.dialog.confirm('Upload Document', 'Upload document for ' + this.periodLabel + '?'); }
+    finally { this.confirming = false; this.cdr.markForCheck(); }
     if (!ok) return;
-
     this.uploading = true;
-
-    const meta: Record<string, any> = {
-      monthKey: this.monthKey,
-      category: this.uploadCategory || undefined,
-      subCategory: this.uploadSubCategory || undefined,
-      returnCode: this.uploadReturnCode || undefined,
-      notes: this.uploadNotes?.trim() || undefined,
-    };
-
-    this.facade.upload(this.selectedFile, meta).subscribe({
+    this.docs.uploadDocument(fd).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
-        this.uploading = false;
+        this.uploading = false; this.cdr.markForCheck();
         this.toast.success('Uploaded successfully.');
+        this.submissionsRevision++;
         this.selectedFile = null;
+        if (this.fileInput) this.fileInput.value = '';
         this.uploadNotes = '';
         this.loadAll();
       },
-      error: () => {
-        this.uploading = false;
-        this.toast.error('Upload failed. Please try again.');
+      error: err => {
+        this.uploading = false; this.cdr.markForCheck();
+        const message = err?.error?.message;
+        this.toast.error(Array.isArray(message) ? message.join(' ') : (message || 'Upload failed. Please try again.'));
       },
     });
   }

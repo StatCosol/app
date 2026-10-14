@@ -150,10 +150,18 @@ export function makeSafeUploadOptions(opts: SafeUploadOptions = {}) {
  *
  * Throws BadRequestException on mismatch.
  */
-export function assertSafeFile(file: Express.Multer.File | undefined): void {
+export function assertSafeFile(
+  file: Express.Multer.File | undefined,
+  requireKnownSignature = false,
+): void {
   if (!file) throw new BadRequestException('File is required');
   // Magic bytes are only available when buffer is present (memoryStorage).
-  validateUploadedFile(file.originalname, file.buffer);
+  validateUploadedFile(
+    file.originalname,
+    file.buffer,
+    undefined,
+    requireKnownSignature,
+  );
 }
 
 /**

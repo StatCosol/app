@@ -1,3 +1,5 @@
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
+import { ComplianceDocumentRecordsComponent } from '../../../shared/compliance/compliance-document-records.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -22,7 +24,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   standalone: true,
   selector: 'app-client-compliance-library',
-  imports: [IconComponent,
+  imports: [ComplianceDocumentRecordsComponent, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -75,6 +77,7 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
   ];
 
   constructor(
+    private readonly protectedFiles: ProtectedFileService,
     private readonly docsSvc: ComplianceDocumentsService,
     private readonly complianceSvc: ClientComplianceService,
     private readonly auth: AuthService,
@@ -197,6 +200,12 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         },
       });
+  }
+
+  openLibraryDocument(doc: ComplianceDocument, download = false) {
+    const url = this.getDownloadUrl(doc.id);
+    const request = download ? this.protectedFiles.download(url, doc.fileName) : this.protectedFiles.open(url, doc.fileName);
+    request.pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to open document.') });
   }
 
   getDownloadUrl(docId: string): string {

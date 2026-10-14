@@ -1,5 +1,23 @@
-import { Controller, Get, Param, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  ParseUUIDPipe,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UploadCrmDocumentDto } from '../dto/upload-crm-document.dto';
+import {
+  assertSafeFile,
+  makeSafeUploadOptions,
+} from '../../common/safe-upload';
 import { Roles } from '../../auth/roles.decorator';
 import { BranchAccessService } from '../../auth/branch-access.service';
 import { CrmDocumentsService } from '../crm-documents.service';
@@ -16,14 +34,65 @@ import { ReqUser } from '../../access/access-scope.service';
 @ApiTags('CRM Documents')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'branch/unit-documents', version: '1' })
-@Roles('CLIENT')
+@Roles('CLIENT', 'BRANCH', 'BRANCH_DESK')
 export class BranchUnitDocumentsController {
   constructor(
     private readonly svc: CrmDocumentsService,
     private readonly branchAccess: BranchAccessService,
   ) {}
 
-  /** List CRM-uploaded docs for my unit(s) */
+  @Get('registrations')
+  async registrations(
+    @CurrentUser() user: ReqUser,
+    @Query('branchId', ParseUUIDPipe) branchId: string,
+  ) {
+    const branches = await this.branchAccess.getUserBranchIds(
+      user.userId ?? user.id,
+    );
+    if (!user.clientId || !branches.includes(branchId))
+      throw new ForbiddenException('Branch not in scope');
+    return this.svc.registrationOptions(user.clientId, branchId);
+  }
+
+  @Post('upload')
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      makeSafeUploadOptions({
+        memory: true,
+        maxMb: 10,
+        allowedMimes: [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/zip',
+          'application/x-zip-compressed',
+        ],
+      }),
+    ),
+  )
+  async upload(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: UploadCrmDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    assertSafeFile(file, true);
+    const branchIds = await this.branchAccess.getUserBranchIds(
+      user.userId ?? user.id,
+    );
+    return this.svc.uploadForBranch(
+      dto,
+      file,
+      user.userId ?? user.id,
+      user.clientId,
+      branchIds,
+    );
+  }
+
+  /** List shared unit documents for my unit(s) */
   @ApiOperation({ summary: 'List' })
   @Get()
   async list(

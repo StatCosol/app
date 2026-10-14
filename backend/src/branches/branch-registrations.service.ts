@@ -82,8 +82,8 @@ export class BranchRegistrationsService {
         r.type,
         r.registration_number  AS "registrationNumber",
         r.authority,
-        r.issued_date          AS "issuedDate",
-        r.expiry_date          AS "expiryDate",
+        r.issued_date::text    AS "issuedDate",
+        r.expiry_date::text    AS "expiryDate",
         r.licensed_worker_limit AS "licensedWorkerLimit",
         (r.expiry_date - 30)::text AS "renewalDueDate",
         r.document_path        AS "documentPath",
@@ -245,11 +245,13 @@ export class BranchRegistrationsService {
    * Get registration summary for a branch (or all branches of a client).
    * Used by dashboards.
    */
-  async getRegistrationSummary(clientId: string, branchId?: string) {
+  async getRegistrationSummary(clientId: string, branchId?: string | string[]) {
     const params: unknown[] = [clientId];
     let branchFilter = '';
     if (branchId) {
-      branchFilter = 'AND r.branch_id = $2';
+      branchFilter = Array.isArray(branchId)
+        ? 'AND r.branch_id = ANY($2::uuid[])'
+        : 'AND r.branch_id = $2';
       params.push(branchId);
     }
 
@@ -291,12 +293,14 @@ export class BranchRegistrationsService {
    */
   async calculateRegistrationScore(
     clientId: string,
-    branchId?: string,
+    branchId?: string | string[],
   ): Promise<number> {
     const params: unknown[] = [clientId];
     let branchFilter = '';
     if (branchId) {
-      branchFilter = 'AND r.branch_id = $2';
+      branchFilter = Array.isArray(branchId)
+        ? 'AND r.branch_id = ANY($2::uuid[])'
+        : 'AND r.branch_id = $2';
       params.push(branchId);
     }
 
@@ -333,7 +337,7 @@ export class BranchRegistrationsService {
    */
   async getAlerts(
     clientId: string,
-    branchId?: string,
+    branchId?: string | string[],
     limit = 50,
     allowedBranchIds?: string[],
   ) {
@@ -341,7 +345,9 @@ export class BranchRegistrationsService {
     const params: unknown[] = [clientId, limit];
     let branchFilter = '';
     if (branchId) {
-      branchFilter = 'AND a.branch_id = $3';
+      branchFilter = Array.isArray(branchId)
+        ? 'AND a.branch_id = ANY($3::uuid[])'
+        : 'AND a.branch_id = $3';
       params.push(branchId);
     }
     if (allowedBranchIds) {
@@ -349,12 +355,26 @@ export class BranchRegistrationsService {
       branchFilter += ` AND a.branch_id = ANY($${params.length}::uuid[])`;
     }
     return this.dataSource.query(
-      `SELECT a.id,
-      a.registration_id AS "registrationId", a.branch_id AS "branchId",
-      a.alert_type AS "alertType", a.priority, a.title, a.message,
-      a.is_read AS "isRead", a.created_at AS "createdAt"
-      FROM registration_alerts a WHERE a.client_id=$1 ${branchFilter}
-      ORDER BY a.created_at DESC LIMIT $2`,
+      `
+      SELECT
+        a.id,
+        a.registration_id AS "registrationId",
+        a.branch_id       AS "branchId",
+        a.alert_type       AS "alertType",
+        a.priority,
+        a.title,
+        a.message,
+        a.is_read          AS "isRead",
+        a.created_at       AS "createdAt"
+      FROM registration_alerts a
+      JOIN branch_registrations r ON r.id=a.registration_id AND r.client_id=a.client_id AND r.branch_id=a.branch_id
+      WHERE a.client_id = $1
+        AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
+        AND (r.renewed_on IS NULL OR a.created_at >= r.renewed_on)
+        ${branchFilter}
+      ORDER BY a.created_at DESC
+      LIMIT $2
+    `,
       params,
     );
   }

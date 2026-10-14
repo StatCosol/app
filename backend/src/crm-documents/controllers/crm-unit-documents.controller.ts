@@ -35,6 +35,16 @@ import {
 export class CrmUnitDocumentsController {
   constructor(private readonly svc: CrmDocumentsService) {}
 
+  @Get('registrations')
+  async registrations(
+    @CurrentUser() user: ReqUser,
+    @Query('clientId', ParseUUIDPipe) clientId: string,
+    @Query('branchId', ParseUUIDPipe) branchId: string,
+  ) {
+    await this.svc.assertCrmAssigned(clientId, user.id);
+    return this.svc.registrationOptions(clientId, branchId);
+  }
+
   /** Upload a document for a unit */
   @ApiOperation({ summary: 'File Interceptor' })
   @Post('upload')
@@ -65,7 +75,7 @@ export class CrmUnitDocumentsController {
     @CurrentUser() user: ReqUser,
   ) {
     files = files || [];
-    files.forEach((file) => assertSafeFile(file));
+    files.forEach((file) => assertSafeFile(file, true));
     const docs = await this.svc.uploadMany(dto, files, user.id);
     return {
       count: docs.length,

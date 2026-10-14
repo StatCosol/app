@@ -180,7 +180,11 @@ export class ClientBranchDocumentsController {
   @ApiOperation({ summary: 'Client Registration Summary' })
   @Get('registration-summary')
   async clientRegistrationSummary(@CurrentUser() user: ReqUser) {
-    return this.regSvc.getRegistrationSummary(user.clientId!);
+    const branchIds =
+      user.userType === 'BRANCH'
+        ? await this.branchAccess.getUserBranchIds(user.userId)
+        : undefined;
+    return this.regSvc.getRegistrationSummary(user.clientId!, branchIds);
   }
 
   /** GET /api/v1/client/branches/registration-alerts — in-app alerts */

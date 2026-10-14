@@ -72,6 +72,8 @@ jobs:
           AUTOMATION_TEST_DATABASE: statcompy_ci
         run: |
           npm run build
+          node scripts/validate-route-contracts.cjs
+          node scripts/document-flow-integration.cjs
           node scripts/validate-client-branch-db.cjs
           node scripts/validate-critical-workflows-db.cjs
           node scripts/validate-module-gap-db.cjs

@@ -281,18 +281,18 @@
             <label class="block text-xs font-medium text-gray-700 mb-1">Return *</label>
             <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.returnCode" name="compReturn">
               <option value="">Select Return</option>
-              @for (r of complianceReturnMaster; track r) {
+              @for (r of availableComplianceReturns; track r) {
 <option [value]="r.returnCode">{{ r.returnName || r.returnCode }}</option>
 }
             </select>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Frequency</label>
-            <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.frequency" name="compFreq">
+            <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.frequency" (ngModelChange)="onComplianceFrequencyChange()" name="compFreq">
               <option value="MONTHLY">Monthly</option>
               <option value="QUARTERLY">Quarterly</option>
               <option value="HALF_YEARLY">Half Yearly</option>
-              <option value="ANNUAL">Annual</option>
+              <option value="YEARLY">Yearly</option>
             </select>
           </div>
           <div>
@@ -321,7 +321,7 @@
 <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Half</label>
             <select class="w-full text-sm rounded-md border-gray-300" [(ngModel)]="compUploadForm.periodHalf" name="compHalf">
-              <option [ngValue]="1">H1</option><option [ngValue]="2">H2</option>
+              <option [ngValue]="1">H1 (Apr–Sep)</option><option [ngValue]="2">H2 (Oct–Mar)</option>
             </select>
           </div>
 }
@@ -364,6 +364,7 @@
                 {{ cd.periodYear }}@if (cd.periodMonth) {
 <span>-{{ cd.periodMonth | number:'2.0-0' }}</span>
 }
+                @if (cd.periodHalf) { <span> H{{ cd.periodHalf }}</span> }
                 @if (cd.periodQuarter) {
 <span> Q{{ cd.periodQuarter }}</span>
 }
@@ -398,10 +399,11 @@
               </td>
               <td class="px-3 py-3 text-xs">
                 @if (cd.uploadedFileUrl) {
-<a [href]="'/' + cd.uploadedFileUrl" target="_blank"
+<button type="button" (click)="openFile(cd.uploadedFileUrl, cd.uploadedFileName)"
                    class="text-brand-600 hover:underline truncate block max-w-[150px]" [title]="cd.uploadedFileName">
                   {{ cd.uploadedFileName || 'View' }}
-                </a>
+                </button>
+                <button type="button" class="border rounded px-2 py-1 mt-1" (click)="openFile(cd.uploadedFileUrl, cd.uploadedFileName, 'download')">Download</button>
 }
                 @if (!cd.uploadedFileUrl) {
 <span class="text-gray-400">—</span>

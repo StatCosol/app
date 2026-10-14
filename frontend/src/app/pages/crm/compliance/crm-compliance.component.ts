@@ -439,12 +439,28 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     this.complianceUploadFile = input.files?.[0] || null;
   }
 
+  get availableComplianceReturns(): any[] {
+    return this.complianceReturnMaster.filter(r => r.frequency === this.compUploadForm.frequency);
+  }
+
+  onComplianceFrequencyChange(): void {
+    this.compUploadForm.returnCode = '';
+    this.compUploadForm.periodQuarter = this.compUploadForm.periodQuarter || 1;
+    this.compUploadForm.periodHalf = this.compUploadForm.periodHalf || 1;
+  }
+
   submitComplianceUpload(): void {
     const f = this.compUploadForm;
     if (!f.branchId || !f.returnCode || !f.periodYear || !this.complianceUploadFile) {
       this.toast.error('Branch, Return, Period Year, and File are required.');
       return;
     }
+    if (this.complianceUploading) return;
+    if (!this.availableComplianceReturns.some(r => r.returnCode === f.returnCode)) {
+      this.toast.error('Select a return for this frequency.'); return;
+    }
+    const companyId = this.docFilters.clientId || this.routeClientId;
+    if (!companyId) { this.toast.error('Select a client before uploading.'); return; }
     const fd = new FormData();
     fd.append('file', this.complianceUploadFile);
     fd.append('companyId', this.docFilters.clientId || this.routeClientId);

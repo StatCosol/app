@@ -43,6 +43,7 @@ export function validateUploadedFile(
   originalname: string,
   buffer?: Buffer,
   allowedExts?: Set<string>,
+  requireKnownSignature = false,
 ): void {
   const ext = getExtension(originalname);
   const whitelist = allowedExts ?? ALLOWED_EXTENSIONS;
@@ -51,6 +52,21 @@ export function validateUploadedFile(
     throw new BadRequestException(
       `File extension "${ext}" is not allowed. Allowed: ${[...whitelist].join(', ')}`,
     );
+  }
+
+  if (requireKnownSignature) {
+    const signatures = MAGIC_BYTES.filter((m) => m.exts.includes(ext));
+    const matches =
+      buffer &&
+      signatures.some((m) => m.bytes.every((b, i) => buffer[i] === b));
+    const emptyZip =
+      ext === '.zip' &&
+      buffer &&
+      [0x50, 0x4b, 0x05, 0x06].every((b, i) => buffer[i] === b);
+    if (!matches && !emptyZip)
+      throw new BadRequestException(
+        'File content does not match the document type',
+      );
   }
 
   // Magic-byte validation (only if a buffer is available)

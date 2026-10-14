@@ -41,7 +41,7 @@ function parseMonthKey(monthKey?: string): { year?: number; month?: number } {
 @ApiBearerAuth('JWT')
 @Controller({ path: 'branch/compliance-docs', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('CLIENT', 'BRANCH')
+@Roles('CLIENT', 'BRANCH', 'BRANCH_DESK')
 export class BranchComplianceDocsController {
   constructor(private readonly svc: BranchComplianceService) {}
 
@@ -68,7 +68,7 @@ export class BranchComplianceDocsController {
     @Body() dto: UploadComplianceDocDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    assertSafeFile(file);
+    assertSafeFile(file, true);
     return this.svc.uploadDocument(user, dto, file);
   }
 

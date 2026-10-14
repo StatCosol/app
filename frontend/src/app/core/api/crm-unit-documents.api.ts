@@ -6,6 +6,8 @@ import { environment } from '../../../environments/environment';
 export type CrmDocumentScope = 'COMPANY' | 'BRANCH';
 
 export interface CrmUnitDocument {
+  registrationId?: string | null;
+  registration?: {id: string; type: string; expiryDate: string | null; status: string} | null;
   id: string;
   clientId: string;
   scope: CrmDocumentScope;
@@ -31,6 +33,10 @@ export class CrmUnitDocumentsApi {
 
   constructor(private http: HttpClient) {}
 
+  registrationOptions(portal: 'branch' | 'crm', clientId: string, branchId: string): Observable<Array<{id: string; type: string; registrationNumber: string | null; expiryDate: string | null}>> {
+    return this.http.get<any[]>(this.base + '/' + portal + '/unit-documents/registrations', {params: {clientId, branchId}});
+  }
+
   /* ── CRM endpoints ── */
 
   uploadDocument(formData: FormData): Observable<{ count: number; documents: Array<{ id: string; fileName: string; createdAt: string }> }> {
@@ -53,6 +59,10 @@ export class CrmUnitDocumentsApi {
     if (filters.lawCategory) params = params.set('lawCategory', filters.lawCategory);
     if (filters.documentType) params = params.set('documentType', filters.documentType);
     return this.http.get<CrmUnitDocument[]>(`${this.base}/crm/unit-documents`, { params });
+  }
+
+  downloadUrl(docId: string, portal: 'branch' | 'client' | 'crm'): string {
+    return this.base + '/' + portal + '/unit-documents/' + encodeURIComponent(docId) + '/download';
   }
 
   downloadCrm(docId: string): Observable<Blob> {
@@ -86,6 +96,10 @@ export class CrmUnitDocumentsApi {
   }
 
   /* ── Branch endpoints ── */
+
+  uploadForBranch(formData: FormData): Observable<CrmUnitDocument> {
+    return this.http.post<CrmUnitDocument>(this.base + '/branch/unit-documents/upload', formData);
+  }
 
   listForBranch(filters: {
     scope?: CrmDocumentScope;
