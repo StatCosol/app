@@ -183,6 +183,8 @@ jobs:
         working-directory: .
       - name: Unit tests (Vitest service specs)
         run: npm run test:unit
+      - name: Intern enrollment and branch view regressions
+        run: npx vitest run --config vitest.interns.config.ts
       - name: Install Chromium for browser tests
         # ubuntu-latest already includes Chromium's runtime libraries. Avoid
         # `--with-deps`, which can hang indefinitely when the Azure apt mirror

@@ -18,6 +18,30 @@ function makeService() {
 }
 
 describe('FaceDeskEnrollmentService enrolled roster', () => {
+  it.each(['getPendingEmployees', 'getEnrolledEmployees'] as const)(
+    'filters intern enrollment without expanding branch scope: %s',
+    async (method) => {
+      const { service, dataSource } = makeService();
+      await service[method]('client-1', ['branch-1'], 'EMPLOYEE', 'INTERN');
+      const [sql, params] = dataSource.query.mock.calls[0];
+      expect(sql).toContain('FROM employees e');
+      expect(sql).toContain('e.branch_id = ANY($2::uuid[])');
+      expect(sql).toContain('e.payroll_category = $4');
+      expect(sql).toContain('p.subject_type = $3');
+      expect(params).toEqual(['client-1', ['branch-1'], 'EMPLOYEE', 'INTERN']);
+    },
+  );
+  it.each(['getPendingEmployees', 'getEnrolledEmployees'] as const)(
+    'rejects intern filtering on the contractor roster: %s',
+    async (method) => {
+      const { service, dataSource } = makeService();
+      await expect(
+        service[method]('client-1', null, 'CONTRACTOR', 'INTERN'),
+      ).rejects.toThrow('employee subjects');
+      expect(dataSource.query).not.toHaveBeenCalled();
+    },
+  );
+
   it('returns no pending rows for a branch user with no assigned branches', async () => {
     const { service, dataSource } = makeService();
 

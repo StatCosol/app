@@ -999,6 +999,29 @@ export class ClientPayrollMonitoringController {
 
   @ApiOperation({
     summary:
+      'Download stipend receipt for an approved, published intern payroll run',
+  })
+  @Get('stipend-receipt')
+  async stipendReceipt(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayslipDownloadQueryDto,
+    @Res() res: Response,
+  ) {
+    const out = await this.documents.downloadStipendReceipt(
+      user,
+      q.runId,
+      q.employeeCode,
+    );
+    res.setHeader('Content-Type', out.fileType);
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="' + out.fileName + '"',
+    );
+    res.end(out.buffer);
+  }
+
+  @ApiOperation({
+    summary:
       'Download published payslips for the selected month, limited to authorized branches',
   })
   @Get('payslips/pack')

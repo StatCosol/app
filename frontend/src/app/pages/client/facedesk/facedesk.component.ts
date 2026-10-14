@@ -67,16 +67,17 @@ type Tab =
   template: `
     <div class="page">
       <ui-page-header
-        [title]="'Kiosk Attendance — ' + modeLabel"
+        [title]="internOnly ? 'Intern FaceDesk Enrollment' : 'Kiosk Attendance — ' + modeLabel"
         [description]="modeDescription">
       </ui-page-header>
 
       <div class="tab-bar">
-        @if (!branchMode) {
+        @if (!branchMode && !internOnly) {
           <button class="tab-btn" [class.active]="tab === 'dashboard'" (click)="switch('dashboard')">Dashboard</button>
           <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switch('devices')">Devices</button>
         }
         <button class="tab-btn" [class.active]="tab === 'pending'" (click)="switch('pending')">Enrollment</button>
+        @if (!internOnly) {
         <button class="tab-btn" [class.active]="tab === 'duplicates'" (click)="switch('duplicates')">
           Duplicate Alerts
           @if (cards && cards.duplicateAlertsPending > 0) {
@@ -104,6 +105,7 @@ type Tab =
         @if (!branchMode) {
           <button class="tab-btn" [class.active]="tab === 'reports'" (click)="switch('reports')">Reports</button>
           <button class="tab-btn" [class.active]="tab === 'settings'" (click)="switch('settings')">Settings</button>
+        }
         }
         @if (['pending', 'duplicates', 'review', 'capture-audit', 'short-days'].includes(tab)) {
           <div class="tab-search">
@@ -227,12 +229,14 @@ type Tab =
               <option value="ENROLLED">Enrolled</option>
             </select>
           </label>
+          @if (!internOnly) {
           <label class="text-sm">Enroll
             <select [(ngModel)]="enrollSubjectType" (ngModelChange)="onSubjectTypeChange()" class="inp">
               <option value="EMPLOYEE">Employees</option>
               <option value="CONTRACTOR">Contractors</option>
             </select>
           </label>
+          } @else { <span class="text-sm font-semibold">Interns</span> }
           <label class="text-sm">Kiosk device
             <select [(ngModel)]="enrollDeviceId" class="inp">
               <option value="">— select device —</option>
@@ -303,12 +307,14 @@ type Tab =
         </table></div>
 }
 
-        @if (branchMode) {
+        @if (branchMode && (!internOnly || enrollmentView === 'ENROLLED')) {
           <div class="pin-box" style="margin-top:1rem;">
             <h4>Set employee attendance PIN</h4>
             <p class="text-xs text-gray-500">After an employee is enrolled, enter their code and generate a PIN. Shown once — note it and hand it to the employee.</p>
             <div class="pin-row">
-              <input class="inp" placeholder="Employee code" [(ngModel)]="pinCode">
+              @if (internOnly) {
+                <select class="inp" [(ngModel)]="pinCode" aria-label="Enrolled intern for PIN"><option value="">Select enrolled intern</option>@for (person of enrolled; track person.employeeId) { <option [value]="person.employeeCode">{{ person.name || person.employeeName }} · {{ person.employeeCode }}</option> }</select>
+              } @else { <input class="inp" placeholder="Employee code" [(ngModel)]="pinCode"> }
               <button class="compact-action btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()" title="Generate PIN" aria-label="Generate PIN" data-action-label="Generate PIN" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
                 {{ pinBusy ? 'Generating…' : 'Generate PIN' }}
               </span></button>
@@ -682,6 +688,14 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
    * endpoint to the caller's branch, so the data is branch-limited regardless.
    */
   @Input() branchMode = false;
+  @Input() internOnly = false;
+  @Input() enrollmentBranchId = '';
+
+  ngOnChanges(changes: any): void {
+    if (changes.enrollmentBranchId && !changes.enrollmentBranchId.firstChange) {
+      this.stopEnrollPolling(); this.enrollDeviceId = ''; this.pinCode = ''; this.lastPin = null; this.pending = []; this.enrolled = []; this.loadEnrollmentRows();
+    }
+  }
 
   tab: Tab = 'dashboard';
   loading = false;
@@ -762,8 +776,8 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
     const subjectType = this.enrollSubjectType;
     const rows$ =
       view === 'ENROLLED'
-        ? this.svc.enrolledEmployees(subjectType)
-        : this.svc.pendingEnrollment(subjectType);
+        ? this.internOnly ? this.svc.enrolledEmployees('EMPLOYEE', 'INTERN') : this.svc.enrolledEmployees(subjectType)
+        : this.internOnly ? this.svc.pendingEnrollment('EMPLOYEE', 'INTERN') : this.svc.pendingEnrollment(subjectType);
 
     // Background polls must not flash the spinner or steal focus — the operator
     // is mid-enrollment and the list refreshing under them should be invisible
@@ -781,6 +795,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           if (seq !== this.enrollmentLoadSeq) return;
+          rows = this.enrollmentBranchId ? rows.filter(r => r.branchId === this.enrollmentBranchId) : rows;
           if (view === 'ENROLLED') {
             this.enrolled = rows;
           } else {
@@ -882,6 +897,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
       next: (s) => (this.settings = this.settings ?? s),
       error: () => undefined,
     });
+    if (this.internOnly) { this.enrollSubjectType = 'EMPLOYEE'; this.switch('pending'); return; }
     const requestedTab = this.route.snapshot.queryParamMap.get('tab');
     if (requestedTab === 'review') {
       this.tab = 'review';
@@ -1138,6 +1154,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
   generatePin(): void {
     const code = this.pinCode.trim();
     if (!code) return;
+    if (this.internOnly && !this.enrolled.some(person => person.employeeCode === code)) { this.toast.error('Select an enrolled intern from this branch'); return; }
     this.pinBusy = true;
     this.lastPin = null;
     this.svc.setAttendancePin(code).subscribe({
@@ -1204,7 +1221,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
 
   /** Only non-revoked devices can receive an enrollment ticket. */
   get activeDevices(): FaceDeskDevice[] {
-    return this.deviceList.filter((d) => d.deviceStatus !== 'REVOKED');
+    return this.deviceList.filter((d) => d.deviceStatus !== 'REVOKED' && (!this.enrollmentBranchId || d.branchId === this.enrollmentBranchId));
   }
 
   /** True when a kiosk is selected and still active (not revoked/removed). */
@@ -1213,6 +1230,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
   }
 
   async enroll(r: PendingEnrollmentRow): Promise<void> {
+    if (this.internOnly && ![...this.pending, ...this.enrolled].some(e => e.employeeId === r.employeeId)) return;
     if (!this.enrollDeviceId) { this.toast.error('Select a kiosk device first'); return; }
     const empId = r.employeeId;
     if (!empId) return;
@@ -1240,7 +1258,7 @@ export class FaceDeskComponent implements OnInit, OnDestroy {
     );
     if (!ok) return;
     this.enrollingId = empId;
-    this.svc.createEnrollTicket(empId, this.enrollDeviceId, this.enrollSubjectType).subscribe({
+    this.svc.createEnrollTicket(empId, this.enrollDeviceId, this.internOnly ? 'EMPLOYEE' : this.enrollSubjectType).subscribe({
       next: () => {
         this.enrollingId = null;
         this.toast.success('Sent to kiosk — ask the employee to face the camera');

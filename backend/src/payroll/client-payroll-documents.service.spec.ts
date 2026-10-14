@@ -153,6 +153,50 @@ describe('ClientPayrollDocumentsService downloads', () => {
     };
   }
 
+  it('generates a stipend receipt from approved published intern payroll', async () => {
+    const state = ready();
+    state.run = {
+      ...state.run,
+      payrollCategory: 'INTERN',
+      periodYear: 2026,
+      periodMonth: 10,
+    } as any;
+    state.employee = {
+      ...state.employee,
+      employeeName: 'Sample Intern',
+      daysPresent: 20,
+      lopDays: 0,
+      grossEarnings: '12000',
+      totalDeductions: '0',
+      netPay: '12000',
+    } as any;
+    const result = await serviceWith(state).downloadStipendReceipt(
+      user(),
+      'run-1',
+      'A1',
+    );
+    expect(result.buffer.subarray(0, 4).toString()).toBe('%PDF');
+    expect(result.fileName).toBe('Stipend_Receipt.pdf');
+  });
+  it('rejects receipts from regular payroll and unauthorized branches', async () => {
+    await expect(
+      serviceWith(ready()).downloadStipendReceipt(user(), 'run-1', 'A1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const state = ready({
+      run: {
+        id: 'run-1',
+        clientId,
+        status: 'APPROVED',
+        payrollCategory: 'INTERN',
+        branchId: branchB,
+      },
+      employee: { clientId, employeeCode: 'B1', branchId: branchB },
+    });
+    await expect(
+      serviceWith(state).downloadStipendReceipt(user(), 'run-1', 'B1'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it.each(['MASTER', 'BRANCH'])(
     'returns the published payslip bytes for %s',
     async (userType) => {

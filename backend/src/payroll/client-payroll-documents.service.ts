@@ -1,3 +1,9 @@
+import {
+  createDoc,
+  header,
+  addPageNumbers,
+  toBuffer,
+} from '../common/utils/pdf-helpers';
 import * as fs from 'fs';
 import archiver from 'archiver';
 import {
@@ -164,6 +170,53 @@ export class ClientPayrollDocumentsService {
           ? options.resolveStoredPath(archive.filePath)
           : archive.filePath,
       ),
+    };
+  }
+
+  async downloadStipendReceipt(
+    user: ReqUser,
+    runId: string,
+    employeeCode: string,
+  ) {
+    // Use the published-payslip checks for client, branch, approval and payroll access.
+    await this.downloadPayslip(user, runId, employeeCode);
+    const run = await this.runRepo.findOne({ where: { id: runId } });
+    const emp = await this.runEmployeeRepo.findOne({
+      where: { runId, employeeCode: employeeCode.trim() },
+    });
+    if (!run || run.payrollCategory !== 'INTERN' || !emp)
+      throw new BadRequestException('Select an approved intern payroll run');
+    const doc = createDoc();
+    header(
+      doc,
+      'Stipend Receipt',
+      'Payroll month: ' +
+        run.periodYear +
+        '-' +
+        String(run.periodMonth).padStart(2, '0'),
+    );
+    doc.fontSize(11).fillColor('#1e293b');
+    for (const line of [
+      'Intern: ' + emp.employeeName + ' (' + emp.employeeCode + ')',
+      'Attendance days: ' +
+        emp.daysPresent +
+        ' | Loss of pay days: ' +
+        emp.lopDays,
+      'Stipend earned: INR ' + Number(emp.grossEarnings).toFixed(2),
+      'Deductions: INR ' + Number(emp.totalDeductions).toFixed(2),
+      'Net stipend: INR ' + Number(emp.netPay).toFixed(2),
+      'Payment date: ____________________',
+      'Payment mode / reference: ____________________',
+      'I acknowledge receipt of the net stipend stated above.',
+      'Intern signature: ____________________    Date: __________',
+      'Prepared from approved payroll. Receipt is acknowledged when signed by the intern.',
+    ])
+      doc.text(line).moveDown();
+    addPageNumbers(doc);
+    return {
+      fileName: 'Stipend_Receipt.pdf',
+      fileType: 'application/pdf',
+      buffer: await toBuffer(doc),
     };
   }
 

@@ -28,6 +28,8 @@ export type Employee = {
   ifsc: string | null;
   designation: string | null;
   department: string | null;
+  internshipStartDate?: string | null;
+  internshipEndDate?: string | null;
   dateOfJoining: string | null;
   dateOfExit: string | null;
   exitReason: string | null;
@@ -208,6 +210,8 @@ export class ClientEmployeesService {
       ifsc: r?.ifsc ?? null,
       designation: r?.designation ?? null,
       department: r?.department ?? null,
+      internshipStartDate: r?.internshipStartDate ?? r?.internship_start_date ?? null,
+      internshipEndDate: r?.internshipEndDate ?? r?.internship_end_date ?? null,
       dateOfJoining: r?.dateOfJoining ?? r?.date_of_joining ?? null,
       dateOfExit: r?.dateOfExit ?? r?.date_of_exit ?? null,
       exitReason: r?.exitReason ?? r?.exit_reason ?? null,

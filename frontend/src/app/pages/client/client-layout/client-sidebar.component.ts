@@ -692,6 +692,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
     if (route.startsWith('/client/face-failures')) return ['CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/client/facedesk')) return ['CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/client/payroll') || route.startsWith('/client/ctc-summary') || route.startsWith('/client/registers')) return ['PAYROLL'];
+    if (route.startsWith('/client/interns')) return ['EMPLOYEE_COMPLIANCE'];
     if (route.startsWith('/client/employees') || route.startsWith('/client/master-data')) return ['EMPLOYEE_COMPLIANCE'];
     if (route.startsWith('/client/attendance') || route.startsWith('/client/biometric') || route.startsWith('/client/holidays')) return ['EMPLOYEE_ATTENDANCE'];
     if (route.startsWith('/client/appraisal') || route.startsWith('/client/appraisals')) return ['APPRAISAL'];
@@ -773,6 +774,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
         expanded: false,
         items: [
           { label: 'Payroll', route: '/client/payroll', icon: this.svg('M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z') },
+          { label: 'Interns', route: '/client/interns', icon: this.svg('M12 3L2 8l10 5 10-5-10-5M5 10v7l7 4 7-4v-7') },
           { label: 'Employees', route: '/client/employees', icon: this.svg('M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z') },
           { label: 'Registers Download', route: '/client/registers', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Attendance Review', route: '/client/attendance', exact: true, icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },

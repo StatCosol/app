@@ -53,6 +53,16 @@ async function main() {
     await db.query('SAVEPOINT run_category_test');
     await assert.rejects(db.query("UPDATE payroll_runs SET payroll_category = 'OTHER'"), { code: '23514' });
     await db.query('ROLLBACK TO SAVEPOINT run_category_test');
+    const periodMigration = fs.readFileSync(path.join(__dirname, '../migrations/20261014_intern_enrollment_period.sql'), 'utf8');
+    await db.query(periodMigration);
+    await db.query(periodMigration);
+    await db.query("UPDATE employees SET internship_start_date = '2026-10-01', internship_end_date = '2027-03-31' WHERE payroll_category = 'INTERN'");
+    const period = (await db.query("SELECT internship_start_date::text AS start, internship_end_date::text AS finish FROM employees WHERE payroll_category = 'INTERN'")).rows[0];
+    assert.deepEqual(period, { start: '2026-10-01', finish: '2027-03-31' });
+    await db.query('SAVEPOINT reversed_period');
+    await assert.rejects(db.query("UPDATE employees SET internship_end_date = '2026-09-30' WHERE payroll_category = 'INTERN'"), { code: '23514' });
+    await db.query('ROLLBACK TO SAVEPOINT reversed_period');
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM employees WHERE payroll_category = 'REGULAR' AND internship_start_date IS NULL AND internship_end_date IS NULL")).rows[0].n, 1);
     console.log('Intern payroll migration passed: defaults, idempotence, branch/stipend persistence, parallel categories, branch scope, duplicate rejection and category constraints.');
   } finally {
     await db.query('ROLLBACK');

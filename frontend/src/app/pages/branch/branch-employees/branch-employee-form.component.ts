@@ -34,11 +34,11 @@ import {
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
-        Back to Employees
+        {{ internMode ? 'Back to Interns' : 'Back to Employees' }}
       </button>
 
       <ui-page-header
-        [title]="isEdit ? 'Edit Employee' : 'New Employee Registration'"
+        [title]="internMode ? (isEdit ? 'Edit Intern Enrollment' : 'Enroll Intern') : (isEdit ? 'Edit Employee' : 'New Employee Registration')"
         [subtitle]="isEdit ? ('Editing: ' + form.name + ' (' + form.employeeCode + ')') : 'Register an employee or intern for this branch'"
         [breadcrumbs]="breadcrumbs">
       </ui-page-header>
@@ -205,10 +205,12 @@ import {
             <div class="form-field">
               <label class="form-label" for="bef-payroll-category">Payroll Category</label>
               <select id="bef-payroll-category" name="payrollCategory" class="form-input" [(ngModel)]="form.payrollCategory">
-                <option value="REGULAR">Regular</option>
+                <option [disabled]="internMode" value="REGULAR">Regular</option>
                 <option value="INTERN">Intern</option>
               </select>
               @if (form.payrollCategory === 'INTERN') {
+                <label class="block mt-3">Internship start date <input type="date" name="internshipStartDate" [(ngModel)]="form.internshipStartDate" required class="form-date-input" /></label>
+                <label class="block mt-3">Internship end date <input type="date" name="internshipEndDate" [(ngModel)]="form.internshipEndDate" [min]="form.internshipStartDate" required class="form-date-input" /></label>
                 <small class="text-xs text-gray-500">Included in the Intern payroll cycle. The monthly stipend is prorated using payable attendance days.</small>
               }
             </div>
@@ -383,12 +385,13 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
   saving = false;
   formError = '';
   successMsg = '';
+  get internMode(): boolean { return !!this.route?.snapshot?.data?.['internMode']; }
   dobWarning = '';
   form: any = { payrollCategory: 'REGULAR', phone: '+91', pfApplicable: false, esiApplicable: false };
   submitted = false;
 
   breadcrumbs: Breadcrumb[] = [
-    { label: 'Employees', route: '/branch/employees' },
+    { label: this.internMode ? 'Interns' : 'Employees', route: this.internMode ? '/branch/interns' : '/branch/employees' },
     { label: 'New Registration' },
   ];
 
@@ -415,12 +418,16 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    if (this.internMode) {
+      this.form.payrollCategory = 'INTERN';
+      this.breadcrumbs = [{ label: 'Interns', route: '/branch/interns' }, { label: 'New Enrollment' }];
+    }
     this.employeeId = this.route.snapshot.paramMap.get('id') || '';
     this.loadMasterData();
     if (this.employeeId) {
       this.isEdit = true;
       this.breadcrumbs = [
-        { label: 'Employees', route: '/branch/employees' },
+        { label: this.internMode ? 'Interns' : 'Employees', route: this.internMode ? '/branch/interns' : '/branch/employees' },
         { label: 'Edit Employee' },
       ];
       this.loadEmployee();
@@ -459,10 +466,11 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (emp) => {
           this.loadingEmployee = false;
+          if (this.internMode && emp.payrollCategory !== 'INTERN') { this.loadError = 'This record is not an intern.'; this.form = {}; return; }
           this.form = { ...emp, payrollCategory: emp.payrollCategory || 'REGULAR' };
           this.breadcrumbs = [
-            { label: 'Employees', route: '/branch/employees' },
-            { label: emp.name, route: '/branch/employees/' + emp.id },
+            { label: this.internMode ? 'Interns' : 'Employees', route: this.internMode ? '/branch/interns' : '/branch/employees' },
+            { label: emp.name, route: this.internMode ? '/branch/interns' : '/branch/employees/' + emp.id },
             { label: 'Edit' },
           ];
         },
@@ -530,6 +538,7 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
   }
 
   save(): void {
+    if (this.loadError) return;
     this.submitted = true;
     if (!this.form.name?.trim()) {
       this.formError = 'Name as per Aadhaar is required';
@@ -570,14 +579,20 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
       }
       this.form.minimumWageOverrideReason = reason;
     }
+    if (this.internMode) this.form.payrollCategory = 'INTERN';
     if (this.form.payrollCategory === 'INTERN') {
       const stipend = Number(this.form.monthlyGross);
       if (!Number.isFinite(stipend) || stipend <= 0) {
         this.formError = 'Enter a positive monthly stipend for the intern.';
         return;
       }
+      if (!this.form.internshipStartDate || !this.form.internshipEndDate || this.form.internshipEndDate < this.form.internshipStartDate) {
+        this.formError = 'Enter the internship start and end dates. End date must be on or after start date.';
+        return;
+      }
       this.form.monthlyGross = stipend;
     }
+    if (this.internMode) this.form.payrollCategory = 'INTERN';
     this.saving = true;
     this.formError = '';
     this.successMsg = '';
@@ -591,9 +606,9 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
         this.saving = false;
         if (this.isEdit) {
           this.successMsg = 'Employee updated successfully';
-          setTimeout(() => this.router.navigate(['/branch/employees', this.employeeId]), 1000);
+          setTimeout(() => this.router.navigate(this.internMode ? ['/branch/interns'] : ['/branch/employees', this.employeeId]), 1000);
         } else {
-          this.router.navigate(['/branch/employees', emp.id]);
+          this.router.navigate(this.internMode ? ['/branch/interns'] : ['/branch/employees', emp.id]);
         }
       },
       error: (e) => {
@@ -607,7 +622,7 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
     if (this.isEdit && this.employeeId) {
       this.router.navigate(['/branch/employees', this.employeeId]);
     } else {
-      this.router.navigate(['/branch/employees']);
+      this.router.navigate(this.internMode ? ['/branch/interns'] : ['/branch/employees']);
     }
   }
 }

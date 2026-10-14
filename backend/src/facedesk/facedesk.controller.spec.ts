@@ -4,7 +4,8 @@ import { FaceDeskDevicesAdminController } from './facedesk-devices-admin.control
 
 function makeEnrollmentController() {
   const enrollment = {
-    getEnrolledEmployees: jest.fn(),
+    getEnrolledEmployees: jest.fn().mockResolvedValue([]),
+    getPendingEmployees: jest.fn().mockResolvedValue([]),
   };
   const controller = new FaceDeskEnrollmentController(
     enrollment as any,
@@ -37,6 +38,34 @@ const branchUser = {
 } as any;
 
 describe('FaceDesk portal controllers branch access', () => {
+  it('passes the intern filter with the caller branch scope', async () => {
+    const { controller, enrollment } = makeEnrollmentController();
+    await controller.pending(branchUser, 'EMPLOYEE', 'INTERN');
+    await controller.enrolled(branchUser, 'EMPLOYEE', 'INTERN');
+    expect(enrollment.getPendingEmployees).toHaveBeenCalledWith(
+      'client-1',
+      ['branch-1'],
+      'EMPLOYEE',
+      'INTERN',
+    );
+    expect(enrollment.getEnrolledEmployees).toHaveBeenCalledWith(
+      'client-1',
+      ['branch-1'],
+      'EMPLOYEE',
+      'INTERN',
+    );
+  });
+  it('rejects invalid intern filters instead of returning the full roster', async () => {
+    const { controller, enrollment } = makeEnrollmentController();
+    expect(() =>
+      controller.pending(branchUser, 'EMPLOYEE', 'unexpected'),
+    ).toThrow('Unsupported payroll category');
+    await expect(
+      controller.enrolled(branchUser, 'EMPLOYEE', 'unexpected'),
+    ).rejects.toThrow('Unsupported payroll category');
+    expect(enrollment.getEnrolledEmployees).not.toHaveBeenCalled();
+  });
+
   it('passes the caller branch scope to the credential-free device list', () => {
     const { controller, devices } = makeDevicesController();
 
@@ -54,6 +83,7 @@ describe('FaceDesk portal controllers branch access', () => {
       'client-1',
       ['branch-1'],
       'CONTRACTOR',
+      undefined,
     );
   });
 

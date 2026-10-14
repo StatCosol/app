@@ -12,6 +12,8 @@ describe('Branch Desk intern entry', () => {
       aadhaar: '123456789012',
       payrollCategory: 'INTERN',
       monthlyGross: '15000.50',
+      internshipStartDate: '2026-10-01',
+      internshipEndDate: '2027-03-31',
     };
     const svc = {
       create: vi.fn(() => of(record)),
@@ -43,6 +45,11 @@ describe('Branch Desk intern entry', () => {
     component.save();
     expect(svc.create).not.toHaveBeenCalled();
     expect(component.formError).toContain('positive monthly stipend');
+  });
+
+  it.each([{ internshipStartDate: '', internshipEndDate: '' }, { internshipStartDate: '2026-10-01', internshipEndDate: '2026-09-30' }])('rejects a missing or reversed internship period %s', period => {
+    const { component, svc, record } = fixture(); component.form = { ...record, ...period }; component.save();
+    expect(svc.create).not.toHaveBeenCalled(); expect(component.formError).toContain('internship start and end dates');
   });
 
   it('keeps the intern category and stipend when loading and updating', () => {
