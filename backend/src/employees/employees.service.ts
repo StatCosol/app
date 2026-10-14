@@ -1,3 +1,4 @@
+import { validateInternshipPeriod } from './internship-period';
 import {
   Injectable,
   BadRequestException,
@@ -238,6 +239,7 @@ export class EmployeesService {
     isBranchUser = false,
     skipStrictValidation = false,
   ): Promise<EmployeeEntity> {
+    validateInternshipPeriod(dto);
     // Validate mandatory fields (skipped for bulk import)
     if (!skipStrictValidation) {
       if (!dto.phone?.trim())
@@ -489,6 +491,7 @@ export class EmployeesService {
       ...safeDto
     } = dto as any;
     Object.assign(emp, safeDto);
+    validateInternshipPeriod(emp);
     if (
       emp.payrollCategory === 'INTERN' &&
       (!Number.isFinite(Number(emp.monthlyGross)) ||

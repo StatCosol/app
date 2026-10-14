@@ -94,6 +94,10 @@ export class ClientPayrollPeriodQueryDto {
 
 /** GET /client/payroll/employee-records and payslip pack */
 export class ClientPayrollEmployeeRecordsQueryDto {
+  @IsOptional()
+  @IsIn(['REGULAR', 'INTERN'])
+  payrollCategory?: 'REGULAR' | 'INTERN';
+
   @IsOptional() @IsUUID() branchId?: string;
   @IsOptional() @IsNumberString() periodYear?: string;
   @IsOptional() @IsNumberString() periodMonth?: string;

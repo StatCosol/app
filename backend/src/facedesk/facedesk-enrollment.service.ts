@@ -94,7 +94,12 @@ export class FaceDeskEnrollmentService {
     clientId: string,
     branchIds: string[] | null = null,
     subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+    payrollCategory?: 'INTERN',
   ): Promise<unknown[]> {
+    if (payrollCategory && subjectType !== 'EMPLOYEE')
+      throw new BadRequestException(
+        'Intern enrollment requires employee subjects',
+      );
     if (branchIds?.length === 0) return [];
     const params: unknown[] = [clientId];
     const table =
@@ -106,6 +111,11 @@ export class FaceDeskEnrollmentService {
     }
     params.push(subjectType);
     const subjectParam = `$${params.length}`;
+    let categoryFilter = '';
+    if (payrollCategory) {
+      params.push(payrollCategory);
+      categoryFilter = `AND e.payroll_category = $${params.length}`;
+    }
     // Both rosters carry employee_code. It was blanked for contractors while
     // the column was missing in production, but main.ts patches it in on boot,
     // so the code exists and belongs on screen. Ordering stays on name for
@@ -127,6 +137,7 @@ export class FaceDeskEnrollmentService {
           AND e.is_active = true
           AND (p.enrollment_status IS NULL OR p.enrollment_status <> 'ENROLLED')
           ${branchFilter}
+          ${categoryFilter}
         ORDER BY ${orderExpr} ASC`,
       params,
     );
@@ -141,7 +152,12 @@ export class FaceDeskEnrollmentService {
     clientId: string,
     branchIds: string[] | null = null,
     subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+    payrollCategory?: 'INTERN',
   ): Promise<unknown[]> {
+    if (payrollCategory && subjectType !== 'EMPLOYEE')
+      throw new BadRequestException(
+        'Intern enrollment requires employee subjects',
+      );
     if (branchIds?.length === 0) return [];
     const params: unknown[] = [clientId];
     const table =
@@ -153,6 +169,11 @@ export class FaceDeskEnrollmentService {
     }
     params.push(subjectType);
     const subjectParam = `$${params.length}`;
+    let categoryFilter = '';
+    if (payrollCategory) {
+      params.push(payrollCategory);
+      categoryFilter = `AND e.payroll_category = $${params.length}`;
+    }
     // Both rosters carry employee_code — see the note in getPendingEmployees.
     const isContractor = subjectType === 'CONTRACTOR';
     const codeExpr = 'e.employee_code';
@@ -183,6 +204,7 @@ export class FaceDeskEnrollmentService {
           AND e.is_active = true
           AND p.enrollment_status = 'ENROLLED'
           ${branchFilter}
+          ${categoryFilter}
         ORDER BY ${orderExpr} ASC`,
       params,
     );

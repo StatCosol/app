@@ -210,6 +210,10 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 <div class="info-row"><span class="info-label">Employee Code</span><span class="info-value font-mono">{{ emp.employeeCode }}</span></div>
                 <div class="info-row"><span class="info-label">Designation</span><span class="info-value">{{ emp.designation || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department || '-' }}</span></div>
+                @if (emp.payrollCategory === 'INTERN') {
+                  <div class="info-row"><span class="info-label">Internship Period</span><span class="info-value">{{ emp.internshipStartDate || '-' }} to {{ emp.internshipEndDate || '-' }}</span></div>
+                  <div class="info-row"><span class="info-label">Monthly Stipend</span><span class="info-value">{{ emp.monthlyGross | currency:'INR' }}</span></div>
+                }
                 <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
                 @if (emp.dateOfExit) {
 <div class="info-row"><span class="info-label">Date of Exit</span><span class="info-value text-red-600">{{ emp.dateOfExit }}</span></div>

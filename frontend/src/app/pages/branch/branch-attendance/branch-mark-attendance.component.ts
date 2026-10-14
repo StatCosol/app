@@ -1,3 +1,4 @@
+import { Input } from '@angular/core';
 import { loadAllPages } from '../../../shared/utils/load-all-pages';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
@@ -40,6 +41,8 @@ interface EmployeeRow {
 }
 
 interface ApiEmployee {
+  payrollCategory?: string;
+  payroll_category?: string;
   id: string;
   employeeCode: string;
   name?: string;
@@ -78,11 +81,15 @@ const STANDARD_HOURS = 9;
     <div class="page">
       <header class="head">
         <div>
-          <h1>Mark Daily Attendance</h1>
+          <h1>{{ internOnly ? 'Intern Attendance' : 'Mark Daily Attendance' }}</h1>
           <p>
-            Set in-time and out-time for each employee. OT auto-calculates when
-            worked hours exceed {{ STANDARD_HOURS }} hours. Mark Absent if the
-            employee did not report.
+            @if (readOnly) {
+              View recorded attendance for interns in the selected branch. Days without a saved record appear as Not marked.
+            } @else {
+              Set in-time and out-time for each employee. OT auto-calculates when
+              worked hours exceed {{ STANDARD_HOURS }} hours. Mark Absent if the
+              employee did not report.
+            }
           </p>
         </div>
         <div class="head-actions">
@@ -104,6 +111,7 @@ const STANDARD_HOURS = 9;
             {{ exporting ? 'Exporting…' : 'Download Excel' }}
           </span></button>
           <button type="button" class="compact-action btn ghost" (click)="load()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+          @if (!readOnly) {
           <button
             type="button"
             class="standard-action btn primary"
@@ -112,6 +120,7 @@ const STANDARD_HOURS = 9;
           >
             {{ saving ? 'Saving…' : 'Save ' + (dirtyCount ? '(' + dirtyCount + ')' : '') }}
           </button>
+          }
         </div>
       </header>
 
@@ -135,6 +144,7 @@ const STANDARD_HOURS = 9;
             [(ngModel)]="search"
           />
         </label>
+        @if (!readOnly) {
         <label>
           <span>Default Status (new rows)</span>
           <select name="defaultStatus" [(ngModel)]="defaultStatus">
@@ -152,6 +162,7 @@ const STANDARD_HOURS = 9;
             Mark All Absent
           </button>
         </div>
+        }
       </section>
 
       <section class="stats">
@@ -159,7 +170,7 @@ const STANDARD_HOURS = 9;
         <div class="stat"><span class="k">Present</span><span class="v">{{ countBy('PRESENT') }}</span></div>
         <div class="stat"><span class="k">Absent</span><span class="v">{{ countBy('ABSENT') }}</span></div>
         <div class="stat"><span class="k">OT Hours</span><span class="v">{{ totalOt | number:'1.0-2' }}</span></div>
-        <div class="stat"><span class="k">Pending Save</span><span class="v">{{ dirtyCount }}</span></div>
+        @if (!readOnly) { <div class="stat"><span class="k">Pending Save</span><span class="v">{{ dirtyCount }}</span></div> }
       </section>
 
       @if (loading) {
@@ -207,6 +218,7 @@ const STANDARD_HOURS = 9;
                     </div>
                   </td>
                   <td>
+                    @if (readOnly) { <span>{{ r.existingId ? r.status : 'Not marked' }}</span> } @else {
                     <select
                       [(ngModel)]="r.status"
                       (ngModelChange)="onStatusChange(r)"
@@ -219,13 +231,14 @@ const STANDARD_HOURS = 9;
                       <option value="WEEK_OFF">Week Off</option>
                       <option value="HOLIDAY">Holiday</option>
                     </select>
+                    }
                   </td>
                   <td>
                     <input
                       type="time"
                       [(ngModel)]="r.checkIn"
                       (ngModelChange)="onTimeChange(r)"
-                      [disabled]="!hasTimes(r)"
+                      [disabled]="readOnly || !hasTimes(r)"
                       [name]="'in-' + r.employeeId"
                     />
                   </td>
@@ -234,7 +247,7 @@ const STANDARD_HOURS = 9;
                       type="time"
                       [(ngModel)]="r.checkOut"
                       (ngModelChange)="onTimeChange(r)"
-                      [disabled]="!hasTimes(r)"
+                      [disabled]="readOnly || !hasTimes(r)"
                       [name]="'out-' + r.employeeId"
                     />
                   </td>
@@ -247,6 +260,7 @@ const STANDARD_HOURS = 9;
                   <td>
                     <input
                       type="text"
+                      [disabled]="readOnly"
                       [(ngModel)]="r.remarks"
                       (ngModelChange)="markDirty(r)"
                       placeholder="Optional"
@@ -304,6 +318,10 @@ const STANDARD_HOURS = 9;
   `],
 })
 export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
+  @Input() internOnly = false;
+  @Input() readOnly = false;
+  @Input() branchId = '';
+  ngOnChanges(changes: any): void { if (changes.branchId && !changes.branchId.firstChange) this.load(); }
   readonly STANDARD_HOURS = STANDARD_HOURS;
 
   private destroy$ = new Subject<void>();
@@ -349,7 +367,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
   }
 
   countBy(status: AttendanceStatus): number {
-    return this.rows.filter((r) => r.status === status).length;
+    return this.rows.filter((r) => r.status === status && (!this.readOnly || !!r.existingId)).length;
   }
 
   hasTimes(r: EmployeeRow): boolean {
@@ -375,12 +393,14 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.cdr.markForCheck();
 
-    const empParams = new HttpParams()
+    let empParams = new HttpParams()
       .set('isActive', 'true')
       .set('limit', '1000');
-    const attParams = new HttpParams()
+    if (this.branchId) empParams = empParams.set('branchId', this.branchId);
+    let attParams = new HttpParams()
       .set('from', date)
       .set('to', date);
+    if (this.branchId) attParams = attParams.set('branchId', this.branchId);
 
     forkJoin({
       employees: loadAllPages<ApiEmployee>(page => this.http.get<any>(`${this.base}/employees`, { params: empParams.set('offset', String((page - 1) * 1000)) })),
@@ -397,7 +417,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({ next: ({ employees, attendance }) => {
         if (generation !== this.loadGeneration || date !== this.selectedDate) return;
         this.loadedDate = date;
-        const empList: ApiEmployee[] = employees;
+        const empList: ApiEmployee[] = this.internOnly ? employees.filter(e => (e.payrollCategory ?? e.payroll_category) === 'INTERN') : employees;
         const attList: ApiAttendanceRecord[] = Array.isArray(attendance)
           ? attendance
           : attendance?.data ?? [];
@@ -460,6 +480,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
   }
 
   markAllPresent(): void {
+    if (this.readOnly) return;
     this.rows.forEach((r) => {
       r.status = 'PRESENT';
       r.dirty = true;
@@ -468,6 +489,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
   }
 
   markAllAbsent(): void {
+    if (this.readOnly) return;
     this.rows.forEach((r) => {
       r.status = 'ABSENT';
       r.checkIn = '';
@@ -480,6 +502,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
   }
 
   saveAll(): void {
+    if (this.readOnly) return;
     if (this.loading || this.loadedDate !== this.selectedDate || this.saving) return;
     const dirty = this.rows.filter((r) => r.dirty);
     if (!dirty.length) return;
@@ -542,10 +565,12 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
     this.exporting = true;
     this.cdr.markForCheck();
 
-    const empParams = new HttpParams()
+    let empParams = new HttpParams()
       .set('isActive', 'true')
       .set('limit', '1000');
-    const attParams = new HttpParams().set('from', from).set('to', to);
+    if (this.branchId) empParams = empParams.set('branchId', this.branchId);
+    let attParams = new HttpParams().set('from', from).set('to', to);
+    if (this.branchId) attParams = attParams.set('branchId', this.branchId);
 
     forkJoin({
       employees: loadAllPages<ApiEmployee>(page => this.http.get<any>(`${this.base}/employees`, { params: empParams.set('offset', String((page - 1) * 1000)) })),
@@ -561,7 +586,7 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
       )
       .subscribe({ next: ({ employees, attendance }) => {
         try {
-          const empList: ApiEmployee[] = employees;
+          const empList: ApiEmployee[] = this.internOnly ? employees.filter(e => (e.payrollCategory ?? e.payroll_category) === 'INTERN') : employees;
           const attList: any[] = Array.isArray(attendance)
             ? attendance
             : attendance?.data ?? [];

@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -46,12 +47,16 @@ export class FaceDeskEnrollmentController {
   pending(
     @CurrentUser() user: ReqUser,
     @Query('subjectType') subjectType?: string,
+    @Query('payrollCategory') payrollCategory?: string,
   ) {
+    if (payrollCategory !== undefined && payrollCategory !== 'INTERN')
+      throw new BadRequestException('Unsupported payroll category');
     const branchIds = facedeskBranchScope(user);
     return this.enrollment.getPendingEmployees(
       requireFaceDeskClient(user),
       branchIds,
       facedeskSubjectType(subjectType),
+      payrollCategory,
     );
   }
 
@@ -61,11 +66,15 @@ export class FaceDeskEnrollmentController {
   async enrolled(
     @CurrentUser() user: ReqUser,
     @Query('subjectType') subjectType?: string,
+    @Query('payrollCategory') payrollCategory?: string,
   ) {
+    if (payrollCategory !== undefined && payrollCategory !== 'INTERN')
+      throw new BadRequestException('Unsupported payroll category');
     const rows = await this.enrollment.getEnrolledEmployees(
       requireFaceDeskClient(user),
       facedeskBranchScope(user),
       facedeskSubjectType(subjectType),
+      payrollCategory,
     );
     if (!facedeskVerificationPhotosAllowed(user)) {
       return (rows as Record<string, unknown>[]).map((row) => ({

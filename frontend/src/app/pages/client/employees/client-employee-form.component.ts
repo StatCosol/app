@@ -214,6 +214,14 @@ import {
                 <option value="INTERN">Intern</option>
               </select>
             </div>
+            @if (form.payrollCategory === 'INTERN') {
+              <label class="form-field">Internship start date *
+                <input type="date" name="internshipStartDate" [(ngModel)]="form.internshipStartDate" required class="form-date-input" />
+              </label>
+              <label class="form-field">Internship end date *
+                <input type="date" name="internshipEndDate" [(ngModel)]="form.internshipEndDate" [min]="form.internshipStartDate" required class="form-date-input" />
+              </label>
+            }
             <ui-form-input label="CTC (Annual)" type="number" [(ngModel)]="form.ctc" name="ctc"
                            placeholder="e.g. 480000"></ui-form-input>
             <ui-form-input [label]="form.payrollCategory === 'INTERN' ? 'Monthly Stipend' : 'Monthly Gross'" type="number" [(ngModel)]="form.monthlyGross" name="monthlyGross"
@@ -601,6 +609,10 @@ export class ClientEmployeeFormComponent implements OnInit, OnDestroy {
       const stipend = Number(this.form.monthlyGross);
       if (!Number.isFinite(stipend) || stipend <= 0) {
         this.formError = 'Enter a positive monthly stipend for the intern.';
+        return;
+      }
+      if (!this.form.internshipStartDate || !this.form.internshipEndDate || this.form.internshipEndDate < this.form.internshipStartDate) {
+        this.formError = 'Enter the internship start and end dates. End date must be on or after start date.';
         return;
       }
       this.form.monthlyGross = stipend;

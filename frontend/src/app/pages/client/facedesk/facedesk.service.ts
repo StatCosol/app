@@ -199,17 +199,19 @@ export class FaceDeskService {
 
   pendingEnrollment(
     subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+    payrollCategory?: 'INTERN',
   ): Observable<PendingEnrollmentRow[]> {
     return this.http.get<PendingEnrollmentRow[]>(
-      `${this.base}/enrollment/pending?subjectType=${subjectType}`,
+      `${this.base}/enrollment/pending?subjectType=${subjectType}${payrollCategory ? '&payrollCategory=INTERN' : ''}`,
     );
   }
 
   enrolledEmployees(
     subjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE',
+    payrollCategory?: 'INTERN',
   ): Observable<PendingEnrollmentRow[]> {
     return this.http.get<PendingEnrollmentRow[]>(
-      `${this.base}/enrollment/enrolled?subjectType=${subjectType}`,
+      `${this.base}/enrollment/enrolled?subjectType=${subjectType}${payrollCategory ? '&payrollCategory=INTERN' : ''}`,
     );
   }
 

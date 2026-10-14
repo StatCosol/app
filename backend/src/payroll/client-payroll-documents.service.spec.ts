@@ -153,6 +153,50 @@ describe('ClientPayrollDocumentsService downloads', () => {
     };
   }
 
+  it('generates a stipend receipt from approved published intern payroll', async () => {
+    const state = ready();
+    state.run = {
+      ...state.run,
+      payrollCategory: 'INTERN',
+      periodYear: 2026,
+      periodMonth: 10,
+    } as any;
+    state.employee = {
+      ...state.employee,
+      employeeName: 'Sample Intern',
+      daysPresent: 20,
+      lopDays: 0,
+      grossEarnings: '12000',
+      totalDeductions: '0',
+      netPay: '12000',
+    } as any;
+    const result = await serviceWith(state).downloadStipendReceipt(
+      user(),
+      'run-1',
+      'A1',
+    );
+    expect(result.buffer.subarray(0, 4).toString()).toBe('%PDF');
+    expect(result.fileName).toBe('Stipend_Receipt.pdf');
+  });
+  it('rejects receipts from regular payroll and unauthorized branches', async () => {
+    await expect(
+      serviceWith(ready()).downloadStipendReceipt(user(), 'run-1', 'A1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const state = ready({
+      run: {
+        id: 'run-1',
+        clientId,
+        status: 'APPROVED',
+        payrollCategory: 'INTERN',
+        branchId: branchB,
+      },
+      employee: { clientId, employeeCode: 'B1', branchId: branchB },
+    });
+    await expect(
+      serviceWith(state).downloadStipendReceipt(user(), 'run-1', 'B1'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it.each(['MASTER', 'BRANCH'])(
     'returns the published payslip bytes for %s',
     async (userType) => {
@@ -315,5 +359,51 @@ describe('ClientPayrollDocumentsService downloads', () => {
       'Content-Type',
       'application/zip',
     );
+  });
+
+  it('filters intern runs before combining records for an employee with both categories in one month', async () => {
+    const service = serviceWith({});
+    const row = {
+      employeeId: 'former-intern',
+      employeeCode: 'I1',
+      employeeName: 'Former intern',
+      branchId: branchA,
+      runBranchId: branchA,
+      runStatus: 'APPROVED',
+    };
+    jest.spyOn(service as any, 'loadRunEmployees').mockResolvedValue([
+      { ...row, runId: 'regular-run', payrollCategory: 'REGULAR' },
+      { ...row, runId: 'intern-run', payrollCategory: 'INTERN' },
+      {
+        ...row,
+        employeeId: 'new-intern',
+        employeeCode: 'I2',
+        runId: 'old-regular',
+        payrollCategory: 'REGULAR',
+      },
+    ]);
+    jest.spyOn(service as any, 'loadArchives').mockResolvedValue([
+      { runId: 'regular-run', employeeCode: 'I1', filePath },
+      { runId: 'intern-run', employeeCode: 'I1', filePath },
+      { runId: 'old-regular', employeeCode: 'I2', filePath },
+    ]);
+    jest.spyOn(service as any, 'loadFnfCases').mockResolvedValue([]);
+    jest.spyOn(service as any, 'loadFnfDocuments').mockResolvedValue([]);
+    jest.spyOn(service as any, 'loadEmployees').mockResolvedValue([
+      { id: 'former-intern', branchId: branchA, payrollCategory: 'REGULAR' },
+      { id: 'new-intern', branchId: branchA, payrollCategory: 'INTERN' },
+    ]);
+    const result = await service.listEmployeeRecords(user(), {
+      periodYear: 2026,
+      periodMonth: 10,
+      payrollCategory: 'INTERN',
+    });
+    expect(result.records).toEqual([
+      expect.objectContaining({
+        employeeId: 'former-intern',
+        runId: 'intern-run',
+        payrollCategory: 'INTERN',
+      }),
+    ]);
   });
 });

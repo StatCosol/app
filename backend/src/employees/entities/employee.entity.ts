@@ -61,6 +61,12 @@ export class EmployeeEntity {
   })
   payrollCategory: 'REGULAR' | 'INTERN';
 
+  @Column({ name: 'internship_start_date', type: 'date', nullable: true })
+  internshipStartDate: string | null;
+
+  @Column({ name: 'internship_end_date', type: 'date', nullable: true })
+  internshipEndDate: string | null;
+
   @Column({ name: 'name', type: 'varchar', length: 250 })
   name: string;
 

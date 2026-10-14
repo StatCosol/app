@@ -170,6 +170,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'compliance/library', loadComponent: ClientComplianceLibraryComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
       { path: 'payroll', loadComponent: ClientPayrollMonitoringPageComponent, canActivate: [moduleAccessGuard('PAYROLL'), branchPayrollAccessGuard] },
       { path: 'ctc-summary', loadComponent: ClientCtcSummaryComponent, canActivate: [moduleAccessGuard('PAYROLL')] },
+      { path: 'interns', loadComponent: () => import('./interns/client-interns.component').then(m => m.ClientInternsComponent), canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees', loadComponent: ClientEmployeesComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees/new', loadComponent: ClientEmployeeFormComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'employees/:id', loadComponent: ClientEmployeeDetailComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },

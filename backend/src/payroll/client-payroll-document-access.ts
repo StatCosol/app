@@ -129,6 +129,7 @@ export interface RunEmployeeSource {
   branchId: string | null;
   runId: string;
   runStatus: string | null;
+  payrollCategory?: string | null;
   runBranchId: string | null;
 }
 
@@ -198,6 +199,7 @@ export interface EmployeePayrollRecordView {
   branchId: string | null;
   runId: string | null;
   runStatus: string | null;
+  payrollCategory?: string | null;
   payslipAvailable: boolean;
   fnfId: string | null;
   fnfStatus: string | null;
@@ -257,6 +259,7 @@ export function assembleEmployeePayrollRecords(input: {
         branchId,
         runId: row.runId,
         runStatus: row.runStatus,
+        payrollCategory: row.payrollCategory ?? null,
         payslipAvailable,
         fnfId: existing?.fnfId ?? null,
         fnfStatus: existing?.fnfStatus ?? null,
@@ -295,6 +298,7 @@ export function assembleEmployeePayrollRecords(input: {
       branchId,
       runId: null,
       runStatus: null,
+      payrollCategory: null,
       payslipAvailable: false,
       fnfId: fnf.id,
       fnfStatus: fnf.status,

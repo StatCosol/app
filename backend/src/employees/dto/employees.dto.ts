@@ -59,6 +59,8 @@ export class CreateEmployeeDto {
   @IsOptional() @IsString() bankName?: string;
   @IsOptional() @IsString() bankAccount?: string;
   @IsOptional() @IsString() ifsc?: string;
+  @IsOptional() @IsDateString() internshipStartDate?: string;
+  @IsOptional() @IsDateString() internshipEndDate?: string;
   @IsOptional() @IsString() dateOfJoining?: string;
   @IsOptional() @IsNumber() grossSalary?: number;
   @IsOptional() @IsNumber() ctc?: number;
@@ -115,6 +117,8 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsString() bankName?: string;
   @IsOptional() @IsString() bankAccount?: string;
   @IsOptional() @IsString() ifsc?: string;
+  @IsOptional() @IsDateString() internshipStartDate?: string;
+  @IsOptional() @IsDateString() internshipEndDate?: string;
   @IsOptional() @IsString() dateOfJoining?: string;
   @IsOptional() @IsNumber() grossSalary?: number;
   @IsOptional() @IsNumber() ctc?: number;

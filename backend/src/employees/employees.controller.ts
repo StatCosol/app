@@ -671,6 +671,59 @@ export class ClientEmployeesController {
     res.end(buffer);
   }
 
+  @Get(':id/intern-agreement')
+  async internAgreement(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    if (!user.clientId)
+      throw new BadRequestException('Client context required');
+    const emp = await this.svc.findById(user.clientId, id);
+    await this.assertEmployeeBranch(user, emp.branchId);
+    if (emp.payrollCategory !== 'INTERN')
+      throw new BadRequestException('Agreement is available only for interns');
+    if (!emp.internshipStartDate || !emp.internshipEndDate)
+      throw new BadRequestException(
+        'Complete the internship period before downloading the agreement',
+      );
+    const client = await this.ds
+      .getRepository(ClientEntity)
+      .findOne({ where: { id: user.clientId } });
+    if (!client) throw new NotFoundException('Client not found');
+    const doc = createDoc();
+    header(doc, 'Internship Agreement', client.clientName);
+    doc.fontSize(11).fillColor('#1e293b');
+    const paragraphs = [
+      'Intern: ' + emp.name + ' (' + emp.employeeCode + ')',
+      'Department: ' +
+        (emp.department || '-') +
+        ' | Role: ' +
+        (emp.designation || 'Intern'),
+      'Internship period: ' +
+        emp.internshipStartDate +
+        ' to ' +
+        emp.internshipEndDate +
+        ' (inclusive).',
+      'Monthly stipend: INR ' +
+        Number(emp.monthlyGross || 0).toFixed(2) +
+        '. Payable stipend will be calculated using approved attendance for the payroll month.',
+      'The intern will undertake the training and assignments provided by the branch, follow the company policies and attendance requirements, and maintain the confidentiality of company and client information.',
+      'Any extension or change to the internship period and stipend must be agreed in writing by the company and the intern.',
+      'Company representative: ____________________    Date: __________',
+      'Intern acceptance and signature: ____________________    Date: __________',
+    ];
+    for (const paragraph of paragraphs) doc.text(paragraph).moveDown();
+    addPageNumbers(doc);
+    const buffer = await toBuffer(doc);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="Internship_Agreement.pdf"',
+    );
+    res.end(buffer);
+  }
+
   // ── Appointment Letter ─────────────────────────────────
   @ApiOperation({ summary: 'Generate Appointment Letter (PDF or Word)' })
   @Get(':id/appointment-letter')
