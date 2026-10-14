@@ -4,6 +4,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     include: [
+      'src/app/pages/client/employees/client-intern-entry.spec.ts',
       'src/app/pages/branch/branch-interns/*.spec.ts',
       'src/app/pages/branch/branch-employees/branch-intern-entry.spec.ts',
     ],

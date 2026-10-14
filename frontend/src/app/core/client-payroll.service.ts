@@ -106,6 +106,7 @@ export class ClientPayrollService {
     periodMonth?: number;
     branchId?: string;
     search?: string;
+    payrollCategory?: 'REGULAR' | 'INTERN';
   }): Observable<EmployeePayrollRecordsResponse> {
     let params = new HttpParams();
     if (filters) {
@@ -153,6 +154,7 @@ export interface EmployeePayrollRecord {
   branchId: string | null;
   runId: string | null;
   runStatus: string | null;
+  payrollCategory?: string | null;
   payslipAvailable: boolean;
   fnfId: string | null;
   fnfStatus: string | null;

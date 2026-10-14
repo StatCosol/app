@@ -1,7 +1,7 @@
 import { FaceDeskComponent } from '../../client/facedesk/facedesk.component';
 import '@angular/compiler';
 import { vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { BranchMarkAttendanceComponent } from '../branch-attendance/branch-mark-attendance.component';
 import { BranchInternsComponent } from './branch-interns.component';
 describe('Intern workspace', () => {
@@ -39,7 +39,7 @@ describe('Intern workspace', () => {
   });
   it('uploads documents for the selected intern with the chosen type', () => {
     const http = { post: vi.fn(() => of({})), get: vi.fn(() => of([])) };
-    const component = new BranchInternsComponent({} as any, {} as any, http as any, {} as any);
+    const component = new BranchInternsComponent({} as any, {} as any, http as any, {} as any, {} as any);
     component.documentInternId = 'intern-1';
     component.documentType = 'INTERNSHIP_AGREEMENT';
     component.file = { name: 'signed.pdf' } as File;
@@ -92,7 +92,7 @@ describe('Intern FaceDesk and client branch view', () => {
     expect(component.activeDevices.map((d) => d.deviceId)).toEqual(['d2']);
   });
   it('filters client intern details, counts and document choices by branch', () => {
-    const component = new BranchInternsComponent({} as any, {} as any, {} as any, {} as any);
+    const component = new BranchInternsComponent({} as any, {} as any, {} as any, {} as any, {} as any);
     component.clientMode = true;
     component.branchId = 'b2';
     component.interns = [
@@ -134,5 +134,37 @@ describe('Intern FaceDesk and client branch view', () => {
     component.markAllPresent();
     component.saveAll();
     expect(http.post).not.toHaveBeenCalled();
+  });
+});
+describe('Intern stipend access and history', () => {
+  it.each([false, true])('honors branch payroll access setting %s before showing or loading receipts', allowed => {
+    const payroll = { listEmployeeRecords: vi.fn(() => of({ records: [] })) };
+    const settings = { get: vi.fn(() => of({ allowBranchPayrollAccess: allowed })) };
+    const component = new BranchInternsComponent({} as any, payroll as any, {} as any, { hasModule: () => true, isMasterUser: () => false } as any, settings as any);
+    component.openReceipts();
+    expect(payroll.listEmployeeRecords).not.toHaveBeenCalled();
+    component.loadReceiptAccess();
+    expect(component.canViewReceipts).toBe(allowed);
+    component.openReceipts();
+    expect(payroll.listEmployeeRecords).toHaveBeenCalledTimes(allowed ? 1 : 0);
+  });
+  it('keeps receipt access hidden if payroll settings cannot load', () => {
+    const component = new BranchInternsComponent({} as any, {} as any, {} as any, { hasModule: () => true, isMasterUser: () => false } as any, { get: () => throwError(() => new Error('Unavailable')) } as any);
+    component.loadReceiptAccess();
+    expect(component.canViewReceipts).toBe(false);
+  });
+  it('selects historical intern runs independently of the employee current category and branch', () => {
+    const payroll = { listEmployeeRecords: vi.fn(() => of({ records: [
+      { employeeId: 'former-intern', employeeCode: 'I1', payrollCategory: 'INTERN', branchId: 'b1', runId: 'ir' },
+      { employeeId: 'new-intern', employeeCode: 'I2', payrollCategory: 'REGULAR', branchId: 'b1', runId: 'rr' },
+      { employeeId: 'other-branch', employeeCode: 'I3', payrollCategory: 'INTERN', branchId: 'b2', runId: 'ir2' },
+    ] })) };
+    const component = new BranchInternsComponent({} as any, payroll as any, {} as any, { hasModule: () => true, isMasterUser: () => true } as any, {} as any);
+    component.loadReceiptAccess();
+    component.interns = [{ id: 'new-intern', payrollCategory: 'INTERN' }] as any;
+    component.branchId = 'b1';
+    component.openReceipts();
+    expect(component.receipts.map(r => r.runId)).toEqual(['ir']);
+    expect(payroll.listEmployeeRecords).toHaveBeenCalledWith(expect.objectContaining({ branchId: 'b1', payrollCategory: 'INTERN' }));
   });
 });

@@ -42,6 +42,7 @@ export interface ClientPayrollRecordQuery {
   periodMonth?: string | number;
   branchId?: string;
   search?: string;
+  payrollCategory?: 'REGULAR' | 'INTERN';
 }
 
 @Injectable()
@@ -97,7 +98,11 @@ export class ClientPayrollDocumentsService {
       periodYear,
       periodMonth,
       branchIds: scope.branchIds,
-      runEmployees,
+      runEmployees: q.payrollCategory
+        ? runEmployees.filter(
+            (row) => row.payrollCategory === q.payrollCategory,
+          )
+        : runEmployees,
       archives,
       fnfCases,
       fnfDocuments,
@@ -428,6 +433,7 @@ export class ClientPayrollDocumentsService {
       .addSelect('e.branch_id', 'branchId')
       .addSelect('e.run_id', 'runId')
       .addSelect('r.status', 'runStatus')
+      .addSelect('r.payroll_category', 'payrollCategory')
       .addSelect('r.branch_id', 'runBranchId')
       .where('e.client_id = :clientId', { clientId })
       .andWhere('r.period_year = :periodYear', { periodYear })
@@ -440,6 +446,7 @@ export class ClientPayrollDocumentsService {
       branchId: text(row, 'branchId'),
       runId: text(row, 'runId') || '',
       runStatus: text(row, 'runStatus'),
+      payrollCategory: text(row, 'payrollCategory'),
       runBranchId: text(row, 'runBranchId'),
     }));
   }

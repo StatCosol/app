@@ -1,3 +1,4 @@
+import { ClientPayrollSettingsService } from '../../../core/client-payroll-settings.service';
 import { FaceDeskComponent } from '../../client/facedesk/facedesk.component';
 import { Input, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -110,7 +111,7 @@ import { environment } from '../../../../environments/environment';
             Attendance
           </button>
         }
-        @if (auth.hasModule('PAYROLL')) {
+        @if (canViewReceipts) {
           <button
             type="button"
             class="px-4 py-2 border rounded"
@@ -390,6 +391,7 @@ export class BranchInternsComponent implements OnInit, OnDestroy {
   downloading = '';
   loading = false;
   receiptLoading = false;
+  canViewReceipts = false;
   month = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
   documentInternId = '';
   documentType = 'AADHAAR';
@@ -407,9 +409,11 @@ export class BranchInternsComponent implements OnInit, OnDestroy {
     private payroll: ClientPayrollService,
     private http: HttpClient,
     public auth: AuthService,
+    private payrollSettings: ClientPayrollSettingsService,
   ) {}
   ngOnInit(): void {
     this.load();
+    this.loadReceiptAccess();
   }
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -439,11 +443,22 @@ export class BranchInternsComponent implements OnInit, OnDestroy {
         error: (e) => (this.error = e?.error?.message || 'Unable to load interns. Please refresh.'),
       });
   }
+  loadReceiptAccess(): void {
+    this.canViewReceipts = false;
+    if (!this.auth.hasModule('PAYROLL')) return;
+    if (this.auth.isMasterUser()) { this.canViewReceipts = true; return; }
+    this.payrollSettings.get().pipe(takeUntil(this.destroy$)).subscribe({
+      next: settings => { this.canViewReceipts = !!settings?.allowBranchPayrollAccess; },
+      error: () => { this.canViewReceipts = false; },
+    });
+  }
   openReceipts(): void {
+    if (!this.canViewReceipts) return;
     this.tab = 'receipts';
     this.loadReceipts();
   }
   loadReceipts(): void {
+    if (!this.canViewReceipts) return;
     const generation = ++this.receiptGeneration;
     const [year, month] = this.month.split('-').map(Number);
     this.receipts = [];
@@ -454,7 +469,7 @@ export class BranchInternsComponent implements OnInit, OnDestroy {
     }
     this.receiptLoading = true;
     this.payroll
-      .listEmployeeRecords({ periodYear: year, periodMonth: month })
+      .listEmployeeRecords({ periodYear: year, periodMonth: month, payrollCategory: 'INTERN', ...(this.branchId ? { branchId: this.branchId } : {}) })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -464,8 +479,7 @@ export class BranchInternsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (result) => {
           if (generation !== this.receiptGeneration) return;
-          const ids = new Set(this.scopedInterns.map((e) => e.id));
-          this.receipts = result.records.filter((r) => !!r.employeeId && ids.has(r.employeeId));
+          this.receipts = result.records.filter((r) => r.payrollCategory === 'INTERN' && (!this.branchId || r.branchId === this.branchId));
         },
         error: (e) => {
           if (generation === this.receiptGeneration)
@@ -569,7 +583,7 @@ export class BranchInternsComponent implements OnInit, OnDestroy {
     );
   }
   receipt(record: EmployeePayrollRecord): void {
-    if (!record.runId || !record.payslipAvailable) return;
+    if (!this.canViewReceipts || record.payrollCategory !== 'INTERN' || !record.runId || !record.payslipAvailable) return;
     this.download(
       '/api/v1/client/payroll/stipend-receipt?runId=' +
         encodeURIComponent(record.runId) +

@@ -360,4 +360,50 @@ describe('ClientPayrollDocumentsService downloads', () => {
       'application/zip',
     );
   });
+
+  it('filters intern runs before combining records for an employee with both categories in one month', async () => {
+    const service = serviceWith({});
+    const row = {
+      employeeId: 'former-intern',
+      employeeCode: 'I1',
+      employeeName: 'Former intern',
+      branchId: branchA,
+      runBranchId: branchA,
+      runStatus: 'APPROVED',
+    };
+    jest.spyOn(service as any, 'loadRunEmployees').mockResolvedValue([
+      { ...row, runId: 'regular-run', payrollCategory: 'REGULAR' },
+      { ...row, runId: 'intern-run', payrollCategory: 'INTERN' },
+      {
+        ...row,
+        employeeId: 'new-intern',
+        employeeCode: 'I2',
+        runId: 'old-regular',
+        payrollCategory: 'REGULAR',
+      },
+    ]);
+    jest.spyOn(service as any, 'loadArchives').mockResolvedValue([
+      { runId: 'regular-run', employeeCode: 'I1', filePath },
+      { runId: 'intern-run', employeeCode: 'I1', filePath },
+      { runId: 'old-regular', employeeCode: 'I2', filePath },
+    ]);
+    jest.spyOn(service as any, 'loadFnfCases').mockResolvedValue([]);
+    jest.spyOn(service as any, 'loadFnfDocuments').mockResolvedValue([]);
+    jest.spyOn(service as any, 'loadEmployees').mockResolvedValue([
+      { id: 'former-intern', branchId: branchA, payrollCategory: 'REGULAR' },
+      { id: 'new-intern', branchId: branchA, payrollCategory: 'INTERN' },
+    ]);
+    const result = await service.listEmployeeRecords(user(), {
+      periodYear: 2026,
+      periodMonth: 10,
+      payrollCategory: 'INTERN',
+    });
+    expect(result.records).toEqual([
+      expect.objectContaining({
+        employeeId: 'former-intern',
+        runId: 'intern-run',
+        payrollCategory: 'INTERN',
+      }),
+    ]);
+  });
 });
