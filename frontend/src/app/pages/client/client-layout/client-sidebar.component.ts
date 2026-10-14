@@ -676,6 +676,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
 
   private moduleForRoute(route: string): string[] | null {
     if (route === '/client/dashboard') return ['EMPLOYEE_COMPLIANCE'];
+    if (route.startsWith('/client/unit-documents')) return ['EMPLOYEE_COMPLIANCE'];
     if (route === '/client/profile' || route.startsWith('/client/queries')) return null;
     if (route.startsWith('/client/contractor-payroll')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'PAYROLL'];
     if (route.startsWith('/client/contractors')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
@@ -749,6 +750,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
           { label: 'Renewals Status', route: '/client/renewals-status', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
           { label: 'Monthly Uploads', route: '/client/compliance/mcd', icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
           { label: 'Compliance Documents', route: '/client/compliance/library', icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
+          { label: 'Unit Documents', route: '/client/unit-documents', icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
           { label: 'Audits', route: '/client/audits', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Audit Summaries', route: '/client/audit-summaries', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
         ],
