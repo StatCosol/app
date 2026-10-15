@@ -192,7 +192,30 @@ export class InvoicesService {
     search?: string;
     fromDate?: string;
     toDate?: string;
+    invoiceType?: string;
+    conversionStatus?: string;
   }) {
+    if (
+      query.invoiceType &&
+      !Object.values(InvoiceType).includes(query.invoiceType as InvoiceType)
+    ) {
+      throw new BadRequestException('Invalid invoice type');
+    }
+    if (
+      query.conversionStatus &&
+      !['CONVERTED', 'PENDING', 'CANCELLED'].includes(query.conversionStatus)
+    ) {
+      throw new BadRequestException('Invalid proforma conversion status');
+    }
+    if (
+      query.conversionStatus &&
+      query.invoiceType &&
+      query.invoiceType !== 'PROFORMA'
+    ) {
+      throw new BadRequestException(
+        'Conversion status applies only to proforma invoices',
+      );
+    }
     const page = query.page || 1;
     const limit = Math.min(query.limit || 25, 100);
 
@@ -200,8 +223,25 @@ export class InvoicesService {
       .createQueryBuilder('inv')
       .leftJoinAndSelect('inv.billingClient', 'client')
       .leftJoinAndSelect('inv.items', 'items')
+      .leftJoinAndSelect('inv.convertedInvoice', 'converted')
       .orderBy('inv.createdAt', 'DESC');
 
+    if (query.invoiceType || query.conversionStatus) {
+      qb.andWhere('inv.invoice_type = :invoiceType', {
+        invoiceType: query.invoiceType || InvoiceType.PROFORMA,
+      });
+    }
+    if (query.conversionStatus === 'PENDING') {
+      qb.andWhere('converted.id IS NULL');
+    } else if (query.conversionStatus) {
+      qb.andWhere('converted.id IS NOT NULL');
+      qb.andWhere(
+        query.conversionStatus === 'CANCELLED'
+          ? 'converted.invoice_status = :cancelledStatus'
+          : 'converted.invoice_status != :cancelledStatus',
+        { cancelledStatus: InvoiceStatus.CANCELLED },
+      );
+    }
     if (query.status) {
       qb.andWhere('inv.invoice_status = :status', { status: query.status });
     }
@@ -222,7 +262,7 @@ export class InvoicesService {
     }
     if (query.search) {
       qb.andWhere(
-        '(inv.invoice_number ILIKE :s OR client.legal_name ILIKE :s)',
+        '(inv.invoice_number ILIKE :s OR client.legal_name ILIKE :s OR converted.invoice_number ILIKE :s OR inv.proforma_reference_number ILIKE :s)',
         { s: `%${query.search}%` },
       );
     }

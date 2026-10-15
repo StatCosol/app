@@ -231,3 +231,14 @@ it.each([390, 1440])('keeps invoice actions and payment dialog within the %ipx v
   expect(rect.top).toBeGreaterThanOrEqual(0); expect(rect.bottom).toBeLessThanOrEqual(800);
   await page.screenshot({ element: modal, path: `../../../../.vitest-attachments/billing-payment-${width}.png` });
 });
+
+describe('Proforma tax invoice reference', () => {
+  it.each(['DRAFT', 'APPROVED', 'CANCELLED'])('shows the linked tax invoice number and its %s status', async status => {
+    const { create } = await setup({ invoiceType: 'PROFORMA', convertedInvoice: invoice({ id: 'converted-tax', invoiceNumber: 'TAX/2627/0042', invoiceStatus: status }) });
+    const fixture = create(); await fixture.whenStable(); fixture.detectChanges();
+    const link = fixture.nativeElement.querySelector('a[href="/accounts/invoices/converted-tax"]');
+    expect(link?.textContent).toContain('TAX/2627/0042');
+    expect(link.parentElement.textContent).toContain(status === 'CANCELLED' ? 'Tax invoice cancelled' : 'Tax invoice created');
+    expect(link.parentElement.textContent).toContain(status);
+  });
+});
