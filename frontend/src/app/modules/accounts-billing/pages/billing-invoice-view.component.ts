@@ -35,7 +35,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           @if (canConvert()) {
 <button (click)="openTaxInvoiceConversion()"
                   [disabled]="actionBusy"
-                  class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50" title="View Tax Invoice" aria-label="View Tax Invoice" data-action-label="View Tax Invoice" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
+                  class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50" [title]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" [attr.aria-label]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" [attr.data-action-label]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
             {{ invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice' }}
           </span></button>
 }
@@ -52,6 +52,13 @@ import { ToastService } from '../../../shared/toast/toast.service';
         </div>
       </div>
 
+      @if (invoice.invoiceType === 'PROFORMA' && invoice.convertedInvoice; as tax) {
+        <div class="rounded-lg border p-4 text-sm" [class]="tax.invoiceStatus === 'CANCELLED' ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'">
+          <strong>{{ tax.invoiceStatus === 'CANCELLED' ? 'Tax invoice cancelled' : 'Tax invoice created' }}</strong>
+          <a class="underline font-semibold ml-2" [routerLink]="['/accounts/invoices', tax.id]">{{ tax.invoiceNumber }}</a>
+          <span class="ml-2">({{ tax.invoiceStatus }})</span>
+        </div>
+      }
       <!-- Status Badges -->
       <div class="flex gap-3 flex-wrap">
         <span class="px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700">{{ invoice.invoiceStatus }}</span>

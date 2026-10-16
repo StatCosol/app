@@ -51,6 +51,8 @@ export class InvoicesController {
     @Query('search') search?: string,
     @Query('fromDate') fromDate?: string,
     @Query('toDate') toDate?: string,
+    @Query('invoiceType') invoiceType?: string,
+    @Query('conversionStatus') conversionStatus?: string,
   ) {
     return this.invoicesService.findAll({
       page: page ? +page : undefined,
@@ -61,6 +63,8 @@ export class InvoicesController {
       search,
       fromDate,
       toDate,
+      invoiceType,
+      conversionStatus,
     });
   }
 

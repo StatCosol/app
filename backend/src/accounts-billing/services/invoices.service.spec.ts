@@ -311,3 +311,90 @@ describe('InvoicesService locked transitions', () => {
     },
   );
 });
+
+describe('Invoice list conversion filters', () => {
+  function fixture() {
+    const qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest
+        .fn()
+        .mockResolvedValue([
+          [{ id: 'proforma', convertedInvoice: { id: 'tax' } }],
+          31,
+        ]),
+    };
+    const service = new InvoicesService(
+      { createQueryBuilder: () => qb } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+    return { qb, service };
+  }
+  it('returns linked tax invoices with server-side type filtering, search and pagination', async () => {
+    const { service, qb } = fixture();
+    const result = await service.findAll({
+      invoiceType: 'PROFORMA',
+      search: 'TAX/001',
+      page: 2,
+    });
+    expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+      'inv.convertedInvoice',
+      'converted',
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'inv.invoice_type = :invoiceType',
+      { invoiceType: 'PROFORMA' },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('converted.invoice_number ILIKE :s'),
+      { s: '%TAX/001%' },
+    );
+    expect(qb.skip).toHaveBeenCalledWith(25);
+    expect(result).toMatchObject({
+      total: 31,
+      totalPages: 2,
+      data: [{ convertedInvoice: { id: 'tax' } }],
+    });
+  });
+  it.each([
+    ['PENDING', 'converted.id IS NULL', null],
+    [
+      'CONVERTED',
+      'converted.id IS NOT NULL',
+      'converted.invoice_status != :cancelledStatus',
+    ],
+    [
+      'CANCELLED',
+      'converted.id IS NOT NULL',
+      'converted.invoice_status = :cancelledStatus',
+    ],
+  ])('separates %s conversions', async (conversionStatus, presence, status) => {
+    const { service, qb } = fixture();
+    await service.findAll({ conversionStatus: conversionStatus });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'inv.invoice_type = :invoiceType',
+      { invoiceType: 'PROFORMA' },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(presence);
+    if (status)
+      expect(qb.andWhere).toHaveBeenCalledWith(status, {
+        cancelledStatus: 'CANCELLED',
+      });
+  });
+  it.each([
+    { invoiceType: 'INVALID' },
+    { conversionStatus: 'INVALID' },
+    { invoiceType: 'TAX_INVOICE', conversionStatus: 'PENDING' },
+  ])('rejects invalid filters %j', async (query) => {
+    await expect(fixture().service.findAll(query)).rejects.toThrow();
+  });
+});
