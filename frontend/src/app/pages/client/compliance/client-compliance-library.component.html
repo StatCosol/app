@@ -3,10 +3,10 @@
     title="Compliance Documents"
     subtitle="View and download compliance files shared by branch and CRM users">
   </ui-page-header>
-  <app-compliance-document-records [crm]="false"></app-compliance-document-records>
+  <app-compliance-document-records [crm]="false" [year]="null"></app-compliance-document-records>
 
-  <details class="border rounded-xl p-4 mt-4" [open]="hasFocusContext()">
-    <summary class="cursor-pointer font-semibold">Reference files and older uploads</summary>
+  <section class="border rounded-xl p-4 mt-4">
+    <h2 class="font-semibold">Reference files and older uploads</h2>
   @if (hasFocusContext()) {
 <div class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sky-900">
     <p class="text-sm font-semibold">Focused from Branch Compliance</p>
@@ -73,17 +73,22 @@
 <ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
 }
 
+  @if (!loading && loadError) {
+    <div role="alert" class="border border-red-200 rounded p-4 text-red-700">{{ loadError }}
+      <button type="button" class="underline ml-2" (click)="loadDocuments()">Retry</button>
+    </div>
+  }
   <!-- Empty state -->
-  @if (!loading && filteredDocs.length === 0) {
+  @if (!loading && !loadError && filteredDocs.length === 0) {
 <ui-empty-state
 
     title="No documents found"
-    description="No compliance documents match the current filters. Files will appear here once CRM uploads them.">
+    description="No compliance documents match the current filters. Check the selected filters or confirm that the files were uploaded for your company.">
   </ui-empty-state>
 }
 
   <!-- Document grid -->
-  @if (!loading && filteredDocs.length > 0) {
+  @if (!loading && !loadError && filteredDocs.length > 0) {
 <div class="doc-grid">
     @for (doc of filteredDocs; track doc) {
 <div class="doc-card">
@@ -121,5 +126,5 @@
 }
   </div>
 }
-  </details>
+  </section>
 </div>

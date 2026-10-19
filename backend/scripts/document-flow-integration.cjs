@@ -116,8 +116,8 @@ async function main(){
    }
    next();
   });
-  http.use('/app',express.static(path.join(workspace,'frontend/dist/statco-frontend/browser')));
-  http.use('/app',(req,res)=>res.sendFile(path.join(workspace,'frontend/dist/statco-frontend/browser/index.html')));
+  http.use('/app',express.static(path.join(workspace,'frontend/dist/statco-frontend/browser'), {dotfiles:'allow'}));
+  http.use('/app',(req,res)=>res.sendFile(path.join(workspace,'frontend/dist/statco-frontend/browser/index.html'), {dotfiles:'allow'}));
   await app.listen(0,'127.0.0.1');const base=await app.getUrl();
   const PDFDocument=require('pdfkit');
   const pdf=await new Promise(resolve=>{const chunks=[];const d=new PDFDocument();d.on('data',c=>chunks.push(c));d.on('end',()=>resolve(Buffer.concat(chunks)));d.text('Statcompy document upload verification - synthetic data only.');d.end();});

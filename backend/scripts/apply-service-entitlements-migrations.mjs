@@ -23,6 +23,7 @@ const serviceMigrationFiles = new Set([
   '20261011_news_source_change_identity.sql',
   '20260928_compliance_news_source_snapshots.sql',
   '20260928_seed_labour_fssai_news.sql',
+  '20261019_compliance_notification_content.sql',
   '20260927_audit_report_hold.sql',
   '20260924_audit_checklist_remarks.sql',
   '20260926_client_communication_policies.sql',

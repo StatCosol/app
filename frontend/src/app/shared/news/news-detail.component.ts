@@ -1,3 +1,4 @@
+import { NewsBodyComponent } from './news-body.component';
 import { IconComponent } from '../ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe, Location } from '@angular/common';
@@ -9,7 +10,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 @Component({
   selector: 'app-news-detail',
   standalone: true,
-  imports: [IconComponent, CommonModule, DatePipe],
+  imports: [NewsBodyComponent, IconComponent, CommonModule, DatePipe],
   template: `
     <!-- ============== LOADING STATE ============== -->
     @if (loading) {
@@ -91,7 +92,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 }
             <div class="article-divider"></div>
             <div class="text-gray-700 leading-relaxed whitespace-pre-wrap text-base sm:text-lg">
-              {{ selectedItem.body }}
+              <app-news-body [body]="selectedItem.body" />
             </div>
             @if (selectedItem.imageUrl) {
 <button

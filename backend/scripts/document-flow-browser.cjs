@@ -92,9 +92,28 @@ module.exports=async({base,tokens,identities,clientId,branchId,work,pdf,check})=
   await open('branch','/branch/unit-documents');
   await page.waitForFunction(()=>document.body.innerText.includes('Current expiry: 2035-12-31'));
   check('Branch sees CRM renewal expiry');
-  await open('client','/client/compliance/library');await viewDownload('client-compliance','app-compliance-document-records');
+  await open('client','/client/compliance/library');
+  assert.equal(await page.$eval('input[aria-label="Submission year"]',e=>e.value),'');
+  assert.ok(await page.$eval('app-compliance-document-records',e=>e.innerText.includes('2025')));
+  assert.ok(await page.$eval('app-client-compliance-library',e=>Array.from(e.querySelectorAll('h2')).some(h=>h.textContent.includes('Reference files'))));
+  check('Client compliance library initially shows prior-year submissions and expands reference files');
+  await viewDownload('client-compliance','app-compliance-document-records');
   await open('client','/client/unit-documents');await page.waitForFunction(()=>document.body.innerText.includes('Current expiry: 2035-12-31'));check('Client sees shared current renewal expiry');await viewDownload('client-unit');
   assert.equal(await page.$('input[type="file"]'),null);check('Client unit page is read-only');
+  const newsFixtures=[{id:'notice',title:'Synthetic notification 2026',body:'Synthetic notification 2026\nOfficial notification: https://labour.gujarat.gov.in/test-notice.pdf',category:'COMPLIANCE',createdAt:new Date().toISOString(),pinned:false},
+   {id:'legacy',title:'Compliance Portal Update: Gujarat Labour',body:'An automated compliance monitor detected a new update on Gujarat Labour.\nOfficial source: https://labour.gujarat.gov.in/\nAction: Update payroll',category:'COMPLIANCE',createdAt:new Date().toISOString(),pinned:false}];
+  await page.setRequestInterception(true);
+  page.on('request',req=>{if(new URL(req.url()).pathname==='/api/v1/news')return req.respond({status:200,contentType:'application/json',body:JSON.stringify(newsFixtures)});return req.continue();});
+  await page.goto(base+'/app/client/news/notice',{waitUntil:'networkidle0'});
+  await page.waitForSelector('app-news-body a');
+  assert.equal(await page.$eval('app-news-body a',e=>e.href),'https://labour.gujarat.gov.in/test-notice.pdf');
+  assert.equal(await page.$eval('app-news-body a',e=>e.rel),'noopener noreferrer');
+  await page.screenshot({path:path.join(evidence,'client-news-notification.png'),fullPage:true});
+  await page.goto(base+'/app/client/news/legacy',{waitUntil:'networkidle0'});
+  await page.waitForFunction(()=>document.querySelector('app-news-body')?.textContent.includes('No specific notification details were captured'));
+  assert.ok(!(await page.$eval('app-news-body',e=>e.textContent)).includes('Update payroll'));
+  await page.screenshot({path:path.join(evidence,'client-news-legacy.png'),fullPage:true});
+  check('Client news displays clickable official notification links and explains legacy notices without invented details');
   for(const name of ['failure.txt','failure.png']){const p=path.join(evidence,name);if(fs.existsSync(p))fs.unlinkSync(p);}
  }catch(e){if(page&&!page.isClosed()){await page.screenshot({path:path.join(evidence,'failure.png'),fullPage:true});fs.writeFileSync(path.join(evidence,'failure.txt'),page.url()+'\n'+await page.evaluate(()=>document.body.innerText)+'\n'+errors.join('\n'));}throw e;}
  finally{await browser.close();}
