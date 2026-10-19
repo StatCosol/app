@@ -10,6 +10,7 @@ import { EmailService } from '../email/email.service';
 import { ClientContactsService } from './client-contacts.service';
 import { ClientCommTemplatesService } from './client-comm-templates.service';
 import { portalUrl } from '../common/utils/portal-url';
+import { extractComplianceNotifications } from './compliance-news-extractor';
 import { weeklyNewsRecipientList } from './weekly-news-recipients';
 
 export interface RunOptions {
@@ -110,7 +111,7 @@ const COMPLIANCE_NEWS_SOURCES: ComplianceNewsSource[] = [
   {
     code: 'GJ_LABOUR',
     label: 'Gujarat Labour',
-    url: 'https://labour.gujarat.gov.in/',
+    url: 'https://labour.gujarat.gov.in/e-citizen-notifications.htm',
   },
   {
     code: 'HR_LABOUR',
@@ -948,42 +949,71 @@ export class ClientCommsCronService {
   private async publishSourceIfChanged(
     source: ComplianceNewsSource,
   ): Promise<void> {
-    const text = await this.fetchSourceText(source.url);
-    const hash = this.hashText(text);
-    const relevant = this.isRelevantComplianceText(text);
+    const html = await this.fetchSourceHtml(source.url);
+    const notifications = extractComplianceNotifications(html, source.url);
+    if (!notifications.length) {
+      this.log.warn(
+        '[compliance-news-monitor] ' +
+          source.code +
+          ': no identifiable notification links; no news published',
+      );
+      return;
+    }
+    const hash = this.hashText(
+      notifications
+        .map((item) => item.hash)
+        .sort()
+        .join('\n'),
+    );
     await this.ds.transaction(async (manager) => {
       // Serialize baseline creation and publication for the same source.
       await manager.query(
         'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
         [`compliance-news:${source.code}`],
       );
-      const rows: Array<{ last_hash: string | null }> = await manager.query(
-        `SELECT last_hash FROM compliance_news_source_snapshots
+      const rows: Array<{
+        last_hash: string | null;
+        notification_hashes: string[] | null;
+      }> = await manager.query(
+        `SELECT last_hash, notification_hashes FROM compliance_news_source_snapshots
        WHERE source_code = $1 LIMIT 1`,
         [source.code],
       );
-      const previous = rows[0]?.last_hash || null;
-      if (!previous || previous === hash || !relevant) {
-        await this.saveSourceSnapshot(source, hash, relevant, manager);
-        return;
+      const previous = rows[0]?.notification_hashes;
+      const seen = new Set(previous || []);
+      // Page hashes cannot identify which notice changed. Establish a notice
+      // baseline instead of announcing the whole archive as new.
+      if (previous) {
+        for (const item of notifications) {
+          if (seen.has(item.hash)) continue;
+          const title = (source.label + ': ' + item.title).slice(0, 255);
+          const body = [
+            item.title,
+            '',
+            'Source: ' + source.label,
+            'Official notification: ' + item.url,
+            '',
+            'The headline above is taken from the official source. Open the notification for its full text, issue date and applicability.',
+          ].join('\n');
+          await this.createNewsIfMissing(
+            title,
+            body,
+            source.code,
+            item.hash,
+            manager,
+          );
+        }
       }
-
-      const title = `Compliance Portal Update: ${source.label}`;
-      const body = [
-        `An automated compliance monitor detected a new update on ${source.label}.`,
-        '',
-        'This source is monitored for labour law, minimum wages, wage revision, EPF, ESI, shops and establishments, factories, BOCW, contractor compliance, and FSSAI updates.',
-        '',
-        `Official source: ${source.url}`,
-        '',
-        'Action: Review the official notification/order and update the applicable compliance or minimum-wage master before payroll/compliance closure.',
-      ].join('\n');
-      await this.createNewsIfMissing(title, body, source.code, hash, manager);
+      for (const item of notifications) seen.add(item.hash);
       await this.saveSourceSnapshot(source, hash, true, manager);
+      await manager.query(
+        'UPDATE compliance_news_source_snapshots SET notification_hashes = $2::jsonb WHERE source_code = $1',
+        [source.code, JSON.stringify([...seen])],
+      );
     });
   }
 
-  private async fetchSourceText(url: string): Promise<string> {
+  private async fetchSourceHtml(url: string): Promise<string> {
     const res = await fetch(url, {
       headers: {
         'user-agent': 'StatCo Compliance Monitor/1.0 (+https://statcosol.com)',
@@ -992,22 +1022,7 @@ export class ClientCommsCronService {
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const raw = await res.text();
-    return raw
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 120000);
-  }
-
-  private isRelevantComplianceText(text: string): boolean {
-    return /\b(minimum wages?|wage revision|labou?r|epf|epfo|esi|esic|shops?|establishments?|factories|factory|bocw|contract(?:or)?|fssai|food safety|notification|circular|order)\b/i.test(
-      text,
-    );
+    return (await res.text()).slice(0, 2_000_000);
   }
 
   private hashText(text: string): string {

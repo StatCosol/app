@@ -17,7 +17,7 @@ import { ToastService } from '../toast/toast.service';
       <p class="text-sm text-gray-600 mb-3">Returns and challans uploaded by branch and CRM users.</p>
       @if (!branch) {
       <div class="flex flex-wrap gap-3 mb-4">
-        <input type="number" min="2020" max="2050" aria-label="Submission year" [(ngModel)]="year" (ngModelChange)="resetPage()" class="border rounded p-2 w-28">
+        <input type="number" min="2020" max="2050" placeholder="All years" aria-label="Submission year" [(ngModel)]="year" (ngModelChange)="resetPage()" class="border rounded p-2 w-28">
         <select aria-label="Submission frequency" [(ngModel)]="frequency" (ngModelChange)="resetPage()" class="border rounded p-2">
           <option value="">All frequencies</option><option value="MONTHLY">Monthly</option>
           <option value="QUARTERLY">Quarterly</option><option value="HALF_YEARLY">Half-yearly</option><option value="YEARLY">Yearly</option>
@@ -57,7 +57,7 @@ export class ComplianceDocumentRecordsComponent implements OnChanges, OnDestroy 
   @Input() branchId = '';
   @Input() companyId = '';
   @Input() revision = 0;
-  @Input() year = new Date().getFullYear();
+  @Input() year: number | null = new Date().getFullYear();
   @Input() frequency = '';
   @Input() month?: number;
   @Input() quarter?: number;
@@ -74,7 +74,7 @@ export class ComplianceDocumentRecordsComponent implements OnChanges, OnDestroy 
     this.request?.unsubscribe();
     if ((this.crm && !this.companyId) || (this.branch && !this.branchId)) { this.documents = []; this.loading = false; return; }
     this.loading = true; this.error = ''; this.documents = [];
-    const filters = { branchId: this.branch ? this.branchId : undefined, year: this.year, month: this.branch && this.frequency === 'MONTHLY' ? this.month : undefined, quarter: this.branch && this.frequency === 'QUARTERLY' ? this.quarter : undefined, half: this.branch && this.frequency === 'HALF_YEARLY' ? this.half : undefined, frequency: this.frequency || undefined, companyId: this.crm ? this.companyId : undefined, page: this.page, pageSize: 50 };
+    const filters = { branchId: this.branch ? this.branchId : undefined, year: this.year || undefined, month: this.branch && this.frequency === 'MONTHLY' ? this.month : undefined, quarter: this.branch && this.frequency === 'QUARTERLY' ? this.quarter : undefined, half: this.branch && this.frequency === 'HALF_YEARLY' ? this.half : undefined, frequency: this.frequency || undefined, companyId: this.crm ? this.companyId : undefined, page: this.page, pageSize: 50 };
     const request = this.branch ? this.api.listBranchDocs(filters) : this.crm ? this.api.listCrmDocs(filters) : this.api.listClientDocs(filters);
     this.request = request.pipe(takeUntil(this.destroy$)).subscribe({
       next: result => { this.documents = result.data; this.total = result.total; this.loading = false; this.cdr.markForCheck(); },

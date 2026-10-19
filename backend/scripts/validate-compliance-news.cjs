@@ -20,7 +20,7 @@ const connection = { host: '127.0.0.1', port: Number(process.env.AUTOMATION_TEST
       CREATE TABLE users(id uuid,role_id uuid,email text,deleted_at timestamptz,created_at timestamptz);
       CREATE TABLE news_items(title text,body text,category text,pinned boolean,is_active boolean,expires_at timestamptz,created_by uuid,created_at timestamptz,updated_at timestamptz,deleted_at timestamptz);
       INSERT INTO users VALUES('00000000-0000-4000-8000-000000000001',NULL,'admin@statcosol.com',NULL,NOW());`);
-    for (const name of ['20260928_compliance_news_source_snapshots.sql', '20260928_seed_labour_fssai_news.sql', '20261011_news_source_change_identity.sql']) {
+    for (const name of ['20260928_compliance_news_source_snapshots.sql', '20260928_seed_labour_fssai_news.sql', '20261011_news_source_change_identity.sql', '20261019_compliance_notification_content.sql']) {
       const sql = fs.readFileSync(path.join(__dirname, '../migrations', name), 'utf8');
       await ds.query(sql);
       const countBeforeRepeat = Number((await ds.query('SELECT count(*) FROM news_items'))[0].count);
@@ -32,14 +32,27 @@ const connection = { host: '127.0.0.1', port: Number(process.env.AUTOMATION_TEST
     service.ds = ds;
     const source = { code: 'SYNTHETIC', label: 'Synthetic Source', url: 'https://example.invalid' };
     let version = 1;
-    service.fetchSourceText = async () => `labour notification ${version}`;
+    service.fetchSourceHtml = async () => `<a href="/notice-${version}.pdf">Minimum wage notification revision ${version} of 2026</a>`;
+    service.log = { warn: () => {} };
     const publish = () => service.publishSourceIfChanged(source);
     const count = async () => Number((await ds.query('SELECT count(*) FROM news_items'))[0].count);
     await publish();
     assert.equal(await count(), 0, 'first scan is a baseline');
+    const originalFetch = service.fetchSourceHtml;
+    service.fetchSourceHtml = async () => '<p>Labour page visitor count changed</p>';
+    await publish();
+    assert.equal(await count(), 0, 'page-wide changes without notices do not publish');
+    service.fetchSourceHtml = originalFetch;
     version = 2;
     await Promise.all([publish(), publish()]);
     assert.equal(await count(), 1, 'concurrent identical updates publish once');
+    const [published] = await ds.query('SELECT title, body FROM news_items');
+    assert.match(published.title, /Minimum wage notification revision 2/);
+    assert.match(published.body, /Official notification: https:\/\/example.invalid\/notice-2.pdf/);
+    assert.ok(!published.body.includes('An automated compliance monitor'));
+    version = 1;
+    await publish();
+    assert.equal(await count(), 1, 'a baseline notice reappearing is not new');
     version = 3;
     await publish();
     assert.equal(await count(), 2, 'a later source revision publishes again');

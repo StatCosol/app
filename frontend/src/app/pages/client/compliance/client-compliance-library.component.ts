@@ -5,7 +5,7 @@ import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
   PageHeaderComponent,
@@ -37,7 +37,9 @@ import { ToastService } from '../../../shared/toast/toast.service';
 export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
+  private documentRequest?: Subscription;
   loading = true;
+  loadError = '';
   isMasterUser = false;
   focusTitle = '';
   focusCode = '';
@@ -46,13 +48,14 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
   filteredDocs: ComplianceDocument[] = [];
 
   tabs: DocCategory[] = [
+    { code: '', label: 'All documents' },
     { code: 'RETURN', label: 'Returns / Filings' },
     { code: 'REGISTER', label: 'Registers' },
     { code: 'LICENSE', label: 'Licenses' },
     { code: 'MCD', label: 'Monthly Compliance Docket' },
     { code: 'AUDIT_REPORT', label: 'Audit Reports' },
   ];
-  activeTab = 'RETURN';
+  activeTab = '';
   tabCounts: Record<string, number> = {};
 
   subCategories: DocCategory[] = [];
@@ -96,6 +99,7 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.documentRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -131,10 +135,6 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res: any) => {
           this.branches = res?.data || res || [];
-          const userBranchIds = this.auth.getBranchIds();
-          if (userBranchIds.length === 1) {
-            this.filters.branchId = userBranchIds[0];
-          }
           this.cdr.detectChanges();
         },
         error: () => {
@@ -145,6 +145,7 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
   }
 
   loadSubCategories(category: string) {
+    if (!category) { this.subCategories = []; return; }
     if (this.subCategoryCache[category]) {
       this.subCategories = this.subCategoryCache[category];
       return;
@@ -156,7 +157,7 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
         next: (res: any) => {
           const list = Array.isArray(res) ? res : res?.data || [];
           this.subCategoryCache[category] = list;
-          this.subCategories = list;
+          if (this.activeTab === category) this.subCategories = list;
           this.cdr.detectChanges();
         },
         error: () => {
@@ -167,17 +168,19 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
   }
 
   loadDocuments() {
+    this.documentRequest?.unsubscribe();
     this.loading = true;
-    const params: Record<string, any> = {
-      category: this.activeTab,
-    };
+    this.loadError = '';
+    const category = this.activeTab;
+    const params: Record<string, any> = {};
+    if (category) params['category'] = category;
     if (this.filters.branchId) params['branchId'] = this.filters.branchId;
     if (this.filters.subCategory) params['subCategory'] = this.filters.subCategory;
     if (this.filters.periodYear) params['periodYear'] = this.filters.periodYear;
     if (this.filters.periodMonth) params['periodMonth'] = this.filters.periodMonth;
     if (this.filters.search) params['search'] = this.filters.search;
 
-    this.docsSvc
+    this.documentRequest = this.docsSvc
       .listForClient(params)
       .pipe(
         takeUntil(this.destroy$),
@@ -190,13 +193,13 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
         next: (docs) => {
           this.documents = Array.isArray(docs) ? docs : [];
           this.filteredDocs = this.documents;
-          this.tabCounts[this.activeTab] = this.documents.length;
+          this.tabCounts[category] = this.documents.length;
           this.cdr.detectChanges();
         },
         error: (err) => {
           this.documents = [];
           this.filteredDocs = [];
-          this.toast.error(err?.error?.message || 'Failed to load documents');
+          this.loadError = err?.error?.message || 'Unable to load compliance documents. Please retry.';
           this.cdr.detectChanges();
         },
       });

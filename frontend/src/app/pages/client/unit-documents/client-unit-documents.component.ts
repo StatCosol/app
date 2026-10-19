@@ -3,7 +3,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
   CrmDocumentScope,
@@ -56,6 +56,7 @@ type ScopeFilter = '' | CrmDocumentScope;
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
         <div class="flex flex-wrap items-end gap-3">
+          <button type="button" class="border rounded px-3 py-2 text-sm" (click)="loadDocuments()">Refresh</button>
           @if (branches.length > 1) {
           <label class="text-sm">Unit
             <select id="cud-branch" name="branchId" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()" [disabled]="filters.scope === 'COMPANY'" class="form-select rounded-lg border-gray-300 text-sm">
@@ -103,7 +104,12 @@ type ScopeFilter = '' | CrmDocumentScope;
 <ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
 }
 
-      @if (!loading && documents.length === 0) {
+      @if (!loading && loadError) {
+        <div role="alert" class="border border-red-200 rounded p-4 text-red-700">{{ loadError }}
+          <button type="button" class="underline ml-2" (click)="loadDocuments()">Retry</button>
+        </div>
+      }
+      @if (!loading && !loadError && documents.length === 0) {
 <ui-empty-state
 
         icon="document"
@@ -112,7 +118,7 @@ type ScopeFilter = '' | CrmDocumentScope;
       </ui-empty-state>
 }
 
-      @if (!loading && documents.length > 0) {
+      @if (!loading && !loadError && documents.length > 0) {
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
@@ -172,7 +178,9 @@ type ScopeFilter = '' | CrmDocumentScope;
 export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
 
+  private documentRequest?: Subscription;
   loading = false;
+  loadError = '';
   documents: CrmUnitDocument[] = [];
   branches: Array<{ id: string; branchName: string }> = [];
 
@@ -209,6 +217,7 @@ export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.documentRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -236,8 +245,11 @@ export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
   get hasRecordedMonth(): boolean { return this.documents.some(doc => !!doc.month); }
 
   loadDocuments(): void {
+    this.documentRequest?.unsubscribe();
     this.loading = true;
-    this.api.listForClient({
+    this.loadError = '';
+    this.documents = [];
+    this.documentRequest = this.api.listForClient({
       branchId: this.filters.branchId || undefined,
       scope: this.filters.scope || undefined,
       month: this.filters.month || undefined,
@@ -253,7 +265,7 @@ export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
       next: (docs) => {
         this.documents = docs;
       },
-      error: () => this.toast.error('Failed to load documents'),
+      error: () => { this.loadError = 'Unable to load unit documents. Please retry.'; },
     });
   }
 
