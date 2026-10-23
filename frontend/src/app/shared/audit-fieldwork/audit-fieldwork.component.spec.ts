@@ -110,4 +110,56 @@ describe('Audit fieldwork', () => {
     expect(c.visible.map((i) => i.id)).toEqual(['p']);
     c.ngOnDestroy();
   });
+  it('requires a fresh decision and suggestion confirmation for replacement evidence', () => {
+    const { c, http } = setup();
+    c.draft.remarks = 'Notes to retain';
+    c.draft.decision = 'COMPLIED';
+    c.draft.verified = true;
+    http.get.mockReturnValue(of(response([point('p', 2)])));
+    c.load();
+    expect(c.draft.remarks).toBe('Notes to retain');
+    expect(c.draft.decision).toBe('PENDING');
+    expect(c.draft.verified).toBe(false);
+    c.ngOnDestroy();
+  });
+  it('does not reopen a closed preview or replace a newer photo with a slow response', () => {
+    const { c, files } = setup();
+    const first = new Subject<any>(),
+      second = new Subject<any>();
+    files.fetch.mockReturnValueOnce(first).mockReturnValueOnce(second);
+    const a = { url: '/a', fileName: 'a.png', mimeType: 'image/png' } as any;
+    c.view(a);
+    c.view({ ...a, fileName: 'b.png' });
+    const old = { revoke: vi.fn() },
+      latest = { revoke: vi.fn() };
+    second.next(latest);
+    first.next(old);
+    expect(c.preview).toBe(latest);
+    expect(old.revoke).toHaveBeenCalledOnce();
+    c.closePreview();
+    expect(latest.revoke).toHaveBeenCalledOnce();
+    c.ngOnDestroy();
+  });
+  it('clears the native file chooser and rejects an oversize replacement', () => {
+    const { c } = setup();
+    const input = { files: [new File(['x'], 'record.txt')], value: 'record.txt' };
+    c.fileChanged({ target: input } as any);
+    expect(input.value).toBe('');
+    expect(c.draft.file?.name).toBe('record.txt');
+    c.fileChanged({
+      target: { files: [{ size: 10 * 1024 * 1024 + 1 }], value: 'large.pdf' },
+    } as any);
+    expect(c.draft.file).toBeNull();
+    c.ngOnDestroy();
+  });
+  it('prevents client review and adding points even if called outside the visible buttons', () => {
+    const { c, http } = setup();
+    c.auditor = false;
+    c.newLabel = 'New inspection';
+    c.draft.remarks = 'Client cannot verify';
+    c.addPoint();
+    c.saveReview();
+    expect(http.post).not.toHaveBeenCalled();
+    c.ngOnDestroy();
+  });
 });

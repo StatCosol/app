@@ -45,6 +45,7 @@ interface AuditPoint {
   history: any[];
 }
 interface Draft {
+  revision: number;
   remarks: string;
   decision: string;
   verified: boolean;
@@ -82,6 +83,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
   private requests = new Subscription();
   private loadRequest?: Subscription;
   private generation = 0;
+  private previewGeneration = 0;
   private base = (environment.apiBaseUrl || '') + '/api/v1/audit-fieldwork/';
   constructor(
     private http: HttpClient,
@@ -164,8 +166,15 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
         this.audit = r.audit;
         this.items = r.items;
         this.canEdit = r.canEdit;
-        for (const i of this.items)
+        for (const i of this.items) {
+          const draft = this.drafts[i.id];
+          if (draft && draft.revision !== i.revision) {
+            draft.revision = i.revision;
+            draft.decision = 'PENDING';
+            draft.verified = false;
+          }
           this.drafts[i.id] ??= {
+            revision: i.revision,
             remarks: i.remarks || '',
             decision: ['PENDING', 'UPLOADED'].includes(i.status) ? 'PENDING' : i.status,
             verified: i.automationReviewed,
@@ -173,6 +182,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
             location: '',
             file: null,
           };
+        }
         if (!this.selected) this.selectedId = this.items[0]?.id || '';
         this.loading = false;
         this.cdr.markForCheck();
@@ -195,8 +205,10 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
   fileChanged(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
+    input.value = '';
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
+      this.draft.file = null;
       this.error = 'Choose a file smaller than 10 MB.';
       input.value = '';
       return;
@@ -227,7 +239,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
   saveReview() {
     const item = this.selected,
       d = this.draft;
-    if (!item || !this.canEdit || this.busy) return;
+    if (!item || !this.auditor || !this.canEdit || this.busy || this.loading) return;
     if (d.remarks.trim().length < 5) {
       this.error = 'Add remarks explaining the evidence checked and your decision.';
       return;
@@ -247,7 +259,14 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     );
   }
   addPoint() {
-    if (this.newLabel.trim().length < 3 || this.busy) return;
+    if (
+      !this.auditor ||
+      !this.canEdit ||
+      this.loading ||
+      this.newLabel.trim().length < 3 ||
+      this.busy
+    )
+      return;
     this.mutate('items', { label: this.newLabel.trim(), kind: this.newKind }, (r) => {
       this.selectedId = r.id;
       this.newLabel = '';
@@ -303,10 +322,15 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     }
     const epoch = this.generation;
     const point = this.selectedId;
+    const previewEpoch = this.previewGeneration;
     this.requests.add(
       this.files.fetch(e.url, e.fileName).subscribe({
         next: (f) => {
-          if (epoch !== this.generation || point !== this.selectedId) {
+          if (
+            epoch !== this.generation ||
+            point !== this.selectedId ||
+            previewEpoch !== this.previewGeneration
+          ) {
             f.revoke();
             return;
           }
@@ -332,6 +356,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     );
   }
   closePreview() {
+    this.previewGeneration++;
     this.preview?.revoke();
     this.preview = null;
   }

@@ -144,6 +144,12 @@ export class AuditFieldworkService {
     return this.db.transaction(async (db) => {
       const a = await this.audit(user, id, db, true);
       await this.assertWritable(a, db);
+      await ensureAuditChecklist(db, {
+        id,
+        clientId: a.client_id,
+        auditType: a.audit_type,
+        contractorUserId: a.contractor_user_id,
+      });
       const [item] = await db.query(
         `INSERT INTO audit_checklist_items(audit_id,item_label,evidence_kind,status,is_required,sort_order) SELECT $1,$2,$3,'PENDING',TRUE,COALESCE(MAX(sort_order),0)+1 FROM audit_checklist_items WHERE audit_id=$1 RETURNING id`,
         [id, body.label.trim(), body.kind],

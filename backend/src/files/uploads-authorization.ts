@@ -29,7 +29,7 @@ export function uploadsAuthorization(
     if (/^(logos|news)\//.test(relative)) return next();
     // Biometric photos have dedicated scoped endpoints, never static delivery.
     if (
-      /^(face-photos|temp|payroll-breakups|payroll-run-employees)\//.test(
+      /^(face-photos|temp|payroll-breakups|payroll-run-employees|audit-evidence)\//.test(
         relative,
       )
     ) {

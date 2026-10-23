@@ -458,13 +458,13 @@ export class AuditListingService {
       throw new ForbiddenException('Client missing clientId');
     }
 
-    const rows = await this.repo
+    const qb = this.repo
       .createQueryBuilder('a')
       .select('a.status', 'status')
       .addSelect('COUNT(*)', 'count')
-      .where('a.clientId = :clientId', { clientId: user.clientId })
-      .groupBy('a.status')
-      .getRawMany();
+      .where('a.clientId = :clientId', { clientId: user.clientId });
+    applyClientBranchScope(qb, user, 'a.branchId');
+    const rows = await qb.groupBy('a.status').getRawMany();
 
     let total = 0;
     let completed = 0;

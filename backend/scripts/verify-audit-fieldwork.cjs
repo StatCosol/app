@@ -12,7 +12,7 @@ const {AuditFieldworkController}=require('../dist/src/audits/audit-fieldwork.con
 const {JwtAuthGuard}=require('../dist/src/auth/jwt-auth.guard');
 const {RolesGuard}=require('../dist/src/auth/roles.guard');
 const {AUDIT_CHECKLIST_TEMPLATES}=require('../dist/src/audits/audit-checklist-templates');
-const {fieldworkScore,fieldworkAppendix}=require('../dist/src/audits/audit-fieldwork-report');
+const {fieldworkScore,fieldworkAppendix,assertFieldworkReviewed}=require('../dist/src/audits/audit-fieldwork-report');
 const {generateAuditReportPdfBuffer}=require('../dist/src/audits/utils/report-pdf');
 const root=path.resolve(__dirname,'../..'),originalCwd=process.cwd();
 const work=fs.mkdtempSync(path.join(os.tmpdir(),'audit-fieldwork-'));
@@ -67,6 +67,18 @@ let app,db,source;let checks=0;const check=message=>{checks++;console.log('PASS 
  const a=audits.find(a=>a.type==='SAFETY'),url='/api/v1/audit-fieldwork/'+a.id;let w=await call('auditor',url);const item=w.items[0].id;
  for(const role of ['otherAuditor','outsider','otherBranch','contractor']){await call(role,url,{},403);await upload(role,a.id,item,{},403);}
  await call(null,url,{},401);await call('branch',url);check('Tenant, branch, assignment, role and authentication boundaries enforced');
+
+ // Access must use live branch mappings, never stale branchIds carried by the browser.
+ await db.query('DELETE FROM user_branches WHERE user_id=$1',[identities.branch.id]);
+ await call('branch',url,{},403);await upload('branch',a.id,item,{},403);
+ await db.query('INSERT INTO user_branches VALUES($1,$2)',[identities.branch.id,branchId]);
+ await db.query('UPDATE client_branches SET isactive=false WHERE id=$1',[branchId]);
+ await call('branch',url,{},403);await call('client',url,{},403);
+ await db.query('UPDATE client_branches SET isactive=true WHERE id=$1',[branchId]);
+ await db.query('UPDATE audits SET assigned_auditor_id=$2 WHERE id=$1',[a.id,identities.otherAuditor.id]);
+ await call('auditor',url,{},403);await review('auditor',a.id,item,1,'COMPLIED',403);
+ await db.query('UPDATE audits SET assigned_auditor_id=$2 WHERE id=$1',[a.id,identities.auditor.id]);
+ check('Revoked branch mappings, inactive branches and auditor reassignment take effect immediately');
  await review('client',a.id,item,1,'COMPLIED',403);await review('auditor',a.id,uuid(999),0,'COMPLIED',404);await review('auditor',a.id, (await call('client','/api/v1/audit-fieldwork/'+audits[0].id)).items[0].id,1,'COMPLIED',404);check('Client cannot self-verify; cross-audit point IDs rejected');
  await upload('branch',a.id,item,{description:'Corrected supporting record'});await review('auditor',a.id,item,1,'COMPLIED',409);await review('auditor',a.id,item,2,'NON_COMPLIED');w=await call('client',url);assert.equal(w.items[0].history.length,2);assert.equal(w.items[0].evidence.length,2);assert.equal(w.items[0].status,'NON_COMPLIED');check('Corrections retain files and prior reviews; stale verification rejected');
  await assert.rejects(()=>db.query("UPDATE audit_checklist_items SET evidence_revision=0,status='COMPLIED' WHERE id=$1",[item]),/New audit evidence/);check('A stale legacy review cannot overwrite a newer evidence revision');
@@ -94,6 +106,37 @@ let app,db,source;let checks=0;const check=message=>{checks++;console.log('PASS 
  await db.query("UPDATE audit_reports SET status='DRAFT' WHERE audit_id=$1",[closed.id]);assert.equal((await call('client','/api/v1/audit-fieldwork/'+closed.id)).canEdit,true);check('Finalized report locks fieldwork; reopening its draft restores editing');
  const appendix=await fieldworkAppendix(source,a.id);assert.ok(appendix.find(i=>i.label==='Loading bay emergency exit').evidence.includes('Warehouse A / loading bay'));
  const report=await generateAuditReportPdfBuffer({auditId:a.id,version:'CLIENT',stage:'FINAL',executiveSummary:'Synthetic inspection report',scope:'Safety',methodology:'On site review',findings:'See inspection record',recommendations:'Complete corrections',observations:[],fieldwork:appendix});assert.ok(report.length>1000);check('Exported report includes checklist decisions, remarks and evidence register');
+
+ const fresh=uuid(900);
+ await db.query("INSERT INTO audits VALUES($1,'AX-NEW',$2,$3,NULL,'SAFETY','IN_PROGRESS','2026-10','2026-10-30',$4)",[fresh,clientId,branchId,identities.auditor.id]);
+ const custom=await service.add(identities.auditor,fresh,{label:'Additional site inspection',kind:'SITE_INSPECTION'});
+ let freshWorkspace=await service.workspace(identities.client,fresh);
+ assert.equal(freshWorkspace.items.length,AUDIT_CHECKLIST_TEMPLATES.SAFETY.length+1);
+ check('Adding the first custom point retains the complete standard checklist');
+ await assert.rejects(()=>assertFieldworkReviewed(source,fresh),/Review all audit evidence/);
+ await assert.rejects(()=>source.query("INSERT INTO audit_reports(audit_id,status) VALUES($1,'SUBMITTED')",[fresh]),/Review all audit evidence/);
+ await assert.rejects(()=>source.query("UPDATE audits SET status='COMPLETED' WHERE id=$1",[fresh]),/Review all audit evidence/);
+ assert.equal((await service.workspace(identities.client,fresh)).canEdit,true);
+ check('An untouched initialized checklist cannot finalize or complete and remains open for client uploads');
+ const file={originalname:'fixture.pdf',mimetype:'application/pdf',size:pdf.length,buffer:pdf};
+ await Promise.all([service.upload(identities.client,fresh,custom.id,{description:'Concurrent evidence one'},file),service.upload(identities.branch,fresh,custom.id,{description:'Concurrent evidence two'},file)]);
+ freshWorkspace=await service.workspace(identities.auditor,fresh);
+ const concurrent=freshWorkspace.items.find(p=>p.id===custom.id);
+ assert.equal(concurrent.revision,2);assert.deepEqual(concurrent.evidence.map(e=>e.revision).sort(),[1,2]);
+ await review('auditor',fresh,custom.id,1,'COMPLIED',409);
+ check('Concurrent uploads retain both files with distinct revisions; stale review stays blocked');
+ for(const p of freshWorkspace.items)await review('auditor',fresh,p.id,p.revision,'NOT_APPLICABLE');
+ const naScore=await fieldworkScore(source,fresh);assert.equal(naScore.total,0);assert.equal(naScore.score,100);assert.equal(naScore.managed,true);
+ check('All not-applicable fieldwork does not fall back to unrelated legacy document scores');
+ const race=await Promise.allSettled([
+   service.upload(identities.client,fresh,custom.id,{description:'Evidence arriving during finalization'},file),
+   source.query("INSERT INTO audit_reports(audit_id,status) VALUES($1,'SUBMITTED')",[fresh]),
+ ]);
+ assert.equal(race.filter(r=>r.status==='fulfilled').length,1);
+ if(race[0].status==='fulfilled')assert.match(race[1].reason.message,/Review all audit evidence/);
+ else assert.match(race[0].reason.message,/read-only/);
+ check('Finalization and evidence upload serialize: new pending evidence cannot enter a finalized report');
+ await db.query("UPDATE audit_reports SET status='SUBMITTED' WHERE audit_id=$1",[closed.id]);
  if(process.argv.includes('--browser'))await require('./audit-fieldwork-browser.cjs')({base,tokens,identities,auditId:a.id,work,check,root,service,clientId,branchId});
  console.log(`PASS ${checks} AuditXpert fieldwork checks`);
  }finally{await app?.close();await source?.destroy();await db?.close();process.chdir(originalCwd);if(path.dirname(work)===os.tmpdir()&&path.basename(work).startsWith('audit-fieldwork-'))fs.rmSync(work,{recursive:true,force:true});}

@@ -37,7 +37,7 @@ BEGIN
  IF TG_TABLE_NAME='audits' THEN target_id := NEW.id; ELSE target_id := NEW.audit_id; END IF;
  IF NEW.status IN ('SUBMITTED','APPROVED','PUBLISHED','COMPLETED','CLOSED') THEN
   PERFORM id FROM audits WHERE id=target_id FOR UPDATE;
-  IF EXISTS(SELECT 1 FROM audit_item_evidence WHERE audit_id=target_id) OR EXISTS(SELECT 1 FROM audit_item_reviews WHERE audit_id=target_id) THEN
+  IF EXISTS(SELECT 1 FROM audit_checklist_items WHERE audit_id=target_id) THEN
    IF EXISTS(SELECT 1 FROM audit_checklist_items WHERE audit_id=target_id AND (status IN ('PENDING','UPLOADED') OR (automated_remarks IS NOT NULL AND NOT automation_reviewed))) THEN
     RAISE EXCEPTION 'Review all audit evidence before submitting or finalizing' USING ERRCODE='23514';
    END IF;

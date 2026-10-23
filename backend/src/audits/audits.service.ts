@@ -682,8 +682,15 @@ export class AuditsService implements OnModuleInit {
 
     // Auto-calculate score on completion
     if (targetStatus === 'COMPLETED') {
+      const fieldwork = await fieldworkScore(this.dataSource, auditId);
+      if (fieldwork?.nonComplied)
+        throw new BadRequestException(
+          'Resolve audit point corrections before completing the audit',
+        );
       const scoreResult = await this.calculateScore(auditId);
-      audit.score = scoreResult.score;
+      audit.score = fieldwork
+        ? Math.round((scoreResult.score + fieldwork.score) / 2)
+        : scoreResult.score;
       audit.scoreCalculatedAt = new Date();
       // Item #10: release the contractor upload lock so the contractor can
       // upload supplementary documents post-audit and roll-forward into the
