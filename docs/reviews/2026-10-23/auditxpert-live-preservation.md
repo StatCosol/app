@@ -24,10 +24,11 @@ Contractor audit entry opens uploaded documents; other audit types open evidence
 - Backend production build and lint passed.
 - Frontend production build and lint passed. Existing Sass deprecations and an advisory initial-bundle warning remain below the enforced error budget.
 - Backend: 313 suites passed, 2,922 tests passed, one existing skip.
-- Frontend: 130 suites passed, 980 tests passed.
+- Frontend: 130 browser suites passed, 980 tests passed; 25 Node service suites passed, 152 tests passed. Final phone-tab adjustment: 28 focused layout tests passed.
 - Fieldwork: 40 PostgreSQL/HTTP/browser checks passed, including all 13 audit types, scope restrictions, stale verification, concurrent uploads, report locking and 390px layouts.
 - Corrections: 12 PostgreSQL/TypeORM checks passed, including legacy/fieldwork isolation and concurrent decisions.
 - Follow-up recovery: 13 PostgreSQL checks passed.
 - Audit entry and auditor dashboard SQL regression scripts passed.
+- All 25 automation database commands and 16 subsequent CI database/report commands passed locally. Updated two outdated test fixtures: client audit listings now include published-report availability, and monthly-close return labels use compliance_return_master. No application behavior was changed by those fixture corrections.
 
 Deployment must use this combined source, never rerun the cancelled deployment of e0bf11b alone. After the required PR approval and release checks, deploy through the normal main-branch workflow and verify live revision images and readiness.

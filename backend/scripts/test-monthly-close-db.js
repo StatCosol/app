@@ -19,6 +19,7 @@ async function main() {
       CREATE TEMP TABLE contractor_required_documents (id uuid, client_id uuid, branch_id uuid, contractor_user_id uuid, doc_type text, is_required boolean, updated_at timestamptz DEFAULT now());
       CREATE TEMP TABLE users (id uuid, name text);
       CREATE TEMP TABLE contractor_documents (id uuid, client_id uuid, branch_id uuid, contractor_user_id uuid, doc_type text, doc_month text, status text, file_path text, expiry_date date, created_at timestamptz);
+      CREATE TEMP TABLE compliance_return_master (return_code text PRIMARY KEY, return_name text);
       CREATE TEMP TABLE compliance_returns (id uuid, client_id uuid, branch_id uuid, return_type text, period_year int, period_month int, status text, due_date date, crm_owner text, ack_file_path text, filed_date date, is_deleted boolean DEFAULT false);
     `);
     const c = '00000000-0000-4000-8000-000000000001';
@@ -53,6 +54,7 @@ async function main() {
       (gen_random_uuid(),$1,$2,'Annual due now',2026,NULL,'PENDING','2026-09-20',NULL,NULL),
       (gen_random_uuid(),$1,NULL,'Company only',2026,9,'PENDING','2026-09-20',NULL,NULL),
       (gen_random_uuid(),$1,$2,'Different month',2026,8,'PENDING','2026-09-20',NULL,NULL)`,[c,b]);
+    await db.query("INSERT INTO compliance_return_master VALUES ('Annual due now', 'Annual return filing')");
     result = await service.get(user, dto);
     const by = Object.fromEntries(result.stages.map(s => [s.area,s]));
     assert.equal(by.attendance.total,2);
@@ -66,6 +68,7 @@ async function main() {
     assert.ok(by.documents.issues.find(i => i.title.includes('LICENCE')).reason.includes('expires'));
     assert.equal(by.returns.total,3);
     assert.equal(by.returns.outstanding,2);
+    assert.ok(by.returns.issues.some(i => i.title === 'Annual return filing'));
     assert.ok(by.returns.issues.find(i => i.title === 'Missing receipt').reason.includes('acknowledgment'));
     // A blank file reference never counts as evidence, even when approved.
     await db.query("UPDATE contractor_documents SET status='APPROVED',file_path='  ',expiry_date=NULL WHERE client_id=$1 AND doc_type='WAGE'",[c]);
