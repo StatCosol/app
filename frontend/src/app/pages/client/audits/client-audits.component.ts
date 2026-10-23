@@ -28,7 +28,7 @@ export class ClientAuditsComponent implements OnDestroy {
   audits: any[] = [];
 
   filters = {
-    year: new Date().getFullYear(),
+    year: new Date().getFullYear() as number | '',
     status: '',
     frequency: '',
   };
@@ -46,11 +46,12 @@ export class ClientAuditsComponent implements OnDestroy {
   ];
 
   // Static options — must NOT be inline arrays in template (new refs every CD cycle → NG0103)
-  readonly yearOptions = [
-    { value: 2024, label: '2024' },
-    { value: 2025, label: '2025' },
-    { value: 2026, label: '2026' },
-    { value: 2027, label: '2027' },
+  yearOptions: { value: number | ''; label: string }[] = [
+    { value: '', label: 'All years' },
+    ...Array.from({ length: 4 }, (_, index) => {
+      const year = new Date().getFullYear() - 2 + index;
+      return { value: year, label: String(year) };
+    }),
   ];
   readonly auditStatusOptions = [
     { value: '', label: 'All Statuses' },
@@ -96,6 +97,17 @@ export class ClientAuditsComponent implements OnDestroy {
       next: (res: any) => {
         this.loading = false;
         const rows = Array.isArray(res) ? res : (res?.items ?? res?.data ?? []);
+        // All years allows discovery of historical or future audits. Keep discovered
+        // years when a narrower filter is selected so users can return to them.
+        const years = new Set(this.yearOptions.filter(o => o.value !== '').map(o => Number(o.value)));
+        for (const audit of rows) {
+          const year = Number(audit.periodYear || String(audit.periodCode || '').slice(0, 4));
+          if (Number.isInteger(year) && year >= 1000 && year <= 9999) years.add(year);
+        }
+        this.yearOptions = [
+          { value: '', label: 'All years' },
+          ...[...years].sort((a, b) => a - b).map(year => ({ value: year, label: String(year) })),
+        ];
         this.audits = rows;
         // Transform data for table display
         this.audits = this.audits.map(audit => ({
