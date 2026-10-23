@@ -87,7 +87,7 @@ interface AttendanceIssue {
           <ui-branch-filter class="action-field" inputId="ca-branch-filter" [(value)]="branchId" (optionsLoaded)="branchOptions = $event" />
           <div class="actions attached-actions">
             <ui-button variant="primary" [disabled]="loading" (clicked)="loadWorkspace()"
-               icon="refresh" [iconOnly]="true" label="Load">Load</ui-button>
+               icon="folder-open" [iconOnly]="false" label="Load">Load</ui-button>
           </div>
           </div>
         </div>

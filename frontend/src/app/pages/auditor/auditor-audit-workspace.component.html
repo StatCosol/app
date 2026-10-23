@@ -4,27 +4,13 @@
       <h1>Conduct Audit</h1>
       <p>Review evidence, record site inspections and follow corrections through to the final report.</p>
     </div>
-    @if (hasAuditContext) {
-<ui-client-context-strip
-     
-      [inline]="true"
-      [clientName]="audit?.client?.clientName || ''"
-      [clientCode]="audit?.client?.clientCode || ''"
-      [badges]="[{ label: 'Audit', value: audit?.auditCode || '' }, { label: 'Branch', value: audit?.branch?.branchName || '' }, { label: 'Type', value: formatLabel(audit?.auditType) }, { label: 'Period', value: audit?.periodCode || '' }, { label: 'Contractor', value: audit?.contractorUser?.name || '' }]">
-    </ui-client-context-strip>
-}
   </header>
+  <app-audit-context [audit]="audit" />
 
   @if (hasAuditContext) {
-<div class="head-controls flex items-center gap-3 flex-wrap mb-3.5">
-    <button type="button" class="standard-action btn btn-ghost" [disabled]="busy || loadingAudit" (click)="goBack()" title="Back to audits list">
+<div class="head-controls"><button type="button" class="standard-action btn btn-ghost" [disabled]="busy || loadingAudit" (click)="goBack()" title="Back to audits list">
       Back to audits
-    </button>
-    <button type="button" class="compact-action btn btn-ghost" [disabled]="busy || loadingAudit" (click)="openReportBuilder()" title="Open Report Builder" aria-label="Open Report Builder" data-action-label="Open Report Builder" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
-    <button type="button" class="compact-action btn btn-secondary" [disabled]="busy || loadingAudit" (click)="openPreliminaryDialog()" title="Publish Preliminary Findings" aria-label="Publish Preliminary Findings" data-action-label="Publish Preliminary Findings" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
-    <button type="button" class="compact-action btn btn-ghost" [disabled]="busy || loadingAudit" (click)="downloadPreliminaryReport()" title="Download preliminary findings PDF (after publish)" aria-label="Download preliminary findings PDF (after publish)" data-action-label="Download preliminary findings PDF (after publish)" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
-    <button type="button" class="compact-action btn btn-primary" [disabled]="busy || loadingAudit" (click)="refreshCockpit()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
-  </div>
+    </button><button type="button" class="standard-action btn btn-primary" [disabled]="busy || loadingAudit" (click)="refreshCockpit()" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> <span>Refresh</span></button><details class="report-actions"><summary>Report actions</summary><div class="report-actions__buttons"><button type="button" class="standard-action btn btn-ghost" [disabled]="busy || loadingAudit" (click)="openReportBuilder()" title="Open Report Builder" aria-label="Open Report Builder" data-action-label="Open Report Builder" data-action-icon="eye"><ui-icon name="eye" [size]="20" /> <span>Open Report Builder</span></button><button type="button" class="standard-action btn btn-secondary" [disabled]="busy || loadingAudit" (click)="openPreliminaryDialog()" title="Publish Preliminary Findings" aria-label="Publish Preliminary Findings" data-action-label="Publish Preliminary Findings" data-action-icon="send"><ui-icon name="send" [size]="20" /> <span>Publish Preliminary Findings</span></button><button type="button" class="standard-action btn btn-ghost" [disabled]="busy || loadingAudit" (click)="downloadPreliminaryReport()" title="Preview preliminary findings PDF (after publish)" aria-label="Preview preliminary findings PDF (after publish)" data-action-label="Preview preliminary findings PDF (after publish)" data-action-icon="download"><ui-icon name="download" [size]="20" /> <span>Preview preliminary PDF</span></button></div></details></div>
 }
 
   <!-- Phase 4: Publish preliminary findings dialog -->
@@ -43,7 +29,7 @@
       </label>
       <div class="flex gap-2 justify-end">
         <button type="button" class="standard-action btn btn-ghost" [disabled]="busy" (click)="closePreliminaryDialog()">Cancel</button>
-        <button type="button" class="compact-action btn btn-primary" [disabled]="busy" (click)="publishPreliminaryFindings()" title="Publish" aria-label="Publish" data-action-label="Publish" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+        <button type="button" class="standard-action btn btn-primary" [disabled]="busy" (click)="publishPreliminaryFindings()" title="Publish" aria-label="Publish" data-action-label="Publish" data-action-icon="send"><ui-icon name="send" [size]="20" /> <span>Publish</span></button>
       </div>
     </div>
   </div>
@@ -83,7 +69,7 @@
             <td>{{ row.periodCode || '-' }}</td>
             <td><span [class]="statusClass(row.status)">{{ formatLabel(row.status) }}</span></td>
             <td class="text-right">
-              <button type="button" class="compact-action link" (click)="openAuditWorkspace(row)" title="Open workspace" aria-label="Open workspace" data-action-label="Open workspace" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
+              <button type="button" class="standard-action link" (click)="openAuditWorkspace(row)" title="Open workspace" aria-label="Open workspace" data-action-label="Open workspace" data-action-icon="eye"><ui-icon name="eye" [size]="20" /> <span>Open workspace</span></button>
             </td>
           </tr>
 }
@@ -93,16 +79,16 @@
 } @else {
 
       <div class="empty-mini">No assigned audits found.</div>
-    
+
 }
 
-    
+
   </section>
 }
 
   @if (!loading && hasAuditContext && audit; as auditDetail) {
 
-    @if(activeTab !== 'checklist'){
+    @if (activeTab === 'info') {
     <section class="summary-grid">
       <article class="summary-card summary-card--info">
         <span class="label">Audit Status</span>
@@ -142,18 +128,19 @@
         <h2>{{ currentFocus.title }}</h2>
         <p>{{ currentFocus.detail }}</p>
       </div>
-      <button type="button" class="compact-action btn btn-primary" (click)="jumpToTab(currentFocus.tab)" [attr.title]="currentFocus.button" [attr.aria-label]="currentFocus.button" [attr.data-action-label]="currentFocus.button" [attr.data-action-icon]="currentFocus.button | actionIcon"><ui-icon [name]="currentFocus.button | actionIcon" [size]="20" /><span class="compact-action-label">
+      <button type="button" class="standard-action btn btn-primary" (click)="jumpToTab(currentFocus.tab)" [attr.title]="currentFocus.button" [attr.aria-label]="currentFocus.button" [attr.data-action-label]="currentFocus.button" [attr.data-action-icon]="currentFocus.button | actionIcon"><ui-icon [name]="currentFocus.button | actionIcon" [size]="20" /><span class="audit-action-label">
         {{ currentFocus.button }}
       </span></button>
     </section>
 
     }
-    <nav class="tab-bar card">
+    <nav class="tab-bar card" aria-label="Audit workflow">
       @for (tab of workspaceTabs; track tab) {
 <button
-       
+
         type="button"
-        class="tab-btn"
+        class="tab-btn audit-workflow-tab"
+        [attr.aria-current]="activeTab === tab.key ? 'step' : null"
         [class.tab-btn--active]="activeTab === tab.key"
         [class.tab-btn--attention]="tab.attention && activeTab !== tab.key"
         (click)="switchTab(tab.key)">
@@ -175,10 +162,10 @@
           <div><span>Audit Code</span><strong>{{ auditInfo.auditCode || auditDetail.auditCode || '-' }}</strong></div>
           <div><span>Status</span><strong><span [class]="statusClass(auditInfo.status || auditDetail.status)">{{ formatLabel(auditInfo.status || auditDetail.status) }}</span></strong></div>
           <div><span>Client</span><strong>{{ auditInfo.clientName || '-' }}</strong></div>
-          <div><span>Branch</span><strong>{{ auditInfo.branchName || '-' }}</strong></div>
-          <div><span>Contractor</span><strong>{{ auditInfo.contractorName || '-' }}</strong></div>
+          <div><span>Branch</span><strong>{{ auditInfo.branchName || 'Branch not specified' }}</strong></div>
+          <div><span>Contractor</span><strong>{{ auditInfo.contractorName || (auditInfo.auditType === 'CONTRACTOR' ? 'Contractor not specified' : 'Not a contractor audit') }}</strong></div>
           <div><span>Auditor</span><strong>{{ auditInfo.auditorName || '-' }}</strong></div>
-          <div><span>Audit Type</span><strong>{{ auditInfo.auditType }}</strong></div>
+          <div><span>Audit Type</span><strong>{{ formatLabel(auditInfo.auditType) }}</strong></div>
           <div><span>Frequency</span><strong>{{ auditInfo.frequency }}</strong></div>
           <div><span>Period</span><strong>{{ auditInfo.periodCode || '-' }}</strong></div>
           <div><span>Due Date</span><strong>{{ formatDate(auditInfo.dueDate) }}</strong></div>
@@ -212,15 +199,15 @@
             @for (action of nextStatusActions; track action) {
 <button
               type="button"
-              class="compact-action btn btn-secondary"
-             
+              class="standard-action btn btn-secondary"
+
               [disabled]="busy || !!action.disabled"
               (click)="updateAuditStatus(action.status)"
-              [title]="action.reason || ''" [attr.title]="action.label" [attr.aria-label]="action.label" [attr.data-action-label]="action.label" [attr.data-action-icon]="action.label | actionIcon"><ui-icon [name]="action.label | actionIcon" [size]="20" /><span class="compact-action-label">
+              [title]="action.reason || action.label" [attr.aria-label]="action.label" [attr.data-action-label]="action.label" [attr.data-action-icon]="action.label | actionIcon"><ui-icon [name]="action.label | actionIcon" [size]="20" /><span class="audit-action-label">
               {{ action.label }}
             </span></button>
 }
-            <button type="button" class="compact-action btn btn-primary" [disabled]="busy" (click)="calculateScore()" title="Calculate Severity Score" aria-label="Calculate Severity Score" data-action-label="Calculate Severity Score" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+            <button type="button" class="standard-action btn btn-primary" [disabled]="busy || ['COMPLETED','CLOSED','CANCELLED'].includes(statusKey(auditDetail.status))" (click)="calculateScore()" title="Calculate Severity Score" aria-label="Calculate Severity Score" data-action-label="Calculate Severity Score" data-action-icon="calculator"><ui-icon name="calculator" [size]="20" /> <span>Calculate Severity Score</span></button>
           </div>
           <label class="notes-box">
             Status Notes
@@ -268,7 +255,7 @@
           </div>
         </article>
       </section>
-    
+
 }
 
     @if (activeTab === 'checklist') {
@@ -276,7 +263,7 @@
     }
 
     @if (activeTab === 'documents') {
-      @if (documentsError) { <div role="alert" class="card">{{ documentsError }} <button type="button" class="compact-action btn btn-secondary" (click)="loadAuditDocuments()" title="Retry documents" aria-label="Retry documents" data-action-label="Retry documents" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div> }
+      @if (documentsError) { <div role="alert" class="card">{{ documentsError }} <button type="button" class="standard-action btn btn-secondary" (click)="loadAuditDocuments()" title="Retry documents" aria-label="Retry documents" data-action-label="Retry documents" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> <span>Retry documents</span></button></div> }
       @if (!canReviewDocuments) { <p class="card">This audit is {{ formatLabel(audit?.status) }}. Document decisions are read-only.</p> }
 
       @if (branchDocuments.length > 0) {
@@ -329,22 +316,22 @@
                     [disabled]="!canReviewDocuments || doc.status === 'APPROVED' || doc.status === 'REJECTED' || reviewingDocId === doc.id"></textarea>
                 </td>
                 <td class="text-right whitespace-nowrap">
-                  <button type="button" class="compact-action link" (click)="openEvidenceFile(getDocDownloadUrl(doc), doc.fileName || doc.title)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
+                  <button type="button" class="standard-action link" (click)="openEvidenceFile(getDocDownloadUrl(doc), doc.fileName || doc.title)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /> <span>View</span></button>
                   @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
 <button
-                   
+
                     type="button"
-                    class="compact-action btn btn-primary text-[11px] px-2 py-0.5 mr-0.5"
+                    class="standard-action btn btn-primary text-[11px] px-2 py-0.5 mr-0.5"
                     [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
-                    (click)="reviewDocument(doc, 'COMPLIED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                    (click)="reviewDocument(doc, 'COMPLIED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /> <span>Approve</span></button>
 }
                   @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
 <button
-                   
+
                     type="button"
-                    class="compact-action text-[11px] px-2 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
+                    class="standard-action text-[11px] px-2 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
                     [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
-                    (click)="reviewDocument(doc, 'NON_COMPLIED')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+                    (click)="reviewDocument(doc, 'NON_COMPLIED')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /> <span>Reject</span></button>
 }
                   @if (doc.status === 'APPROVED') {
 <span class="text-emerald-600 font-semibold text-xs">Approved</span>
@@ -407,32 +394,61 @@
 }
 
         @if (!loadingDocs && contractorDocuments.length) {
-<div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Document</th>
-                <th>Contractor</th>
-                <th>Branch</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Remarks</th>
-                <th class="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (doc of filteredContractorDocuments; track doc) {
-<tr>
-                <td>
+<p class="comparison-help">Payroll comparison is optional and requires your verification. Scanned English PDFs: up to 5 pages and 10 MB. Review larger or unclear documents manually.</p>
+<div class="document-list">
+ @for (doc of filteredContractorDocuments; track doc) {
+  <article class="document-review" [attr.aria-label]="'Review ' + (doc.title || doc.fileName)">
+   <header class="document-review__heading"><div>
                   <div class="strong">{{ doc.title || doc.fileName }}</div>
                   <div class="minor">{{ doc.fileName }}</div>
-                </td>
-                <td>{{ doc.contractorName || '-' }}</td>
-                <td>{{ doc.branchName || '-' }}</td>
-                <td>{{ doc.docType || '-' }}
+                </div><div>
+                  <span [class]="statusClass(doc.status)">
+                    {{ doc.status === 'APPROVED' ? 'Complied' : doc.status === 'REJECTED' ? 'Non Complied' : formatLabel(doc.status) }}
+                  </span>
+                </div></header>
+   <dl class="document-review__scope">
+    <div><dt>Contractor</dt><dd>{{ doc.contractorName || '-' }}</dd></div>
+    <div><dt>Branch / unit</dt><dd>{{ doc.branchName || '-' }}</dd></div>
+    <div><dt>Document type</dt><dd>{{ formatLabel(doc.docType) }}</dd></div>
+   </dl>
+   <div class="document-review__decision"><label>Auditor remarks
+                  <textarea
+                    rows="3"
+                    [ngModel]="docRemarks[doc.id] || ''"
+                    (ngModelChange)="docRemarks[doc.id] = $event"
+                    placeholder="Write your verified remarks (required for non-compliance)"
+                    [attr.aria-label]="'Auditor remarks for ' + (doc.title || doc.fileName)"
+                    class="text-xs px-2 py-1 border border-gray-300 rounded-md w-full min-w-[120px]"
+                    [disabled]="!canReviewDocuments || doc.status === 'APPROVED' || doc.status === 'REJECTED' || reviewingDocId === doc.id"></textarea>
+                </label><div class="document-review__actions">
+                  <button type="button" class="standard-action link" (click)="openEvidenceFile(getDocDownloadUrl(doc), doc.fileName || doc.title)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /> <span>View</span></button>
+                  @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
+<button
+
+                    type="button"
+                    class="standard-action btn btn-primary text-[11px] px-2.5 py-0.5 mr-1"
+                    [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
+                    (click)="reviewDocument(doc, 'COMPLIED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /> <span>Approve</span></button>
+}
+                  @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
+<button
+
+                    type="button"
+                    class="standard-action text-[11px] px-2.5 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
+                    [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
+                    (click)="reviewDocument(doc, 'NON_COMPLIED')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /> <span>Reject</span></button>
+}
+                  @if (doc.status === 'APPROVED') {
+<span class="text-emerald-600 font-semibold text-xs">Approved</span>
+}
+                  @if (doc.status === 'REJECTED') {
+<span class="text-red-600 font-semibold text-xs">Rejected</span>
+}
+                </div></div>
+   <div class="document-review__comparison">
  @if (doc.sourceTable === 'contractor_documents') {
-  <button type="button" class="compact-action link" (click)="reconcileDocument(doc)" [disabled]="!canReviewDocuments || reviewingDocId === doc.id" title="Compare with payroll" aria-label="Compare with payroll" data-action-label="Compare with payroll" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
-  <p class="minor">Scanned English PDFs: up to 5 pages and 10 MB. Review larger or unclear documents manually.</p>
+  <button type="button" class="standard-action link" (click)="reconcileDocument(doc)" [disabled]="!canReviewDocuments || reviewingDocId === doc.id" title="Compare with payroll" aria-label="Compare with payroll" data-action-label="Compare with payroll" data-action-icon="eye"><ui-icon name="eye" [size]="20" /> <span>Compare with payroll</span></button>
+
   @if (doc.payrollCheck) {
    <details open><summary>Automated comparison: {{ doc.payrollCheck.status }} — verify before deciding</summary><p>Comparison checks extracted employee rows. Verify the document period, establishment and payment coverage before marking complied.</p>
     @if (doc.payrollCheck.ocr) {
@@ -450,63 +466,21 @@
    </details>
    @if (suggestedRemarks(doc)) { <button type="button" class="link" [disabled]="!canReviewDocuments" (click)="useSuggestedRemarks(doc)">Use suggested remarks</button> }
    <label class="block text-xs mt-2"><input type="checkbox" [(ngModel)]="automationVerified[doc.id]" [disabled]="!canReviewDocuments" /> I cross-checked these findings against the source document</label>
-  } @else { <p class="minor">No automated comparison yet. Run Compare with payroll where applicable, or review manually.</p> }
+  }
  }
-</td>
-                <td>
-                  <span [class]="statusClass(doc.status)">
-                    {{ doc.status === 'APPROVED' ? 'Complied' : doc.status === 'REJECTED' ? 'Non Complied' : formatLabel(doc.status) }}
-                  </span>
-                </td>
-                <td>
-                  <textarea
-                    rows="3"
-                    [ngModel]="docRemarks[doc.id] || ''"
-                    (ngModelChange)="docRemarks[doc.id] = $event"
-                    placeholder="Write your verified remarks (required for non-compliance)"
-                    [attr.aria-label]="'Auditor remarks for ' + (doc.title || doc.fileName)"
-                    class="text-xs px-2 py-1 border border-gray-300 rounded-md w-full min-w-[120px]"
-                    [disabled]="!canReviewDocuments || doc.status === 'APPROVED' || doc.status === 'REJECTED' || reviewingDocId === doc.id"></textarea>
-                </td>
-                <td class="text-right whitespace-nowrap">
-                  <button type="button" class="compact-action link" (click)="openEvidenceFile(getDocDownloadUrl(doc), doc.fileName || doc.title)" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
-                  @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
-<button
-                   
-                    type="button"
-                    class="compact-action btn btn-primary text-[11px] px-2.5 py-0.5 mr-1"
-                    [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
-                    (click)="reviewDocument(doc, 'COMPLIED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
-}
-                  @if (doc.status !== 'APPROVED' && doc.status !== 'REJECTED') {
-<button
-                   
-                    type="button"
-                    class="compact-action text-[11px] px-2.5 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
-                    [disabled]="!canReviewDocuments || reviewingDocId === doc.id"
-                    (click)="reviewDocument(doc, 'NON_COMPLIED')" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
-}
-                  @if (doc.status === 'APPROVED') {
-<span class="text-emerald-600 font-semibold text-xs">Approved</span>
-}
-                  @if (doc.status === 'REJECTED') {
-<span class="text-red-600 font-semibold text-xs">Rejected</span>
-}
-                </td>
-              </tr>
-}
-            </tbody>
-          </table>
-        </div>
+</div>
+  </article>
+ }
+</div>
 } @else {
 
           @if (!loadingDocs) {
 <div class="empty-mini">No contractor documents found for this audit scope.</div>
 }
-        
+
 }
 
-        
+
       </section>
 
       <section class="card"><h2>Audit-specific evidence & site inspections</h2><p>Client submissions, inspection photos, remarks and checklist decisions are in the evidence workspace.</p><button type="button" class="standard-action btn btn-primary" (click)="activeTab = 'checklist'">Open evidence & site inspection</button></section>
@@ -546,7 +520,7 @@
                 <td><span [class]="statusClass(evidenceStatus(row))">{{ formatLabel(evidenceStatus(row)) }}</span></td>
                 <td>{{ formatDate(row.createdAt) }}</td>
                 <td class="text-right">
-                  <button type="button" class="compact-action link" (click)="openEvidenceFile(getDownloadUrl(row), row.fileName, 'download')" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+                  <button type="button" class="standard-action link" (click)="openEvidenceFile(getDownloadUrl(row), row.fileName, 'download')" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /> <span>Download</span></button>
                 </td>
               </tr>
 }
@@ -555,7 +529,7 @@
         </div>
       </section>
 }
-    
+
 }
 
     @if (activeTab === 'submit') {
@@ -566,21 +540,21 @@
         </header>
         <p class="section-intro">Use this area only after document decisions and correction loops are complete.</p>
 
-        @if (statusKey(auditDetail.status) === 'COMPLETED') {
+        @if (['COMPLETED', 'CLOSED'].includes(statusKey(auditDetail.status))) {
 <div class="py-3">
           <div class="flex items-center gap-2.5 mb-3">
-            <span class="text-sm font-semibold text-emerald-800">Audit Completed</span>
+            <span class="text-sm font-semibold text-emerald-800">Audit {{ statusKey(auditDetail.status) === 'CLOSED' ? 'Closed' : 'Completed' }}</span>
             @if (auditDetail.score !== null) {
 <span
-             
+
               class="text-sm font-bold"
               [style.color]="auditDetail.score >= 80 ? '#059669' : auditDetail.score >= 50 ? '#d97706' : '#dc2626'">
               Score: {{ auditDetail.score }}/100
             </span>
 }
           </div>
-          <button type="button" class="compact-action btn btn-secondary" [disabled]="busy" (click)="reopenForReaudit()" title="Re-open for Re-Audit" aria-label="Re-open for Re-Audit" data-action-label="Re-open for Re-Audit" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
-          <p class="text-xs text-gray-500 mt-1.5">Re-open allows the contractor to upload corrected documents for re-review.</p>
+          <button type="button" class="standard-action btn btn-secondary" [disabled]="busy" (click)="reopenForReaudit()" title="Re-open for Re-Audit" aria-label="Re-open for Re-Audit" data-action-label="Re-open for Re-Audit" data-action-icon="undo"><ui-icon name="undo" [size]="20" /> <span>Re-open for Re-Audit</span></button>
+          <p class="text-xs text-gray-500 mt-1.5">Reopening enables corrections and creates a new report draft. The last published report stays available until a revised report is approved and published.</p>
         </div>
 }
 
@@ -590,7 +564,7 @@
             <span class="text-sm font-semibold text-brand-700">Audit Submitted</span>
             @if (auditDetail.score !== null) {
 <span
-             
+
               class="text-sm font-bold"
               [style.color]="auditDetail.score >= 80 ? '#059669' : auditDetail.score >= 50 ? '#d97706' : '#dc2626'">
               Score: {{ auditDetail.score }}/100
@@ -626,7 +600,7 @@
               class="w-full text-[13px] px-2 py-2 border border-gray-300 rounded-lg mt-1"></textarea>
           </label>
           <div class="flex gap-2 items-center">
-            <button type="button" class="compact-action btn btn-primary" [disabled]="busy || !canSubmitReviewRound" (click)="submitAuditWithRemark()" title="Re-Submit Audit" aria-label="Re-Submit Audit" data-action-label="Re-Submit Audit" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
+            <button type="button" class="standard-action btn btn-primary" [disabled]="busy || !canSubmitReviewRound" (click)="submitAuditWithRemark()" title="Re-Submit Audit" aria-label="Re-Submit Audit" data-action-label="Re-Submit Audit" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="audit-action-label">
               {{ busy ? 'Submitting...' : 'Re-Submit Audit' }}
             </span></button>
             @if (submitReviewGuardMessage) {
@@ -638,7 +612,7 @@
         </div>
 }
 
-        @if (!['COMPLETED','SUBMITTED','CORRECTION_PENDING','REVERIFICATION_PENDING'].includes(statusKey(auditDetail.status))) {
+        @if (!['COMPLETED','CLOSED','CANCELLED','SUBMITTED','CORRECTION_PENDING','REVERIFICATION_PENDING'].includes(statusKey(auditDetail.status))) {
 <div class="py-3">
           <p class="text-[13px] text-gray-700 mb-2.5">
             Submit only after every uploaded document has an auditor decision and every rejected item has come back through the correction loop and been cleared.
@@ -649,7 +623,7 @@
               class="w-full text-[13px] px-2 py-2 border border-gray-300 rounded-lg mt-1"></textarea>
           </label>
           <div class="flex gap-2 items-center">
-            <button type="button" class="compact-action btn btn-primary" [disabled]="busy || !canSubmitReviewRound" (click)="submitAuditWithRemark()" title="Submit Audit" aria-label="Submit Audit" data-action-label="Submit Audit" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
+            <button type="button" class="standard-action btn btn-primary" [disabled]="busy || !canSubmitReviewRound" (click)="submitAuditWithRemark()" title="Submit Audit" aria-label="Submit Audit" data-action-label="Submit Audit" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="audit-action-label">
               {{ busy ? 'Submitting...' : 'Submit Audit' }}
             </span></button>
             @if (submitReviewGuardMessage) {
@@ -684,25 +658,25 @@
         <div class="grid grid-cols-2 gap-3 mb-3">
           <label>
             <span class="text-xs font-semibold text-gray-700 block mb-1">Lock From</span>
-            <input type="date" [(ngModel)]="uploadLockFrom"
+            <input type="date" [(ngModel)]="uploadLockFrom" [disabled]="!canReviewDocuments"
               class="w-full border border-gray-300 rounded-md px-2 py-1.5 text-[13px]" />
           </label>
           <label>
             <span class="text-xs font-semibold text-gray-700 block mb-1">Lock Until (inclusive)</span>
-            <input type="date" [(ngModel)]="uploadLockUntil"
+            <input type="date" [(ngModel)]="uploadLockUntil" [disabled]="!canReviewDocuments"
               class="w-full border border-gray-300 rounded-md px-2 py-1.5 text-[13px]" />
           </label>
         </div>
         <div class="flex gap-2 items-center">
           <button type="button" class="btn btn-primary"
-            [disabled]="uploadLockSaving || !uploadLockFrom || !uploadLockUntil"
+            [disabled]="!canReviewDocuments || uploadLockSaving || !uploadLockFrom || !uploadLockUntil"
             (click)="saveUploadLock()">
             {{ uploadLockSaving ? 'Saving...' : 'Set Lock Window' }}
           </button>
           @if (uploadLockFrom || uploadLockUntil) {
-<button type="button" class="compact-action btn btn-secondary"
-           
-            [disabled]="uploadLockSaving" (click)="clearUploadLock()" title="Clear Lock" aria-label="Clear Lock" data-action-label="Clear Lock" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
+<button type="button" class="standard-action btn btn-secondary"
+
+            [disabled]="!canReviewDocuments || uploadLockSaving" (click)="clearUploadLock()" title="Clear Lock" aria-label="Clear Lock" data-action-label="Clear Lock" data-action-icon="undo"><ui-icon name="undo" [size]="20" /> <span>Clear Lock</span></button>
 }
         </div>
         @if (uploadLockFrom && uploadLockUntil) {
@@ -792,10 +766,10 @@
 }
 
         <div class="action-row">
-          <button type="button" class="compact-action btn btn-secondary" [disabled]="busy || aiDrafting || !canGenerateAiDraft" (click)="generateAiDraft()" title="Generate with AI" aria-label="Generate with AI" data-action-label="Generate with AI" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+          <button type="button" class="standard-action btn btn-secondary" [disabled]="busy || aiDrafting || !canGenerateAiDraft" (click)="generateAiDraft()" title="Generate with AI" aria-label="Generate with AI" data-action-label="Generate with AI" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span class="audit-action-label">
             {{ aiDrafting ? 'Generating AI Draft...' : 'Generate with AI' }}
           </span></button>
-          <button type="button" class="compact-action btn btn-primary" [disabled]="busy || !canSubmitObservation" (click)="submitObservation()" title="Add Observation" aria-label="Add Observation" data-action-label="Add Observation" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
+          <button type="button" class="standard-action btn btn-primary" [disabled]="busy || !canSubmitObservation" (click)="submitObservation()" title="Add Observation" aria-label="Add Observation" data-action-label="Add Observation" data-action-icon="plus"><ui-icon name="plus" [size]="20" /> <span>Add Observation</span></button>
         </div>
 
         <div class="risk-summary">
@@ -832,12 +806,12 @@
 } @else {
 
           <div class="empty-mini">No observations added for this audit yet.</div>
-        
+
 }
 
-        
+
       </section>
-    
+
 }
 
     @if (activeTab === 'history') {
@@ -878,7 +852,7 @@
         </div>
 }
       </section>
-    
+
 }
 
     @if (activeTab === 'corrected') {
@@ -947,19 +921,19 @@
                 <td>
                   @if (getCorrectedFileUrl(nc); as correctedUrl) {
 
-                    <button type="button" class="compact-action link" (click)="openEvidenceFile(correctedUrl, nc.correctedFileName || 'corrected-file')" title="Open corrected file" aria-label="Open corrected file" data-action-label="Open corrected file" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
+                    <button type="button" class="standard-action link" (click)="openEvidenceFile(correctedUrl, nc.correctedFileName || 'corrected-file')" title="Open corrected file" aria-label="Open corrected file" data-action-label="Open corrected file" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="audit-action-label">
                       {{ nc.correctedFileName || 'Open corrected file' }}
                     </span></button>
                     <div class="minor">
                       {{ nc.resubmittedByName || 'Stakeholder' }} on {{ formatDate(nc.resubmittedAt) }}
                     </div>
-                  
+
 } @else {
 
                     <span class="minor">Waiting for stakeholder upload</span>
-                  
+
 }
-                  
+
                 </td>
                 <td>
                   <input
@@ -973,19 +947,19 @@
                 <td class="text-right whitespace-nowrap">
                   @if (getCorrectedFileUrl(nc) && statusKey(nc.status) !== 'ACCEPTED' && statusKey(nc.status) !== 'CLOSED') {
 <button
-                   
+
                     type="button"
-                    class="compact-action btn btn-primary text-[11px] px-2.5 py-0.5 mr-1"
+                    class="standard-action btn btn-primary text-[11px] px-2.5 py-0.5 mr-1"
                     [disabled]="busy"
-                    (click)="reviewCorrectedDocument(nc, 'COMPLIED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                    (click)="reviewCorrectedDocument(nc, 'COMPLIED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /> <span>Approve</span></button>
 }
                   @if (getCorrectedFileUrl(nc) && statusKey(nc.status) !== 'ACCEPTED' && statusKey(nc.status) !== 'CLOSED') {
 <button
-                   
+
                     type="button"
-                    class="compact-action text-[11px] px-2.5 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
+                    class="standard-action text-[11px] px-2.5 py-0.5 bg-red-600 text-white border border-red-600 rounded cursor-pointer"
                     [disabled]="busy"
-                    (click)="reviewCorrectedDocument(nc, 'NON_COMPLIED')" title="Reject Again" aria-label="Reject Again" data-action-label="Reject Again" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+                    (click)="reviewCorrectedDocument(nc, 'NON_COMPLIED')" title="Reject Again" aria-label="Reject Again" data-action-label="Reject Again" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /> <span>Reject Again</span></button>
 }
                   @if (statusKey(nc.status) === 'ACCEPTED' || statusKey(nc.status) === 'CLOSED') {
 <span class="minor font-semibold text-emerald-600">
@@ -1000,12 +974,14 @@
         </div>
 }
       </section>
-    
+
 }
-  
+
 }
 </div>
 
 <ng-template #auditChecklist>
  @if(auditId){<app-audit-fieldwork [auditId]="auditId" [auditor]="true" (changed)="loadChecklist()" />}
 </ng-template>
+
+@if (preview; as file) { <app-audit-file-preview [request]="file" (closed)="preview = null" /> }

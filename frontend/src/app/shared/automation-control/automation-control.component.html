@@ -309,7 +309,7 @@
           <button
             (click)="run()"
             [disabled]="busy() || dirty || !p.plan.enabled || !p.plan.controlId"
-           class="compact-action" title="Run now" aria-label="Run now" data-action-label="Run now" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+           class="compact-action" title="Run now" aria-label="Run now" data-action-label="Run now" data-action-icon="play"><ui-icon name="play" [size]="20" /><span>Run now</span></button>
         } @else {
           <div class="empty">
             <h3>See the work before it runs</h3>

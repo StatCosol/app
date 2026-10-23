@@ -26,7 +26,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <h1 class="page-title">Employees</h1>
           <p class="page-subtitle">Manage employee and intern registrations for this branch</p>
         </div>
-        <div class="employee-toolbar">
+        <div class="employee-toolbar aligned-filter-controls">
           <label for="emp-search" class="sr-only">Search employees</label>
           <input autocomplete="off" id="emp-search" name="searchQuery" type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search employees..." class="workspace-search search-input" />
           <label for="emp-status-filter" class="sr-only">Employment filter</label>
@@ -56,7 +56,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <button (click)="showImportDialog = false" class="compact-action text-gray-400 hover:text-gray-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
         </div>
         <p class="text-xs text-gray-500 mb-3">Download the template, fill in employee details, then upload the file.</p>
-        <div class="flex items-end gap-3 flex-wrap">
+        <div class="flex items-end gap-3 flex-wrap aligned-filter-controls">
           <button (click)="downloadTemplate()" class="compact-action btn-secondary text-xs" title="Download Template" aria-label="Download Template" data-action-label="Download Template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           <div>
             <label class="text-xs font-medium text-gray-600 block mb-1" for="branch-emp-file">Excel File (.xlsx, .xls, .csv)</label>

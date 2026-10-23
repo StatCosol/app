@@ -66,7 +66,7 @@ import { ReportsService } from '../../core/reports.service';
         </div>
 
         <!-- Filter Bar -->
-        <div class="flex flex-wrap items-center gap-3 mb-6">
+        <div class="flex flex-wrap items-center gap-3 mb-6 aligned-filter-controls">
           <div class="relative w-56">
             <input autocomplete="off" id="ccp-search-term" name="searchTerm" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilter()"
               placeholder="Search CRM name..."
@@ -77,7 +77,7 @@ import { ReportsService } from '../../core/reports.service';
           </div>
           <ui-form-select label="Status" [options]="statusOptions" [(ngModel)]="statusFilter" (ngModelChange)="applyFilter()" class="w-44"></ui-form-select>
           <button (click)="exportCsv()" class="compact-action ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export" aria-label="Export" data-action-label="Export" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
-          <span class="text-sm text-gray-500">{{ filteredCrms.length }} CRM{{ filteredCrms.length !== 1 ? 's' : '' }}</span>
+          <span class="filter-meta text-sm text-gray-500">{{ filteredCrms.length }} CRM{{ filteredCrms.length !== 1 ? 's' : '' }}</span>
         </div>
 
         <!-- DataTable -->

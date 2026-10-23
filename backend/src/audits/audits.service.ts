@@ -1,4 +1,6 @@
 import { fieldworkScore } from './audit-fieldwork-report';
+import { randomUUID } from 'crypto';
+import { AuditorSummaryQueryDto } from '../auditor/dto/auditor-dashboard-query.dto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -510,9 +512,14 @@ export class AuditsService implements OnModuleInit {
         )
         .getCount(),
     ]);
-    const executionStarted = ['IN_PROGRESS', 'COMPLETED'].includes(
-      String(audit.status || '').toUpperCase(),
-    );
+    const executionStarted = [
+      'IN_PROGRESS',
+      'SUBMITTED',
+      'CORRECTION_PENDING',
+      'REVERIFICATION_PENDING',
+      'COMPLETED',
+      'CLOSED',
+    ].includes(String(audit.status || '').toUpperCase());
     const checklist = [
       {
         key: 'client_scope_linked',
@@ -639,6 +646,12 @@ export class AuditsService implements OnModuleInit {
       throw new ForbiddenException('Insufficient permissions');
     }
 
+    if (
+      targetStatus === 'IN_PROGRESS' &&
+      ['COMPLETED', 'CLOSED'].includes(audit.status)
+    ) {
+      return this.reopenAuditForReaudit(user, auditId, notes);
+    }
     const currentStatus = String(audit.status || '').toUpperCase();
     const allowed = AuditsService.ALLOWED_TRANSITIONS[currentStatus] ?? [];
     if (!allowed.includes(targetStatus)) {
@@ -647,10 +660,22 @@ export class AuditsService implements OnModuleInit {
       );
     }
 
-    if (targetStatus === 'COMPLETED') {
+    if (['COMPLETED', 'CLOSED'].includes(targetStatus)) {
       await this.assertChecklistReviewed(auditId);
       const latestReport = await this.reportService.getLatestReportRow(auditId);
+      if (latestReport?.held_at)
+        throw new BadRequestException(
+          'Release the report hold before completing or closing the audit',
+        );
       const reportStatus = String(latestReport?.status || '').toUpperCase();
+      if (
+        targetStatus === 'CLOSED' &&
+        !['APPROVED', 'PUBLISHED'].includes(reportStatus)
+      ) {
+        throw new BadRequestException(
+          'CRM must approve the latest report before closing the audit',
+        );
+      }
       const reportFinalized = ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(
         reportStatus,
       );
@@ -675,13 +700,24 @@ export class AuditsService implements OnModuleInit {
       }
     }
 
+    if (['COMPLETED', 'CLOSED'].includes(targetStatus)) {
+      const openNcs = await this.ncRepo
+        .createQueryBuilder('nc')
+        .where('nc.auditId = :auditId', { auditId })
+        .andWhere("nc.status NOT IN ('ACCEPTED','CLOSED')")
+        .getCount();
+      if (openNcs)
+        throw new BadRequestException(
+          'Resolve all non-compliances before completing or closing the audit',
+        );
+    }
     audit.status = targetStatus as AuditStatus;
     if (notes !== undefined) {
       audit.notes = notes;
     }
 
     // Auto-calculate score on completion
-    if (targetStatus === 'COMPLETED') {
+    if (['COMPLETED', 'CLOSED'].includes(targetStatus)) {
       const fieldwork = await fieldworkScore(this.dataSource, auditId);
       if (fieldwork?.nonComplied)
         throw new BadRequestException(
@@ -703,7 +739,7 @@ export class AuditsService implements OnModuleInit {
 
     // Mirror the COMPLETED status onto the originating audit_schedule (if any)
     // so the auditor's calendar reflects the closed slot.
-    if (targetStatus === 'COMPLETED') {
+    if (['COMPLETED', 'CLOSED'].includes(targetStatus)) {
       try {
         await this.dataSource.query(
           `UPDATE audit_schedules
@@ -871,6 +907,11 @@ export class AuditsService implements OnModuleInit {
       throw new ForbiddenException('Not your audit');
     }
 
+    if (['COMPLETED', 'CLOSED', 'CANCELLED'].includes(audit.status))
+      throw new BadRequestException(
+        'Reopen the audit before changing its upload lock',
+      );
+
     // Validate dates: must be YYYY-MM-DD or null
     const dateRe = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
     if (lockFrom && !dateRe.test(lockFrom))
@@ -917,8 +958,8 @@ export class AuditsService implements OnModuleInit {
     if (audit.assignedAuditorId !== user.userId) {
       throw new ForbiddenException('Not your audit');
     }
-    if (audit.status === 'COMPLETED' || audit.status === 'CLOSED') {
-      throw new BadRequestException('Audit already completed/closed');
+    if (['COMPLETED', 'CLOSED', 'CANCELLED'].includes(audit.status)) {
+      throw new BadRequestException('Audit already completed/closed/cancelled');
     }
 
     const managed = await this.dataSource.query(
@@ -1121,53 +1162,35 @@ export class AuditsService implements OnModuleInit {
     if (audit.assignedAuditorId !== user.userId) {
       throw new ForbiddenException('Not your audit');
     }
-    if (audit.status === 'COMPLETED' || audit.status === 'CLOSED') {
-      throw new BadRequestException('Audit already completed/closed');
+    if (['COMPLETED', 'CLOSED', 'CANCELLED'].includes(audit.status)) {
+      throw new BadRequestException('Audit already completed/closed/cancelled');
     }
 
     await this.assertChecklistReviewed(auditId);
 
-    // Calculate score from document compliance (both branch + contractor docs)
-    // Branch documents that were reviewed for this audit
-    const branchDocStats = await this.dataSource.query(
-      `SELECT
-         COUNT(*)::int AS total,
-         COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS complied,
-         COUNT(*) FILTER (WHERE status = 'REJECTED')::int AS "nonComplied"
-       FROM branch_documents
-       WHERE branch_id = $1 AND client_id = $2
-         AND reviewed_by IS NOT NULL
-         AND status IN ('APPROVED','REJECTED')`,
-      [
-        audit.branchId || '00000000-0000-0000-0000-000000000000',
-        audit.clientId,
-      ],
+    // Use this audit's period/vendor scope and its own latest reviews.
+    const documents = await this.documentReviewService.listDocumentsForAudit(
+      user,
+      auditId,
     );
-    const bStats = branchDocStats[0] || {
-      total: 0,
-      complied: 0,
-      nonComplied: 0,
-    };
-
-    // Contractor documents linked to this audit
-    const ctrDocStats = await this.dataSource.query(
-      `SELECT
-         COUNT(*)::int AS total,
-         COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS complied,
-         COUNT(*) FILTER (WHERE status = 'REJECTED')::int AS "nonComplied"
-       FROM contractor_documents
-       WHERE audit_id = $1`,
-      [auditId],
-    );
-    const cStats = ctrDocStats[0] || { total: 0, complied: 0, nonComplied: 0 };
-
-    // Combined stats
+    const scoped = [
+      ...documents.branchDocuments,
+      ...documents.contractorDocuments,
+    ];
+    if (scoped.some((doc) => doc.status === 'SUBMITTED')) {
+      throw new BadRequestException(
+        'Review all audit documents before submitting',
+      );
+    }
+    const count = (docs: typeof scoped) => ({
+      total: docs.filter((doc) => doc.status !== 'NOT_APPLICABLE').length,
+      complied: docs.filter((doc) => doc.status === 'APPROVED').length,
+      nonComplied: docs.filter((doc) => doc.status === 'REJECTED').length,
+    });
     const stats = {
-      total: bStats.total + cStats.total,
-      complied: bStats.complied + cStats.complied,
-      nonComplied: bStats.nonComplied + cStats.nonComplied,
-      branchDocs: bStats,
-      contractorDocs: cStats,
+      ...count(scoped),
+      branchDocs: count(documents.branchDocuments),
+      contractorDocs: count(documents.contractorDocuments),
     };
 
     // Also factor in observation-based score
@@ -1192,7 +1215,15 @@ export class AuditsService implements OnModuleInit {
     // Check if there are open NCs — if so, set CORRECTION_PENDING instead of SUBMITTED
     const openNcCount =
       (await this.ncRepo.count({
-        where: { auditId, status: 'NC_RAISED' },
+        where: {
+          auditId,
+          status: In([
+            'NC_RAISED',
+            'AWAITING_REUPLOAD',
+            'REUPLOADED',
+            'REVERIFICATION_PENDING',
+          ]),
+        },
       })) + (fieldwork?.nonComplied || 0);
     if (openNcCount > 0) {
       audit.status = 'CORRECTION_PENDING';
@@ -1224,7 +1255,7 @@ export class AuditsService implements OnModuleInit {
       await this.notificationsService.createTicket(user.userId, 'AUDITOR', {
         queryType: 'AUDIT',
         subject: `Audit Report: ${auditCode} — Score ${scoreText}`,
-        message: `Audit ${auditCode} has been submitted. Score: ${scoreText}. Status: ${status}. View and download the report from your Audits page.`,
+        message: `Audit ${auditCode} has been submitted. Score: ${scoreText}. Status: ${status}. The report will be available after CRM approval and publication.`,
         clientId: audit.clientId,
         branchId: audit.branchId || undefined,
       });
@@ -1245,24 +1276,101 @@ export class AuditsService implements OnModuleInit {
   }
 
   // ─── Auditor: Re-open Audit for Re-audit ──────────────────────
-  async reopenAuditForReaudit(user: ReqUser, auditId: string) {
+  async reopenAuditForReaudit(user: ReqUser, auditId: string, reason?: string) {
     this.assertAuditor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId) {
-      throw new ForbiddenException('Not your audit');
-    }
-    if (audit.status !== 'COMPLETED') {
+    if (!reason?.trim() || reason.trim().length < 5)
       throw new BadRequestException(
-        'Only completed audits can be reopened for re-audit',
+        'Explain why this audit needs reopening (at least 5 characters)',
       );
-    }
-
-    audit.status = 'IN_PROGRESS';
-    audit.notes = `Re-audit opened on ${new Date().toISOString().split('T')[0]}. Previous score: ${audit.score}`;
-    await this.repo.save(audit);
-
-    return { id: audit.id, status: audit.status, previousScore: audit.score };
+    return this.dataSource.transaction(async (manager) => {
+      const [audit] = await manager.query(
+        'SELECT * FROM audits WHERE id = $1 FOR UPDATE',
+        [auditId],
+      );
+      if (!audit) throw new NotFoundException('Audit not found');
+      if (audit.assigned_auditor_id !== user.userId)
+        throw new ForbiddenException('Not your audit');
+      if (!['COMPLETED', 'CLOSED'].includes(audit.status))
+        throw new BadRequestException(
+          'Only completed or closed audits can be reopened for re-audit',
+        );
+      const [report] = await manager.query(
+        'SELECT * FROM audit_reports WHERE audit_id = $1 ORDER BY updated_at DESC, created_at DESC LIMIT 1 FOR UPDATE',
+        [auditId],
+      );
+      if (report?.held_at)
+        throw new BadRequestException(
+          'Release the report hold before reopening the audit',
+        );
+      let reportId: string | null = null;
+      if (report) {
+        reportId = randomUUID();
+        const [version] = await manager.query(
+          'SELECT COALESCE(MAX(version_no),0)+1 AS next FROM audit_reports WHERE audit_id=$1',
+          [auditId],
+        );
+        // Keep the issued version intact; corrections receive a separate draft.
+        await manager.query(
+          `INSERT INTO audit_reports
+          SELECT (jsonb_populate_record(NULL::audit_reports, to_jsonb(r) || $2::jsonb)).*
+          FROM audit_reports r WHERE r.id=$1`,
+          [
+            report.id,
+            JSON.stringify({
+              id: reportId,
+              status: 'DRAFT',
+              version_no: Number(version.next),
+              report_number: null,
+              approved_by_user_id: null,
+              approved_date: null,
+              published_date: null,
+              finalized_at: null,
+              held_at: null,
+              held_by_user_id: null,
+              hold_remarks: null,
+              file_path: null,
+              file_name: null,
+              prepared_by_user_id: user.userId,
+              prepared_date: new Date().toISOString().slice(0, 10),
+              created_at: new Date(),
+              updated_at: new Date(),
+            }),
+          ],
+        );
+      }
+      await manager.query(
+        `UPDATE audits SET status='IN_PROGRESS', score=NULL, score_calculated_at=NULL,
+        submitted_at=NULL, updated_at=clock_timestamp() WHERE id=$1`,
+        [auditId],
+      );
+      await manager.query(
+        `UPDATE audit_schedules SET status='IN_PROGRESS', updated_at=clock_timestamp()
+        WHERE id=$1 AND status='COMPLETED'`,
+        [audit.schedule_id],
+      );
+      await manager.query(
+        `INSERT INTO audit_logs (entity_type,entity_id,action,performed_by,snapshot)
+        VALUES ('AUDIT',$1,'STATUS_CHANGE',$2,$3::jsonb)`,
+        [
+          auditId,
+          user.userId,
+          JSON.stringify({
+            action: 'REOPENED_FOR_CORRECTION',
+            reason: reason.trim(),
+            previousStatus: audit.status,
+            previousScore: audit.score,
+            previousReportId: report?.id || null,
+            reportId,
+          }),
+        ],
+      );
+      return {
+        id: auditId,
+        status: 'IN_PROGRESS',
+        previousScore: audit.score,
+        reportId,
+      };
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -1498,16 +1606,25 @@ export class AuditsService implements OnModuleInit {
     return this.auditorDashboardService.getDocumentReviews(user, auditId);
   }
 
-  async getAuditorDashboardSummary(user: ReqUser) {
-    return this.auditorDashboardService.getAuditorDashboardSummary(user);
+  async getAuditorDashboardSummary(
+    user: ReqUser,
+    query: AuditorSummaryQueryDto = {},
+  ) {
+    return this.auditorDashboardService.getAuditorDashboardSummary(user, query);
   }
 
-  async getAuditorUpcomingAudits(user: ReqUser) {
-    return this.auditorDashboardService.getAuditorUpcomingAudits(user);
+  async getAuditorUpcomingAudits(
+    user: ReqUser,
+    query: AuditorSummaryQueryDto = {},
+  ) {
+    return this.auditorDashboardService.getAuditorUpcomingAudits(user, query);
   }
 
-  async getAuditorRecentSubmitted(user: ReqUser) {
-    return this.auditorDashboardService.getAuditorRecentSubmitted(user);
+  async getAuditorRecentSubmitted(
+    user: ReqUser,
+    query: AuditorSummaryQueryDto = {},
+  ) {
+    return this.auditorDashboardService.getAuditorRecentSubmitted(user, query);
   }
   /** Dashboard "Today / Upcoming Scheduled Audits" table — paginated */
   //  CONTRACTOR / BRANCH NC VISIBILITY — delegated to AuditNcService

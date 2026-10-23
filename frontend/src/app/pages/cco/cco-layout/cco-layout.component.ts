@@ -16,14 +16,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   template: `
     <div class="cco-shell">
       <!-- Mobile menu toggle -->
-      <button
-        class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80 role-fab-cco"
-        (click)="mobileOpen = true"
-      >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-      </button>
+
 
       <!-- Sidebar -->
       <app-cco-sidebar
@@ -39,7 +32,15 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
             <div class="flex items-center justify-between h-14">
               <!-- Company brand -->
               <div class="flex items-center gap-5">
-                <app-statco-wordmark></app-statco-wordmark>
+                <button
+        class="portal-nav-toggle"
+        (click)="sidebarCollapsed = false; mobileOpen = true" aria-label="Open navigation" [attr.aria-expanded]="mobileOpen"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+<app-statco-wordmark></app-statco-wordmark>
                 <!-- Contact (xl+) -->
                 <div class="hidden xl:flex flex-col items-start gap-1 ml-6 text-xs text-gray-400">
                   <a href="mailto:compliance@statcosol.com" class="flex items-center gap-1.5 hover:text-brand-800 transition-colors">
@@ -66,7 +67,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 }
                 <div class="hidden sm:block text-sm font-semibold text-gray-900">{{ userName }}</div>
                 <button
-                  (click)="logout()"
+                  (click)="logout()" aria-label="Logout"
                   class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 role-btn-cco"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

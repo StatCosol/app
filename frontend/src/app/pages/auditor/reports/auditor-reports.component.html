@@ -5,6 +5,8 @@
     icon="document-report">
   </ui-page-header>
 
+  @if (loadError) { <div role="alert" class="card mb-4">{{ loadError }} <button class="standard-action" (click)="load()">Retry</button></div> }
+  @if (exportError) { <div role="alert" class="card mb-4">{{ exportError }}</div> }
   <!-- Loading -->
   @if (loading) {
 <ui-loading-spinner text="Loading reports..."></ui-loading-spinner>
@@ -13,7 +15,7 @@
   @if (!loading) {
 
     <!-- Filter bar -->
-    <div class="flex items-center gap-4 mb-6">
+    <div class="flex flex-wrap items-end gap-4 mb-6 aligned-filter-controls">
       <div class="relative w-56">
         <input
           id="arep-search" name="searchTerm" autocomplete="off"
@@ -33,7 +35,7 @@
         (ngModelChange)="onStatusFilterChange($event)"
         class="w-48">
       </ui-form-select>
-      <button type="button" (click)="exportAll()" class="compact-action ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export All" aria-label="Export All" data-action-label="Export All" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+      <button type="button" (click)="exportAll()" class="standard-action ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export All" aria-label="Export All" data-action-label="Export All" data-action-icon="download"><ui-icon name="download" [size]="20" /> <span>Export All</span></button>
       <div class="text-sm text-gray-500">
         {{ filteredReports.length }} audit{{ filteredReports.length !== 1 ? 's' : '' }}
       </div>
@@ -64,14 +66,14 @@
 <div class="card">
       <ui-data-table [enableSearch]="false" [columns]="columns" [data]="filteredReports">
         <ng-template uiTableCell="auditName" let-row>
-          <div class="font-medium text-gray-900">{{ row.auditName || 'Audit' }}</div>
-          <div class="text-xs text-gray-500">{{ row.periodCode || '-' }}</div>
+          <div class="font-medium text-gray-900">{{ auditContext(row).type }}</div>
+          <div class="text-xs text-gray-500">{{ auditContext(row).period }} · {{ auditContext(row).code }}</div>
         </ng-template>
         <ng-template uiTableCell="clientName" let-row>
-          {{ row.clientName || '—' }}
+          {{ auditContext(row).client }}<div class="text-xs text-gray-500">{{ auditContext(row).contractor }}</div>
         </ng-template>
         <ng-template uiTableCell="branchName" let-row>
-          {{ row.branchName || '—' }}
+          {{ auditContext(row).branch }}
         </ng-template>
         <ng-template uiTableCell="dueDate" let-row>
           <span [class.text-red-600]="isPastDue(row.dueDate)">
@@ -82,7 +84,7 @@
           <ui-status-badge [status]="row.status"></ui-status-badge>
         </ng-template>
         <ng-template uiTableCell="actions" let-row>
-          <div class="flex items-center gap-2 justify-center">
+          <div class="flex flex-wrap items-center gap-2 justify-start">
             <ui-button
               variant="secondary"
               size="sm"
@@ -92,22 +94,22 @@
               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
-              PDF
+              Preview PDF
             </ui-button>
             <ui-button
               variant="secondary"
               size="sm"
               [disabled]="!row.auditId"
               [routerLink]="['/auditor/observations']"
-              [queryParams]="{ auditId: row.auditId }" icon="eye" [iconOnly]="true" label="View">
-              View
+              [queryParams]="{ auditId: row.auditId }" icon="eye" [iconOnly]="false" label="Findings">
+              Findings
             </ui-button>
             <ui-button
               variant="primary"
               size="sm"
               [disabled]="!row.auditId"
               [routerLink]="['/auditor/reports', row.auditId, 'builder']">
-              Builder
+              Edit report
             </ui-button>
           </div>
         </ng-template>
@@ -115,14 +117,16 @@
     </div>
 }
 
-    @if (filteredReports.length === 0) {
+    @if (!loadError && filteredReports.length === 0) {
 <ui-empty-state
-     
+
       title="No reports found"
       [description]="statusFilter ? 'No reports match this filter. Try changing the status filter.' : 'Assigned audits and their reporting actions will appear here.'"
       icon="document">
     </ui-empty-state>
 }
-  
+
 }
 </div>
+
+@if (preview; as file) { <app-audit-file-preview [request]="file" (closed)="preview = null" /> }

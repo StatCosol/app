@@ -1,5 +1,6 @@
+import { Subscription } from 'rxjs';
 import { IconComponent } from '../../../ui/icon/icon.component';
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef, ViewChild } from '@angular/core';
 
 import { ThreadApi } from '../../services/thread-api.interface';
 import { ThreadFilters, ThreadListItem, ThreadDetail } from '../../models/thread.model';
@@ -31,6 +32,8 @@ import { PriorityChipComponent } from '../../../components/status/priority-chip.
 })
 export class ThreadLayoutComponent {
   @Input() api!: ThreadApi;
+  @ViewChild(ComposerComponent) composer?: ComposerComponent;
+  private drafts = new Map<string, { message: string; files: File[] }>();
   @Input() title = 'Inbox';
   @Input() canClose = true;
   @Input() canResolve = false;
@@ -44,6 +47,13 @@ export class ThreadLayoutComponent {
   selected?: ThreadDetail;
   selectedId?: string;
 
+  listError = '';
+  threadError = '';
+  replyError = '';
+  private listRequest?: Subscription;
+  private threadRequest?: Subscription;
+  private replyRequest?: Subscription;
+
   loadingList = false;
   loadingThread = false;
   sending = false;
@@ -56,6 +66,8 @@ export class ThreadLayoutComponent {
   ngOnInit(): void {
     this.loadList();
   }
+
+  ngOnDestroy(): void { this.listRequest?.unsubscribe(); this.threadRequest?.unsubscribe(); this.replyRequest?.unsubscribe(); }
 
   get inboxItems(): ThreadInboxItem[] {
     return (this.page?.items || []).map((item) => ({
@@ -117,17 +129,20 @@ export class ThreadLayoutComponent {
 
   loadList(): void {
     if (!this.api) return;
+    this.listRequest?.unsubscribe();
+    this.listError = '';
     this.loadingList = true;
     this.cdr.markForCheck();
 
-    this.api.list(this.filters).subscribe({
+    this.listRequest = this.api.list(this.filters).subscribe({
       next: (res) => {
         this.page = res;
         this.loadingList = false;
         this.cdr.markForCheck();
       },
       error: () => {
-        this.page = { items: [], total: 0, page: 1, limit: 20 };
+        this.page = undefined;
+        this.listError = 'Could not load notifications. Retry to continue.';
         this.loadingList = false;
         this.cdr.markForCheck();
       },
@@ -135,12 +150,18 @@ export class ThreadLayoutComponent {
   }
 
   selectThread(item: ThreadListItem): void {
+    if (this.selectedId && this.composer) this.drafts.set(this.selectedId, { message: this.composer.message, files: [...this.composer.files] });
+    if (this.composer) { const draft=this.drafts.get(item.id); this.composer.message=draft?.message || ''; this.composer.files=draft?.files || []; }
+    this.threadRequest?.unsubscribe();
+    this.selected = undefined;
+    this.threadError = '';
+    this.replyError = '';
     this.selectedId = item.id;
     this.loadingThread = true;
     this.showDetail = true;
     this.cdr.markForCheck();
 
-    this.api.read(item.id).subscribe({
+    this.threadRequest = this.api.read(item.id).subscribe({
       next: (t) => {
         this.selected = t;
         this.loadingThread = false;
@@ -148,6 +169,7 @@ export class ThreadLayoutComponent {
       },
       error: () => {
         this.selected = undefined;
+        this.threadError = 'Could not open this notification. Select it again to retry.';
         this.loadingThread = false;
         this.cdr.markForCheck();
       },
@@ -159,19 +181,24 @@ export class ThreadLayoutComponent {
   }
 
   sendReply(payload: { message: string; files: File[] }): void {
-    if (!this.selected || this.sending) return;
+    if (!this.selected || !this.isOpen || this.loadingThread || this.sending) return;
+    const threadId = this.selected.id;
+    this.replyError = '';
     this.sending = true;
     this.cdr.markForCheck();
 
-    this.api.reply(this.selected.id, payload.message, payload.files).subscribe({
+    this.replyRequest = this.api.reply(threadId, payload.message, payload.files).subscribe({
       next: () => {
         this.sending = false;
-        this.selectThread({ id: this.selected!.id } as ThreadListItem);
+        this.drafts.delete(threadId);
+        if (this.selectedId === threadId && this.composer) { this.composer.message=''; this.composer.files=[]; }
+        if (this.selectedId === threadId) this.selectThread({ id: threadId } as ThreadListItem);
         this.loadList();
         this.replySent.emit();
       },
       error: () => {
         this.sending = false;
+        this.replyError = 'Reply was not sent. Your draft is retained; try again.';
         this.cdr.markForCheck();
       },
     });

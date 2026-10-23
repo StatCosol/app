@@ -58,8 +58,8 @@ interface OverdueNc {
           type="button"
           (click)="reload()"
           [disabled]="loading"
-          class="compact-action px-4 py-2 bg-brand-600 text-white text-sm rounded-md disabled:opacity-50"
-         title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+          class="standard-action px-4 py-2 bg-brand-600 text-white text-sm rounded-md disabled:opacity-50"
+         title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> Refresh</button>
         @if (asOf) {
 <span class="text-xs text-slate-500">
           As of {{ asOf | date: 'mediumDate' }} — {{ items.length }} item(s)
@@ -74,7 +74,8 @@ interface OverdueNc {
       @if (!loading && items.length === 0 && !error) {
 <div>
         <ui-empty-state
-          message="No overdue non-compliances. Your audits are on track."
+          title="No overdue non-compliances"
+          description="No open correction deadlines have expired for your assigned audits."
           icon="check-circle"
         ></ui-empty-state>
       </div>
@@ -117,7 +118,7 @@ interface OverdueNc {
                 <div class="text-xs text-slate-500">{{ it.branchName || '—' }}</div>
               </td>
               <td class="px-4 py-3 text-slate-800">{{ it.documentName || '—' }}</td>
-              <td class="px-4 py-3 text-slate-600 max-w-xs truncate" [title]="it.remark || ''">
+              <td class="px-4 py-3 text-slate-600 max-w-xs whitespace-normal break-words" [title]="it.remark || ''">
                 {{ it.remark || '—' }}
               </td>
               <td class="px-4 py-3 text-center">
@@ -140,8 +141,8 @@ interface OverdueNc {
               <td class="px-4 py-3">
                 <a
                   [routerLink]="['/auditor/audits', it.auditId, 'workspace']"
-                  class="compact-action text-brand-600 hover:text-brand-800 text-xs font-semibold"
-                 title="Open audit →" aria-label="Open audit →" data-action-label="Open audit →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
+                  class="standard-action text-brand-600 hover:text-brand-800 text-xs font-semibold"
+                 title="Open audit →" aria-label="Open audit →" data-action-label="Open audit →" data-action-icon="eye"><ui-icon name="eye" [size]="20" /> Open audit</a>
               </td>
             </tr>
 }

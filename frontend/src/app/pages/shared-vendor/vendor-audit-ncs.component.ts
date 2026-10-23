@@ -2,8 +2,8 @@ import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
-import { Subject, finalize, takeUntil } from 'rxjs';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Subject, Subscription, finalize, takeUntil } from 'rxjs';
 import { AuditsService } from '../../core/audits.service';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../shared/toast/toast.service';
@@ -21,7 +21,7 @@ interface VendorNcRow {
 @Component({
   selector: 'app-vendor-audit-ncs',
   standalone: true,
-  imports: [IconComponent, FormsModule],
+  imports: [IconComponent, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-wrap">
@@ -30,13 +30,20 @@ interface VendorNcRow {
           <h1>Audit Non-Compliances</h1>
           <p>Re-upload corrected evidence for each item below before the closure deadline. Items past the deadline are flagged as overdue.</p>
         </div>
+        <a [routerLink]="scope === 'branch' ? '/branch/audits' : '/contractor/audits'" class="standard-action">Back to audits</a>
       </header>
 
       @if (loading) {
 <div class="loader">Loading non-compliances...</div>
 }
 
-      @if (!loading) {
+      @if (!loading && error) {
+        <div class="card" role="alert">
+          <p>{{ error }}</p>
+          <button type="button" class="standard-action" (click)="load()">Try again</button>
+        </div>
+      }
+      @if (!loading && !error) {
 <section class="card">
         @if (!publishedAt) {
 <div style="padding:14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;color:#92400e;font-size:13px;">
@@ -61,19 +68,19 @@ interface VendorNcRow {
           @for (nc of items; track trackById($index, nc)) {
 <div class="nc-row" style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px;" [style.background]="nc.isOverdue ? '#fef2f2' : 'white'">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-              <div style="flex:1;min-width:240px;">
+              <div style="flex:1;min-width:0;overflow-wrap:anywhere;">
                 <strong style="font-size:13px;">{{ nc.documentName || 'Document' }}</strong>
                 <div style="font-size:12px;color:#475569;margin-top:4px;">{{ nc.remark || '-' }}</div>
                 <div style="margin-top:6px;font-size:11px;color:#64748b;">
-                  Status: <strong>{{ nc.status }}</strong> &middot; Deadline:
-                  <strong [style.color]="nc.isOverdue ? '#b91c1c' : '#0f172a'">{{ nc.vendorWindowUntil || '-' }}</strong>
+                  Status: <strong>{{ nc.status.replaceAll('_', ' ') }}</strong> &middot; Deadline:
+                  <strong [style.color]="nc.isOverdue ? '#b91c1c' : '#0f172a'">{{ formatDate(nc.vendorWindowUntil) }}</strong>
                   @if (nc.isOverdue) {
 <span style="margin-left:8px;color:#b91c1c;font-weight:600;">OVERDUE</span>
 }
                 </div>
               </div>
-              <div style="display:flex;flex-direction:column;gap:6px;">
-                <input type="file" #fileInput (change)="onFile($event, nc)" [disabled]="uploadingId === nc.id" />
+              <div style="display:flex;flex-direction:column;gap:6px;max-width:100%;">
+                <input type="file" style="max-width:100%;" [attr.aria-label]="'Corrected evidence for ' + (nc.documentName || 'document')" #fileInput (change)="onFile($event, nc)" [disabled]="uploadingId === nc.id" />
                 <button type="button" class="compact-action btn btn-primary" style="font-size:12px;padding:4px 10px;" [disabled]="!pending[nc.id] || uploadingId === nc.id" (click)="upload(nc)" title="Upload Correction" aria-label="Upload Correction" data-action-label="Upload Correction" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
                   {{ uploadingId === nc.id ? 'Uploading...' : 'Upload Correction' }}
                 </span></button>
@@ -104,6 +111,8 @@ export class VendorAuditNcsComponent implements OnInit, OnDestroy {
   auditId: string | null = null;
   scope: 'contractor' | 'branch' = 'contractor';
   loading = true;
+  error = '';
+  private loadSubscription?: Subscription;
   publishedAt: string | null = null;
   vendorWindowDays: number | null = null;
   counts: { total?: number; open?: number; overdue?: number } = {};
@@ -124,7 +133,7 @@ export class VendorAuditNcsComponent implements OnInit, OnDestroy {
     this.scope = role === 'CLIENT' ? 'branch' : 'contractor';
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((p) => {
       this.auditId = p.get('id');
-      if (this.auditId) this.load();
+      this.load();
     });
   }
 
@@ -134,12 +143,24 @@ export class VendorAuditNcsComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
-    if (!this.auditId) return;
+    this.loadSubscription?.unsubscribe();
+    this.error = '';
+    this.items = [];
+    this.pending = {};
+    this.publishedAt = null;
+    this.counts = {};
+    this.vendorWindowDays = null;
+    if (!this.auditId) {
+      this.loading = false;
+      this.error = 'Audit not found.';
+      this.cdr.markForCheck();
+      return;
+    }
     this.loading = true;
     const obs$ = this.scope === 'branch'
       ? this.auditsApi.branchListNcsForAudit(this.auditId)
       : this.auditsApi.contractorListNcsForAudit(this.auditId);
-    obs$.pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.markForCheck(); })).subscribe({
+    this.loadSubscription = obs$.pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.markForCheck(); })).subscribe({
       next: (res: any) => {
         this.publishedAt = res?.publishedAt || null;
         this.vendorWindowDays = res?.vendorWindowDays ?? null;
@@ -147,7 +168,7 @@ export class VendorAuditNcsComponent implements OnInit, OnDestroy {
         this.items = res?.items || [];
         this.pending = {};
       },
-      error: (err) => this.toast.error(err?.error?.message || 'Failed to load non-compliances'),
+      error: () => { this.error = 'Unable to load non-compliances for this audit. Check your access or try again.'; },
     });
   }
 
@@ -180,6 +201,7 @@ export class VendorAuditNcsComponent implements OnInit, OnDestroy {
     if (!value) return '-';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '-';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
     return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 }

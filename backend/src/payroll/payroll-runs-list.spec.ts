@@ -51,7 +51,7 @@ describe('Payroll source list branch identity', () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any,
+      { getAssignedClientIds: jest.fn().mockResolvedValue(['client']) } as any,
     );
     const result = await service.listPayrollRuns(
       { id: 'admin', roleCode: 'ADMIN' } as any,

@@ -1,3 +1,5 @@
+import { auditContext, auditOptionLabel } from './audit-context';
+import { AuditContextComponent } from './audit-context.component';
 import { ActionIconPipe } from '../../shared/ui/action-icon.pipe';
 import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
@@ -45,7 +47,7 @@ import {
   selector: 'app-auditor-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ActionIconPipe, IconComponent,
+  imports: [AuditContextComponent, ActionIconPipe, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -63,6 +65,8 @@ import {
   styleUrls: ['./auditor-dashboard.component.scss'],
 })
 export class AuditorDashboardComponent implements OnInit, OnDestroy {
+  readonly auditContext = auditContext;
+  get selectedQuickAudit(): any { return this.allActionableAudits.find(a => a.auditId === this.selectedQuickAuditId); }
   loading = true;
   errorMsg: string | null = null;
 
@@ -137,10 +141,10 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   auditColumns: TableColumn[] = [
     { key: 'clientName', header: 'Client', sortable: true },
     { key: 'branchName', header: 'Branch', sortable: true },
-    { key: 'auditName', header: 'Audit Name', sortable: true },
+    { key: 'auditName', header: 'Audit type / period', sortable: true },
     { key: 'dueDate', header: 'Due Date', sortable: true },
     { key: 'status', header: 'Status', align: 'center' },
-    { key: 'progressPct', header: 'Progress %', align: 'center' },
+    { key: 'score', header: 'Compliance score', align: 'center' },
     { key: 'actions', header: 'Actions', align: 'center' },
   ];
 
@@ -242,7 +246,8 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   }
 
   get totalUrgentItems(): number {
-    return Number(this.summary.reverificationPending || 0)
+    return Number(this.summary.pending || 0)
+      + Number(this.summary.reverificationPending || 0)
       + Number(this.summary.inProgress || 0)
       + Number(this.observations.length || 0)
       + Number(this.evidence.length || 0);
@@ -300,7 +305,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.errorMsg = null;
     this.cdr.markForCheck();
 
-    this.summarySub = this.auditsService.auditorDashboardSummary().pipe(
+    this.summarySub = this.auditsService.auditorDashboardSummary(this.buildFilterParams()).pipe(
       takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => {
@@ -339,7 +344,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   /** Load upcoming audits from AuditXpert API */
   loadUpcomingAudits(): void {
-    this.auditsService.auditorUpcomingAudits().pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
+    this.auditsService.auditorUpcomingAudits(this.buildFilterParams()).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (data) => {
         this.upcomingAudits = data || [];
         this.cdr.markForCheck();
@@ -353,7 +358,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   /** Load recent submitted from AuditXpert API */
   loadRecentSubmitted(): void {
-    this.auditsService.auditorRecentSubmitted().pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
+    this.auditsService.auditorRecentSubmitted(this.buildFilterParams()).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (data) => {
         this.recentSubmitted = data || [];
         this.cdr.markForCheck();
@@ -424,6 +429,9 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   /** Apply filters */
   applyFilters(): void {
+    if (this.filter.fromDate && this.filter.toDate && this.filter.fromDate > this.filter.toDate) {
+      this.toast.error('The from date must be on or before the to date.'); return;
+    }
     this.loadAllData();
   }
 
@@ -459,16 +467,17 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
           return ad.localeCompare(bd);
         });
         this.allActionableAudits = sorted;
+        if (!sorted.some(a => a.auditId === this.selectedQuickAuditId)) this.selectedQuickAuditId = '';
         this.quickAuditOptions = [
           { value: '', label: `Select an audit to start / continue… (${sorted.length})` },
           ...sorted.map((a) => {
             const overdue = a.dueDate && a.dueDate < todayStr;
-            const due = a.dueDate ? ` · due ${a.dueDate}` : '';
+            const due = a.dueDate ? ` · due ${new Date(a.dueDate).toLocaleDateString('en-IN')}` : '';
             const statusTag = a.status ? ` [${a.status.replace(/_/g, ' ')}]` : '';
             const flag = overdue ? '⚠ ' : '';
             return {
               value: a.auditId,
-              label: `${flag}${a.clientName} — ${a.branchName || '—'} — ${a.auditName}${due}${statusTag}`,
+              label: `${flag}${auditOptionLabel(a)}${due}${statusTag}`,
             };
           }),
         ];
@@ -650,29 +659,32 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  openStatusQueue(status: string): void {
+    this.router.navigate(['/auditor/audits'], { queryParams: { ...this.buildFilterParams(), status } });
+  }
   // KPI Card Drill-down Handlers
   drillAssignedAudits() {
-    this.router.navigate(['/auditor/audits']);
+    this.router.navigate(['/auditor/audits'], { queryParams: this.buildFilterParams() });
   }
 
   drillPending() {
-    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'PLANNED' } });
+    this.router.navigate(['/auditor/audits'], { queryParams: { ...this.buildFilterParams(), status: 'PLANNED' } });
   }
 
   drillInProgress() {
-    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'IN_PROGRESS' } });
+    this.router.navigate(['/auditor/audits'], { queryParams: { ...this.buildFilterParams(), status: 'IN_PROGRESS' } });
   }
 
   drillSubmitted() {
-    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'SUBMITTED' } });
+    this.router.navigate(['/auditor/audits'], { queryParams: { ...this.buildFilterParams(), status: 'SUBMITTED' } });
   }
 
   drillReverification() {
-    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'REVERIFICATION_PENDING' } });
+    this.router.navigate(['/auditor/audits'], { queryParams: { ...this.buildFilterParams(), status: 'REVERIFICATION_PENDING' } });
   }
 
   drillClosed() {
-    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'CLOSED' } });
+    this.router.navigate(['/auditor/audits'], { queryParams: { ...this.buildFilterParams(), status: 'CLOSED' } });
   }
 
   drillOverdueAudits() {
@@ -719,6 +731,8 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
       submitted,
       reverificationPending,
       closed: Number(data?.closed ?? 0),
+      correctionPending: Number(data?.correctionPending ?? 0),
+      completed: Number(data?.completed ?? 0),
       assignedAuditsCount: totalAssigned,
       overdueAuditsCount: reverificationPending,
       reportsPendingCount: Number(data?.reportsPendingCount ?? submitted),

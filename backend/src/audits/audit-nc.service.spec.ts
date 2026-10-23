@@ -324,7 +324,7 @@ describe('Audit correction lifecycle', () => {
         t.ncRepo.findOne.mock.invocationCallOrder[1],
       );
       expect(t.auditRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'CLOSED' }),
+        expect.objectContaining({ status: 'IN_PROGRESS' }),
       );
       expect(t.transaction).toHaveBeenCalledTimes(1);
     },

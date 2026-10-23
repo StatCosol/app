@@ -278,7 +278,10 @@ export class MonthlyCloseService {
   private async returns(q: MonthlyCloseQueryDto) {
     const rows = await this.db.query(
       `WITH checked AS (
-      SELECT id, return_type, status, due_date::text, crm_owner,
+      SELECT id, return_type,
+        COALESCE((SELECT NULLIF(BTRIM(m.return_name), '')
+          FROM compliance_return_master m WHERE m.return_code = compliance_returns.return_type), return_type) AS return_title,
+        status, due_date::text, crm_owner,
         CASE WHEN status = 'NOT_APPLICABLE' THEN NULL
           WHEN status IS DISTINCT FROM 'APPROVED' THEN 'Return requires filing or approval.'
           WHEN NULLIF(BTRIM(ack_file_path), '') IS NULL THEN 'Approved return has no recorded acknowledgment file.'
@@ -297,13 +300,14 @@ export class MonthlyCloseService {
         (r: {
           id: string;
           return_type: string;
+          return_title?: string;
           reason: string;
           crm_owner: string | null;
           due_date: string | null;
         }) => ({
           id: r.id,
           sourceId: r.id,
-          title: r.return_type,
+          title: r.return_title || r.return_type,
           reason: r.reason,
           owner: r.crm_owner || 'Compliance team',
           dueDate: r.due_date,

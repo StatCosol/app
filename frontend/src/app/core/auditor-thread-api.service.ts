@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { EMPTY, Observable } from 'rxjs';
+import { expand, map, reduce } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ThreadApi } from '../shared/thread/services/thread-api.interface';
 import {
@@ -25,14 +25,19 @@ export class AuditorThreadApiService implements ThreadApi {
     if (filters.status) params = params.set('status', filters.status);
     if (filters.unread) params = params.set('unreadOnly', '1');
 
-    return this.http.get<any>(`${this.base}/inbox`, { params }).pipe(
-      map((res) => {
+    const fetchPage = (page: number) => this.http.get<any>(`${this.base}/inbox`, {
+      params: params.set('page', page).set('limit', 100),
+    }).pipe(map(res => ({ rows: res?.data ?? res?.rows ?? [], total: Number(res?.total || 0), page, limit: Number(res?.limit || 100) })));
+    return fetchPage(1).pipe(
+      expand(res => res.rows.length && res.page * res.limit < res.total ? fetchPage(res.page + 1) : EMPTY),
+      reduce((all: any[], res) => [...all, ...res.rows], []),
+      map((rows) => {
         const page = Math.max(1, Number(filters.page || 1));
         const limit = Math.max(1, Number(filters.limit || 20));
         const q = String(filters.q || '').trim().toLowerCase();
         const typeFilter = filters.type || '';
 
-        let items = (res?.data ?? res?.rows ?? []).map((row: any) =>
+        let items = rows.map((row: any) =>
           this.toListItem(row),
         );
 

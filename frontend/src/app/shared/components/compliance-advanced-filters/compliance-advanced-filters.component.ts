@@ -20,7 +20,7 @@ export interface FilterDropdownOption {
   selector: 'app-compliance-advanced-filters',
   imports: [IconComponent, FormsModule],
   template: `
-    <div class="adv-filters">
+    <div class="adv-filters aligned-filter-controls">
       <!-- Year -->
       <select class="field" [(ngModel)]="filters.periodYear" (ngModelChange)="emit()">
         <option [ngValue]="null">All Years</option>

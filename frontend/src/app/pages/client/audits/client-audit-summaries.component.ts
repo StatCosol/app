@@ -32,14 +32,17 @@ import {
     ></ui-page-header>
 
     <div class="p-6">
+      <button class="border rounded-lg px-3 py-2 mb-4" (click)="load()" [disabled]="loading">Refresh</button>
+      <p class="text-xs text-slate-500 mb-4">In progress includes submitted, correction and reverification stages. Scores cover completed audits only.</p>
+      @if (errorMessage) { <div role="alert">{{ errorMessage }}</div> }
       @if (loading) {
 <ui-loading-spinner></ui-loading-spinner>
 }
 
-      @if (!loading && summaries.length === 0) {
+      @if (!loading && !errorMessage && summaries.length === 0) {
 <div>
         <ui-empty-state
-          message="No audit data available."
+          title="No audit data available."
           icon="document"
         ></ui-empty-state>
       </div>
@@ -72,7 +75,7 @@ import {
               <p class="font-bold text-amber-600">{{ s.in_progress }}</p>
             </div>
             <div>
-              <span class="text-slate-500 text-xs">Avg Score</span>
+              <span class="text-slate-500 text-xs">Completed Avg Score</span>
               <p class="font-bold text-brand-600">
                 {{
                   s.avg_score !== null && s.avg_score !== undefined
@@ -82,10 +85,11 @@ import {
               </p>
             </div>
           </div>
+          <div class="grid grid-cols-2 gap-3 text-sm mt-3"><div>Scheduled <strong>{{s.scheduled || 0}}</strong></div><div>Cancelled <strong>{{s.cancelled || 0}}</strong></div></div>
           @if (s.last_audit_date) {
 <div class="mt-3 pt-3 border-t border-slate-100">
             <span class="text-xs text-slate-400">
-              Last audit: {{ s.last_audit_date | date: 'mediumDate' }}
+              Last activity: {{ s.last_audit_date | date: 'mediumDate' }}
             </span>
           </div>
 }
@@ -97,19 +101,23 @@ import {
   `,
 })
 export class ClientAuditSummariesComponent implements OnInit, OnDestroy {
+  errorMessage = '';
   loading = true;
   summaries: any[] = [];
   private destroy$ = new Subject<void>();
+  private request?: import('rxjs').Subscription;
 
   constructor(
     private auditsService: AuditsService,
     private cdr: ChangeDetectorRef,
   ) {}
 
-  ngOnInit() {
-    this.auditsService
+  ngOnInit() { this.load(); }
+  load() {
+    this.request?.unsubscribe(); this.loading = true; this.errorMessage = ''; this.summaries = []; this.cdr.markForCheck();
+    this.request = this.auditsService
       .clientGetAuditSummaries()
-      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .pipe(takeUntil(this.destroy$), catchError(() => { this.errorMessage = 'Unable to load audit summaries. Please refresh to retry.'; return of([]); }))
       .subscribe((data) => {
         this.summaries = data;
         this.loading = false;

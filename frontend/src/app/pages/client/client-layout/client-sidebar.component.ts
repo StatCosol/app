@@ -1,3 +1,4 @@
+import { ResponsiveNavigationDirective } from '../../../shared/directives/responsive-navigation.directive';
 import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
@@ -29,13 +30,13 @@ interface SidebarItem {
 @Component({
   selector: 'app-client-sidebar',
   standalone: true,
-  imports: [RouterModule, FormsModule],
+  imports: [ResponsiveNavigationDirective, RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
     @if (mobileOpen) {
 <div
      
-      class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
 }
@@ -44,6 +45,7 @@ interface SidebarItem {
     <aside
       [class]="sidebarClasses"
       [class.mobile-open]="mobileOpen"
+      [uiResponsiveNavigation]="mobileOpen" (navigationDismiss)="mobileOpen = false; mobileOpenChange.emit(false)"
     >
       <!-- Brand area -->
       @if (!collapsed) {
@@ -97,7 +99,7 @@ interface SidebarItem {
 
       <!-- Mobile close button -->
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
-        <button
+        <button type="button" aria-label="Close navigation"
           (click)="mobileOpen = false; mobileOpenChange.emit(false)"
           class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors"
         >
@@ -115,9 +117,9 @@ interface SidebarItem {
             @for (link of collapsedLinks; track link.route) {
 <a
              
-              [attr.href]="link.route"
+              [routerLink]="link.route"
               [class.collapsed-active]="isActiveRoute(link, true)"
-              (click)="navigateTo(link.route, $event)"
+              (click)="onNavClick()"
               class="collapsed-icon"
             >
               <span class="sidebar-icon" [innerHTML]="link.icon"></span>
@@ -132,7 +134,7 @@ interface SidebarItem {
 <div
            
           >
-            <div
+            <button type="button" [attr.aria-expanded]="group.expanded"
               class="sidebar-section"
               [class.active]="group.expanded"
               (click)="toggleGroup(group)"
@@ -147,14 +149,14 @@ interface SidebarItem {
               <svg class="chevron" [class.open]="group.expanded" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
               </svg>
-            </div>
+            </button>
             <div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
               @for (item of group.items; track item.route) {
 <a
                
-                [attr.href]="item.route"
+                [routerLink]="item.route"
                 [class.sidebar-active]="isActiveRoute(item)"
-                (click)="navigateTo(item.route, $event)"
+                (click)="onNavClick()"
                 class="sidebar-item"
               >
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
@@ -609,15 +611,6 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
         this.mobileOpenChange.emit(false);
       });
     }
-  }
-
-  navigateTo(route: string, event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-
-    void this.router.navigateByUrl(route).then(() => {
-      this.onNavClick();
-    });
   }
 
   isActiveRoute(item: SidebarItem, forceExact = false): boolean {

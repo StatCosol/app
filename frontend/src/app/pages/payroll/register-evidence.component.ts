@@ -112,7 +112,7 @@ import { environment } from '../../../environments/environment';
       </p>
       <div class="flex gap-3">
         <button type="button" class="standard-action underline" (click)="saveSource()" [disabled]="busy">
-          Save current details for review</button><button type="button" class="compact-action underline" (click)="load()" [disabled]="busy" title="Load source records" aria-label="Load source records" data-action-label="Load source records" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+          Save current details for review</button><button type="button" class="standard-action underline" (click)="load()" [disabled]="busy" title="Load source records" aria-label="Load source records" data-action-label="Load source records" data-action-icon="folder-open"><ui-icon name="folder-open" [size]="20" /><span>Load source records</span></button>
       </div>
       @if (loaded && !records.length) {
         <p class="text-sm my-2">No saved sources for this branch, form and period.</p>

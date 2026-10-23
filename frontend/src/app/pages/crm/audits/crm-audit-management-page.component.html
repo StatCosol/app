@@ -166,7 +166,7 @@
                 [class.row-selected]="selectedAudit?.id === row.id"
               >
                 <td class="td mono">{{ row.auditCode }}</td>
-                <td class="td">{{ auditClientName(row) }}</td>
+                <td class="td"><div>{{ auditClientName(row) }}</div><div class="tiny-muted">{{ row.branch?.branchName || 'Company-wide' }}</div><div class="tiny-muted">{{ row.contractorUser?.name || 'No contractor' }}</div></td>
                 <td class="td">
                   <div>{{ row.periodCode }}</div>
                   <div class="tiny-muted">{{ row.frequency }}</div>
@@ -273,6 +273,10 @@
             <span class="v">{{ audit.branch?.branchName || audit.branchName || '-' }}</span>
           </div>
           <div>
+            <span class="k">Contractor / vendor</span>
+            <span class="v">{{ audit.contractorUser?.name || 'Not applicable' }}</span>
+          </div>
+          <div>
             <span class="k">Auditor</span>
             <span class="v">{{ auditAuditorName(audit) }}</span>
           </div>
@@ -331,6 +335,12 @@
       @if (currentAudit; as audit) {
 <div class="card min-w-0" aria-label="Report status">
         <h3 class="text-base font-semibold text-gray-900 mb-3">Report Status</h3>
+        @if (['SUBMITTED','APPROVED','PUBLISHED'].includes(latestReportStatus?.status || '')) {
+          <button type="button" class="px-3 py-2 mb-3 rounded-lg border border-emerald-700 text-emerald-900 font-semibold"
+            [disabled]="reportPreviewBusy" (click)="previewReport()">
+            {{ reportPreviewBusy ? 'Opening report…' : 'Preview report PDF' }}
+          </button>
+        }
         <div class="flex items-center justify-between gap-2 mb-2">
           <span [class]="reportPhaseClass">{{ reportPhase }}</span>
           <span class="text-sm text-gray-600">Score: {{ audit.score ?? '-' }}</span>
@@ -345,6 +355,10 @@
           Status: {{ latestReportStatus?.status }}
         </div>
 }
+          @for (feedback of latestReportStatus?.returnFeedback || []; track $index) {
+            <p class="mt-2 whitespace-pre-wrap break-words"><strong>Correction requested:</strong> {{ feedback.reason }}</p>
+            <p>{{ feedback.returnedBy || 'CRM' }} · {{ feedback.returnedAt | date:'medium' }}</p>
+          }
         @if (latestReportStatus?.held) {
 <div class="text-sm text-amber-800 mb-2" role="status">
           <strong>On hold</strong>
@@ -359,7 +373,7 @@
         </div>
 }
         <div class="text-xs text-gray-500">
-          Submitted audits in current filter: {{ reportSubmittedCount }}
+          Submitted reports in current filter: {{ reportSubmittedCount }}
         </div>
         <div class="text-xs text-gray-500">
           Report tracking is synced from audit report status API.
@@ -381,7 +395,7 @@
             [disabled]="governanceBusy || latestReportStatus?.held"
             (click)="publishReport()" title="Publish" aria-label="Publish" data-action-label="Publish" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
 }
-          @if (latestReportStatus?.status === 'SUBMITTED' || latestReportStatus?.status === 'APPROVED') {
+          @if (!['COMPLETED','CLOSED','CANCELLED'].includes(audit.status) && (latestReportStatus?.status === 'SUBMITTED' || latestReportStatus?.status === 'APPROVED')) {
 <button type="button"
             class="compact-action status-action-btn"
            
@@ -547,3 +561,5 @@
 }
 
 }
+
+@if (reportPreview) { <app-audit-file-preview [request]="reportPreview" (closed)="reportPreview = null" /> }

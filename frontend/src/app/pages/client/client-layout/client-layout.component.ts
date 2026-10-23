@@ -16,15 +16,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   template: `
     <div class="client-shell">
       <!-- Mobile menu toggle FAB -->
-      <button
-        class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80 role-fab-client"
-        (click)="mobileOpen = true"
-        aria-label="Open navigation"
-      >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-      </button>
+
 
       <!-- Sidebar -->
       <app-client-sidebar
@@ -42,7 +34,16 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 
               <!-- LEFT: Company brand -->
               <div class="flex items-center gap-3 min-w-0">
-                <app-statco-wordmark></app-statco-wordmark>
+                <button
+        class="portal-nav-toggle"
+        (click)="sidebarCollapsed = false; mobileOpen = true"
+        aria-label="Open navigation" [attr.aria-expanded]="mobileOpen"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+<app-statco-wordmark></app-statco-wordmark>
                 <!-- Contact links (xl+) -->
                 <div class="hidden xl:flex flex-col items-start gap-0.5 ml-4 text-[11px] text-gray-400 border-l border-gray-100 pl-4">
                   <a href="mailto:compliance@statcosol.com" class="flex items-center gap-1 hover:text-brand-600 transition-colors">
@@ -57,14 +58,14 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
               </div>
 
               <!-- CENTER: Quick search (md+) -->
-              <div class="hidden md:flex flex-1 max-w-xs mx-4">
+              <div class="portal-module-search hidden md:flex flex-1 max-w-xs mx-4">
                 <div class="relative w-full">
                   <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
                   </svg>
-                  <button type="button" (click)="workspaceTools.open()" aria-haspopup="dialog"
+                  <button type="button" (click)="workspaceTools.open()" aria-haspopup="dialog" aria-label="Find a module"
                     class="w-full pl-9 pr-3 py-2 text-left text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl">
-                    Find a module
+                    <span class="module-search-label">Find a module</span>
                   </button>
                 </div>
               </div>
@@ -121,7 +122,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 
                 <!-- Logout -->
                 <button
-                  (click)="logout()"
+                  (click)="logout()" aria-label="Logout"
                   title="Logout"
                   class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white rounded-lg hover:opacity-90 active:scale-95 transition-all role-btn-client"
                 >

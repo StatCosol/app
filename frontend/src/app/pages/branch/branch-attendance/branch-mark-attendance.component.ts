@@ -92,7 +92,7 @@ const STANDARD_HOURS = 9;
             }
           </p>
         </div>
-        <div class="head-actions">
+        <div class="head-actions aligned-filter-controls">
           <input
             type="month"
             class="month-picker"
@@ -124,7 +124,7 @@ const STANDARD_HOURS = 9;
         </div>
       </header>
 
-      <section class="card toolbar">
+      <section class="card toolbar aligned-filter-controls">
         <label>
           <span>Date</span>
           <input

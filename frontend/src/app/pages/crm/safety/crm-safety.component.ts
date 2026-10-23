@@ -98,7 +98,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 }
           </nav>
         </div>
-        <div class="p-4 flex flex-wrap gap-3">
+        <div class="p-4 flex flex-wrap gap-3 aligned-filter-controls">
           <select id="cs-filter-category" name="filterCategory" [(ngModel)]="filterCategory" (ngModelChange)="loadDocuments()"
             class="form-select rounded-lg border-gray-300 text-sm">
             <option value="">All Categories</option>

@@ -89,6 +89,7 @@ export class AuditorDashboardService {
       f.fromDate,
       f.toDate,
       f.windowDays,
+      query.auditType?.trim().toUpperCase() || null,
     ]);
   }
 
@@ -117,6 +118,7 @@ export class AuditorDashboardService {
       tab,
       p.limit,
       p.offset,
+      query.auditType?.trim().toUpperCase() || null,
     ]);
   }
 
@@ -141,6 +143,9 @@ export class AuditorDashboardService {
       risk,
       p.limit,
       p.offset,
+      query.auditType?.trim().toUpperCase() || null,
+      f.fromDate,
+      f.toDate,
     ]);
   }
 
@@ -164,6 +169,7 @@ export class AuditorDashboardService {
       f.toDate,
       p.limit,
       p.offset,
+      query.auditType?.trim().toUpperCase() || null,
     ]);
   }
 }

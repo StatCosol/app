@@ -1,4 +1,5 @@
 import { AuditFieldworkComponent } from '../../shared/audit-fieldwork/audit-fieldwork.component';
+import { AuditFilePreviewComponent, AuditFilePreview } from '../../shared/files/components/audit-file-preview.component';
 import { ActionIconPipe } from '../../shared/ui/action-icon.pipe';
 import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
@@ -26,7 +27,7 @@ import {
 } from '../../core/auditor-audit.service';
 import { AuditorObservationsService } from '../../core/auditor-observations.service';
 import { ToastService } from '../../shared/toast/toast.service';
-import { ClientContextStripComponent } from '../../shared/ui';
+import { AuditContextComponent } from './audit-context.component';
 import { ProtectedFileService } from '../../shared/files/services/protected-file.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
@@ -81,12 +82,13 @@ interface WorkspaceTabItem {
 @Component({
   standalone: true,
   selector: 'app-auditor-audit-workspace',
-  imports: [AuditFieldworkComponent, ActionIconPipe, IconComponent, CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [AuditFieldworkComponent, AuditFilePreviewComponent, ActionIconPipe, IconComponent, CommonModule, FormsModule, AuditContextComponent],
   templateUrl: './auditor-audit-workspace.component.html',
   styleUrls: ['./auditor-audit-workspace.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
+  preview: AuditFilePreview | null = null;
   private readonly destroy$ = new Subject<void>();
 
   loading = true;
@@ -118,6 +120,8 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
 
   statusNote = '';
   reportStage: 'DRAFT' | 'FINAL' | null = null;
+  reportStatus: string | null = null;
+  reportHeld = false;
   reportUpdatedAt: string | null = null;
   aiDraft: AiAuditObservation | null = null;
 
@@ -189,7 +193,8 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
         const queryAuditId = query.get('auditId');
         const nextAuditId = paramAuditId || queryAuditId || null;
         this.initializeForAudit(nextAuditId);
-        if (query.get('tab') === 'checklist') this.activeTab = 'checklist';
+        const requestedTab = query.get('tab');
+        if (this.workspaceTabs.some(tab => tab.key === requestedTab)) this.activeTab = requestedTab as WorkspaceTabKey;
       });
   }
 
@@ -214,15 +219,16 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   get evidenceFileCount(): number {
     return this.evidenceRows.length + this.checklistItems.reduce((n, item) => n + (item.evidenceRevision || 0), 0);
   }
+  get availableDocumentCount(): number { return this.auditDocuments.length + this.evidenceFileCount; }
 
   get checklist(): ChecklistItem[] {
     return [
       { label: 'Audit scope loaded', done: !!this.audit },
-      { label: 'Audit evidence attached', done: this.evidenceFileCount > 0 },
-      { label: 'Observation draft logged', done: this.observations.length > 0 },
+      { label: 'Uploaded documents available', done: this.availableDocumentCount > 0 },
+      { label: 'No open observations remaining', done: this.openObservationsCount === 0 },
       { label: 'Severity score calculated', done: this.audit?.score !== null && this.audit?.score !== undefined },
       { label: 'Report draft finalized', done: this.isReportFinalized },
-      { label: 'Audit marked completed', done: this.statusKey(this.audit?.status) === 'COMPLETED' },
+      { label: 'Audit marked completed', done: ['COMPLETED', 'CLOSED'].includes(this.statusKey(this.audit?.status)) },
     ];
   }
 
@@ -260,9 +266,9 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       },
       {
         key: 'submit',
-        label: 'Finish audit',
-        meta: this.canSubmitReviewRound ? 'Ready' : 'Blocked',
-        attention: !this.canSubmitReviewRound,
+        label: 'Finish Audit',
+        meta: this.canReviewDocuments ? (this.canSubmitReviewRound ? 'Ready' : 'Blocked') : this.formatLabel(this.audit?.status),
+        attention: this.canReviewDocuments && !this.canSubmitReviewRound,
       },
       {
         key: 'info',
@@ -284,6 +290,9 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get currentFocus(): { title: string; detail: string; tab: WorkspaceTabKey; button: string } {
+    const status = this.statusKey(this.audit?.status);
+    if (['CLOSED','COMPLETED','CANCELLED'].includes(status)) return { title: `Audit ${this.formatLabel(status)}`, detail: 'This audit is read-only. Published reports remain available; reopen a closed or completed audit to make corrections.', tab: 'submit', button: 'View audit status' };
+    if (status === 'SUBMITTED') return { title: ['APPROVED','PUBLISHED'].includes(this.reportStatus || '') ? 'Ready to close audit' : 'Awaiting CRM report approval', detail: 'Close the audit from Overview after CRM approves the latest report and all findings are resolved.', tab: 'info', button: 'View closure controls' };
     if (this.pendingReviewCount > 0) {
       return {
         title: 'Review uploaded documents',
@@ -335,10 +344,10 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     const status = this.statusKey(this.audit?.status);
     const draftReady = this.reportStage === 'DRAFT' || this.reportStage === 'FINAL';
     return [
-      { label: 'Planned', done: ['PLANNED', 'IN_PROGRESS', 'COMPLETED'].includes(status), active: status === 'PLANNED' },
-      { label: 'Fieldwork', done: ['IN_PROGRESS', 'COMPLETED'].includes(status), active: status === 'IN_PROGRESS' },
+      { label: 'Planned', done: status !== 'CANCELLED', active: status === 'PLANNED' },
+      { label: 'Fieldwork', done: !['PLANNED','CANCELLED'].includes(status), active: status === 'IN_PROGRESS' },
       { label: 'Report Draft', done: draftReady, active: status === 'IN_PROGRESS' && draftReady },
-      { label: 'Finalized', done: status === 'COMPLETED', active: status === 'COMPLETED' },
+      { label: 'Closed', done: ['COMPLETED','CLOSED'].includes(status), active: ['COMPLETED','CLOSED'].includes(status) },
     ];
   }
 
@@ -397,9 +406,9 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       },
       {
         label: 'Evidence Readiness',
-        passed: this.evidenceFileCount > 0,
-        detail: this.evidenceFileCount
-          ? `${this.evidenceFileCount} evidence files attached`
+        passed: this.availableDocumentCount > 0,
+        detail: this.availableDocumentCount
+          ? `${this.auditDocuments.length} uploaded documents and ${this.evidenceFileCount} additional evidence files`
           : 'No evidence uploaded in this scope',
       },
       {
@@ -438,12 +447,12 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
         },
       ];
     }
-    if (status === 'IN_PROGRESS') {
-      const reason = this.actionGuardReason('COMPLETED');
+    if (status === 'SUBMITTED') {
+      const reason = this.actionGuardReason('CLOSED');
       return [
         {
-          label: 'Mark Completed',
-          status: 'COMPLETED',
+          label: 'Close Audit',
+          status: 'CLOSED',
           disabled: !!reason,
           reason: reason || undefined,
         },
@@ -528,9 +537,8 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   downloadPreliminaryReport(): void {
     if (!this.auditId) return;
     const url = this.auditsApi.auditorPreliminaryReportUrl(this.auditId);
-    this.protectedFiles.download(url, `preliminary-findings-${this.auditId}.pdf`).pipe(takeUntil(this.destroy$)).subscribe({
-      error: (err) => this.toast.error(err?.error?.message || 'Failed to download preliminary report'),
-    });
+    this.preview = { url, name: `preliminary-findings-${this.auditId}.pdf` };
+    this.cdr.markForCheck();
   }
 
   // ─── Tab switching ─────────────────────────────
@@ -658,7 +666,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   saveUploadLock(): void {
-    if (!this.auditId || this.uploadLockSaving) return;
+    if (!this.auditId || this.uploadLockSaving || !this.canReviewDocuments) return;
     if (!this.uploadLockFrom || !this.uploadLockUntil) {
       this.toast.warning('Please set both lock start and end dates.');
       return;
@@ -678,7 +686,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   clearUploadLock(): void {
-    if (!this.auditId || this.uploadLockSaving) return;
+    if (!this.auditId || this.uploadLockSaving || !this.canReviewDocuments) return;
     this.uploadLockSaving = true;
     this.auditsApi.auditorSetUploadLock(this.auditId, null, null).pipe(
       takeUntil(this.destroy$),
@@ -723,6 +731,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success(`Audit status moved to ${nextStatus}`);
+          this.loadUploadLock();
           this.statusNote = '';
           this.refreshCockpit();
         },
@@ -731,7 +740,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   calculateScore(): void {
-    if (!this.auditId || this.busy) return;
+    if (!this.auditId || this.busy || ['COMPLETED','CLOSED','CANCELLED'].includes(this.statusKey(this.audit?.status))) return;
     this.busy = true;
     this.auditsApi
       .auditorCalculateScore(this.auditId)
@@ -885,14 +894,13 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   openEvidenceFile(url: string, fileName?: string | null, mode: 'open' | 'download' = 'open'): void {
-    const action$ =
-      mode === 'download'
-        ? this.protectedFiles.download(url, fileName || null)
-        : this.protectedFiles.open(url, fileName || null);
-    action$.pipe(takeUntil(this.destroy$)).subscribe({
-      error: (err) => {
-        this.toast.error(err?.error?.message || 'Unable to open file.');
-      },
+    if (mode === 'open') {
+      this.preview = { url, name: fileName || 'Audit document' };
+      this.cdr.markForCheck();
+      return;
+    }
+    this.protectedFiles.download(url, fileName || null).pipe(takeUntil(this.destroy$)).subscribe({
+      error: () => this.toast.error('Unable to download file.'),
     });
   }
 
@@ -1137,11 +1145,15 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
-  reopenForReaudit(): void {
-    if (!this.auditId || this.busy) return;
+  async reopenForReaudit(): Promise<void> {
+    if (!this.auditId || this.busy || !['COMPLETED', 'CLOSED'].includes(this.statusKey(this.audit?.status))) return;
+    const result = await this.dialog.prompt('Reopen audit', 'Explain the corrections required. The last published report remains available while a new draft is reviewed.', { placeholder: 'Reason for reopening', confirmText: 'Reopen audit' });
+    if (!result.confirmed) return;
+    const reason = (result.value || '').trim();
+    if (reason.length < 5) { this.toast.error('Enter a reason of at least 5 characters'); return; }
     this.busy = true;
     this.auditsApi
-      .auditorReopenAudit(this.auditId)
+      .auditorReopenAudit(this.auditId, reason)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -1152,6 +1164,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Audit reopened for re-audit');
+          this.loadUploadLock();
           this.refreshCockpit();
         },
         error: (err) =>
@@ -1496,6 +1509,8 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
 
   private loadReportStatus(): void {
     if (!this.auditId) {
+      this.reportStatus = null;
+      this.reportHeld = false;
       this.reportStage = null;
       this.reportUpdatedAt = null;
       return;
@@ -1509,12 +1524,16 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       )
       .subscribe((report) => {
         if (!report) {
-          this.reportStage = null;
+          this.reportStatus = null;
+      this.reportHeld = false;
+      this.reportStage = null;
           this.reportUpdatedAt = null;
           this.cdr.markForCheck();
           return;
         }
 
+        this.reportStatus = report.status || null;
+        this.reportHeld = !!report.held;
         const stage = String(report.stage || '').toUpperCase();
         this.reportStage = stage === 'FINAL' ? 'FINAL' : stage === 'DRAFT' ? 'DRAFT' : null;
         this.reportUpdatedAt = report.updatedAt || null;
@@ -1539,12 +1558,14 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (next === 'IN_PROGRESS') {
       if (status !== 'PLANNED') return `Current status ${status} cannot move to ${next}.`;
       if (!this.audit) return 'Audit scope is not loaded.';
-      if (!this.evidenceRows.length) return 'Add evidence before starting fieldwork.';
+      if (!this.availableDocumentCount) return 'Add evidence before starting fieldwork.';
       return null;
     }
 
-    if (next === 'COMPLETED') {
-      if (status !== 'IN_PROGRESS') return `Current status ${status} cannot move to ${next}.`;
+    if (next === 'CLOSED') {
+      if (this.reportHeld) return 'Release the report hold before closing the audit.';
+      if (!['APPROVED', 'PUBLISHED'].includes(this.reportStatus || '')) return 'CRM must approve the latest report before closing the audit.';
+      if (status !== 'SUBMITTED') return `Current status ${status} cannot move to ${next}.`;
       if (!this.isReportFinalized) return 'Finalize report before completing audit.';
       if (this.openObservationsCount > 0) return 'Close all open observations before completion.';
       if (!this.hasScore) return 'Calculate severity score before completion.';

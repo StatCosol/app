@@ -969,6 +969,12 @@ export class BranchComplianceService {
     if (q.status) qb.andWhere('d.status = :status', { status: q.status });
     if (q.lawArea) qb.andWhere('d.law_area = :la', { la: q.lawArea });
 
+    // Explicit TEST filename markers, never a guessed year or employee classification.
+    qb.andWhere(
+      `COALESCE(d.uploaded_file_name, '') ${q.recordScope === 'TEST' ? '~*' : '!~*'} :testMarker`,
+      { testMarker: '^TEST([ _-]|$)' },
+    );
+
     qb.orderBy('d.createdAt', 'DESC')
       .skip((page - 1) * pageSize)
       .take(pageSize);
@@ -1026,6 +1032,12 @@ export class BranchComplianceService {
 
     const page = q.page || 1;
     const pageSize = q.pageSize || 50;
+
+    // Explicit TEST filename markers, never a guessed year or employee classification.
+    qb.andWhere(
+      `COALESCE(d.uploaded_file_name, '') ${q.recordScope === 'TEST' ? '~*' : '!~*'} :testMarker`,
+      { testMarker: '^TEST([ _-]|$)' },
+    );
 
     qb.orderBy('d.updatedAt', 'DESC')
       .skip((page - 1) * pageSize)
@@ -1172,6 +1184,12 @@ export class BranchComplianceService {
 
     const page = q.page || 1;
     const pageSize = q.pageSize || 50;
+
+    // Explicit TEST filename markers, never a guessed year or employee classification.
+    qb.andWhere(
+      `COALESCE(d.uploaded_file_name, '') ${q.recordScope === 'TEST' ? '~*' : '!~*'} :testMarker`,
+      { testMarker: '^TEST([ _-]|$)' },
+    );
 
     qb.orderBy('d.updatedAt', 'DESC')
       .skip((page - 1) * pageSize)

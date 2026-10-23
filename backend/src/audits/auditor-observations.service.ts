@@ -64,7 +64,13 @@ export class AuditorObservationsService {
       await this.verifyAuditorAccess(user.userId, auditId);
       const observations = await this.observationRepo.find({
         where: { auditId },
-        relations: ['category'],
+        relations: [
+          'category',
+          'audit',
+          'audit.client',
+          'audit.branch',
+          'audit.contractorUser',
+        ],
         order: { sequenceNumber: 'ASC', createdAt: 'ASC' },
       });
       return observations;
@@ -91,7 +97,13 @@ export class AuditorObservationsService {
 
     return this.observationRepo.find({
       where: auditIds.map((id) => ({ auditId: id })),
-      relations: ['category', 'audit'],
+      relations: [
+        'category',
+        'audit',
+        'audit.client',
+        'audit.branch',
+        'audit.contractorUser',
+      ],
       order: { createdAt: 'DESC' },
     });
   }
@@ -99,7 +111,13 @@ export class AuditorObservationsService {
   async getOne(user: ReqUser, id: string) {
     const observation = await this.observationRepo.findOne({
       where: { id },
-      relations: ['category', 'audit'],
+      relations: [
+        'category',
+        'audit',
+        'audit.client',
+        'audit.branch',
+        'audit.contractorUser',
+      ],
     });
 
     if (!observation) throw new NotFoundException('Observation not found');
@@ -324,21 +342,32 @@ export class AuditorObservationsService {
   async exportPdf(user: ReqUser, auditId: string): Promise<Buffer> {
     await this.verifyAuditorAccess(user.userId, auditId);
 
-    // Load client relation for name
+    // Keep exported reports identifiable outside the portal.
     const auditWithClient = await this.auditRepo.findOne({
       where: { id: auditId },
-      relations: ['client'],
+      relations: ['client', 'branch', 'contractorUser'],
     });
 
     const observations = await this.observationRepo.find({
       where: { auditId },
-      relations: ['category'],
+      relations: [
+        'category',
+        'audit',
+        'audit.client',
+        'audit.branch',
+        'audit.contractorUser',
+      ],
       order: { sequenceNumber: 'ASC', createdAt: 'ASC' },
     });
 
     return generateObservationsPdfBuffer({
       auditId,
+      auditCode: auditWithClient?.auditCode,
+      auditType: auditWithClient?.auditType,
+      periodCode: auditWithClient?.periodCode,
       clientName: auditWithClient?.client?.clientName ?? null,
+      branchName: auditWithClient?.branch?.branchName ?? null,
+      contractorName: auditWithClient?.contractorUser?.name ?? null,
       rows: observations.map((o) => ({
         sequenceNumber: o.sequenceNumber,
         observation: o.observation,
@@ -350,6 +379,7 @@ export class AuditorObservationsService {
         risk: o.risk,
         status: o.status,
         categoryName: o.category?.name ?? null,
+        evidenceFilePaths: o.evidenceFilePaths,
       })),
     });
   }

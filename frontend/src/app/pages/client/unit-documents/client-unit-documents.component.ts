@@ -1,3 +1,4 @@
+import { AuditFilePreviewComponent, AuditFilePreview } from '../../../shared/files/components/audit-file-preview.component';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
@@ -40,7 +41,7 @@ type ScopeFilter = '' | CrmDocumentScope;
 @Component({
   standalone: true,
   selector: 'app-client-unit-documents',
-  imports: [IconComponent,
+  imports: [AuditFilePreviewComponent, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -55,7 +56,7 @@ type ScopeFilter = '' | CrmDocumentScope;
       </ui-page-header>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div class="flex flex-wrap items-end gap-3">
+        <div class="flex flex-wrap items-end gap-3 aligned-filter-controls">
           <button type="button" class="border rounded px-3 py-2 text-sm" (click)="loadDocuments()">Refresh</button>
           @if (branches.length > 1) {
           <label class="text-sm">Unit
@@ -173,9 +174,11 @@ type ScopeFilter = '' | CrmDocumentScope;
       </div>
 }
     </main>
+    @if (documentPreview) { <app-audit-file-preview [request]="documentPreview" (closed)="documentPreview = null" /> }
   `,
 })
 export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
+  documentPreview: AuditFilePreview | null = null;
   private readonly destroy$ = new Subject<void>();
 
   private documentRequest?: Subscription;
@@ -297,7 +300,6 @@ export class ClientUnitDocumentsComponent implements OnInit, OnDestroy {
   }
 
   view(doc: CrmUnitDocument): void {
-    this.protectedFiles.open(this.api.downloadUrl(doc.id, 'client'), doc.fileName)
-      .pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to view document.') });
+    this.documentPreview = { url: this.api.downloadUrl(doc.id, 'client'), name: doc.fileName };
   }
 }

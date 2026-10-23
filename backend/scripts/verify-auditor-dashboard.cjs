@@ -13,6 +13,9 @@ const uuid = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
       CREATE TABLE audits (id uuid, assigned_auditor_id uuid, client_id uuid,
         branch_id uuid, audit_type text, period_code text, due_date date,
         status text, score int, updated_at timestamp);
+      ALTER TABLE audits ADD COLUMN audit_code text;
+      ALTER TABLE audits ADD COLUMN contractor_user_id uuid;
+      CREATE TABLE users (id uuid,name text);
       CREATE TABLE clients (id uuid, client_name text);
       CREATE TABLE client_branches (id uuid, branchname text);
       CREATE TABLE audit_observations (audit_id uuid, status text, risk text);
@@ -24,20 +27,20 @@ const uuid = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
     // Every status has an overdue, today, within-window and boundary record.
     for (const status of statuses) {
       for (const days of [-1, 0, 29, 30]) {
-        await db.query(`INSERT INTO audits VALUES ($1,$2,$3,NULL,'CONTRACTOR','2026-09',
+        await db.query(`INSERT INTO audits(id,assigned_auditor_id,client_id,branch_id,audit_type,period_code,due_date,status,score,updated_at) VALUES ($1,$2,$3,NULL,'CONTRACTOR','2026-09',
           CURRENT_DATE + $4::int,$5,0,CURRENT_TIMESTAMP)`,
           [uuid(serial++), uuid(1), uuid(10), days, status]);
       }
     }
     // Foreign auditor must never appear; another client is included only
     // without a client filter. Null branches must not drop valid assignments.
-    await db.query(`INSERT INTO audits VALUES
+    await db.query(`INSERT INTO audits(id,assigned_auditor_id,client_id,branch_id,audit_type,period_code,due_date,status,score,updated_at) VALUES
       ($1,$2,$3,NULL,'CONTRACTOR','2026-09',CURRENT_DATE,'PLANNED',0,CURRENT_TIMESTAMP),
       ($4,$5,$6,NULL,'CONTRACTOR','2026-09',CURRENT_DATE,'PLANNED',0,CURRENT_TIMESTAMP)`,
       [uuid(900), uuid(2), uuid(10), uuid(901), uuid(1), uuid(11)]);
     const rows = async (tab, client = uuid(10), from = null, to = null, limit = 500, offset = 0) =>
-      (await db.query(AUDITOR_AUDITS_SQL, [uuid(1), client, from, to, 30, tab, limit, offset])).rows;
-    const summary = (await db.query(AUDITOR_SUMMARY_SQL, [uuid(1), uuid(10), null, null, 30])).rows[0];
+      (await db.query(AUDITOR_AUDITS_SQL, [uuid(1), client, from, to, 30, tab, limit, offset, null])).rows;
+    const summary = (await db.query(AUDITOR_SUMMARY_SQL, [uuid(1), uuid(10), null, null, 30, null])).rows[0];
     const working = await rows('ACTIVE');
     assert.equal(working.length, 20);
     assert.deepEqual([...new Set(working.map(r => r.status))].sort(), [...active].sort());

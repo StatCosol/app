@@ -29,10 +29,9 @@ export async function transitionGovernedReport(
       verb: 'published',
     },
     publishCrm: {
-      allowed: ['SUBMITTED', 'APPROVED'],
-      condition: "status IN ('SUBMITTED', 'APPROVED')",
-      assignment:
-        "status = 'PUBLISHED', approved_by_user_id = COALESCE(approved_by_user_id, $2), approved_date = COALESCE(approved_date, CURRENT_DATE), published_date = CURRENT_DATE",
+      allowed: ['APPROVED'],
+      condition: "status = 'APPROVED'",
+      assignment: "status = 'PUBLISHED', published_date = CURRENT_DATE",
       verb: 'published',
     },
   }[action];
@@ -46,7 +45,7 @@ export async function transitionGovernedReport(
      SET ${rules.assignment}, updated_at = NOW()
      WHERE id = $1 AND held_at IS NULL AND ${rules.condition}
      RETURNING id) SELECT id FROM changed`,
-    action === 'publishAdmin' ? [report.id] : [report.id, actorId],
+    action === 'approve' ? [report.id, actorId] : [report.id],
   );
   if (!changed.length)
     throw new BadRequestException('Report changed; reload before continuing');

@@ -153,7 +153,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
 
       <!-- Toolbar -->
       <div class="workforce-toolbar flex flex-wrap gap-3 items-center justify-between">
-        <div class="flex gap-2 flex-wrap items-center">
+        <div class="flex gap-2 flex-wrap items-center aligned-filter-controls">
           <!-- Branch filter -->
           @if (availableBranches.length > 1) {
 <select
@@ -746,7 +746,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
           dateOfJoining, monthlySalary, dailyWage, uan, esic, pfApplicable, esiApplicable, branchId, stateCode.
         </p>
 
-        <div class="flex flex-wrap gap-3 items-center mb-4">
+        <div class="flex flex-wrap gap-3 items-center mb-4 aligned-filter-controls">
           <button type="button" (click)="downloadTemplate()" class="compact-action text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200" title="Download Template" aria-label="Download Template" data-action-label="Download Template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           <label class="text-xs text-gray-600">
             Default Branch:

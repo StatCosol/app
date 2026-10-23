@@ -21,6 +21,7 @@ WITH my_audits AS (
   FROM audits a
   WHERE a.assigned_auditor_id = $1::uuid
     AND ($2::uuid IS NULL OR a.client_id = $2)
+    AND ($6::text IS NULL OR a.audit_type = $6)
     AND ($3::date IS NULL OR a.due_date >= $3)
     AND ($4::date IS NULL OR a.due_date <= $4)
 ),
@@ -58,6 +59,7 @@ WITH my_audits AS (
   FROM audits a
   WHERE a.assigned_auditor_id = $1
     AND ($2::uuid IS NULL OR a.client_id = $2)
+    AND ($9::text IS NULL OR a.audit_type = $9)
     AND ($3::date IS NULL OR a.due_date >= $3)
     AND ($4::date IS NULL OR a.due_date <= $4)
 )
@@ -68,6 +70,10 @@ SELECT
   a.branch_id AS "branchId",
   COALESCE(b.branchname, '') AS "branchName",
   a.audit_type AS "auditType",
+  a.audit_code AS "auditCode",
+  a.period_code AS "periodCode",
+  cu.name AS "contractorName",
+  a.score AS "score",
   CONCAT(a.audit_type, ' – ', a.period_code) AS "auditName",
   a.due_date AS "dueDate",
   a.status,
@@ -76,6 +82,7 @@ SELECT
 FROM my_audits a
 LEFT JOIN clients c ON c.id = a.client_id
 LEFT JOIN client_branches b ON b.id = a.branch_id
+LEFT JOIN users cu ON cu.id = a.contractor_user_id
 WHERE
   (
     ($6::text = 'ACTIVE' AND a.status IN (${ACTIVE_AUDIT_STATUSES}))
@@ -99,6 +106,9 @@ WITH my_audits AS (
   FROM audits a
   WHERE a.assigned_auditor_id = $1::uuid
     AND ($2::uuid IS NULL OR a.client_id = $2)
+    AND ($7::text IS NULL OR a.audit_type = $7)
+    AND ($8::date IS NULL OR a.due_date >= $8)
+    AND ($9::date IS NULL OR a.due_date <= $9)
 )
 SELECT
   o.id            AS "observationId",
@@ -134,6 +144,9 @@ export const AUDITOR_REPORTS_SQL = `
 SELECT
   a.id             AS "auditId",
   a.audit_code     AS "auditCode",
+  a.audit_type AS "auditType",
+  a.period_code AS "periodCode",
+  cu.name AS "contractorName",
   a.client_id      AS "clientId",
   c.client_name    AS "clientName",
   a.branch_id      AS "branchId",
@@ -144,6 +157,7 @@ SELECT
 FROM audits a
 LEFT JOIN clients c ON c.id = a.client_id
 LEFT JOIN client_branches b ON b.id = a.branch_id
+LEFT JOIN users cu ON cu.id = a.contractor_user_id
 WHERE a.assigned_auditor_id = $1
   AND (
     ($2::text = 'PENDING_SUBMISSION' AND a.status = 'COMPLETED')
@@ -151,6 +165,7 @@ WHERE a.assigned_auditor_id = $1
     OR ($2::text IS NULL)
   )
   AND ($3::uuid IS NULL OR a.client_id = $3)
+    AND ($8::text IS NULL OR a.audit_type = $8)
   AND ($4::date IS NULL OR a.due_date >= $4)
   AND ($5::date IS NULL OR a.due_date <= $5)
 ORDER BY a.due_date ASC, a.updated_at DESC

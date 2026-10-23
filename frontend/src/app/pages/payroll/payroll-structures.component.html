@@ -1,4 +1,4 @@
-﻿<div class="page-wrap">
+<div class="page-wrap">
   <ui-page-header
     title="Payroll Structures Builder"
     subtitle="Create and version salary structures, map component formulas, and preview calculations before activation.">
@@ -560,7 +560,7 @@
         Payable Days (sample)
         <input id="ps-preview-payable-days" name="previewPayableDays" type="number" min="0" max="31" step="0.5" [(ngModel)]="previewForm.payableDays" (ngModelChange)="clearPreview()" />
       </label>
-      <button type="button" class="compact-action btn btn-primary" [disabled]="previewLoading || !selectedStructure" (click)="runPreview()" title="Run Preview" aria-label="Run Preview" data-action-label="Run Preview" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+      <button type="button" class="standard-action btn btn-primary" [disabled]="previewLoading || !selectedStructure" (click)="runPreview()" title="Run Preview" aria-label="Run Preview" data-action-label="Run Preview" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
         {{ previewLoading ? 'Running...' : 'Run Preview' }}
       </span></button>
     </div>

@@ -7,6 +7,9 @@
 
       <app-thread-filters (changed)="onFiltersChange($event)"></app-thread-filters>
 
+      @if (loadingList) { <p class="p-4" role="status">Loading notifications…</p> }
+      @if (listError) { <div class="p-4" role="alert">{{ listError }} <button type="button" class="standard-action" (click)="loadList()">Retry notifications</button></div> }
+      @if (!loadingList && !listError) {
       <div class="p-3">
         <ui-thread-inbox-list
           [items]="inboxItems"
@@ -15,6 +18,7 @@
         </ui-thread-inbox-list>
       </div>
 
+      }
       @if (page && page.total > (filters.limit || 20)) {
 <div
         class="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-sm">
@@ -58,7 +62,8 @@
       </div>
 }
 
-      @if (!loadingThread && !selected) {
+      @if (threadError) { <p class="p-4" role="alert">{{ threadError }}</p> }
+      @if (!loadingThread && !selected && !threadError) {
 <div class="p-12 text-center">
         <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
@@ -117,8 +122,9 @@
       
 }
 
-      <app-composer
-        [disabled]="!selected || selected.status === 'CLOSED' || selected.status === 'RESOLVED'"
+      @if (replyError) { <p class="p-4" role="alert">{{ replyError }}</p> }
+      <app-composer [clearOnSend]="false"
+        [disabled]="loadingThread || !selected || selected.status === 'CLOSED' || selected.status === 'RESOLVED'"
         [sending]="sending"
         (send)="sendReply($event)">
       </app-composer>

@@ -5,6 +5,11 @@ import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
  * Add new icons here instead of inlining <svg> markup in feature templates.
  */
 const ICON_PATHS: Record<string, string[]> = {
+  calculator: ['M6 2h12a1 1 0 011 1v18a1 1 0 01-1 1H6a1 1 0 01-1-1V3a1 1 0 011-1zM8 5h8v4H8zM8 13h1m6 0h1m-8 4h1m6 0h1'],
+  key: ['M15 3a6 6 0 00-5.5 8.4L3 18v3h3v-3h3v-3l3.6-3.6A6 6 0 1015 3zM16 7h.01'],
+  'document-plus': ['M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M12 12v6m-3-3h6'],
+  'folder-open': ['M3 7V5a2 2 0 012-2h5l2 3h7a2 2 0 012 2v2M3 7v13h15l4-10H7L3 20'],
+  'chevron-down': ['M6 9l6 6 6-6'],
   pause: ['M8 5v14M16 5v14'],
   play: ['M8 5l11 7-11 7V5z'],
   search: ['M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z'],

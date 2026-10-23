@@ -1,14 +1,14 @@
 <div class="page-wrap">
   <header class="page-head card">
-    <div><h1>Conduct Audit</h1><p>Select the audit scope, review uploaded documents, and record your verified remarks.</p></div>
+    <div><h1>Select Audit Scope</h1><p>Select the audit scope, review uploaded documents, and record your verified remarks.</p></div>
     <a class="btn btn-secondary" routerLink="/auditor/audits">Assigned audits</a>
   </header>
-  @if (error) { <div class="card" role="alert">{{ error }} @if (!busy) { <button class="compact-action btn btn-ghost" type="button" (click)="load()" title="Reload options" aria-label="Reload options" data-action-label="Reload options" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button> }</div> }
+  @if (error) { <div class="card" role="alert">{{ error }} @if (!busy) { <button class="standard-action btn btn-ghost" type="button" (click)="load()" title="Reload options" aria-label="Reload options" data-action-label="Reload options" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> <span>Reload options</span></button> }</div> }
   @if (loading) { <div class="card" role="status">Loading your assigned clients and branches…</div> }
   @if (!loading) {
     <section class="card">
       <header class="section-head"><h2>1. Select audit scope</h2></header>
-      <p class="section-intro">Choose an assigned client and branch. An existing audit for the same scope and month will open so you can continue your work.</p>
+      <p class="section-intro">Choose the client, audit type, branch, period and contractor where applicable. Continue an existing matching audit, or create a new audit for this scope. To open a CRM-scheduled audit, use Assigned audits.</p>
       @if (!clients.length && !error) { <p>No active branch assignments are available. Ask your CRM or administrator to assign a client or branch. Existing scheduled audits remain available under Assigned audits.</p> }
       <form (ngSubmit)="start()" class="grid gap-4 md:grid-cols-2">
         <label class="notes-box">Client
@@ -30,14 +30,15 @@
           </select>
         </label>
         @if (auditType === 'CONTRACTOR') {
-          <label class="notes-box">Contractor
+          <label class="notes-box">Contractor / vendor
             <select name="contractorUserId" [(ngModel)]="contractorUserId" [disabled]="!branchId || busy" required>
-              <option value="">Select contractor</option>@for (contractor of contractorOptions; track contractor.id) { <option [value]="contractor.id">{{ contractor.name }}</option> }
+              <option value="">Select contractor / vendor</option>@for (contractor of contractorOptions; track contractor.id) { <option [value]="contractor.id">{{ contractor.name }}</option> }
             </select>
             @if (branchId && !contractorOptions.length) { <span>No active contractor is linked to this branch. Ask your CRM to check the contractor mapping.</span> }
           </label>
+          <p class="md:col-span-2 section-intro">Choose one contractor / vendor. The document queue opens for that vendor, branch and month. Review each vendor in a separate audit.</p>
         }
-        <div class="md:col-span-2 action-row"><button class="standard-action btn btn-primary" type="submit" [disabled]="!canStart">{{ busy ? 'Opening audit…' : 'Start / Continue Audit' }}</button></div>
+        <div class="md:col-span-2 action-row"><button class="standard-action btn btn-primary" type="submit" [disabled]="!canStart">{{ busy ? 'Opening audit…' : 'Open audit documents' }}</button></div>
       </form>
     </section>
     @if (selectedChecklist.length) {

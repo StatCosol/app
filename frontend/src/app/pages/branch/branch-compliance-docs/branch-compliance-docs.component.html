@@ -2,7 +2,7 @@
   <ui-page-header
     title="Review / Reupload"
     [subtitle]="'Period: ' + periodLabel">
-    <div class="flex gap-2 items-center flex-wrap">
+    <div class="flex gap-2 items-center flex-wrap aligned-filter-controls">
       @if (branches.length > 1) {
       <select aria-label="Branch" [(ngModel)]="branchId" (ngModelChange)="loadAll()" class="border rounded p-2 text-sm">
         @for (b of branches; track b.id) { <option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option> }

@@ -20,7 +20,12 @@ describe('Conduct Audit entry', () => {
     expect(api.auditorStartEntry).toHaveBeenCalledTimes(1);
     expect(api.auditorStartEntry).toHaveBeenCalledWith({ clientId:'client',branchId:'branch-a',auditType:'CONTRACTOR',periodCode:'2026-08',contractorUserId:'contractor' });
     request.next({ auditId:'existing-audit' }); request.complete();
-    expect(router.navigate).toHaveBeenCalledWith(['/auditor/audits','existing-audit','workspace'], { queryParams: { tab: 'checklist' } });
+    expect(router.navigate).toHaveBeenCalledWith(['/auditor/audits','existing-audit','workspace'], { queryParams: { tab: 'documents' } });
+  });
+  it('opens non-contractor audits in the evidence and site inspection workspace', () => {
+    const { component, router } = setup();
+    component.auditType = 'SAFETY'; component.changeType(); component.start();
+    expect(router.navigate).toHaveBeenCalledWith(['/auditor/audits', 'audit', 'workspace'], { queryParams: { tab: 'checklist' } });
   });
   it('clears contractor selection when scope changes and requires a matching contractor', () => {
     const { component:c } = setup(); expect(c.canStart).toBe(true);

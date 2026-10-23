@@ -1,3 +1,4 @@
+import { AuditFilePreviewComponent, AuditFilePreview } from '../../../shared/files/components/audit-file-preview.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
@@ -19,17 +20,18 @@ import {
 } from '../../../core/audits.service';
 import { AuditorObservationsService } from '../../../core/auditor-observations.service';
 import { ToastService } from '../../../shared/toast/toast.service';
-import { ClientContextStripComponent } from '../../../shared/ui';
+import { AuditContextComponent } from '../audit-context.component';
 
 @Component({
   standalone: true,
   selector: 'app-auditor-report-builder',
-  imports: [IconComponent, FormsModule, RouterModule, ClientContextStripComponent],
+  imports: [AuditFilePreviewComponent, IconComponent, FormsModule, RouterModule, AuditContextComponent],
   templateUrl: './auditor-report-builder.component.html',
   styleUrls: ['./auditor-report-builder.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
+  preview: AuditFilePreview | null = null;
   private readonly destroy$ = new Subject<void>();
 
   loading = true;
@@ -64,8 +66,18 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  get auditClosed(): boolean {
+    return ['COMPLETED', 'CLOSED', 'CANCELLED'].includes(String(this.audit?.status || '').toUpperCase());
+  }
+
+  get editBlockedReason(): string {
+    if (this.auditClosed) return 'This audit is completed, closed or cancelled. Its report is read-only.';
+    if (this.draft?.held) return 'Report is on hold. Editing and reopening are unavailable.';
+    return 'Report is already finalized';
+  }
+
   get canEdit(): boolean {
-    return !!this.draft && !this.draft.held && this.draft.stage === 'DRAFT';
+    return !!this.draft && !this.auditClosed && !this.draft.held && this.draft.stage === 'DRAFT';
   }
 
   get selectedCount(): number {
@@ -85,7 +97,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   get canReopen(): boolean {
-    return !!this.draft && !this.draft.held && this.draft.stage === 'FINAL';
+    return !!this.draft && !this.auditClosed && !this.draft.held && this.draft.stage === 'FINAL' && this.draft.status === 'SUBMITTED';
   }
 
   get reportGuardrails(): Array<{ label: string; passed: boolean; detail: string }> {
@@ -133,8 +145,8 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       },
       {
         label: 'Observation Selection',
-        passed: this.selectedCount > 0,
-        detail: this.selectedCount > 0 ? `${this.selectedCount} observations selected` : 'Select at least one observation',
+        passed: (this.selectedCount > 0 || this.observations.length === 0),
+        detail: (this.selectedCount > 0 || this.observations.length === 0) ? `${this.selectedCount} observations selected` : 'Select at least one observation',
       },
     ];
   }
@@ -145,7 +157,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
 
   get finalizeGuardReason(): string {
     if (!this.draft) return 'Report draft unavailable';
-    if (!this.canEdit) return 'Report is already finalized';
+    if (!this.canEdit) return this.editBlockedReason;
     const firstBlocker = this.reportGuardrails.find((item) => !item.passed);
     return firstBlocker ? firstBlocker.detail : '';
   }
@@ -161,7 +173,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       {
         label: 'Finalized',
         at: this.draft.finalizedAt,
-        detail: this.draft.finalizedAt ? 'Report locked and published' : 'Not finalized',
+        detail: this.draft.finalizedAt ? 'Report submitted for CRM review' : 'Not finalized',
       },
     ];
   }
@@ -296,12 +308,8 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (blob) => {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `audit-report-${this.auditId}.pdf`;
-          a.click();
-          URL.revokeObjectURL(url);
+          this.preview = { blob, name: `audit-report-${this.auditId}.pdf` };
+          this.cdr.markForCheck();
         },
         error: (err) =>
           this.toast.error(err?.error?.message || 'Failed to export final report PDF'),
@@ -356,6 +364,8 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       reportId: report?.reportId || null,
       auditId: report?.auditId || this.auditId,
       stage: report?.stage === 'FINAL' ? 'FINAL' : 'DRAFT',
+      status: report?.status || (report?.stage === 'FINAL' ? 'SUBMITTED' : 'DRAFT'),
+      returnFeedback: report?.returnFeedback || [],
       held: report?.held === true,
       holdRemarks: report?.holdRemarks || null,
       version: report?.version === 'CLIENT' ? 'CLIENT' : 'INTERNAL',

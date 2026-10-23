@@ -16,7 +16,7 @@ import { Subscription } from 'rxjs';
         Contractor submits → CRM approves → Auditor verifies and locks. Returned payroll must be
         corrected; reopening requires Admin or CCO and a reason.
       </p>
-      <button type="button" (click)="load()" [disabled]="busy()" class="compact-action" title="Refresh approvals" aria-label="Refresh approvals" data-action-label="Refresh approvals" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+      <button type="button" (click)="load()" [disabled]="busy()" class="standard-action" title="Refresh approvals" aria-label="Refresh approvals" data-action-label="Refresh approvals" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> <span>Refresh approvals</span></button>
       @if (error()) {
         <p role="alert">{{ error() }}</p>
       }
@@ -54,9 +54,9 @@ import { Subscription } from 'rxjs';
             }
           }
           @if (item.canDownload) {
-            <button type="button" (click)="download(item)" [disabled]="busy()" class="compact-action" title="Download payroll working pack" aria-label="Download payroll working pack" data-action-label="Download payroll working pack" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+            <button type="button" (click)="download(item)" [disabled]="busy()" class="standard-action" title="Download payroll working pack" aria-label="Download payroll working pack" data-action-label="Download payroll working pack" data-action-icon="download"><ui-icon name="download" [size]="20" /> <span>Download payroll working pack</span></button>
           }
-          <button type="button" (click)="showHistory(item)" [disabled]="busy()" class="compact-action" title="Review history" aria-label="Review history" data-action-label="Review history" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
+          <button type="button" (click)="showHistory(item)" [disabled]="busy()" class="standard-action" title="Review history" aria-label="Review history" data-action-label="Review history" data-action-icon="eye"><ui-icon name="eye" [size]="20" /> <span>Review history</span></button>
         </article>
       } @empty {
         @if (!busy() && !error()) {
@@ -67,7 +67,7 @@ import { Subscription } from 'rxjs';
         }
       }
       @if (hasMore()) {
-        <button type="button" (click)="load(true)" [disabled]="busy()" class="compact-action" title="Load more payroll versions" aria-label="Load more payroll versions" data-action-label="Load more payroll versions" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+        <button type="button" (click)="load(true)" [disabled]="busy()" class="standard-action" title="Load more payroll versions" aria-label="Load more payroll versions" data-action-label="Load more payroll versions" data-action-icon="chevron-down"><ui-icon name="chevron-down" [size]="20" /> <span>Load more payroll versions</span></button>
       }
       @if (history().length) {
         <h3>Review history</h3>

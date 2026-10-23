@@ -139,3 +139,26 @@
 .workspace-ui main .field-action-group > .attached-actions {
  display: flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; gap: 8px; margin: 0;
 }
+
+/* Auditor workflow tabs contain a title and progress; shared single-line action
+   sizing must not clip their second line. Scoped to this workspace only. */
+app-auditor-layout.workspace-ui main app-auditor-audit-workspace .tab-bar .tab-btn {
+ height:auto !important; min-height:64px !important; max-height:none !important;
+ white-space:normal; justify-content:center; padding:10px 12px;
+}
+
+/* Audit identities must remain readable in queues and reports. */
+app-auditor-layout.workspace-ui ui-data-table table { table-layout:auto; }
+app-auditor-layout.workspace-ui ui-data-table td {
+ white-space:normal; text-overflow:clip; overflow:visible; max-width:none;
+ padding:12px 10px; overflow-wrap:anywhere;
+}
+app-auditor-layout.workspace-ui ui-data-table th { padding:12px 10px; }
+
+app-auditor-layout.workspace-ui .page-head { flex-wrap:wrap; }
+app-auditor-layout.workspace-ui .page-head > div { min-width:0; }
+app-auditor-layout.workspace-ui .head-controls { flex-wrap:wrap; max-width:100%; }
+app-auditor-layout.workspace-ui main .standard-action {
+ white-space:normal; height:auto !important; max-height:none !important;
+ min-height:40px; max-width:100%; padding:8px 12px !important;
+}

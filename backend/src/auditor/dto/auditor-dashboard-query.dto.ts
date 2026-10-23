@@ -34,6 +34,10 @@ export class AuditorSummaryQueryDto {
 
   @IsOptional()
   @IsString()
+  auditType?: string;
+
+  @IsOptional()
+  @IsString()
   fromDate?: string;
 
   @IsOptional()
@@ -54,6 +58,10 @@ export class AuditorAuditsQueryDto {
   @IsOptional()
   @IsString()
   clientId?: string;
+
+  @IsOptional()
+  @IsString()
+  auditType?: string;
 
   @IsOptional()
   @IsString()
@@ -85,6 +93,13 @@ export class AuditorAuditsQueryDto {
 
 export class AuditorObservationsQueryDto {
   @IsOptional()
+  @IsString()
+  fromDate?: string;
+
+  @IsOptional()
+  @IsString()
+  toDate?: string;
+  @IsOptional()
   @IsEnum(ObservationStatus)
   status?: ObservationStatus;
 
@@ -95,6 +110,10 @@ export class AuditorObservationsQueryDto {
   @IsOptional()
   @IsString()
   clientId?: string;
+
+  @IsOptional()
+  @IsString()
+  auditType?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -118,6 +137,10 @@ export class AuditorReportsQueryDto {
   @IsOptional()
   @IsString()
   clientId?: string;
+
+  @IsOptional()
+  @IsString()
+  auditType?: string;
 
   @IsOptional()
   @IsString()

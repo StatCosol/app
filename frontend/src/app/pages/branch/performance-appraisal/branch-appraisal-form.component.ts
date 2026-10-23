@@ -3,8 +3,8 @@ import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRe
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subject } from 'rxjs';
-import { takeUntil, finalize, switchMap } from 'rxjs/operators';
+import { Subject, EMPTY, combineLatest } from 'rxjs';
+import { takeUntil, finalize, switchMap, startWith, catchError } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/appraisal.models';
 import { PageHeaderComponent } from '../../../shared/ui';
@@ -14,7 +14,15 @@ import { PageHeaderComponent } from '../../../shared/ui';
   standalone: true,
   imports: [IconComponent, CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`.data-table { min-width: 860px; } .data-table th:nth-child(2), .data-table td:nth-child(2) { min-width: 240px; max-width: 420px; white-space: normal; overflow-wrap: anywhere; }`],
   template: `
+    @if (error) {
+      <div role="alert" class="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <p>{{ error }}</p>
+        @if (!appraisal) { <button type="button" class="standard-action mt-2" (click)="retry()">Try again</button> }
+        <a routerLink="/branch/appraisals" class="standard-action ml-3">Back to appraisals</a>
+      </div>
+    }
     @if (appraisal) {
 <div class="page-container">
       <ui-page-header
@@ -31,8 +39,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <div><span class="text-gray-500">Department:</span> <span class="font-medium ml-1">{{ appraisal.department || '—' }}</span></div>
           <div><span class="text-gray-500">Designation:</span> <span class="font-medium ml-1">{{ appraisal.designation || '—' }}</span></div>
           <div><span class="text-gray-500">DOJ:</span> <span class="font-medium ml-1">{{ appraisal.date_of_joining | date:'dd/MM/yyyy' }}</span></div>
-          <div><span class="text-gray-500">CTC:</span> <span class="font-medium ml-1">{{ appraisal.ctc | number:'1.0-0' }}</span></div>
-          <div><span class="text-gray-500">Monthly Gross:</span> <span class="font-medium ml-1">{{ appraisal.monthly_gross | number:'1.0-0' }}</span></div>
+          <div><span class="text-gray-500">CTC:</span> <span class="font-medium ml-1">{{ (appraisal.ctc !== null && appraisal.ctc !== undefined) ? (appraisal.ctc | number:'1.0-0') : '-' }}</span></div>
+          <div><span class="text-gray-500">Monthly Gross:</span> <span class="font-medium ml-1">{{ (appraisal.monthly_gross !== null && appraisal.monthly_gross !== undefined) ? (appraisal.monthly_gross | number:'1.0-0') : '-' }}</span></div>
           <div><span class="text-gray-500">Review Period:</span> <span class="font-medium ml-1">{{ appraisal.review_period_from | date:'dd/MM/yyyy' }} — {{ appraisal.review_period_to | date:'dd/MM/yyyy' }}</span></div>
         </div>
       </div>
@@ -143,7 +151,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 
       <!-- Actions -->
       @if (canManagerReview || canBranchReview) {
-<div class="flex items-center gap-3 mt-6">
+<div class="flex flex-wrap items-center gap-3 mt-6">
         <button (click)="submitReview()" [disabled]="submitting" class="compact-action btn-primary" title="Submit Branch Review" aria-label="Submit Branch Review" data-action-label="Submit Branch Review" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
           {{ submitting ? 'Submitting...' : (canManagerReview ? 'Submit Manager Review' : 'Submit Branch Review') }}
         </span></button>
@@ -157,7 +165,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Approval History</h3>
         <div class="space-y-2">
           @for (a of appraisal.approvals; track a) {
-<div class="flex items-center gap-3 text-sm border-b pb-2">
+<div class="flex flex-wrap items-center gap-3 text-sm border-b pb-2">
             <span class="badge bg-gray-100 text-gray-700">{{ a.approvalLevel }}</span>
             <span class="font-medium">{{ a.action }}</span>
             <span class="text-xs text-gray-400">{{ a.actionAt | date:'dd/MM/yyyy HH:mm' }}</span>
@@ -172,7 +180,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
     </div>
 }
 
-    @if (!appraisal && !loading) {
+    @if (!appraisal && !loading && !error) {
 <div class="flex items-center justify-center py-20 text-gray-400">Appraisal not found</div>
 }
     @if (loading) {
@@ -183,6 +191,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
 export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   loading = true;
+  error = '';
+  private reload$ = new Subject<void>();
   submitting = false;
   appraisal: EmployeeAppraisal | null = null;
   items: EmployeeAppraisalItem[] = [];
@@ -206,13 +216,28 @@ export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.route.paramMap.pipe(
-      switchMap(p => {
+    combineLatest([this.route.paramMap, this.reload$.pipe(startWith(undefined))]).pipe(
+      switchMap(([p]) => {
         this.loading = true;
-        return this.svc.getAppraisal(p.get('id')!);
+        this.error = '';
+        this.appraisal = null;
+        this.items = [];
+        const id = p.get('id');
+        if (!id) {
+          this.loading = false;
+          this.error = 'Appraisal not found.';
+          this.cdr.markForCheck();
+          return EMPTY;
+        }
+        return this.svc.getAppraisal(id).pipe(
+          catchError(() => {
+            this.error = 'Unable to load this appraisal. Check your access or try again.';
+            return EMPTY;
+          }),
+          finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
+        );
       }),
       takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
     ).subscribe(a => {
       this.appraisal = a;
       this.items = a.items ?? [];
@@ -220,11 +245,15 @@ export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
       this.incrementPercent = a.recommendedIncrementPercent ?? null;
       this.newCtc = a.recommendedNewCtc ?? null;
       this.remarks = a.finalRemarks ?? '';
+      this.cdr.markForCheck();
     });
   }
 
+  retry(): void { this.reload$.next(); }
+
   submitReview() {
-    if (!this.appraisal) return;
+    if (!this.appraisal || this.submitting) return;
+    this.error = '';
     this.submitting = true;
     const payload = {
       items: this.items.map(i => ({
@@ -244,19 +273,22 @@ export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
       : this.svc.branchReview(this.appraisal.id, payload);
 
     obs.pipe(takeUntil(this.destroy$), finalize(() => { this.submitting = false; this.cdr.markForCheck(); }))
-      .subscribe(a => {
+      .subscribe({ next: a => {
         this.appraisal = a;
         this.items = a.items ?? [];
-      });
+      }, error: () => { this.error = 'Unable to save the review. Please try again.'; } });
   }
 
   sendBack() {
-    if (!this.appraisal || !this.remarks) return;
+    if (!this.appraisal || this.submitting) return;
+    if (!this.remarks.trim()) { this.error = 'Enter remarks before sending the appraisal back.'; return; }
+    this.error = '';
     this.submitting = true;
     this.svc.sendBack(this.appraisal.id, this.remarks).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.submitting = false; this.cdr.markForCheck(); }),
-    ).subscribe(() => this.router.navigate(['/branch/appraisals']));
+    ).subscribe({ next: () => this.router.navigate(['/branch/appraisals']),
+      error: () => { this.error = 'Unable to save the decision. Please try again.'; } });
   }
 
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }

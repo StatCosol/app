@@ -12,6 +12,8 @@
     </div>
   }
 
+  @if (detailError) { <div role="alert" class="mb-4 rounded border border-red-200 bg-red-50 p-3">{{ detailError }} <a routerLink="/contractor/tasks" class="standard-action">Back to workboard</a></div> }
+
   <div class="summary-grid">
     @for (card of summaryCards; track card) {
 <div
@@ -276,6 +278,9 @@
   </div>
 }
 
+  @if(typeFilter !== 'AUDIT') {
+    <app-contractor-evidence-corrections [month]="checklistMonthParam" [branchId]="checklistBranchId" (corrected)="reloadChecklist()" />
+  }
   <div class="task-center-card filter-panel">
     <div class="filter-grid">
       <label class="filter-field filter-field--search">
@@ -422,10 +427,10 @@
 <ui-loading-spinner size="md" text="Loading detail..."></ui-loading-spinner>
 }
 
-      @if (!detailLoading && selectedRow.rowType === 'TASK') {
+      @if (!detailLoading && !detailError && selectedRow.rowType === 'TASK') {
 <div class="detail-content">
         <div class="alert alert--neutral">
-          <strong>What to do:</strong> Start task, upload file, then submit for review.
+          <strong>{{ selectedRow.status === 'APPROVED' ? 'Review complete:' : 'What to do:' }}</strong> {{ selectedRow.status === 'APPROVED' ? 'This task has been approved. You can review its details and activity history.' : 'Start task, upload file, then submit for review.' }}
         </div>
         <div class="entity-head">
           <h4>{{ selectedRow.title }}</h4>

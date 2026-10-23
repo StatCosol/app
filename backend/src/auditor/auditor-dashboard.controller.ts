@@ -10,6 +10,7 @@ import {
   Logger,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { normalizeDateFilters } from '../common/utils/filters';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -137,12 +138,16 @@ export class AuditorDashboardController {
    */
   @ApiOperation({ summary: 'Get Evidence Pending' })
   @Get('evidence-pending')
-  async getEvidencePending(@CurrentUser() user: ReqUser) {
+  async getEvidencePending(
+    @CurrentUser() user: ReqUser,
+    @Query() query: AuditorSummaryQueryDto = {},
+  ) {
+    const f = normalizeDateFilters(query);
     try {
       const auditorId = user.id;
       const items = await this.dataSource.query(
         `SELECT
-           ce.id,
+           ce.id, a.id AS "auditId",
            ct.client_id     AS "clientId",
            ct.branch_id     AS "branchId",
            COALESCE(cm.law_family, cm.law_name, 'Document') AS "evidenceName",
@@ -159,9 +164,19 @@ export class AuditorDashboardController {
          LEFT JOIN clients  c ON c.id = ct.client_id
          LEFT JOIN client_branches b ON b.id = ct.branch_id
          WHERE ct.status IN ('PENDING', 'PENDING_REVIEW')
+           AND ($2::uuid IS NULL OR a.client_id = $2)
+           AND ($3::date IS NULL OR a.due_date >= $3)
+           AND ($4::date IS NULL OR a.due_date <= $4)
+           AND ($5::text IS NULL OR a.audit_type = $5)
          ORDER BY ct.due_date ASC
          LIMIT 200`,
-        [auditorId],
+        [
+          auditorId,
+          f.clientId,
+          f.fromDate,
+          f.toDate,
+          query.auditType?.trim().toUpperCase() || null,
+        ],
       );
       return { items };
     } catch {

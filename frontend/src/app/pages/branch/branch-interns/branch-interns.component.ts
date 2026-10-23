@@ -126,7 +126,7 @@ import { environment } from '../../../../environments/environment';
         <p role="alert" class="text-red-700">{{ error }}</p>
       }
       @if (tab === 'enrollment') {
-        <div class="flex gap-3">
+        <div class="flex gap-3 aligned-filter-controls">
           <label
             >Search interns
             <input class="border rounded p-2" name="internSearch" [(ngModel)]="search" /></label

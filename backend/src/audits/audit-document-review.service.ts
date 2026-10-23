@@ -160,14 +160,38 @@ export class AuditDocumentReviewService {
       where: { auditId },
       order: { version: 'DESC' },
     });
+    // The accepted/rejected correction is the reviewed evidence. Preserve the
+    // original upload, but do not display it under the corrected file's decision.
+    const corrections: Array<Record<string, any>> = await this.dataSource.query(
+      `SELECT DISTINCT ON (document_id, source_table)
+              document_id, source_table, file_path, file_name, mime_type, file_size
+       FROM audit_resubmissions
+       WHERE audit_id = $1 AND reviewed_at IS NOT NULL
+       ORDER BY document_id, source_table, resubmitted_at DESC, created_at DESC, id DESC`,
+      [auditId],
+    );
     const withAuditReview = (documents: Array<Record<string, unknown>>) =>
       documents.map((doc) => {
         const review = reviews.find(
           (row) =>
             row.documentId === doc.id && row.sourceTable === doc.sourceTable,
         );
+        const corrected = corrections.find(
+          (row) =>
+            row.document_id === doc.id && row.source_table === doc.sourceTable,
+        );
         return {
           ...doc,
+          ...(corrected
+            ? {
+                originalFilePath: doc.filePath,
+                filePath: corrected.file_path,
+                fileName: corrected.file_name,
+                fileType: corrected.mime_type,
+                fileSize: corrected.file_size,
+                payrollCheck: null,
+              }
+            : {}),
           id: doc.id,
           uploadStatus: doc.status,
           status: review

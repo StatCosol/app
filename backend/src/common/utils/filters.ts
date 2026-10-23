@@ -5,6 +5,7 @@
 
 export interface FilterQuery {
   clientId?: string;
+  auditType?: string;
   branchId?: string;
   state?: string;
   fromDate?: string;

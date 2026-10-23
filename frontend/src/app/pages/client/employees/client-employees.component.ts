@@ -58,7 +58,7 @@ import {
 <div class="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
         <h3 class="text-base font-semibold text-gray-900 mb-3">Bulk Import Employees</h3>
         <p class="text-sm text-gray-600 mb-3">Upload an Excel/CSV file with employee data. Download the template first to see the required format.</p>
-        <div class="flex items-end gap-3 flex-wrap">
+        <div class="flex items-end gap-3 flex-wrap aligned-filter-controls">
           <ui-button variant="secondary" (clicked)="downloadTemplate()" icon="download" [iconOnly]="true" label="Download Template">Download Template</ui-button>
           <div class="form-field">
             <label class="form-label" for="ce-file">File</label>

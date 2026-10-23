@@ -113,6 +113,7 @@ export class AuditOutputEngineService {
   async generateReportVersion(
     auditId: string,
     manager?: EntityManager,
+    publishedOnly = false,
   ): Promise<{
     auditId: string;
     version: number;
@@ -124,18 +125,18 @@ export class AuditOutputEngineService {
       manager?.getRepository(AuditEntity) ?? this.auditRepo
     ).findOne({
       where: { id: auditId },
-      relations: ['client', 'branch'],
+      relations: ['client', 'branch', 'contractorUser'],
     });
     if (!audit) throw new NotFoundException('Audit not found');
 
     // Fetch the latest audit_reports record
     const reportRows = await (manager ?? this.dataSource).query(
       `SELECT ar.executive_summary, ar.scope, ar.methodology,
-              ar.findings, ar.recommendations, ar.version AS report_version,
+              ar.findings, ar.recommendations, ar.report_type AS report_version,
               ar.selected_observation_ids, ar.finalized_at, ar.updated_at, ar.version_no,
-              ar.status, ar.held_at
+              ar.status, ar.held_at, ar.approved_date, ar.published_date
        FROM audit_reports ar
-       WHERE ar.audit_id = $1
+       WHERE ar.audit_id = $1${publishedOnly ? " AND ar.status = 'PUBLISHED' AND ar.held_at IS NULL AND ar.report_type = 'CLIENT'" : ''}
        ORDER BY ar.updated_at DESC, ar.created_at DESC
        LIMIT 1${manager ? ' FOR UPDATE OF ar' : ''}`,
       [auditId],
@@ -163,7 +164,9 @@ export class AuditOutputEngineService {
       ? report.selected_observation_ids
       : [];
 
-    let obsQuery = `SELECT sequence_number, observation, clause, risk, status, recommendation
+    let obsQuery = `SELECT sequence_number, observation, clause, risk, status, recommendation,
+                           consequences, compliance_requirements, elaboration, evidence_file_paths,
+                           (SELECT name FROM audit_observation_categories c WHERE c.id = audit_observations.category_id) AS category_name
                     FROM audit_observations WHERE audit_id = $1`;
     const obsParams: unknown[] = [auditId];
     if (selectedIds.length) {
@@ -190,11 +193,17 @@ export class AuditOutputEngineService {
         auditCode: audit.auditCode || audit.id,
         clientName: audit.client?.clientName || null,
         branchName: audit.branch?.branchName || null,
+        contractorName: audit.contractorUser?.name || null,
+        auditType: audit.auditType,
         periodCode: audit.periodCode || null,
         version: report.report_version === 'CLIENT' ? 'CLIENT' : 'INTERNAL',
         stage: 'FINAL',
         updatedAt: report.updated_at,
         finalizedAt: report.finalized_at,
+        revision: report.version_no,
+        reportStatus: report.status,
+        approvedAt: report.approved_date,
+        publishedAt: report.published_date,
         executiveSummary: report.executive_summary || '',
         scope: report.scope || '',
         methodology: report.methodology || '',
@@ -208,6 +217,11 @@ export class AuditOutputEngineService {
             risk: string | null;
             status: string;
             recommendation: string | null;
+            consequences: string | null;
+            compliance_requirements: string | null;
+            elaboration: string | null;
+            evidence_file_paths: string | null;
+            category_name: string | null;
           }) => ({
             sequenceNumber: o.sequence_number ?? null,
             observation: o.observation || '',
@@ -215,6 +229,11 @@ export class AuditOutputEngineService {
             risk: o.risk || null,
             status: o.status || 'OPEN',
             recommendation: o.recommendation || null,
+            consequences: o.consequences,
+            complianceRequirements: o.compliance_requirements,
+            elaboration: o.elaboration,
+            evidenceFilePaths: o.evidence_file_paths,
+            categoryName: o.category_name,
           }),
         ),
       });
@@ -354,13 +373,13 @@ export class AuditOutputEngineService {
   /**
    * Get the latest (highest version) report for an audit.
    */
-  async getLatestReport(auditId: string): Promise<any> {
+  async getLatestReport(auditId: string, publishedOnly = false): Promise<any> {
     const rows = await this.dataSource.query(
       `SELECT ar.*, u.name AS prepared_by_name
        FROM audit_reports ar
        LEFT JOIN users u ON u.id = ar.prepared_by_user_id
-       WHERE ar.audit_id = $1
-       ORDER BY ar.created_at DESC
+       WHERE ar.audit_id = $1${publishedOnly ? " AND ar.status = 'PUBLISHED' AND ar.held_at IS NULL AND ar.report_type = 'CLIENT'" : ''}
+       ORDER BY ar.updated_at DESC, ar.created_at DESC
        LIMIT 1`,
       [auditId],
     );
@@ -423,15 +442,18 @@ export class AuditOutputEngineService {
     return this.dataSource.query(
       `SELECT c.id AS client_id, c.client_name AS client_name,
               COUNT(a.id)::int AS total_audits,
-              COUNT(*) FILTER (WHERE a.status = 'COMPLETED')::int AS completed,
-              COUNT(*) FILTER (WHERE a.status IN ('IN_PROGRESS','OPEN'))::int AS in_progress,
+              COUNT(*) FILTER (WHERE a.status IN ('COMPLETED','CLOSED'))::int AS completed,
+              COUNT(*) FILTER (WHERE a.status IN ('IN_PROGRESS','OPEN','SUBMITTED','CORRECTION_PENDING','REVERIFICATION_PENDING'))::int AS in_progress,
               COUNT(*) FILTER (WHERE a.status = 'PLANNED')::int AS scheduled,
-              ROUND(AVG(a.score) FILTER (WHERE a.score IS NOT NULL))::int AS avg_score
-       FROM client_assignments_current cac
-       JOIN clients c ON c.id = cac.client_id
+              COUNT(*) FILTER (WHERE a.status = 'CANCELLED')::int AS cancelled,
+              COUNT(a.score) FILTER (WHERE a.status IN ('COMPLETED','CLOSED'))::int AS scored_audits,
+              COALESCE(SUM(a.score) FILTER (WHERE a.status IN ('COMPLETED','CLOSED')),0)::float AS score_total,
+              ROUND(AVG(a.score) FILTER (WHERE a.status IN ('COMPLETED','CLOSED')),1)::float AS avg_score
+       FROM clients c
        LEFT JOIN audits a ON a.client_id = c.id
-       WHERE cac.assigned_to_user_id = $1
-         AND cac.assignment_type = 'CRM'
+       WHERE COALESCE(c.is_deleted,false) = false
+         AND EXISTS (SELECT 1 FROM client_assignments_current cac
+           WHERE cac.client_id = c.id AND cac.assigned_to_user_id = $1 AND cac.assignment_type = 'CRM')
        GROUP BY c.id, c.client_name
        ORDER BY c.client_name`,
       [crmUserId],
@@ -441,20 +463,41 @@ export class AuditOutputEngineService {
   /**
    * Get Client-level audit summaries for a client (optionally per branch).
    */
-  async getClientAuditSummaries(clientId: string): Promise<any[]> {
+  async getClientAuditSummaries(
+    clientId: string,
+    branchIds?: string[],
+  ): Promise<any[]> {
+    const aggregates = `COUNT(a.id)::int AS total_audits,
+      COUNT(*) FILTER (WHERE a.status IN ('COMPLETED','CLOSED'))::int AS completed,
+      COUNT(*) FILTER (WHERE a.status IN ('IN_PROGRESS','OPEN','SUBMITTED','CORRECTION_PENDING','REVERIFICATION_PENDING'))::int AS in_progress,
+      COUNT(*) FILTER (WHERE a.status = 'PLANNED')::int AS scheduled,
+      COUNT(*) FILTER (WHERE a.status = 'CANCELLED')::int AS cancelled,
+      COUNT(a.score) FILTER (WHERE a.status IN ('COMPLETED','CLOSED'))::int AS scored_audits,
+      COALESCE(SUM(a.score) FILTER (WHERE a.status IN ('COMPLETED','CLOSED')),0)::float AS score_total,
+      ROUND(AVG(a.score) FILTER (WHERE a.status IN ('COMPLETED','CLOSED')),1)::float AS avg_score,
+      MAX(a.updated_at) AS last_audit_date`;
     return this.dataSource.query(
-      `SELECT b.id AS branch_id, b.branchname AS branch_name,
-              COUNT(a.id)::int AS total_audits,
-              COUNT(*) FILTER (WHERE a.status = 'COMPLETED')::int AS completed,
-              COUNT(*) FILTER (WHERE a.status IN ('IN_PROGRESS','OPEN'))::int AS in_progress,
-              ROUND(AVG(a.score) FILTER (WHERE a.score IS NOT NULL))::int AS avg_score,
-              MAX(a.updated_at) AS last_audit_date
+      `WITH scoped_audits AS (
+        SELECT a.* FROM audits a WHERE a.client_id = $1
+        ${
+          branchIds
+            ? `AND (a.branch_id = ANY($2::uuid[]) OR (
+          cardinality($2::uuid[]) > 0 AND a.branch_id IS NULL AND (
+            a.contractor_user_id IS NULL OR EXISTS (SELECT 1 FROM branch_contractor bc
+              WHERE bc.branch_id = ANY($2::uuid[]) AND bc.contractor_user_id = a.contractor_user_id))))`
+            : ''
+        }
+      ) SELECT b.id AS branch_id, b.branchname AS branch_name, ${aggregates}
        FROM client_branches b
-       LEFT JOIN audits a ON a.branch_id = b.id
+       LEFT JOIN scoped_audits a ON a.branch_id = b.id
        WHERE b.clientid = $1 AND b.deletedat IS NULL
+         ${branchIds ? 'AND b.id = ANY($2::uuid[])' : ''}
        GROUP BY b.id, b.branchname
-       ORDER BY b.branchname`,
-      [clientId],
+       UNION ALL
+       SELECT NULL::uuid AS branch_id, 'Company-wide' AS branch_name, ${aggregates}
+       FROM scoped_audits a WHERE a.branch_id IS NULL HAVING COUNT(a.id) > 0
+       ORDER BY branch_name`,
+      branchIds ? [clientId, branchIds] : [clientId],
     );
   }
 }

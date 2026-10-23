@@ -3,7 +3,7 @@
     title="My Assigned Audits"
     description="Use this queue to start reviews, continue audits in progress, and return for corrections when stakeholders re-upload documents."
     icon="clipboard-check">
-    <ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']" icon="eye" [iconOnly]="true" label="Conduct Audit">Conduct Audit</ui-button>
+    <ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']" icon="eye" [iconOnly]="false" label="Select Audit Scope">Select Audit Scope</ui-button>
   </ui-page-header>
 
 
@@ -84,7 +84,7 @@
       </ui-form-input>
 
       <div class="attached-actions">
-        <ui-button variant="secondary" (clicked)="clear()" icon="undo" [iconOnly]="true" label="Clear">Clear</ui-button>
+        <ui-button variant="secondary" (clicked)="clear()" icon="undo" [iconOnly]="false" label="Clear">Clear</ui-button>
       </div>
       </div>
     </div>
@@ -110,7 +110,7 @@
 
     @if (!loading && filteredAudits.length > 0) {
 <ui-data-table [enableSearch]="false"
-     
+
       [columns]="auditColumns"
       [data]="filteredAudits">
 
@@ -122,13 +122,14 @@
       </ng-template>
 
       <ng-template uiTableCell="clientName" let-row>
-        {{ row.clientName }}
+        <strong>{{ row.clientName }}</strong><div class="mt-1 text-xs text-gray-500">{{ row.branchName }}</div>
       </ng-template>
 
       <ng-template uiTableCell="auditTypeLabel" let-row>
-        {{ row.auditTypeLabel }}
+        <strong>{{ row.auditTypeLabel }}</strong><div class="mt-1 text-xs text-gray-500">{{ row.contractorName }}</div>
       </ng-template>
 
+      <ng-template uiTableCell="periodCode" let-row>{{ row.periodCode || 'Period not specified' }}</ng-template>
       <ng-template uiTableCell="branchName" let-row>
         {{ row.branchName || '-' }}
       </ng-template>
@@ -138,9 +139,9 @@
       </ng-template>
 
       <ng-template uiTableCell="scheduledDate" let-row>
-        <div>{{ formatDate(row.dueDate || row.createdAt) }}</div>
+        <div>{{ row.dueDate ? formatDate(row.dueDate) : 'Due date not set' }}</div>
         <div class="mt-1 text-xs text-gray-500">
-          {{ row.dueDate ? 'Due date' : 'Created date' }}
+
         </div>
       </ng-template>
 
@@ -149,7 +150,7 @@
       </ng-template>
 
       <ng-template uiTableCell="action" let-row>
-        <ui-button variant="primary" size="sm" (clicked)="openWorkspace(row)" [icon]="getWorkspaceActionLabel(row) | actionIcon" [iconOnly]="true" [label]="getWorkspaceActionLabel(row)">
+        <ui-button variant="primary" size="sm" (clicked)="openWorkspace(row)" [icon]="getWorkspaceActionLabel(row) | actionIcon" [iconOnly]="false" [label]="getWorkspaceActionLabel(row)">
           {{ getWorkspaceActionLabel(row) }}
         </ui-button>
       </ng-template>
@@ -158,7 +159,7 @@
 
     @if (!loading && filteredAudits.length === 0) {
 <ui-empty-state
-     
+
       title="No audits match these filters"
       description="Try clearing the filters or wait for new assigned audits to arrive from the CRM schedule.">
     </ui-empty-state>

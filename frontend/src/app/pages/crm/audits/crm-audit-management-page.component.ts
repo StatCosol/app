@@ -3,6 +3,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { AuditFilePreviewComponent, AuditFilePreview } from '../../../shared/files/components/audit-file-preview.component';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -38,6 +39,8 @@ type AuditFrequency =
   | 'YEARLY';
 
 interface AuditRow {
+  reportStatus?: string | null;
+  reportHeld?: boolean;
   id: string;
   auditCode: string;
   clientId: string;
@@ -103,6 +106,7 @@ interface ReportStatusResponse {
   updatedAt?: string | null;
   held?: boolean;
   holdRemarks?: string | null;
+  returnFeedback?: Array<{ reason: string; returnedAt: string; returnedBy: string | null }>;
   heldAt?: string | null;
 }
 
@@ -128,7 +132,7 @@ interface ScheduleModel {
 @Component({
   selector: 'app-crm-audit-management-page',
   standalone: true,
-  imports: [ActionIconPipe, IconComponent,
+  imports: [AuditFilePreviewComponent, ActionIconPipe, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -179,6 +183,23 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   latestReportStatus: ReportStatusResponse | null = null;
   autoGenerating = false;
   governanceBusy = false;
+  reportPreview: AuditFilePreview | null = null;
+  reportPreviewBusy = false;
+
+  previewReport(): void {
+    const audit = this.currentAudit;
+    if (!audit || this.reportPreviewBusy || !['SUBMITTED','APPROVED','PUBLISHED'].includes(this.latestReportStatus?.status || '')) return;
+    this.reportPreviewBusy = true;
+    this.http.get(`${this.baseUrl}/api/v1/crm/audits/${audit.id}/report/preview`, {responseType:'blob'})
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.reportPreviewBusy=false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: blob => {
+          if (this.currentAudit?.id === audit.id) this.reportPreview={blob,name:`${audit.auditCode || 'Audit'} - report.pdf`};
+          this.cdr.markForCheck();
+        },
+        error: () => this.toast.error('Unable to preview the report. Refresh its status and try again.'),
+      });
+  }
 
   readonly statusOptions = [
     { value: '', label: 'All statuses' },
@@ -276,7 +297,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   get reportSubmittedCount(): number {
-    return this.filteredAudits.filter((row) => row.status === 'COMPLETED').length;
+    return this.filteredAudits.filter((row) => ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(row.reportStatus || '')).length;
   }
 
   get capaOpenCount(): number {
@@ -299,7 +320,10 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   get reportPhase(): string {
     const stage = this.latestReportStatus?.stage;
-    if (stage === 'FINAL') return 'Submitted';
+    if (this.latestReportStatus?.held) return 'On hold';
+    if (this.latestReportStatus?.status === 'PUBLISHED') return 'Published';
+    if (this.latestReportStatus?.status === 'APPROVED') return 'Approved — ready to publish';
+    if (stage === 'FINAL') return 'Submitted for review';
     if (stage === 'DRAFT') return 'Draft in progress';
     const status = this.currentAudit?.status;
     if (status === 'CANCELLED') return 'Cancelled';
@@ -346,7 +370,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       },
       {
         label: 'Execution started',
-        ok: audit.status === 'IN_PROGRESS' || audit.status === 'COMPLETED',
+        ok: ['IN_PROGRESS', 'SUBMITTED', 'CORRECTION_PENDING', 'REVERIFICATION_PENDING', 'COMPLETED', 'CLOSED'].includes(audit.status),
         hint:
           audit.status === 'PLANNED'
             ? 'Audit not started'
@@ -674,16 +698,15 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   auditReportLabel(row: AuditRow): string {
-    if (row.status === 'COMPLETED') return 'Submitted';
-    if (row.status === 'IN_PROGRESS') return 'Draft';
-    if (row.status === 'CANCELLED') return 'Cancelled';
-    return 'Not started';
+    if (row.reportHeld) return 'On hold';
+    const labels: Record<string, string> = { DRAFT: 'Draft', SUBMITTED: 'Submitted for review', APPROVED: 'Approved', PUBLISHED: 'Published' };
+    return labels[row.reportStatus || ''] || 'Not started';
   }
 
   auditReportClass(row: AuditRow): string {
-    if (row.status === 'COMPLETED') return 'report-chip report-chip--ok';
-    if (row.status === 'IN_PROGRESS') return 'report-chip report-chip--work';
-    if (row.status === 'CANCELLED') return 'report-chip report-chip--muted';
+    if (row.reportHeld) return 'report-chip report-chip--muted';
+    if (['APPROVED', 'PUBLISHED'].includes(row.reportStatus || '')) return 'report-chip report-chip--ok';
+    if (row.reportStatus) return 'report-chip report-chip--work';
     return 'report-chip report-chip--todo';
   }
 
@@ -805,6 +828,10 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       .subscribe(({ readiness, reportStatus }) => {
         this.latestReadiness = readiness as ReadinessResponse | null;
         this.latestReportStatus = reportStatus as ReportStatusResponse | null;
+        for (const row of this.audits) if (row.id === auditId) {
+          row.reportStatus = this.latestReportStatus?.status || null;
+          row.reportHeld = !!this.latestReportStatus?.held;
+        }
         this.cdr.markForCheck();
       });
   }
@@ -969,11 +996,12 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     if (!id || this.governanceBusy) return;
     const result = await this.dialog.prompt(
       'Send Back Report',
-      'Reason for sending back (optional):',
+      'Reason for sending back (required):',
       { placeholder: 'Reason', confirmText: 'Send Back' },
     );
     if (!result.confirmed) return;
-    const reason = result.value ?? '';
+    const reason = (result.value ?? '').trim();
+    if (!reason) { this.toast.error('Enter the corrections the auditor needs to make'); return; }
     this.governanceBusy = true;
     this.auditsService.crmSendBackReport(id, reason).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {

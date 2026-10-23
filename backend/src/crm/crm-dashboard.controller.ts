@@ -18,11 +18,12 @@ import { ReqUser } from '../access/access-scope.service';
 
 /** Convert snake_case object keys to camelCase */
 function toCamel(obj: unknown): unknown {
+  if (obj instanceof Date) return obj.toISOString();
   if (Array.isArray(obj)) return obj.map(toCamel);
   if (obj !== null && typeof obj === 'object') {
     return Object.fromEntries(
       Object.entries(obj).map(([k, v]) => [
-        k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()),
+        k.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase()),
         toCamel(v),
       ]),
     );
@@ -159,7 +160,14 @@ export class CrmDashboardController {
   @Get('kpis')
   async getKpis(@CurrentUser() user: ReqUser) {
     const data = await this.dashboardService.getKpis(user.id);
-    return toCamel(data);
+    return toCamel(
+      Object.fromEntries(
+        Object.entries(data || {}).map(([key, value]) => [
+          key,
+          value == null ? null : Number(value),
+        ]),
+      ),
+    );
   }
 
   /** GET /api/v1/crm/dashboard/priority-today — urgent items */

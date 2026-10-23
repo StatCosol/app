@@ -117,7 +117,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
 <button (click)="activateCycle(c.id)" class="compact-action text-emerald-600 hover:text-emerald-800 text-xs font-medium" title="Activate" aria-label="Activate" data-action-label="Activate" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
                     @if (c.status === 'ACTIVE') {
-<button (click)="generateEmployees(c.id)" class="compact-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Generate" aria-label="Generate" data-action-label="Generate" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+<button (click)="generateEmployees(c.id)" class="standard-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Generate" aria-label="Generate" data-action-label="Generate" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span>Generate</span></button>
 }
                     @if (c.status === 'ACTIVE') {
 <button (click)="closeCycle(c.id)" class="standard-action text-red-600 hover:text-red-800 text-xs font-medium">Close</button>

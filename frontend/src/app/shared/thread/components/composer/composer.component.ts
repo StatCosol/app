@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 })
 export class ComposerComponent {
   @Input() disabled = false;
+  @Input() clearOnSend = true;
   @Input() sending = false;
   @Input() placeholder = 'Type your reply...';
   @Output() send = new EventEmitter<{ message: string; files: File[] }>();
@@ -32,7 +33,6 @@ export class ComposerComponent {
     const msg = this.message.trim();
     if (!msg && this.files.length === 0) return;
     this.send.emit({ message: msg, files: [...this.files] });
-    this.message = '';
-    this.files = [];
+    if (this.clearOnSend) { this.message = ''; this.files = []; }
   }
 }

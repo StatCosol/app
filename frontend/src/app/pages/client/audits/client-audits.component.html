@@ -4,7 +4,7 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
     title="Audits & Evidence"
-    description="Upload audit documents, track verification and respond to corrections by branch"
+    description="Upload evidence, track verification by branch and view published audit reports."
     icon="clipboard-check">
     <button type="button"
       (click)="loadAudits()"
@@ -12,7 +12,7 @@
      title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
   </ui-page-header>
 
-  @if(error){<div role="alert" class="p-4 mb-4 rounded-lg bg-red-50 text-red-800">{{error}}</div>}
+  @if (errorMessage) { <div role="alert">{{ errorMessage }} <button (click)="loadAudits()">Retry</button></div> }
   <!-- Summary Cards -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="client-kpi client-kpi--blue">
@@ -116,7 +116,15 @@
       [loading]="loading"
       emptyMessage="No audits found for the selected filters.">
       <ng-template uiTableCell="auditType" let-row><strong class="whitespace-normal" [title]="row.auditType">{{ row.auditType.replaceAll('_', ' ') }}</strong></ng-template>
-      <ng-template uiTableCell="branchName" let-row><span class="whitespace-normal" [title]="row.branchName">{{row.branchName}}</span>@if(row.contractor !== 'All'){<small class="block text-gray-500">{{row.contractor}}</small>}</ng-template>
+      <ng-template uiTableCell="branchName" let-row><span class="whitespace-normal" [title]="row.branchName">{{row.branchName}}</span>@if(row.auditType === 'CONTRACTOR' && row.contractor !== 'Not recorded'){<small class="block text-gray-500">{{row.contractor}}</small>}</ng-template>
+      <ng-template uiTableCell="report" let-row>
+        @if (row.publishedReportAvailable) {
+          <button type="button" (click)="openReport(row)" [disabled]="!!openingReport" class="text-sm font-semibold text-brand-700 underline">{{ openingReport === row.id ? 'Opening…' : 'View published report' }}</button>
+        } @else { <span class="text-sm text-gray-500">Not published</span> }
+      </ng-template>
+      <ng-template uiTableCell="frequency" let-value="value">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{{ value }}</span>
+      </ng-template>
       <ng-template uiTableCell="status" let-row>
         <ui-status-badge [status]="row.status"></ui-status-badge>
       </ng-template>
@@ -128,3 +136,5 @@
 
 </div>
 }
+
+@if (preview) { <app-audit-file-preview [request]="preview" (closed)="preview = null" /> }

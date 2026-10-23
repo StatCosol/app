@@ -7,7 +7,7 @@ describe('AuditXpert corrections workspace', () => {
     const queries = new BehaviorSubject(convertToParamMap({ auditId: 'audit-a' }));
     const api = { list: vi.fn(() => of([]) as any), listCategories: vi.fn(() => of([])), update: vi.fn(() => of({})), verifyObservationClosure: vi.fn(() => of({})), reopenObservation: vi.fn(() => of({})) };
     const files = { open: vi.fn(() => of(undefined)) };
-    const component = new AuditorObservationsComponent(api as any, { auditorListAudits: () => of([]) } as any, { paramMap: of(convertToParamMap({})), queryParamMap: queries } as any, { success: vi.fn(), warning: vi.fn(), error: vi.fn() } as any, { markForCheck: vi.fn() } as any, files as any);
+    const component = new AuditorObservationsComponent(api as any, { auditorListAllAudits: () => of([]) } as any, { paramMap: of(convertToParamMap({})), queryParamMap: queries } as any, { success: vi.fn(), warning: vi.fn(), error: vi.fn() } as any, { markForCheck: vi.fn() } as any, files as any);
     return { component, queries, api, files };
   }
   it('cancels old audit requests and clears stale selections', () => {

@@ -289,7 +289,7 @@
                       {{ v.score }}%
                     </span>
                   </td>
-                  <td class="text-center text-slate-600">{{ v.uploadedCount }}/{{ v.requiredCount }}</td>
+                  <td class="text-center text-slate-600">{{ v.requiredCount > 0 ? v.uploadedCount + '/' + v.requiredCount : v.uploadedCount + ' uploaded · No requirement set' }}</td>
                   <td class="text-center">
                     <span [class.text-red-600]="v.missingCount > 0" [class.text-slate-400]="v.missingCount === 0">
                       {{ v.missingCount }}

@@ -1,3 +1,5 @@
+import { AuditorSummaryQueryDto } from '../auditor/dto/auditor-dashboard-query.dto';
+import { normalizeDateFilters } from '../common/utils/filters';
 import {
   BadRequestException,
   ForbiddenException,
@@ -38,9 +40,11 @@ export class AuditAuditorDashboardService {
     this.assertAuditor(user);
     const audit = await this.repo.findOne({
       where: { id: auditId },
-      relations: ['client', 'branch'],
+      relations: ['client', 'branch', 'contractorUser'],
     });
     if (!audit) throw new NotFoundException('Audit not found');
+    if (audit.assignedAuditorId !== user.userId)
+      throw new ForbiddenException('Not your audit');
     if (!audit.preliminaryPublishedAt) {
       throw new BadRequestException(
         'Preliminary findings have not been published yet',
@@ -61,6 +65,8 @@ export class AuditAuditorDashboardService {
       auditCode: audit.auditCode || audit.id,
       clientName: audit.client?.clientName || null,
       branchName: audit.branch?.branchName || null,
+      contractorName: audit.contractorUser?.name || null,
+      auditType: audit.auditType || null,
       periodCode: audit.periodCode || null,
       publishedAt: audit.preliminaryPublishedAt,
       vendorWindowDays: audit.vendorWindowDays || 6,
@@ -131,19 +137,34 @@ export class AuditAuditorDashboardService {
   //  AUDITOR DASHBOARD SUMMARY
   // ═══════════════════════════════════════════════════════════════
 
-  async getAuditorDashboardSummary(user: ReqUser) {
+  async getAuditorDashboardSummary(
+    user: ReqUser,
+    query: AuditorSummaryQueryDto = {},
+  ) {
     this.assertAuditor(user);
+    const f = normalizeDateFilters(query);
     const rows = await this.dataSource.query(
       `SELECT
          COUNT(*)::int AS "totalAssigned",
-         COUNT(*) FILTER (WHERE status = 'PLANNED')::int AS "pending",
+         COUNT(*) FILTER (WHERE status IN ('PLANNED','ASSIGNED'))::int AS "pending",
          COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')::int AS "inProgress",
-         COUNT(*) FILTER (WHERE status IN ('SUBMITTED','COMPLETED'))::int AS "submitted",
-         COUNT(*) FILTER (WHERE status IN ('CORRECTION_PENDING','REVERIFICATION_PENDING'))::int AS "reverificationPending",
+         COUNT(*) FILTER (WHERE status = 'SUBMITTED')::int AS "submitted",
+         COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS "completed",
+         COUNT(*) FILTER (WHERE status = 'REVERIFICATION_PENDING')::int AS "reverificationPending",
+         COUNT(*) FILTER (WHERE status = 'CORRECTION_PENDING')::int AS "correctionPending",
          COUNT(*) FILTER (WHERE status = 'CLOSED')::int AS "closed"
        FROM audits
-       WHERE assigned_auditor_id = $1 AND status != 'CANCELLED'`,
-      [user.userId],
+       WHERE assigned_auditor_id = $1 AND ($2::uuid IS NULL OR client_id = $2)
+         AND ($3::date IS NULL OR due_date >= $3)
+         AND ($4::date IS NULL OR due_date <= $4)
+         AND ($5::text IS NULL OR audit_type = $5) AND status != 'CANCELLED'`,
+      [
+        user.userId,
+        f.clientId,
+        f.fromDate,
+        f.toDate,
+        query.auditType?.trim().toUpperCase() || null,
+      ],
     );
     return (
       rows[0] || {
@@ -157,8 +178,12 @@ export class AuditAuditorDashboardService {
     );
   }
 
-  async getAuditorUpcomingAudits(user: ReqUser) {
+  async getAuditorUpcomingAudits(
+    user: ReqUser,
+    query: AuditorSummaryQueryDto = {},
+  ) {
     this.assertAuditor(user);
+    const f = normalizeDateFilters(query);
     return this.dataSource.query(
       `SELECT a.id, a.audit_code AS "auditCode", a.audit_type AS "auditType",
               a.period_code AS "periodCode", a.due_date AS "dueDate",
@@ -170,29 +195,52 @@ export class AuditAuditorDashboardService {
        JOIN clients c ON c.id = a.client_id
        LEFT JOIN client_branches cb ON cb.id = a.branch_id
        LEFT JOIN users cu ON cu.id = a.contractor_user_id
-       WHERE a.assigned_auditor_id = $1
-         AND a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')
+       WHERE a.assigned_auditor_id = $1 AND ($2::uuid IS NULL OR a.client_id = $2)
+         AND ($3::date IS NULL OR a.due_date >= $3)
+         AND ($4::date IS NULL OR a.due_date <= $4)
+         AND ($5::text IS NULL OR a.audit_type = $5)
+         AND a.status IN ('PLANNED','ASSIGNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')
        ORDER BY a.due_date ASC NULLS LAST, a.created_at DESC`,
-      [user.userId],
+      [
+        user.userId,
+        f.clientId,
+        f.fromDate,
+        f.toDate,
+        query.auditType?.trim().toUpperCase() || null,
+      ],
     );
   }
 
-  async getAuditorRecentSubmitted(user: ReqUser) {
+  async getAuditorRecentSubmitted(
+    user: ReqUser,
+    query: AuditorSummaryQueryDto = {},
+  ) {
     this.assertAuditor(user);
+    const f = normalizeDateFilters(query);
     return this.dataSource.query(
       `SELECT a.id, a.audit_code AS "auditCode", a.audit_type AS "auditType",
               a.score, a.submitted_at AS "submittedAt", a.status,
+              a.period_code AS "periodCode", cb.branchname AS "branchName", cu.name AS "contractorName",
               c.client_name AS "clientName",
               COALESCE(cb.branchname, cu.name) AS "entityName"
        FROM audits a
        JOIN clients c ON c.id = a.client_id
        LEFT JOIN client_branches cb ON cb.id = a.branch_id
        LEFT JOIN users cu ON cu.id = a.contractor_user_id
-       WHERE a.assigned_auditor_id = $1
+       WHERE a.assigned_auditor_id = $1 AND ($2::uuid IS NULL OR a.client_id = $2)
+         AND ($3::date IS NULL OR a.due_date >= $3)
+         AND ($4::date IS NULL OR a.due_date <= $4)
+         AND ($5::text IS NULL OR a.audit_type = $5)
          AND a.status IN ('SUBMITTED','COMPLETED','CLOSED')
        ORDER BY a.submitted_at DESC NULLS LAST
        LIMIT 20`,
-      [user.userId],
+      [
+        user.userId,
+        f.clientId,
+        f.fromDate,
+        f.toDate,
+        query.auditType?.trim().toUpperCase() || null,
+      ],
     );
   }
 

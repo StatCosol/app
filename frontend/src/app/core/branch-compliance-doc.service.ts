@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface ComplianceDocFilters {
+  recordScope?: 'ACTUAL' | 'TEST';
   branchId?: string;
   companyId?: string;
   year?: number;
@@ -65,6 +66,7 @@ export interface ComplianceDoc {
 }
 
 export interface ChecklistItem {
+  dueDate?: string | null;
   returnCode: string;
   returnName: string;
   lawArea: string;

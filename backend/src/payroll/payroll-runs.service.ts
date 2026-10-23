@@ -250,25 +250,7 @@ export class PayrollRunsService {
   async listPayrollRuns(user: ReqUser, q: Record<string, any>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
 
-    // Determine allowed clientIds
-    let allowedClientIds: string[] = [];
-    if (['ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
-      const all = await this.clientRepo
-        .createQueryBuilder('c')
-        .select('c.id', 'id')
-        .where('c.is_deleted = false')
-        .getRawMany<{ id: string }>();
-      allowedClientIds = all.map((r) => r.id);
-    } else {
-      const assigned = await this.assignRepo
-        .createQueryBuilder('a')
-        .select('a.client_id', 'clientId')
-        .where('a.payroll_user_id = :uid', { uid: user.id })
-        .andWhere('a.status = :s', { s: 'ACTIVE' })
-        .andWhere('a.end_date IS NULL')
-        .getRawMany<{ clientId: string }>();
-      allowedClientIds = assigned.map((r) => r.clientId);
-    }
+    const allowedClientIds = await this.scope.getAssignedClientIds(user);
     if (!allowedClientIds.length) return [];
 
     const qb = this.runRepo
@@ -321,17 +303,21 @@ export class PayrollRunsService {
 
     // employeeCount (batched)
     const runIds = rows.map((r) => r.id).filter(Boolean);
-    let counts: { runId: string; cnt: string }[] = [];
+    let counts: { runId: string; cnt: string; grossTotal: string }[] = [];
     if (runIds.length) {
       counts = await this.runEmployeeRepo
         .createQueryBuilder('e')
         .select('e.run_id', 'runId')
         .addSelect('COUNT(1)', 'cnt')
+        .addSelect('SUM(e.gross_earnings)', 'grossTotal')
         .where('e.run_id IN (:...runIds)', { runIds })
         .groupBy('e.run_id')
         .getRawMany();
     }
     const mapCnt = new Map(counts.map((c) => [c.runId, Number(c.cnt || 0)]));
+    const mapGross = new Map(
+      counts.map((c) => [c.runId, Number(c.grossTotal)]),
+    );
     return rows.map((r) => ({
       id: r.id,
       clientId: r.clientId,
@@ -343,6 +329,7 @@ export class PayrollRunsService {
       payrollCategory: payrollCategory(r.payrollCategory),
       status: r.status ?? 'DRAFT',
       employeeCount: mapCnt.get(r.id) ?? 0,
+      grossTotal: mapGross.has(r.id) ? mapGross.get(r.id) : null,
       createdAt: r.createdAt ?? null,
       submittedAt: r.submittedAt ?? null,
       approvedAt: r.approvedAt ?? null,

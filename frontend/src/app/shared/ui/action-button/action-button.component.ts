@@ -73,14 +73,14 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
     /* fullWidth must still span the parent — an inline-flex host would shrink
        to content and defeat the inner w-full. */
     ':host(.ui-button--full) { display: flex; width: 100%; }',
-    '.ui-icon-action { width: 40px !important; min-width: 40px !important; max-width: 40px !important; height: 40px !important; min-height: 40px !important; max-height: 40px !important; box-sizing: border-box; padding: 0 !important; gap: 0; border-radius: 10px; background: #fff !important; color: #334155 !important; border: 1px solid #dbe3ed !important; box-shadow: none !important; }',
+    '.ui-icon-action { width: var(--filter-control-height, 40px) !important; min-width: var(--filter-control-height, 40px) !important; max-width: var(--filter-control-height, 40px) !important; height: var(--filter-control-height, 40px) !important; min-height: var(--filter-control-height, 40px) !important; max-height: var(--filter-control-height, 40px) !important; box-sizing: border-box; padding: 0 !important; gap: 0; border-radius: 10px; background: #fff !important; color: #334155 !important; border: 1px solid #dbe3ed !important; box-shadow: none !important; }',
     '.ui-icon-action[data-action-icon="check-circle"] { color: #15803d !important; }',
     '.ui-icon-action[data-action-icon="x-circle"], .ui-icon-action[data-action-icon="trash"], .ui-icon-action[data-action-icon="user-minus"] { color: #dc2626 !important; }',
     '.ui-icon-action:hover:not(:disabled) { background: #eff6ff !important; border-color: #93c5fd !important; }',
-    '.btn:not(.ui-icon-action) { height: 40px !important; min-height: 40px !important; max-height: 40px !important; min-width: 80px; padding: 0 12px !important; box-sizing: border-box; white-space: nowrap; }',
-    '@media (pointer: coarse) { .btn:not(.ui-icon-action) { height: 44px !important; min-height: 44px !important; max-height: 44px !important; } }',
+    '.btn:not(.ui-icon-action) { height: auto !important; min-height: var(--filter-control-height, 40px) !important; max-height: none !important; min-width: 80px; padding: 6px 12px !important; box-sizing: border-box; white-space: normal; max-width:100%; overflow-wrap:anywhere; }',
+    '@media (pointer: coarse) { .btn:not(.ui-icon-action) { height: auto !important; min-height: 44px !important; max-height: none !important; } }',
     '.action-label-hidden { display: none; }',
-    '.action-tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 1000; padding: 6px 10px; border-radius: 6px; background: #172033; color: white; font-size: 12px; font-weight: 500; line-height: 1.4; width: max-content; max-width: 240px; pointer-events: none; visibility: hidden; opacity: 0; }',
+    '.action-tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 1000; padding: 6px 10px; border-radius: 6px; background: #172033; color: white; font-size: 12px; font-weight: 500; line-height: 1.4; width: max-content; max-width: min(240px, calc(100vw - 32px)); pointer-events: none; visibility: hidden; opacity: 0; }',
     ':host(:hover) .action-tooltip, :host(:focus-within) .action-tooltip { display: block; visibility: visible; opacity: 1; }',
     '@media (pointer: coarse) { .ui-icon-action { width: 44px !important; min-width: 44px !important; max-width: 44px !important; height: 44px !important; min-height: 44px !important; max-height: 44px !important; } }',
   ],

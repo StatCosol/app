@@ -1,3 +1,4 @@
+import { uploadStatusSummary } from '../../../shared/compliance/upload-status-summary';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -64,6 +65,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   private load$ = new Subject<void>();
 
   loading = false;
+  errorMessage = '';
   uploading = false;
   checklist: ChecklistItem[] = [];
   filteredChecklist: ChecklistItem[] = [];
@@ -181,6 +183,8 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
 
   load(focusCode?: string): void {
     this.load$.next(); // cancel previous in-flight requests
+    this.errorMessage = '';
+    this.checklist = []; this.filteredChecklist = []; this.selectedItem = null; this.timeline = [];
     this.loading = true;
 
     this.complianceDoc.getChecklist({
@@ -201,6 +205,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
       error: () => {
+        this.errorMessage = 'Unable to load returns and filings. Please retry.';
         this.checklist = [];
         this.filteredChecklist = [];
         this.selectedItem = null;
@@ -213,7 +218,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   applyFilters(): void {
     const q = this.searchTerm.trim().toLowerCase();
     this.filteredChecklist = this.checklist.filter((item) => {
-      if (this.selectedStatus !== 'ALL' && this.statusOf(item) !== this.selectedStatus) return false;
+      if (this.selectedStatus !== 'ALL' && (this.selectedStatus === 'OVERDUE' ? this.signalLabel(item) !== 'OVERDUE' : this.statusOf(item) !== this.selectedStatus)) return false;
       if (this.selectedLawArea !== 'ALL' && item.lawArea !== this.selectedLawArea) return false;
       const category = item.category || 'Other';
       if (this.selectedCategory !== 'ALL' && category !== this.selectedCategory) return false;
@@ -286,7 +291,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   onDragOver(event: DragEvent): void { event.preventDefault(); }
 
   submitUpload(): void {
-    if (!this.selectedFile || !this.uploadTarget || !this.branchId) return;
+    if (this.uploading || !this.selectedFile || !this.uploadTarget || !this.branchId || !this.canUpload(this.uploadTarget)) return;
 
     this.uploading = true;
     const fd = new FormData();
@@ -406,13 +411,14 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   dueDateLabel(item: ChecklistItem): string {
-    if (item.document?.dueDate) return new Date(item.document.dueDate).toLocaleDateString('en-GB');
+    const due = item.document?.dueDate || item.dueDate;
+    if (due) return new Date(due).toLocaleDateString('en-GB');
     if (item.dueDay) return `Day ${item.dueDay}`;
     return '-';
   }
 
   dueInLabel(item: ChecklistItem): string {
-    const due = item.document?.dueDate;
+    const due = item.document?.dueDate || item.dueDate;
     if (!due) return item.dueDay ? `Due day ${item.dueDay}` : 'No due date';
     const now = new Date(); now.setHours(0, 0, 0, 0);
     const d = new Date(due); d.setHours(0, 0, 0, 0);
@@ -424,9 +430,9 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
 
   signalLabel(item: ChecklistItem): string {
     const status = this.statusOf(item);
-    if (status === 'APPROVED') return 'DONE';
+    if (status === 'APPROVED' || status === 'NOT_APPLICABLE') return 'DONE';
     if (status === 'OVERDUE') return 'OVERDUE';
-    const due = item.document?.dueDate;
+    const due = item.document?.dueDate || item.dueDate;
     if (!due) return '';
     const now = new Date(); now.setHours(0, 0, 0, 0);
     const d = new Date(due); d.setHours(0, 0, 0, 0);
@@ -459,15 +465,15 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   get totalItems(): number {
-    return this.checklist.length;
+    return uploadStatusSummary(this.checklist).total;
   }
 
   get uploadedCount(): number {
-    return this.checklist.filter((x) => !!x.document).length;
+    return uploadStatusSummary(this.checklist).uploaded;
   }
 
   get pendingCount(): number {
-    return this.checklist.filter((x) => ['NOT_UPLOADED', 'OVERDUE'].includes(this.statusOf(x))).length;
+    return uploadStatusSummary(this.checklist).pending;
   }
 
   get returnedCount(): number {
@@ -475,7 +481,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   get overdueCount(): number {
-    return this.checklist.filter((x) => this.statusOf(x) === 'OVERDUE').length;
+    return this.checklist.filter((x) => this.signalLabel(x) === 'OVERDUE').length;
   }
 
   get submittedCount(): number {
@@ -494,7 +500,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   isOverdue(item: ChecklistItem): boolean {
-    return this.statusOf(item) === 'OVERDUE';
+    return this.signalLabel(item) === 'OVERDUE';
   }
 
   hasPendingQuery(item: ChecklistItem): boolean {
@@ -548,35 +554,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     ];
   }
 
-  private loadAndSelect(returnCode?: string): void {
-    this.load$.next();
-    this.loading = true;
-
-    this.complianceDoc.getChecklist({
-      branchId: this.branchId || undefined,
-      year: this.selectedYear,
-      frequency: this.selectedFrequency,
-      quarter: this.selectedFrequency === 'QUARTERLY' ? this.selectedQuarter : undefined,
-      half: this.selectedFrequency === 'HALF_YEARLY' ? this.selectedHalf : undefined,
-    })
-      .pipe(
-        takeUntil(this.load$),
-        takeUntil(this.destroy$),
-        finalize(() => {
-          this.loading = false;
-          this.cdr.detectChanges();
-        }),
-      )
-      .subscribe({
-        next: (res) => {
-          this.checklist = res.data || [];
-          this.lawAreas = this.unique(this.checklist.map((x) => x.lawArea));
-          this.categories = this.unique(this.checklist.map((x) => x.category || 'Other'));
-          this.applyFilters();
-          this.hydrateSelection(returnCode);
-        },
-      });
-  }
+  private loadAndSelect(returnCode?: string): void { this.load(returnCode); }
 
   private hydrateSelection(returnCode?: string): void {
     if (!this.filteredChecklist.length) {

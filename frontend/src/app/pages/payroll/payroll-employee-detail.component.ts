@@ -34,7 +34,7 @@ type Tab = 'profile' | 'compliance' | 'history';
     <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
       <!-- Header -->
       <div class="flex items-center gap-3 mb-6">
-        <button (click)="goBack()" class="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+        <button type="button" aria-label="Back to employees" (click)="goBack()" class="p-2 shrink-0 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
@@ -67,7 +67,7 @@ type Tab = 'profile' | 'compliance' | 'history';
 
         <!-- Tabs -->
         <div class="border-b border-gray-200 mb-6">
-          <nav class="flex gap-6">
+          <nav aria-label="Employee details" class="flex flex-wrap gap-x-6 gap-y-2">
             @for (t of tabs; track t) {
 <button
               (click)="activeTab = t.key"
@@ -253,7 +253,7 @@ type Tab = 'profile' | 'compliance' | 'history';
           </ui-data-table>
         </div>
 }
-      
+
 }
     </div>
   `,

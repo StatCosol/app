@@ -116,7 +116,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 
       @if (!loading && activeTab === 'workers') {
         <div class="mt-6">
-          <div class="flex flex-wrap gap-3 items-end mb-4">
+          <div class="flex flex-wrap gap-3 items-end mb-4 aligned-filter-controls">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Contractor</label>
               <select [(ngModel)]="workerContractorId" (ngModelChange)="loadWorkers()" class="rounded-lg border-gray-300 min-w-[240px]">
@@ -145,7 +145,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 
       @if (!loading && activeTab === 'assignments') {
         <div class="mt-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 aligned-filter-controls">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">PE Establishment</label>
               <select [(ngModel)]="filterPeId" (ngModelChange)="loadAssignments()" class="w-full rounded-lg border-gray-300">

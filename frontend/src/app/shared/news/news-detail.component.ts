@@ -3,7 +3,7 @@ import { IconComponent } from '../ui/icon/icon.component';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe, Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, takeUntil, finalize, timeout } from 'rxjs';
+import { Subject, EMPTY, of, combineLatest, takeUntil, finalize, timeout, switchMap, catchError, startWith } from 'rxjs';
 import { NewsService, NewsItem } from '../../shared/services/news.service';
 import { ProtectedFileService } from '../files/services/protected-file.service';
 
@@ -23,7 +23,14 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 }
 
     <!-- ============== MAIN CONTENT ============== -->
-    @if (!loading) {
+    @if (!loading && error) {
+      <div role="alert" class="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+        <p>{{ error }}</p>
+        <button type="button" class="standard-action mt-3" (click)="retry()">Try again</button>
+        <button type="button" class="standard-action ml-3" (click)="goBack()">Back</button>
+      </div>
+    }
+    @if (!loading && !error) {
 <div class="news-page">
 
       <!-- ── Hero header ── -->
@@ -33,7 +40,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
             <svg class="w-5 h-5 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
-            <span>Back to Dashboard</span>
+            <span>Back</span>
           </button>
 
           <div class="hero-title-row">
@@ -519,6 +526,8 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
 })
 export class NewsDetailComponent implements OnInit, OnDestroy {
   loading = true;
+  error = '';
+  private reload$ = new Subject<void>();
   selectedItem: NewsItem | null = null;
   allItems: NewsItem[] = [];
   otherItems: NewsItem[] = [];
@@ -543,42 +552,35 @@ export class NewsDetailComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    const newsId = this.route.snapshot.paramMap.get('newsId');
-
-    // Always load all active news
-    this.newsService.getActiveNews().pipe(
-      timeout(15000),
+    combineLatest([this.route.paramMap, this.reload$.pipe(startWith(undefined))]).pipe(
+      switchMap(([params]) => {
+        this.loading = true;
+        this.error = '';
+        this.selectedItem = null;
+        this.allItems = [];
+        this.otherItems = [];
+        const newsId = params.get('newsId');
+        return this.newsService.getActiveNews().pipe(
+          timeout(15000),
+          switchMap(items => {
+            this.allItems = items;
+            this.otherItems = items.filter(item => item.id !== newsId);
+            if (!newsId) return of(null);
+            const item = items.find(item => item.id === newsId);
+            return item ? of(item) : this.newsService.getNewsItem(newsId).pipe(timeout(15000));
+          }),
+          catchError(() => {
+            this.error = 'Unable to load this news page. It may be unavailable, or you can try again.';
+            return EMPTY;
+          }),
+          finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
+        );
+      }),
       takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
-    ).subscribe({
-      next: (items) => {
-        this.allItems = items;
-
-        if (newsId) {
-          // If a specific item was clicked from the ticker
-          this.selectedItem = items.find(i => i.id === newsId) || null;
-          this.otherItems = items.filter(i => i.id !== newsId);
-
-          // If not in the active list, fetch it directly
-          if (!this.selectedItem) {
-            this.newsService.getNewsItem(newsId).pipe(
-              timeout(15000),
-              takeUntil(this.destroy$),
-              finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
-            ).subscribe({
-              next: (item) => {
-                this.selectedItem = item;
-                this.otherItems = items;
-                this.cdr.markForCheck();
-              },
-            });
-            return;
-          }
-        }
-        this.cdr.markForCheck();
-      },
-    });
+    ).subscribe(item => { this.selectedItem = item; this.cdr.markForCheck(); });
   }
+
+  retry(): void { this.reload$.next(); }
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -586,8 +588,8 @@ export class NewsDetailComponent implements OnInit, OnDestroy {
   }
 
   selectItem(item: NewsItem): void {
-    this.selectedItem = item;
-    this.otherItems = this.allItems.filter(i => i.id !== item.id);
+    const base = this.router.url.split('?')[0].split('/news')[0];
+    void this.router.navigate([base, 'news', item.id]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -601,13 +603,15 @@ export class NewsDetailComponent implements OnInit, OnDestroy {
   }
 
   isPdf(url: string): boolean {
-    return url?.toLowerCase().endsWith('.pdf');
+    return /\.pdf(?:[?#]|$)/i.test(url || '');
   }
 
   downloadAttachment(item: NewsItem, event?: Event): void {
     event?.stopPropagation();
     if (!item.imageUrl) return;
-    this.files.download(item.imageUrl, this.attachmentName(item)).subscribe();
+    this.files.download(item.imageUrl, this.attachmentName(item)).pipe(takeUntil(this.destroy$)).subscribe({
+      error: () => { this.error = 'Unable to download the attachment. Please try again.'; this.cdr.markForCheck(); },
+    });
   }
 
   private attachmentName(item: NewsItem): string {
