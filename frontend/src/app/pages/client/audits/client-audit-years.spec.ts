@@ -26,9 +26,9 @@ describe('Client and Branch audit year access', () => {
   it('discovers older and future years and retains them after narrowing the results', async () => {
     const { fixture, component, api } = await setup();
     api.list.mockReturnValue(of([
-      { id: 'old', periodYear: 2018, status: 'IN_PROGRESS' },
-      { id: 'future', periodCode: '2099-12', status: 'IN_PROGRESS' },
-      { id: 'bad', periodCode: 'invalid', status: 'IN_PROGRESS' },
+      { id: 'old', periodYear: 2018, status: 'IN_PROGRESS', auditType: 'FACTORY', frequency: 'MONTHLY' },
+      { id: 'future', periodCode: '2099-12', status: 'IN_PROGRESS', auditType: 'FACTORY', frequency: 'MONTHLY' },
+      { id: 'bad', periodCode: 'invalid', status: 'IN_PROGRESS', auditType: 'FACTORY', frequency: 'MONTHLY' },
     ]));
     component.filters.year = '';
     component.loadAudits();
@@ -38,9 +38,10 @@ describe('Client and Branch audit year access', () => {
     expect(component.yearOptions).toContainEqual({ value: 2099, label: '2099' });
     expect(component.yearOptions.every(o => o.value === '' || Number.isInteger(o.value))).toBe(true);
     component.filters.year = 2018;
-    api.list.mockReturnValue(of([{ id: 'old', periodYear: 2018, status: 'IN_PROGRESS' }]));
+    api.list.mockReturnValue(of([{ id: 'old', periodYear: 2018, status: 'IN_PROGRESS', auditType: 'FACTORY', frequency: 'MONTHLY' }]));
     component.loadAudits();
     expect(component.yearOptions).toContainEqual({ value: 2099, label: '2099' });
     expect(new Set(component.yearOptions.map(o => o.value)).size).toBe(component.yearOptions.length);
   });
 });
+
