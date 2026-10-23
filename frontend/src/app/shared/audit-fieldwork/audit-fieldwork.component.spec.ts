@@ -162,4 +162,49 @@ describe('Audit fieldwork', () => {
     expect(http.post).not.toHaveBeenCalled();
     c.ngOnDestroy();
   });
+  it('adds missing points while preserving unsaved remarks and current selection', () => {
+    const { c, http } = setup();
+    c.availablePoints = 5;
+    c.draft.remarks = 'Keep my unfinished inspection';
+    http.post.mockReturnValue(of({ created: 5 }) as any);
+    http.get.mockReturnValue(
+      of({ ...response([point(), point('new')]), availablePoints: 0 }) as any,
+    );
+    c.refreshChecklist();
+    expect(http.post).toHaveBeenCalledWith(expect.stringContaining('/checklist/refresh'), {});
+    expect(c.selectedId).toBe('p');
+    expect(c.draft.remarks).toBe('Keep my unfinished inspection');
+    expect(c.message).toContain('5 missing audit points');
+    expect(c.availablePoints).toBe(0);
+    c.ngOnDestroy();
+  });
+  it('prevents clients and locked/loading audits from refreshing checklists', () => {
+    const { c, http } = setup();
+    c.availablePoints = 5;
+    c.auditor = false;
+    c.refreshChecklist();
+    c.auditor = true;
+    c.canEdit = false;
+    c.refreshChecklist();
+    c.canEdit = true;
+    c.loading = true;
+    c.refreshChecklist();
+    c.loading = false;
+    c.availablePoints = 0;
+    c.refreshChecklist();
+    expect(http.post).not.toHaveBeenCalled();
+    c.ngOnDestroy();
+  });
+  it('filters document checks and not-applicable decisions', () => {
+    const { c, http } = setup();
+    http.get.mockReturnValue(
+      of(response([point(), { ...point('doc'), kind: 'DOCUMENT', status: 'NOT_APPLICABLE' }])),
+    );
+    c.load();
+    c.filter = 'DOCUMENT';
+    expect(c.visible.map((i) => i.id)).toEqual(['doc']);
+    c.filter = 'NOT_APPLICABLE';
+    expect(c.visible.map((i) => i.id)).toEqual(['doc']);
+    c.ngOnDestroy();
+  });
 });

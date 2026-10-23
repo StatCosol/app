@@ -35,6 +35,12 @@ export class AuditFieldworkController {
   ) {
     return this.svc.workspace(u, id);
   }
+  @Post(':id/checklist/refresh') @Roles('AUDITOR') refreshChecklist(
+    @CurrentUser() u: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.refreshChecklist(u, id);
+  }
   @Post(':id/items') @Roles('AUDITOR') add(
     @CurrentUser() u: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,

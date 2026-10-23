@@ -12,7 +12,12 @@ import { randomUUID } from 'crypto';
 import { ReqUser } from '../access/access-scope.service';
 import { assertClientRecord } from '../common/portal-client-scope';
 import { assertSafeFile } from '../common/safe-upload';
-import { ensureAuditChecklist } from './audit-checklist-template.helpers';
+import {
+  ensureAuditChecklist,
+  auditChecklistEntries,
+  missingChecklistEntries,
+  appendMissingAuditChecklist,
+} from './audit-checklist-template.helpers';
 import {
   AddFieldworkItemDto,
   ReviewFieldworkDto,
@@ -118,6 +123,20 @@ export class AuditFieldworkService {
         dueDate: a.due_date,
       },
       canEdit,
+      availablePoints: canEdit
+        ? missingChecklistEntries(
+            await auditChecklistEntries(
+              {
+                id,
+                clientId: a.client_id,
+                auditType: a.audit_type,
+                contractorUserId: a.contractor_user_id,
+              },
+              this.db.manager,
+            ),
+            items,
+          ).length
+        : 0,
       items: items.map((i) => ({
         ...i,
         kind:
@@ -133,6 +152,22 @@ export class AuditFieldworkService {
         history: history.filter((h) => h.itemId === i.id),
       })),
     };
+  }
+  async refreshChecklist(user: ReqUser, id: string) {
+    if (user.roleCode !== 'AUDITOR')
+      throw new ForbiddenException(
+        'Only the assigned auditor can update the checklist',
+      );
+    return this.db.transaction(async (db) => {
+      const a = await this.audit(user, id, db, true);
+      await this.assertWritable(a, db);
+      return appendMissingAuditChecklist(db, {
+        id,
+        clientId: a.client_id,
+        auditType: a.audit_type,
+        contractorUserId: a.contractor_user_id,
+      });
+    });
   }
   async add(user: ReqUser, id: string, body: AddFieldworkItemDto) {
     if (user.roleCode !== 'AUDITOR')

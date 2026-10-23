@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const puppeteer=require('../../frontend/node_modules/puppeteer');
-module.exports=async({base,tokens,identities,auditId,work,check,root})=>{
+module.exports=async({base,tokens,identities,auditId,upgradeAuditId,work,check,root})=>{
  const executablePath=['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(fs.existsSync);
  const browser=await puppeteer.launch({headless:true,executablePath,args:['--no-first-run','--disable-extensions']});
  const evidence=path.join(root,'output/audit-fieldwork-browser');fs.mkdirSync(evidence,{recursive:true});let page;const errors=[];
@@ -12,7 +12,31 @@ module.exports=async({base,tokens,identities,auditId,work,check,root})=>{
   async function button(text,scope='app-audit-fieldwork'){const handle=await page.evaluateHandle((text,scope)=>Array.from(document.querySelectorAll(scope+' button')).find(e=>e.textContent.trim()===text),text,scope);const e=handle.asElement();assert.ok(e,'Missing '+text);await e.click();await handle.dispose();}
   async function input(selector,value){await page.$eval(selector,(e,v)=>{e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));},value);}
   async function post(action,suffix){const pending=page.waitForResponse(r=>r.url().includes(suffix)&&r.request().method()==='POST');await action();const r=await pending;assert.equal(r.status(),201,await r.text());await page.waitForNetworkIdle();return r.json();}
-  async function screenshot(name){await page.$eval('app-audit-fieldwork',e=>e.scrollIntoView({block:'start'}));await page.screenshot({path:path.join(evidence,name+'.png'),fullPage:true});}
+  async function screenshot(name){await page.waitForFunction(()=>document.getAnimations().every(a=>a.constructor.name!=='CSSTransition'||a.playState!=='running'));await page.$eval('app-audit-fieldwork',e=>e.scrollIntoView({block:'start'}));await page.screenshot({path:path.join(evidence,name+'.png'),fullPage:true});}
+  if(upgradeAuditId) {
+   await open('auditor',`/auditor/audits/${upgradeAuditId}/workspace`);
+   await page.waitForSelector('app-audit-fieldwork .checklist-update');
+   assert.equal(await page.$$eval('app-audit-fieldwork .point',els=>els.length),1);
+   await input('app-audit-fieldwork .review-section textarea','Unfinished notes must survive checklist expansion.');
+   await page.setViewport({width:390,height:844});
+   assert.ok(await page.$eval('app-audit-fieldwork',e=>e.scrollWidth<=e.getBoundingClientRect().width+1));
+   await page.waitForFunction(()=>document.querySelector('app-auditor-sidebar aside')?.getBoundingClientRect().right<=1);
+   await screenshot('checklist-upgrade-mobile');
+   const updated=await post(()=>button('Add missing checklist points'),'/checklist/refresh');
+   assert.ok(updated.created>=30);
+   await page.waitForFunction(()=>!document.querySelector('app-audit-fieldwork .checklist-update'));
+   assert.ok((await page.$eval('app-audit-fieldwork .review-section textarea',e=>e.value)).includes('Unfinished notes'));
+   assert.ok(await page.$eval('app-audit-fieldwork',e=>e.scrollWidth<=e.getBoundingClientRect().width+1));
+   await page.select('app-audit-fieldwork .filter-label select','SITE_INSPECTION');
+   assert.ok((await page.$$eval('app-audit-fieldwork .point',els=>els.length))>=10);
+   await input('app-audit-fieldwork .search-label input','Height:');
+   assert.equal(await page.$$eval('app-audit-fieldwork .point',els=>els.length),1);
+   await page.click('app-audit-fieldwork .point');
+   await page.waitForFunction(()=>document.querySelector('app-audit-fieldwork .detail-heading')?.innerText.includes('Height:'));
+   await screenshot('expanded-checklist-mobile');
+   await page.setViewport({width:1500,height:1100});await screenshot('expanded-checklist-desktop');
+   check('Auditor adds missing standard points from an existing audit without losing drafts; expanded site filter/search fits phone and desktop');
+  }
   await open('client','/client/audits');
   await page.waitForSelector('app-client-audits');await page.waitForFunction(()=>Array.from(document.querySelectorAll('tr')).some(e=>e.textContent.includes('SAFETY')));
   await page.evaluate(()=>{const row=Array.from(document.querySelectorAll('tr')).find(e=>e.textContent.includes('SAFETY'));row.querySelector('button').click();});await page.waitForSelector('app-audit-fieldwork .point');

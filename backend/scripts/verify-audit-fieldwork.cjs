@@ -64,6 +64,34 @@ let app,db,source;let checks=0;const check=message=>{checks++;console.log('PASS 
  const upload=async(role,id,item,fields={},expected=201,bytes=pdf,name='fixture.pdf',mime='application/pdf')=>{const fd=new FormData();fd.append('description','Evidence for audit verification');for(const [k,v]of Object.entries(fields))fd.set(k,v);fd.append('file',new Blob([bytes],{type:mime}),name);return call(role,`/api/v1/audit-fieldwork/${id}/items/${item}/evidence`,{method:'POST',body:fd},expected);};
  const review=async(role,id,item,revision,decision='COMPLIED',expected=201)=>call(role,`/api/v1/audit-fieldwork/${id}/items/${item}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision,decision,remarks:'Checked evidence and recorded inspection decision.'})},expected);
  for(const a of audits){const url='/api/v1/audit-fieldwork/'+a.id;const w=await call('client',url);assert.equal(w.items.length,AUDIT_CHECKLIST_TEMPLATES[a.type].length);const item=w.items[0].id;const e=await upload('client',a.id,item);const aw=await call('auditor',url);assert.equal(aw.items[0].status,'UPLOADED');assert.equal(aw.items[0].evidence[0].id,e.id);await review('auditor',a.id,item,1);assert.equal((await call('client',url)).items[0].status,'COMPLIED');check(a.type+': client upload → assigned auditor verification → client feedback');}
+ // Upgrade an existing audit with reviewed evidence and custom points; never rewrite history.
+ const legacyId=uuid(700), legacyUrl='/api/v1/audit-fieldwork/'+legacyId;
+ await db.query("INSERT INTO audits VALUES($1,'AX-LEGACY',$2,$3,NULL,'FACTORY','IN_PROGRESS','2026-10','2026-10-30',$4)",[legacyId,clientId,branchId,identities.auditor.id]);
+ const factoryTemplate=AUDIT_CHECKLIST_TEMPLATES.FACTORY;
+ await db.query("INSERT INTO audit_checklist_items(id,audit_id,item_label,doc_type,status,is_required,sort_order) VALUES($1,$2,$3,$4,'PENDING',true,10),($5,$2,'Custom auditor walkthrough',NULL,'PENDING',true,20),($6,$2,$7,NULL,'PENDING',true,30)",[uuid(701),legacyId,factoryTemplate[0][0],factoryTemplate[0][1],uuid(702),uuid(703),factoryTemplate[1][0]]);
+ await upload('client',legacyId,uuid(701));await review('auditor',legacyId,uuid(701),1);
+ const originalRows=(await db.query('SELECT * FROM audit_checklist_items WHERE audit_id=$1 ORDER BY sort_order',[legacyId])).rows;
+ const oldWorkspace=await call('auditor',legacyUrl);assert.equal(oldWorkspace.items.length,3);assert.equal(oldWorkspace.availablePoints,factoryTemplate.length-2);
+ await call('client',legacyUrl+'/checklist/refresh',{method:'POST'},403);
+ await call('otherAuditor',legacyUrl+'/checklist/refresh',{method:'POST'},403);
+ const updates=await Promise.all([1,2,3].map(()=>call('auditor',legacyUrl+'/checklist/refresh',{method:'POST'},201)));
+ assert.equal(updates.reduce((sum,r)=>sum+r.created,0),factoryTemplate.length-2);
+ const upgraded=await call('auditor',legacyUrl);assert.equal(upgraded.items.length,factoryTemplate.length+1);assert.equal(upgraded.availablePoints,0);
+ assert.deepEqual((await db.query('SELECT * FROM audit_checklist_items WHERE id=ANY($1::uuid[]) ORDER BY sort_order',[[uuid(701),uuid(702),uuid(703)]])).rows,originalRows);
+ const preserved=upgraded.items.find(i=>i.id===uuid(701));assert.equal(preserved.status,'COMPLIED');assert.equal(preserved.evidence.length,1);assert.equal(preserved.history.length,1);
+ assert.equal((await db.query("SELECT count(*)::int AS n FROM audit_checklist_items WHERE audit_id=$1 AND sort_order>30 AND status='PENDING'",[legacyId])).rows[0].n,factoryTemplate.length-2);
+ assert.equal(upgraded.items.find(i=>i.docType==='AX_FACTORY_GUARDS').kind,'SITE_INSPECTION');
+ assert.equal((await db.query("SELECT evidence_kind FROM audit_checklist_items WHERE audit_id=$1 AND doc_type='AX_FACTORY_GUARDS'",[legacyId])).rows[0].evidence_kind,'SITE_INSPECTION');
+ await assert.rejects(()=>assertFieldworkReviewed(source,legacyId),/Review/);
+ check('Checklist upgrade appends missing points once under concurrency; preserves custom points, evidence, decisions, history and ordering');
+ for(const status of ['SUBMITTED','COMPLETED','CLOSED','CANCELLED']){
+   await db.query('ALTER TABLE audits DISABLE TRIGGER audit_fieldwork_closure');await db.query('UPDATE audits SET status=$2 WHERE id=$1',[legacyId,status]);await db.query('ALTER TABLE audits ENABLE TRIGGER audit_fieldwork_closure');
+   await call('auditor',legacyUrl+'/checklist/refresh',{method:'POST'},400);assert.equal((await call('auditor',legacyUrl)).availablePoints,0);
+ }
+ await db.query("UPDATE audits SET status='IN_PROGRESS' WHERE id=$1",[legacyId]);
+ await db.query('ALTER TABLE audit_reports DISABLE TRIGGER USER');await db.query("INSERT INTO audit_reports(audit_id,status) VALUES($1,'SUBMITTED')",[legacyId]);await db.query('ALTER TABLE audit_reports ENABLE TRIGGER USER');
+ await call('auditor',legacyUrl+'/checklist/refresh',{method:'POST'},400);
+ check('Checklist updates reject clients, reassigned auditors, closed audits and submitted reports');
  const a=audits.find(a=>a.type==='SAFETY'),url='/api/v1/audit-fieldwork/'+a.id;let w=await call('auditor',url);const item=w.items[0].id;
  for(const role of ['otherAuditor','outsider','otherBranch','contractor']){await call(role,url,{},403);await upload(role,a.id,item,{},403);}
  await call(null,url,{},401);await call('branch',url);check('Tenant, branch, assignment, role and authentication boundaries enforced');
@@ -137,7 +165,12 @@ let app,db,source;let checks=0;const check=message=>{checks++;console.log('PASS 
  else assert.match(race[0].reason.message,/read-only/);
  check('Finalization and evidence upload serialize: new pending evidence cannot enter a finalized report');
  await db.query("UPDATE audit_reports SET status='SUBMITTED' WHERE audit_id=$1",[closed.id]);
- if(process.argv.includes('--browser'))await require('./audit-fieldwork-browser.cjs')({base,tokens,identities,auditId:a.id,work,check,root,service,clientId,branchId});
+ if(process.argv.includes('--browser')) {
+   const upgradeAuditId=uuid(710);
+   await db.query("INSERT INTO audits VALUES($1,'AX-UPGRADE',$2,$3,NULL,'SAFETY','IN_PROGRESS','2026-10','2026-10-30',$4)",[upgradeAuditId,clientId,branchId,identities.auditor.id]);
+   await db.query("INSERT INTO audit_checklist_items(audit_id,item_label,doc_type,status,is_required,sort_order) VALUES($1,'Legacy risk assessment','RISK_ASSESSMENT','PENDING',true,1)",[upgradeAuditId]);
+   await require('./audit-fieldwork-browser.cjs')({base,tokens,identities,auditId:a.id,upgradeAuditId,work,check,root,service,clientId,branchId});
+ }
  console.log(`PASS ${checks} AuditXpert fieldwork checks`);
  }finally{await app?.close();await source?.destroy();await db?.close();process.chdir(originalCwd);if(path.dirname(work)===os.tmpdir()&&path.basename(work).startsWith('audit-fieldwork-'))fs.rmSync(work,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});
