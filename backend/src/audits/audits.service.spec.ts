@@ -196,12 +196,10 @@ describe('AuditsService', () => {
         ? [{ managed: true, total: 2, complied: 2, nonComplied: 0 }]
         : [],
     );
-    jest
-      .spyOn(service, 'calculateScore')
-      .mockResolvedValue({
-        score: 80,
-        breakdown: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
-      });
+    jest.spyOn(service, 'calculateScore').mockResolvedValue({
+      score: 80,
+      breakdown: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+    });
     const result = await service.updateStatus(user, 'audit', 'COMPLETED');
     expect(result.score).toBe(90);
     expect(audits.save).toHaveBeenCalledWith(
