@@ -447,7 +447,7 @@
           </div>
         </label>
       </div>
-      <button type="button" class="compact-action btn btn-primary mt-3" [disabled]="previewLoading || !previewForm.gross" (click)="calculate()" title="Calculate Preview" aria-label="Calculate Preview" data-action-label="Calculate Preview" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+      <button type="button" class="standard-action btn btn-primary mt-3" [disabled]="previewLoading || !previewForm.gross" (click)="calculate()" title="Calculate Preview" aria-label="Calculate Preview" data-action-label="Calculate Preview" data-action-icon="calculator"><ui-icon name="calculator" [size]="20" /><span class="compact-action-label">
         {{ previewLoading ? 'Calculating...' : 'Calculate Preview' }}
       </span></button>
 

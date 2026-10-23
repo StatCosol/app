@@ -85,7 +85,7 @@ const STATE_NAMES: Record<string, string> = {
           1. Select branch and period
         </h3>
 
-        <div class="register-scope-grid gap-4 items-end">
+        <div class="register-scope-grid gap-4 items-end aligned-filter-controls">
           <!-- Branch -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1" for="register-branch">Branch</label>

@@ -8,7 +8,7 @@
     <ui-client-context-strip [inline]="true"></ui-client-context-strip>
   </div>
 
-  <div class="toolbar">
+  <div class="toolbar aligned-filter-controls">
     <select id="cr-selected-branch-id" name="selectedBranchId" [(ngModel)]="selectedBranchId" (change)="load()">
       @for (b of branches; track b) {
 <option [value]="b.id">{{ b.name }}</option>

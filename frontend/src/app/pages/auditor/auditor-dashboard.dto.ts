@@ -6,7 +6,7 @@
 /** Request filters for Auditor dashboard data */
 export interface AuditorFilters {
   clientId?: string | null;
-  auditType?: 'STATUTORY' | 'INTERNAL' | 'CLIENT_SPECIFIC' | null;
+  auditType?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
 }
@@ -23,6 +23,11 @@ export interface AuditorSummary {
 
 /** Audit item in auditor's assigned list */
 export interface AuditorAuditItem {
+  auditCode?: string;
+  auditType?: string;
+  periodCode?: string;
+  contractorName?: string;
+  score?: number | null;
   auditId: string;
   clientId: string;
   clientName: string;
@@ -66,6 +71,11 @@ export interface AuditorEvidencePending {
 
 /** Audit report pending submission */
 export interface AuditorReportPending {
+  auditCode?: string;
+  auditType?: string;
+  periodCode?: string;
+  contractorName?: string;
+  score?: number | null;
   auditId: string;
   reportId: string;
   clientId: string;

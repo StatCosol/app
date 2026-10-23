@@ -391,7 +391,7 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 }
 
         <!-- Add Contractor -->
-        <form (ngSubmit)="addContractor()" #contractorForm="ngForm" class="flex items-end gap-3">
+        <form (ngSubmit)="addContractor()" #contractorForm="ngForm" class="flex items-end gap-3 aligned-filter-controls">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-new-contractor-user-id">Contractor User ID</label>
             <input autocomplete="off" id="ccb-new-contractor-user-id" type="text" name="contractorUserId" [(ngModel)]="newContractorUserId" required

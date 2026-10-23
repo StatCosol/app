@@ -132,7 +132,7 @@ interface Field {
           @if (canPrefill) {
             <button
               type="button"
-              class="compact-action underline"
+              class="standard-action underline"
               (click)="prefill()"
               [disabled]="
                 busy || (draftPrefill && draftLoaded) ||
@@ -140,7 +140,7 @@ interface Field {
                 (recordSource === 'CONTRACTOR' && !contractorId) ||
                 !eligible
               "
-             title="Load selected contractor records" aria-label="Load selected contractor records" data-action-label="Load selected contractor records" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+             title="Load selected contractor records" aria-label="Load selected contractor records" data-action-label="Load selected contractor records" data-action-icon="folder-open"><ui-icon name="folder-open" [size]="20" /><span class="compact-action-label">
               {{
                 draftPrefill && draftLoaded ? 'Saved records loaded' : recordSource === 'CONTRACTOR'
                   ? 'Load selected contractor records'
@@ -280,10 +280,10 @@ interface Field {
              title="Add record" aria-label="Add record" data-action-label="Add record" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
             <button
               type="button"
-              class="compact-action border rounded bg-blue-700 text-white px-4 py-2"
+              class="standard-action border rounded bg-blue-700 text-white px-4 py-2"
               (click)="generate()"
               [disabled]="busy || !rows.length"
-             title="Generate and save register" aria-label="Generate and save register" data-action-label="Generate and save register" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+             title="Generate and save register" aria-label="Generate and save register" data-action-label="Generate and save register" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span class="compact-action-label">
               {{ generating ? 'Generating and saving…' : 'Generate and save register' }}
             </span></button>
           </div>

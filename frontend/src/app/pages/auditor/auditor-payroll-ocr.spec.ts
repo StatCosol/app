@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuditFieldworkComponent } from '../../shared/audit-fieldwork/audit-fieldwork.component';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { AuditorAuditWorkspaceComponent } from './auditor-audit-workspace.component';
 import { AuditsService } from '../../core/audits.service';
 import { AiApiService } from '../../core/ai-api.service';
@@ -14,6 +14,14 @@ import { ProtectedFileService } from '../../shared/files/services/protected-file
 import { of, throwError } from 'rxjs';
 
 describe('Auditor contractor OCR evidence', () => {
+  it('honors the documents and fieldwork tabs requested by audit entry links', () => {
+    for (const tab of ['documents', 'checklist']) {
+      const c = new AuditorAuditWorkspaceComponent({ paramMap: of(convertToParamMap({ auditId: 'audit' })), queryParamMap: of(convertToParamMap({ tab })) } as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, { markForCheck: vi.fn() } as any, {} as any);
+      vi.spyOn(c as any, 'initializeForAudit').mockImplementation(() => {});
+      c.ngOnInit(); expect(c.activeTab).toBe(tab); c.ngOnDestroy();
+    }
+  });
+
   it('shows follow-up warnings after a successful correction review', () => {
     const toast = { success: vi.fn(), warning: vi.fn(), error: vi.fn() };
     const api = { auditorReviewCorrectedDoc: vi.fn(() => of({ warnings: ['Audit report refresh failed. The correction was saved; contact an administrator.'] })) };
@@ -41,11 +49,11 @@ describe('Auditor contractor OCR evidence', () => {
     c.branchDocuments = [{ id: 'branch-doc', fileName: 'branch.pdf', sourceTable: 'branch_documents', payrollCheck }] as any;
     c.contractorDocuments = [{ id: 'contractor-doc', fileName: 'vendor.pdf', sourceTable: 'contractor_documents', payrollCheck }] as any;
     fixture.detectChanges();
-    const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'));
+    const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr, .document-review'));
     const vendor = rows.find(row => row.textContent?.includes('vendor.pdf'))!;
     const branch = rows.find(row => row.textContent?.includes('branch.pdf'))!;
     expect(vendor.textContent).toContain('1 candidate rows');
-    expect(vendor.textContent).toContain('up to 5 pages and 10 MB');
+    expect(fixture.nativeElement.querySelector('.comparison-help').textContent).toContain('up to 5 pages and 10 MB');
     expect(vendor.querySelector('pre')?.textContent).toContain('<script>unsafe</script>');
     expect(vendor.querySelector('script')).toBeNull();
     expect(branch.textContent).not.toContain('Compare with payroll');

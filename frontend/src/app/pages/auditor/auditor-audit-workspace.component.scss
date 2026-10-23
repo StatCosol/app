@@ -655,3 +655,33 @@ textarea:focus {
     align-items: flex-start;
   }
 }
+
+/* Scope stays readable without pushing review work below multiple summaries. */
+.head-controls { flex-wrap: wrap; align-items: center; margin: 0; }
+.report-actions { margin-left: auto; }
+.report-actions > summary { cursor: pointer; color: #245343; padding: .65rem; font-size: .85rem; font-weight: 700; }
+.report-actions__buttons { display:flex; gap:.5rem; flex-wrap:wrap; padding:.5rem 0; }
+.tab-bar { flex-wrap:wrap; overflow:visible; margin-bottom:0; }
+.tab-btn { flex:1 1 135px; min-width:0; }
+.document-list { display:grid; gap:1rem; }
+.document-review { border:1px solid #d8e3dd; border-radius:10px; padding:1rem; min-width:0; background:#fff; }
+.document-review__heading { display:flex; justify-content:space-between; gap:1rem; align-items:start; }
+.document-review__heading .strong { font-size:1rem; }
+.document-review__heading .minor { overflow-wrap:anywhere; font-size:.8rem; }
+.document-review__scope { display:grid; grid-template-columns:2fr 1fr 1fr; gap:1rem; margin:.8rem 0; }
+.document-review__scope dt { color:#5e7067; font-size:.75rem; }
+.document-review__scope dd { margin:.2rem 0 0; font-size:.875rem; overflow-wrap:anywhere; }
+.document-review__decision { display:flex; flex-wrap:wrap; align-items:end; gap:1rem; }
+.document-review__decision label { flex:1 1 280px; font-size:.8rem; font-weight:600; }
+.document-review__decision textarea { display:block; width:100%; margin-top:.3rem; min-height:72px; font-size:.875rem; font-weight:400; }
+.document-review__actions { display:flex; gap:.4rem; flex-wrap:wrap; }
+.document-review__comparison { margin-top:.5rem; font-size:.85rem; overflow-wrap:anywhere; }
+.document-review__comparison:empty { display:none; }
+.document-review__comparison details { margin-top:.5rem; padding:.65rem; background:#f7faf8; border-radius:6px; }
+.comparison-help { font-size:.8rem; color:#53655c; margin:.5rem 0 1rem; }
+@media(max-width:760px) {
+ .document-review__scope { grid-template-columns:1fr; gap:.5rem; }
+ .document-review__heading { flex-wrap:wrap; }
+ .report-actions { margin-left:0; width:100%; }
+ .document-review { padding:.75rem; }
+}

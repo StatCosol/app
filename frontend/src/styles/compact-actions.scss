@@ -2,23 +2,25 @@
 .compact-action-label { display: none; }
 /* Plain action controls in older pages inherit the same height. Rich cards,
    prompts and sidebar navigation retain their content-driven layout. */
-.workspace-ui main button:not(.compact-action):not(.ui-icon-action):not(:has(div, p, strong, h1, h2, h3, img)):not([class*='card']):not([class*='tile']):not([class*='summary']):not([class*='metric']):not([class*='kpi']):not([class*='prompt']):not([class*='suggest']):not([class*='question']):not([class*='fab']):not(.sidebar-toggle) {
-  height: 40px !important;
-  min-height: 40px !important;
-  max-height: 40px !important;
-  min-width: 40px;
+.workspace-ui main button:not(.standard-action):not(.btn):not(.audit-workflow-tab):not(.compact-action):not(.ui-icon-action):not(:has(div, p, strong, h1, h2, h3, img)):not([class*='card']):not([class*='tile']):not([class*='summary']):not([class*='metric']):not([class*='kpi']):not([class*='prompt']):not([class*='suggest']):not([class*='question']):not([class*='fab']):not(.sidebar-toggle) {
+  height: var(--filter-control-height, 40px) !important;
+  min-height: var(--filter-control-height, 40px) !important;
+  max-height: var(--filter-control-height, 40px) !important;
+  min-width: var(--filter-control-height, 40px);
   box-sizing: border-box;
   white-space: nowrap;
 }
 .standard-action,
 .workspace-ui :is(button.btn, button.btn-primary, button.btn-secondary, button.btn-danger, button.btn-success, button.btn-warning, button.btn-outline, button.btn-ghost):not(.compact-action):not(.ui-icon-action) {
-  height: 40px !important;
-  min-height: 40px !important;
-  max-height: 40px !important;
+  height: auto !important;
+  min-height: var(--filter-control-height, 40px) !important;
+  max-height: none !important;
   min-width: 80px;
   box-sizing: border-box !important;
-  padding: 0 12px !important;
-  white-space: nowrap;
+  padding: 6px 12px !important;
+  white-space: normal;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -42,16 +44,16 @@
   align-items: center !important;
   justify-content: center !important;
   position: relative;
-  width: 40px !important;
-  min-width: 40px !important;
-  max-width: 40px !important;
-  height: 40px !important;
-  min-height: 40px !important;
-  max-height: 40px !important;
+  width: var(--filter-control-height, 40px) !important;
+  min-width: var(--filter-control-height, 40px) !important;
+  max-width: var(--filter-control-height, 40px) !important;
+  height: var(--filter-control-height, 40px) !important;
+  min-height: var(--filter-control-height, 40px) !important;
+  max-height: var(--filter-control-height, 40px) !important;
   box-sizing: border-box !important;
   padding: 0 !important;
   gap: 0 !important;
-  flex: 0 0 40px;
+  flex: 0 0 var(--filter-control-height, 40px);
   border: 1px solid #dbe3ed !important;
   border-radius: 10px !important;
   background: #fff !important;
@@ -83,7 +85,7 @@
   line-height: 1.4;
   white-space: normal;
   width: max-content;
-  max-width: 240px;
+  max-width: min(240px, calc(100vw - 32px));
   z-index: 1000;
   pointer-events: none;
   visibility: hidden;
@@ -92,15 +94,16 @@
 :is(button, a).compact-action:hover::after,
 :is(button, a).compact-action:focus-visible::after { display: block; visibility: visible; opacity: 1; }
 @media (pointer: coarse) {
-  .workspace-ui main button:not(.compact-action):not(.ui-icon-action):not(:has(div, p, strong, h1, h2, h3, img)):not([class*='card']):not([class*='tile']):not([class*='summary']):not([class*='metric']):not([class*='kpi']):not([class*='prompt']):not([class*='suggest']):not([class*='question']):not([class*='fab']):not(.sidebar-toggle) { height: 44px !important; min-height: 44px !important; max-height: 44px !important; min-width: 44px; }
+  .workspace-ui main button:not(.standard-action):not(.btn):not(.audit-workflow-tab):not(.compact-action):not(.ui-icon-action):not(:has(div, p, strong, h1, h2, h3, img)):not([class*='card']):not([class*='tile']):not([class*='summary']):not([class*='metric']):not([class*='kpi']):not([class*='prompt']):not([class*='suggest']):not([class*='question']):not([class*='fab']):not(.sidebar-toggle) { height: 44px !important; min-height: 44px !important; max-height: 44px !important; min-width: 44px; }
   .standard-action,
-  .workspace-ui :is(button.btn, button.btn-primary, button.btn-secondary, button.btn-danger, button.btn-success, button.btn-warning, button.btn-outline, button.btn-ghost):not(.compact-action):not(.ui-icon-action) { height: 44px !important; min-height: 44px !important; max-height: 44px !important; }
+  .workspace-ui :is(button.btn, button.btn-primary, button.btn-secondary, button.btn-danger, button.btn-success, button.btn-warning, button.btn-outline, button.btn-ghost):not(.compact-action):not(.ui-icon-action) { height: auto !important; min-height: 44px !important; max-height: none !important; }
   :is(button, a).compact-action { width: 44px !important; min-width: 44px !important; max-width: 44px !important; height: 44px !important; min-height: 44px !important; max-height: 44px !important; flex-basis: 44px; }
 }
 
 // Keep filter inputs and neighbouring actions on the same baseline.
 .workspace-ui .aligned-filter-controls {
   --filter-control-height: 40px;
+  align-items: flex-end !important;
 }
 .workspace-ui .aligned-filter-controls :is(input:not([type='checkbox']):not([type='radio']), select) {
   height: var(--filter-control-height) !important;
@@ -114,3 +117,11 @@
 .workspace-ui .aligned-filter-controls label:has(input, select) {
   margin-bottom: 0 !important;
 }
+
+@media (max-width: 1023px) { .workspace-ui .aligned-filter-controls { --filter-control-height:44px; } }
+.workspace-ui .aligned-filter-controls > :is(button, ui-button, .attached-actions) { margin-bottom:0; }
+.workspace-ui .aligned-filter-controls > label:has(> select):not(.inline-flex):not(.flex) { display:flex; flex-direction:column; gap:4px; align-items:stretch; }
+
+.workspace-ui .aligned-filter-controls > label:has(> select):not(.inline-flex):not(.flex) > select { margin-inline:0 !important; }
+
+.workspace-ui .aligned-filter-controls > .filter-meta { display:inline-flex; align-items:center; align-self:flex-end; min-height:var(--filter-control-height); }

@@ -69,7 +69,7 @@
 
       <article class="kpi-card warn">
         <h4>Expiring 30d</h4>
-        <div>{{ kpis.expiring30Count }}</div>
+        <div>{{ kpis.expiring30Count ?? 'Unavailable' }}</div>
         <p>Upcoming expiry pressure</p>
       </article>
 
@@ -222,7 +222,7 @@
             </div>
             <div class="right">
               <span>{{ row.status }}</span>
-              <small>{{ row.requestedOn ? (row.requestedOn | date:'dd MMM') : '-' }} · {{ row.pendingDays }}d</small>
+              <small>{{ row.requestedOn ? (row.requestedOn | date:'dd MMM') : 'Date unavailable' }} · {{ (row.pendingDays === null || row.pendingDays === undefined) ? 'Age unavailable' : row.pendingDays + 'd' }}</small>
             </div>
           </div>
 }

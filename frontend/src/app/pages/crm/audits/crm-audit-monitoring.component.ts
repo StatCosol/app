@@ -31,14 +31,17 @@ import {
     ></ui-page-header>
 
     <div class="p-6">
+      <button class="border rounded-lg px-3 py-2 mb-4" (click)="load()" [disabled]="loading">Refresh</button>
+      <p class="text-xs text-slate-500 mb-4">In progress includes submitted, correction and reverification stages. Scores cover completed audits only.</p>
+      @if (errorMessage) { <div role="alert">{{ errorMessage }}</div> }
       @if (loading) {
 <ui-loading-spinner></ui-loading-spinner>
 }
 
-      @if (!loading && summaries.length === 0) {
+      @if (!loading && !errorMessage && summaries.length === 0) {
 <div>
         <ui-empty-state
-          message="No audit data available."
+          title="No audit data available."
           icon="clipboard"
         ></ui-empty-state>
       </div>
@@ -60,8 +63,8 @@ import {
             <p class="text-2xl font-bold text-emerald-600">{{ totalCompleted }}</p>
           </div>
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-center">
-            <span class="text-xs text-slate-500 uppercase">Avg Score</span>
-            <p class="text-2xl font-bold text-brand-600">{{ overallAvgScore }}%</p>
+            <span class="text-xs text-slate-500 uppercase">Completed Avg Score</span>
+            <p class="text-2xl font-bold text-brand-600">{{ overallAvgScore === null ? '—' : overallAvgScore + '%' }}</p>
           </div>
         </div>
 
@@ -74,7 +77,8 @@ import {
                 <th class="px-6 py-3 text-center">Completed</th>
                 <th class="px-6 py-3 text-center">In Progress</th>
                 <th class="px-6 py-3 text-center">Scheduled</th>
-                <th class="px-6 py-3 text-center">Avg Score</th>
+                <th class="px-6 py-3 text-center">Cancelled</th>
+                <th class="px-6 py-3 text-center">Completed Avg Score</th>
               </tr>
             </thead>
             <tbody>
@@ -96,6 +100,7 @@ import {
                 <td class="px-6 py-3 text-center text-brand-600 font-medium">
                   {{ s.scheduled }}
                 </td>
+                <td class="px-6 py-3 text-center">{{ s.cancelled || 0 }}</td>
                 <td class="px-6 py-3 text-center font-bold">
                   {{
                     s.avg_score !== null && s.avg_score !== undefined
@@ -114,41 +119,39 @@ import {
   `,
 })
 export class CrmAuditMonitoringComponent implements OnInit, OnDestroy {
+  errorMessage = '';
   loading = true;
   summaries: any[] = [];
   totalAudits = 0;
   totalCompleted = 0;
-  overallAvgScore = 0;
+  overallAvgScore: number | null = null;
   private destroy$ = new Subject<void>();
+  private request?: import('rxjs').Subscription;
 
   constructor(
     private auditsService: AuditsService,
     private cdr: ChangeDetectorRef,
   ) {}
 
-  ngOnInit() {
-    this.auditsService
+  ngOnInit() { this.load(); }
+  load() {
+    this.request?.unsubscribe(); this.loading = true; this.errorMessage = ''; this.summaries = []; this.totalAudits = 0; this.totalCompleted = 0; this.overallAvgScore = null; this.cdr.markForCheck();
+    this.request = this.auditsService
       .crmGetAuditSummaries()
-      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .pipe(takeUntil(this.destroy$), catchError(() => { this.errorMessage = 'Unable to load audit summaries. Please refresh to retry.'; return of([]); }))
       .subscribe((data) => {
         this.summaries = data;
         this.totalAudits = data.reduce(
-          (sum: number, s: any) => sum + (s.total_audits || 0),
+          (sum: number, s: any) => sum + Number(s.total_audits || 0),
           0,
         );
         this.totalCompleted = data.reduce(
-          (sum: number, s: any) => sum + (s.completed || 0),
+          (sum: number, s: any) => sum + Number(s.completed || 0),
           0,
         );
-        const scores = data
-          .filter((s: any) => s.avg_score !== null && s.avg_score !== undefined)
-          .map((s: any) => s.avg_score);
-        this.overallAvgScore = scores.length
-          ? Math.round(
-              scores.reduce((a: number, b: number) => a + b, 0) /
-                  scores.length,
-            )
-          : 0;
+        const scored = data.reduce((n:number,s:any)=>n+Number(s.scored_audits||0),0);
+        const scoreTotal = data.reduce((n:number,s:any)=>n+Number(s.score_total||0),0);
+        this.overallAvgScore = scored ? Math.round(scoreTotal / scored * 10) / 10 : null;
         this.loading = false;
         this.cdr.markForCheck();
       });

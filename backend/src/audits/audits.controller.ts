@@ -1,8 +1,11 @@
+import { AuditorSummaryQueryDto } from '../auditor/dto/auditor-dashboard-query.dto';
 import {
   Body,
+  BadRequestException,
   Controller,
   Delete,
   ForbiddenException,
+  NotFoundException,
   Get,
   Param,
   Patch,
@@ -147,6 +150,34 @@ export class CrmAuditsController {
   }
 
   /** The audit's client must be assigned to this CRM; ADMIN sees all. */
+  @Get(':id/report/preview')
+  async previewReport(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    await this.assertCrmAudit(user, id);
+    const latest = await this.auditOutputEngine.getLatestReport(id);
+    if (
+      !latest ||
+      !['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(latest.status)
+    ) {
+      throw new BadRequestException(
+        'The auditor must finalize the report before CRM preview',
+      );
+    }
+    const report = await this.auditOutputEngine.generateReportVersion(id);
+    if (!report.pdfBuffer)
+      throw new NotFoundException('Audit report is unavailable');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="audit-report-${id}.pdf"`,
+    );
+    res.send(report.pdfBuffer);
+  }
+
   private async assertCrmAudit(user: ReqUser, id: string): Promise<void> {
     if (user.roleCode === 'ADMIN') return;
     await this.svc.getForCrm(user, id);
@@ -212,7 +243,7 @@ export class CrmAuditsController {
     return this.svc.approveReportForCrm(user, id, body?.remarks);
   }
 
-  @ApiOperation({ summary: 'Publish approved/submitted report (CRM)' })
+  @ApiOperation({ summary: 'Publish approved report (CRM)' })
   @Post(':id/report/publish')
   publishReport(
     @CurrentUser() user: ReqUser,
@@ -280,20 +311,29 @@ export class AuditorAuditsController {
   // ── Dashboard endpoints (static routes — must precede :id) ────
   @ApiOperation({ summary: 'Auditor dashboard summary cards' })
   @Get('dashboard/summary')
-  async dashboardSummary(@CurrentUser() user: ReqUser) {
-    return this.svc.getAuditorDashboardSummary(user);
+  async dashboardSummary(
+    @CurrentUser() user: ReqUser,
+    @Query() query: AuditorSummaryQueryDto,
+  ) {
+    return this.svc.getAuditorDashboardSummary(user, query);
   }
 
   @ApiOperation({ summary: 'Auditor upcoming audits' })
   @Get('dashboard/upcoming')
-  async dashboardUpcoming(@CurrentUser() user: ReqUser) {
-    return this.svc.getAuditorUpcomingAudits(user);
+  async dashboardUpcoming(
+    @CurrentUser() user: ReqUser,
+    @Query() query: AuditorSummaryQueryDto,
+  ) {
+    return this.svc.getAuditorUpcomingAudits(user, query);
   }
 
   @ApiOperation({ summary: 'Auditor recent submitted audits' })
   @Get('dashboard/recent-submitted')
-  async dashboardRecentSubmitted(@CurrentUser() user: ReqUser) {
-    return this.svc.getAuditorRecentSubmitted(user);
+  async dashboardRecentSubmitted(
+    @CurrentUser() user: ReqUser,
+    @Query() query: AuditorSummaryQueryDto,
+  ) {
+    return this.svc.getAuditorRecentSubmitted(user, query);
   }
 
   @ApiOperation({
@@ -540,8 +580,9 @@ export class AuditorAuditsController {
   async reopenAudit(
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { reason?: string },
   ) {
-    return this.svc.reopenAuditForReaudit(user, id);
+    return this.svc.reopenAuditForReaudit(user, id, body?.reason);
   }
 
   // ── Checklist endpoints ──────────────────────────────────────
@@ -612,7 +653,11 @@ export class AuditorAuditsController {
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.svc.getForAuditor(user, id);
+    const audit = await this.svc.getForAuditor(user, id);
+    if (['COMPLETED', 'CLOSED', 'CANCELLED'].includes(audit.status))
+      throw new ForbiddenException(
+        'Reopen the audit before recalculating its score',
+      );
     return this.svc.calculateScore(id);
   }
 
@@ -852,9 +897,10 @@ export class ClientAuditsController {
   @ApiOperation({ summary: 'List' })
   @Get()
   async list(@CurrentUser() user: ReqUser, @Query() q: AuditListQueryDto) {
-    const rows = await this.svc.listForClient(user, q);
+    let rows = await this.svc.listForClient(user, q);
     // Branch-scope: filter audits to contractors mapped to user's branches
     const branchIds = await this.branchAccess.getUserBranchIds(user.userId);
+    if (user.userType === 'BRANCH' && !branchIds.length) return [];
     if (branchIds.length > 0 && rows.length > 0) {
       // Get contractor IDs mapped to user's branches
       const mapped: { contractor_user_id: string }[] = await this.ds.query(
@@ -864,24 +910,49 @@ export class ClientAuditsController {
       const allowedContractors = new Set(
         mapped.map((r) => r.contractor_user_id),
       );
-      return rows.filter((a) => {
-        if (!a.contractorUserId) return true; // non-contractor audits visible to all
+      rows = rows.filter((a) => {
+        if (a.branchId) return branchIds.includes(a.branchId);
+        if (!a.contractorUserId) return true; // company-wide audits
         return allowedContractors.has(a.contractorUserId);
       });
     }
-    return rows;
+    if (!rows.length) return [];
+    const published = await this.ds.query(
+      `SELECT DISTINCT audit_id FROM audit_reports
+       WHERE audit_id = ANY($1::uuid[]) AND status = 'PUBLISHED'
+         AND held_at IS NULL AND report_type = 'CLIENT'`,
+      [rows.map((a) => a.id)],
+    );
+    const available = new Set(
+      published.map((r: { audit_id: string }) => r.audit_id),
+    );
+    return rows.map((a) => ({
+      ...a,
+      publishedReportAvailable: available.has(a.id),
+    }));
   }
 
   @ApiOperation({ summary: 'Summary' })
   @Get('summary')
-  summary(@CurrentUser() user: ReqUser) {
-    return this.svc.getSummaryForClient(user);
+  async summary(@CurrentUser() user: ReqUser) {
+    const rows = await this.list(user, {});
+    return {
+      total: rows.length,
+      completed: rows.filter((a) => ['COMPLETED', 'CLOSED'].includes(a.status))
+        .length,
+      inProgress: rows.filter((a) => a.status === 'IN_PROGRESS').length,
+      planned: rows.filter((a) => a.status === 'PLANNED').length,
+    };
   }
 
   @ApiOperation({ summary: 'Client Audit Summaries (per branch)' })
   @Get('summaries')
   async getClientSummaries(@CurrentUser() user: ReqUser) {
-    return this.auditOutputEngine.getClientAuditSummaries(user.clientId!);
+    const ids = await this.branchAccess.getUserBranchIds(user.userId);
+    return this.auditOutputEngine.getClientAuditSummaries(
+      user.clientId!,
+      user.userType === 'BRANCH' || ids.length ? ids : undefined,
+    );
   }
 
   @ApiOperation({ summary: 'Latest report for an audit' })
@@ -890,10 +961,37 @@ export class ClientAuditsController {
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    // By id alone this served any company's audit report to any CLIENT user.
+    await this.assertReportAccess(user, id);
+    return this.auditOutputEngine.getLatestReport(id, true);
+  }
+
+  @Get(':id/report/export')
+  async exportPublishedReport(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    await this.assertReportAccess(user, id);
+    const report = await this.auditOutputEngine.generateReportVersion(
+      id,
+      undefined,
+      true,
+    );
+    if (!report.pdfBuffer)
+      throw new NotFoundException('No published client report is available');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="audit-report-${id}.pdf"`,
+    );
+    res.send(report.pdfBuffer);
+  }
+
+  private async assertReportAccess(user: ReqUser, id: string): Promise<void> {
     if (user.roleCode !== 'ADMIN') {
       const [audit] = await this.ds.query(
-        `SELECT client_id AS "clientId", branch_id AS "branchId"
+        `SELECT client_id AS "clientId", branch_id AS "branchId", contractor_user_id AS "contractorUserId"
            FROM audits
           WHERE id = $1
           LIMIT 1`,
@@ -902,11 +1000,20 @@ export class ClientAuditsController {
       if (!audit || audit.clientId !== user.clientId) {
         throw new ForbiddenException('Audit not in client scope');
       }
-      if (audit.branchId) {
-        await this.branchAccess.assertBranchAccess(user.userId, audit.branchId);
+      const ids = await this.branchAccess.getUserBranchIds(user.userId);
+      if (user.userType === 'BRANCH' && !ids.length)
+        throw new ForbiddenException('No assigned branches');
+      if (audit.branchId && ids.length && !ids.includes(audit.branchId))
+        throw new ForbiddenException('Audit not in branch scope');
+      if (!audit.branchId && audit.contractorUserId && ids.length) {
+        const mapped = await this.ds.query(
+          'SELECT 1 FROM branch_contractor WHERE branch_id = ANY($1::uuid[]) AND contractor_user_id = $2 LIMIT 1',
+          [ids, audit.contractorUserId],
+        );
+        if (!mapped.length)
+          throw new ForbiddenException('Audit not in branch scope');
       }
     }
-    return this.auditOutputEngine.getLatestReport(id);
   }
 }
 

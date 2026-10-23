@@ -130,7 +130,7 @@ const reportService = (source) =>
   );
 async function reset() {
   await ds.query(
-    'TRUNCATE audits,audit_non_compliances,audit_resubmissions,audit_document_reviews,contractor_documents,audit_reports',
+    'TRUNCATE audits,audit_non_compliances,audit_resubmissions,audit_document_reviews,contractor_documents,audit_reports,audit_checklist_items,audit_item_reviews,audit_logs',
   );
   await auditRepo().save({
     id: auditId,
@@ -175,6 +175,10 @@ async function main() {
   );
   await ds.query(migration);
   await ds.query(migration);
+  await ds.query(`CREATE TABLE audit_checklist_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),audit_id uuid,linked_doc_id uuid,linked_doc_table text,status text,remarks text,automated_remarks text,automation_reviewed boolean DEFAULT false,evidence_revision int DEFAULT 0,reviewed_by uuid,reviewed_at timestamptz,updated_at timestamptz);
+    CREATE TABLE audit_item_reviews(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),item_id uuid);
+    CREATE TABLE users(id uuid PRIMARY KEY,name text);
+    CREATE TABLE audit_logs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),entity_type text,entity_id uuid,action text,performed_by uuid,snapshot jsonb,created_at timestamptz DEFAULT now());`);
 
   await test('missing upload cannot close an NC or audit', async () => {
     await assert.rejects(
@@ -198,6 +202,22 @@ async function main() {
       'REVERIFICATION_PENDING',
     );
   });
+  await test('legacy corrections preserve fieldwork decisions and refresh only legacy checkpoints', async () => {
+    const legacy = randomUUID(), uploaded = randomUUID(), reviewed = randomUUID();
+    for (const [id, revision] of [[legacy, 0], [uploaded, 1], [reviewed, 0]]) {
+      await ds.query(`INSERT INTO audit_checklist_items(id,audit_id,linked_doc_id,linked_doc_table,status,remarks,evidence_revision)
+        VALUES($1,$2,$3,'contractor_documents','NON_COMPLIED','Auditor site finding',$4)`, [id,auditId,documentId,revision]);
+    }
+    await ds.query('INSERT INTO audit_item_reviews(item_id) VALUES($1)',[reviewed]);
+    await nc.uploadCorrectedFile(vendor, ncId, file);
+    await nc.reviewCorrectedDocument(auditor, ncId, 'COMPLIED');
+    const rows = await ds.query('SELECT * FROM audit_checklist_items');
+    assert.equal(rows.find(r=>r.id===legacy).status,'COMPLIED');
+    for(const id of [uploaded,reviewed]) {
+      assert.equal(rows.find(r=>r.id===id).status,'NON_COMPLIED');
+      assert.equal(rows.find(r=>r.id===id).remarks,'Auditor site finding');
+    }
+  });
   await test('simultaneous reviews cannot double-review the same upload', async () => {
     await nc.uploadCorrectedFile(vendor, ncId, file);
     const results = await Promise.allSettled([
@@ -208,10 +228,10 @@ async function main() {
     assert.equal(await ds.getRepository(AuditDocumentReviewEntity).count(), 1);
     assert.equal(
       (await auditRepo().findOneBy({ id: auditId })).status,
-      'CLOSED',
+      'IN_PROGRESS',
     );
   });
-  await test('simultaneous acceptance of the last two NCs closes the parent audit', async () => {
+  await test('simultaneous acceptance of the last two NCs returns to fieldwork without closing the audit', async () => {
     const second = randomUUID();
     await ncRepo().save({
       id: second,
@@ -227,7 +247,7 @@ async function main() {
     ]);
     assert.equal(
       (await auditRepo().findOneBy({ id: auditId })).status,
-      'CLOSED',
+      'IN_PROGRESS',
     );
     assert.equal(await ncRepo().countBy({ status: 'ACCEPTED' }), 2);
   });
@@ -293,6 +313,7 @@ async function main() {
     }
   });
   await test('report hold survives reload and must be released before publishing', async () => {
+    await auditRepo().update(auditId, {status:'SUBMITTED'});
     await ds.query(
       "INSERT INTO audit_reports(audit_id,status) VALUES($1,'SUBMITTED')",
       [auditId],
@@ -313,6 +334,7 @@ async function main() {
     );
   });
   await test('a hold placed after approval reads is detected with real TypeORM SQL results', async () => {
+    await auditRepo().update(auditId, {status:'SUBMITTED'});
     await ds.query(
       "INSERT INTO audit_reports(audit_id,status) VALUES($1,'SUBMITTED')",
       [auditId],

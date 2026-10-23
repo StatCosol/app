@@ -1,3 +1,4 @@
+import { AuditFilePreviewComponent, AuditFilePreview } from '../../../shared/files/components/audit-file-preview.component';
 import { UnitRegistrationFieldsComponent, emptyRegistration, appendRegistration, registrationUploadError } from '../../../shared/components/unit-registration-fields.component';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
@@ -51,7 +52,7 @@ type ScopeFilter = '' | CrmDocumentScope;
 @Component({
   standalone: true,
   selector: 'app-crm-unit-documents',
-  imports: [UnitRegistrationFieldsComponent, IconComponent,
+  imports: [AuditFilePreviewComponent, UnitRegistrationFieldsComponent, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -67,7 +68,7 @@ type ScopeFilter = '' | CrmDocumentScope;
     </ui-page-header>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div class="flex flex-wrap items-end gap-3">
+        <div class="flex flex-wrap items-end gap-3 aligned-filter-controls">
           @if (branches.length > 1) {
           <label class="text-sm">Unit
             <select id="crm-ud-branch" name="branchId" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()" [disabled]="filters.scope === 'COMPANY'" class="form-select rounded-lg border-gray-300 text-sm">
@@ -300,12 +301,14 @@ type ScopeFilter = '' | CrmDocumentScope;
       </div>
 }
     </div>
+    @if (documentPreview) { <app-audit-file-preview [request]="documentPreview" (closed)="documentPreview = null" /> }
   `,
   styles: [`
     :host { display: block; }
   `],
 })
 export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
+  documentPreview: AuditFilePreview | null = null;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   private readonly destroy$ = new Subject<void>();
@@ -517,8 +520,7 @@ export class CrmUnitDocumentsComponent implements OnInit, OnDestroy {
   }
 
   viewDoc(doc: CrmUnitDocument): void {
-    this.protectedFiles.open(this.api.downloadUrl(doc.id, 'crm'), doc.fileName)
-      .pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to view document.') });
+    this.documentPreview = { url: this.api.downloadUrl(doc.id, 'crm'), name: doc.fileName };
   }
 
   async deleteDoc(doc: CrmUnitDocument): Promise<void> {

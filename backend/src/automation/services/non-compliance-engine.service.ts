@@ -140,7 +140,8 @@ export class NonComplianceEngineService {
       // All NCs closed — find + close linked schedule
       const schedRows = await (manager ?? this.dataSource).query(
         `SELECT id FROM audit_schedules
-         WHERE id = (SELECT schedule_id FROM audits WHERE id = $1 AND schedule_id IS NOT NULL)
+         WHERE id = (SELECT schedule_id FROM audits WHERE id = $1 AND schedule_id IS NOT NULL
+           AND status IN ('COMPLETED', 'CLOSED'))
            AND status NOT IN ('COMPLETED', 'CANCELLED')
          LIMIT 1`,
         [auditId],

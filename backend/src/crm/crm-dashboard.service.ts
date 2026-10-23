@@ -230,6 +230,9 @@ export class CrmDashboardService {
         `SELECT
            cd.id,
            cd.doc_type       AS "docType",
+             cd.doc_type       AS "documentType",
+             cd.created_at     AS "requestedOn",
+             GREATEST(0, CURRENT_DATE - cd.created_at::date)::int AS "pendingDays",
            cd.doc_month      AS "docMonth",
            cd.status,
            cd.created_at     AS "uploadedAt",

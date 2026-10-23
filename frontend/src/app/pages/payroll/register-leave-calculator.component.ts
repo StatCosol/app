@@ -98,10 +98,10 @@ import { environment } from '../../../environments/environment';
     </div>
     <button
       type="button"
-      class="compact-action underline my-3"
+      class="standard-action underline my-3"
       (click)="calculate()"
       [disabled]="busy || !rows.length"
-     title="Calculate and validate balances" aria-label="Calculate and validate balances" data-action-label="Calculate and validate balances" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+     title="Calculate and validate balances" aria-label="Calculate and validate balances" data-action-label="Calculate and validate balances" data-action-icon="calculator"><ui-icon name="calculator" [size]="20" /><span>Calculate and validate balances</span></button>
     @if (result) {
       <p>
         Statutory earned minimum: {{ result.minimumEarnedFraction }} days. Awarded:

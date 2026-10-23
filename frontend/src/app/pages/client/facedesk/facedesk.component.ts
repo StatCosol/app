@@ -152,7 +152,7 @@ type Tab =
       <!-- DEVICES -->
       @if (tab === 'devices') {
 
-        <div class="flex flex-wrap items-end gap-2 mb-4">
+        <div class="flex flex-wrap items-end gap-2 mb-4 aligned-filter-controls">
           <label class="text-sm">Device name<input [(ngModel)]="newDevice.deviceName" class="inp" placeholder="e.g. Main Gate Tablet"></label>
           <label class="text-sm">Branch
             <select [(ngModel)]="newDevice.branchId" class="inp">
@@ -315,7 +315,7 @@ type Tab =
               @if (internOnly) {
                 <select class="inp" [(ngModel)]="pinCode" aria-label="Enrolled intern for PIN"><option value="">Select enrolled intern</option>@for (person of enrolled; track person.employeeId) { <option [value]="person.employeeCode">{{ person.name || person.employeeName }} · {{ person.employeeCode }}</option> }</select>
               } @else { <input class="inp" placeholder="Employee code" [(ngModel)]="pinCode"> }
-              <button class="compact-action btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()" title="Generate PIN" aria-label="Generate PIN" data-action-label="Generate PIN" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+              <button class="standard-action btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()" title="Generate PIN" aria-label="Generate PIN" data-action-label="Generate PIN" data-action-icon="key"><ui-icon name="key" [size]="20" /><span class="compact-action-label">
                 {{ pinBusy ? 'Generating…' : 'Generate PIN' }}
               </span></button>
             </div>
@@ -487,7 +487,7 @@ type Tab =
       <!-- REPORTS -->
       @if (tab === 'reports') {
 
-        <div class="flex flex-wrap items-end gap-2 mb-3">
+        <div class="flex flex-wrap items-end gap-2 mb-3 aligned-filter-controls">
           <label class="text-sm">From <input type="date" [(ngModel)]="from" class="inp"></label>
           <label class="text-sm">To <input type="date" [(ngModel)]="to" class="inp"></label>
           <select [(ngModel)]="reportKind" class="inp">
@@ -505,7 +505,7 @@ type Tab =
             <option value="device-sync">Device sync</option>
             <option value="payroll-export">Payroll export</option>
           </select>
-          <button class="compact-action btn" (click)="runReport()" title="Run" aria-label="Run" data-action-label="Run" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+          <button class="standard-action btn" (click)="runReport()" title="Run" aria-label="Run" data-action-label="Run" data-action-icon="play"><ui-icon name="play" [size]="20" /><span>Run</span></button>
           <button class="btn primary" (click)="syncPayroll()">Sync to Payroll</button>
         </div>
         <div class="correction-box mb-4">
@@ -619,7 +619,7 @@ type Tab =
               <p class="text-xs text-gray-500">Enter an enrolled employee's code and generate a PIN. The PIN is shown once — note it and hand it to the employee.</p>
               <div class="pin-row">
                 <input class="inp" placeholder="Employee code" [(ngModel)]="pinCode">
-                <button class="compact-action btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()" title="Generate PIN" aria-label="Generate PIN" data-action-label="Generate PIN" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+                <button class="standard-action btn primary" [disabled]="!pinCode || pinBusy" (click)="generatePin()" title="Generate PIN" aria-label="Generate PIN" data-action-label="Generate PIN" data-action-icon="key"><ui-icon name="key" [size]="20" /><span class="compact-action-label">
                   {{ pinBusy ? 'Generating…' : 'Generate PIN' }}
                 </span></button>
               </div>

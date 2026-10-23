@@ -1,3 +1,4 @@
+import { ResponsiveNavigationDirective } from '../../../shared/directives/responsive-navigation.directive';
 import { FormsModule } from '@angular/forms';
 import { filterNavigation } from '../../../shared/navigation/navigation-filter';
 import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
@@ -22,13 +23,13 @@ interface SidebarItem {
 @Component({
   selector: 'app-auditor-sidebar',
   standalone: true,
-  imports: [RouterModule, FormsModule],
+  imports: [ResponsiveNavigationDirective, RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
     @if (mobileOpen) {
 <div
-     
-      class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+
+      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
 }
@@ -37,6 +38,7 @@ interface SidebarItem {
     <aside
       [class]="sidebarClasses"
       [class.mobile-open]="mobileOpen"
+      [uiResponsiveNavigation]="mobileOpen" (navigationDismiss)="mobileOpen = false; mobileOpenChange.emit(false)"
     >
       <!-- Brand area -->
       @if (!collapsed) {
@@ -66,7 +68,7 @@ interface SidebarItem {
 
       <!-- Mobile close button -->
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
-        <button
+        <button type="button" aria-label="Close navigation"
           (click)="mobileOpen = false; mobileOpenChange.emit(false)"
           class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors"
         >
@@ -83,7 +85,7 @@ interface SidebarItem {
           <div class="collapsed-menu">
             @for (link of collapsedLinks; track link) {
 <a
-             
+
               [routerLink]="link.route"
               routerLinkActive="collapsed-active"
               [routerLinkActiveOptions]="{ exact: true }"
@@ -95,7 +97,7 @@ interface SidebarItem {
             </a>
 }
           </div>
-        
+
 } @else {
 
           <label class="block px-3 py-2 text-sm text-white">Find a menu
@@ -104,9 +106,9 @@ interface SidebarItem {
           @if (!filteredNavGroups.length) { <p class="px-3 text-sm text-white">No matching menus.</p> }
           @for (group of filteredNavGroups; track group.label) {
 <div
-           
+
           >
-            <div
+            <button type="button" [attr.aria-expanded]="group.expanded"
               class="sidebar-section"
               [class.active]="group.expanded"
               (click)="toggleGroup(group)"
@@ -115,11 +117,11 @@ interface SidebarItem {
               <svg class="chevron" [class.open]="group.expanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
               </svg>
-            </div>
+            </button>
             <div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
               @for (item of group.items; track item) {
 <a
-               
+
                 [routerLink]="item.route"
                 routerLinkActive="sidebar-active"
                 [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
@@ -133,10 +135,10 @@ interface SidebarItem {
             </div>
           </div>
 }
-        
+
 }
 
-        
+
       </nav>
 
       <!-- Version footer -->
@@ -334,8 +336,9 @@ interface SidebarItem {
 
     .sidebar-label {
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      text-overflow: clip;
+      white-space: normal;
+      line-height: 1.4;
     }
 
     .sidebar-submenu {
@@ -504,9 +507,9 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
       { label: 'Dashboard', route: '/auditor/dashboard', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
 
       { label: 'My Work', route: '/auditor/my-work', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
-      { label: 'Conduct Audit', route: '/auditor/conduct-audit', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
+      { label: 'Select Audit Scope', route: '/auditor/conduct-audit', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
       { label: 'Assigned Audits', route: '/auditor/audits', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
-      { label: 'Contractor Payroll', route: '/auditor/contractor-payroll', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-6h2a2 2 0 012 2v4a2 2 0 01-2 2h-2') },
+      { label: 'Contractor Payment Check', route: '/auditor/contractor-payroll', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-6h2a2 2 0 012 2v4a2 2 0 01-2 2h-2') },
       { label: 'Corrections & Verification', route: '/auditor/observations', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
       { label: 'Reports', route: '/auditor/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
       { label: 'Notifications', route: '/auditor/notifications', icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
@@ -526,12 +529,12 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
         ],
       },
       {
-        label: 'AuditXpert',
+        label: 'Audit Work',
         expanded: false,
         items: [
-          { label: 'Conduct Audit', route: '/auditor/conduct-audit', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
+          { label: 'Select Audit Scope', route: '/auditor/conduct-audit', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Assigned Audits', route: '/auditor/audits', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
-          { label: 'Contractor Payroll', route: '/auditor/contractor-payroll', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-6h2a2 2 0 012 2v4a2 2 0 01-2 2h-2') },
+          { label: 'Contractor Payment Check', route: '/auditor/contractor-payroll', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-6h2a2 2 0 012 2v4a2 2 0 01-2 2h-2') },
           { label: 'Corrections & Verification', route: '/auditor/observations', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
           { label: 'Overdue NCs', route: '/auditor/analytics/overdue-ncs', icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
           { label: 'Reports', route: '/auditor/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },

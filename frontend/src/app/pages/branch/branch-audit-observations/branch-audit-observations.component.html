@@ -100,7 +100,7 @@
           <tbody>
             @for (obs of filteredObservations; track trackObservation($index, obs)) {
 <tr
-             
+
               [class.selected]="selectedObservation?.id === obs.id"
               (click)="selectObservation(obs)"
             >
@@ -193,7 +193,8 @@
               <option value="OPEN">OPEN</option>
               <option value="IN_PROGRESS">IN_PROGRESS</option>
               <option value="READY_FOR_VERIFICATION">READY_FOR_VERIFICATION</option>
-              <option value="CLOSED">CLOSED</option>
+              <option value="CLOSED" disabled>Closed by reviewer</option>
+
             </select>
           </label>
           <div class="capa-status-row">
@@ -202,7 +203,6 @@
               <button type="button" [class.active]="isCapaStatus('OPEN')" (click)="setCapaStatus('OPEN')" class="compact-action" title="OPEN" aria-label="OPEN" data-action-label="OPEN" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
               <button type="button" [class.active]="isCapaStatus('IN_PROGRESS')" (click)="setCapaStatus('IN_PROGRESS')">IN_PROGRESS</button>
               <button type="button" [class.active]="isCapaStatus('READY_FOR_VERIFICATION')" (click)="setCapaStatus('READY_FOR_VERIFICATION')">READY_FOR_VERIFICATION</button>
-              <button type="button" [class.active]="isCapaStatus('CLOSED')" (click)="setCapaStatus('CLOSED')">CLOSED</button>
             </div>
           </div>
           <label>
@@ -288,7 +288,7 @@
 } @else {
 <div class="empty-mini">No closure cases yet for this observation.</div>
 }
-        
+
       </article>
 
       <article class="card">

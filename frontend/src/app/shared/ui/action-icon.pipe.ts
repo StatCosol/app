@@ -10,7 +10,15 @@ export function actionIconName(label: unknown): IconName {
   if (/^(delete|remove)/.test(text)) return 'trash';
   if (/^(edit|update|revise)/.test(text)) return 'pencil';
   if (/^(add|new|create|register)/.test(text)) return 'plus';
-  if (/^(refresh|load|retry|reload|run|generate|recompute|recalculate)/.test(text)) return 'refresh';
+  if (/^(refresh|retry|reload)/.test(text)) return 'refresh';
+  if (/^(calculate|recompute|recalculate)/.test(text) || /^run.*accrual/.test(text)) return 'calculator';
+  if (/^generate.*(pin|password)/.test(text)) return 'key';
+  if (/^generate/.test(text)) return 'document-plus';
+  if (/^run.*preview/.test(text)) return 'eye';
+  if (/^run/.test(text)) return 'play';
+  if (/^load.*checklist/.test(text)) return 'clipboard-check';
+  if (/^load more/.test(text)) return 'chevron-down';
+  if (/^load/.test(text)) return 'folder-open';
   if (/^(send|resend|remind|notify)/.test(text)) return 'send';
   if (/^(search|apply)/.test(text)) return 'search';
   if (/^(reset|clear|revert|restore|reopen|re-open)/.test(text)) return 'undo';

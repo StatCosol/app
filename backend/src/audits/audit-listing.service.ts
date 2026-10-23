@@ -83,6 +83,7 @@ export class AuditListingService {
     const qb = this.repo
       .createQueryBuilder('a')
       .leftJoinAndSelect('a.client', 'client')
+      .leftJoinAndSelect('a.branch', 'branch')
       .leftJoinAndSelect('a.contractorUser', 'contractor')
       .leftJoinAndSelect('a.assignedAuditor', 'auditor')
       .where('a.clientId IN (:...clientIds)', { clientIds });
@@ -113,14 +114,34 @@ export class AuditListingService {
       .take(pageSize)
       .getManyAndCount();
 
-    return { data: rows, page, pageSize, total };
+    const reports = rows.length
+      ? await this.dataSource.query(
+          `SELECT DISTINCT ON (audit_id) audit_id, status, held_at FROM audit_reports
+       WHERE audit_id = ANY($1::uuid[]) ORDER BY audit_id, updated_at DESC, created_at DESC`,
+          [rows.map((a) => a.id)],
+        )
+      : [];
+    const latest = new Map(reports.map((r: any) => [r.audit_id, r]));
+    return {
+      data: rows.map((a) => {
+        const r = latest.get(a.id) as any;
+        return {
+          ...a,
+          reportStatus: r?.status || null,
+          reportHeld: !!r?.held_at,
+        };
+      }),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async getForCrm(user: ReqUser, id: string) {
     this.assertCrm(user);
     const audit = await this.repo.findOne({
       where: { id },
-      relations: ['client', 'contractorUser', 'assignedAuditor'],
+      relations: ['client', 'branch', 'contractorUser', 'assignedAuditor'],
     });
     if (!audit) throw new NotFoundException('Audit not found');
 
@@ -199,9 +220,14 @@ export class AuditListingService {
         .getCount(),
     ]);
 
-    const executionStarted = ['IN_PROGRESS', 'COMPLETED'].includes(
-      String(audit.status || '').toUpperCase(),
-    );
+    const executionStarted = [
+      'IN_PROGRESS',
+      'SUBMITTED',
+      'CORRECTION_PENDING',
+      'REVERIFICATION_PENDING',
+      'COMPLETED',
+      'CLOSED',
+    ].includes(String(audit.status || '').toUpperCase());
     const checklist = [
       {
         key: 'client_scope_linked',

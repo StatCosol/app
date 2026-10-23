@@ -1,0 +1,37 @@
+/* Scope these refinements to the seven reviewed portals. */
+:is(app-client-layout, app-branch-layout, app-crm-layout, app-auditor-layout,
+    app-contractor-layout, app-payroll-layout, app-cco-layout) {
+  .portal-nav-toggle { display: none; }
+  .sidebar-panel { transition-property: transform, width; }
+  .sidebar-section { width: 100%; text-align: left; font: inherit; }
+  @media (max-width: 1023.98px) {
+    .portal-nav-toggle {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; flex: 0 0 44px; border-radius: 10px;
+      color: white; background: #163f32; border: 0; padding: 0;
+    }
+    .portal-nav-toggle svg { width: 24px; height: 24px; flex: 0 0 24px; }
+    .portal-nav-toggle + app-statco-wordmark { flex: 0 0 132px; }
+    .portal-nav-toggle + app-statco-wordmark img { width: 132px; height: 42px; }
+    .portal-module-search { flex: 0 0 44px; max-width: 44px; margin: 0; }
+    .portal-module-search > div { padding: 0; }
+    .portal-module-search button { width: 44px; height: 44px; padding: 0; }
+    .portal-module-search .module-search-label { display: none; }
+    .sidebar-panel:not(.mobile-open) { visibility: hidden; pointer-events: none; }
+    .sidebar-panel.mobile-open { visibility: visible; max-width: calc(100vw - 48px); }
+    .sidebar-panel .sidebar-toggle { display: none !important; }
+    .sidebar-panel [aria-label="Close navigation"] { min-width: 44px; min-height: 44px; }
+    .sidebar-panel :is(.sidebar-item, .sidebar-section, .collapsed-icon) { min-height: 44px; }
+    .sidebar-panel .sidebar-label { white-space: normal; overflow: visible; text-overflow: clip; }
+    .sidebar-nav { min-height: 0; overscroll-behavior: contain; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .sidebar-overlay { touch-action: none; }
+    header :is(button, a[role="button"]) { min-height: 44px; min-width: 44px; }
+  }
+}
+
+/* Keep payroll identifiers and monetary values intact; the existing table wrapper scrolls. */
+app-crm-payroll-status .payroll-runs-table {
+  min-width: 700px;
+  th, td:not(:first-child) { white-space: nowrap; }
+  td:first-child { min-width: 180px; }
+}

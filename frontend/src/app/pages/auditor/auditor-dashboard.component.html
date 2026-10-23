@@ -8,7 +8,7 @@
     @if (errorMsg) {
 <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
       <span>{{ errorMsg }}</span>
-      <button type="button" (click)="errorMsg = null; loadAllData()" class="compact-action text-red-800 font-semibold hover:underline ml-4" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+      <button type="button" (click)="errorMsg = null; loadAllData()" class="standard-action text-red-800 font-semibold hover:underline ml-4" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> <span>Retry</span></button>
     </div>
 }
 
@@ -17,7 +17,7 @@
       description="See what needs attention first, continue active audits, and return to corrections without hunting through multiple screens."
       icon="clipboard-check">
     </ui-page-header>
-  <div class="mb-4"><ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']" icon="eye" [iconOnly]="true" label="Conduct Audit">Conduct Audit</ui-button></div>
+  <div class="mb-4"><ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']" icon="eye" [iconOnly]="false" label="Conduct Audit">Conduct Audit</ui-button></div>
 
     <div class="card dashboard-priority mb-6">
       <div>
@@ -27,7 +27,7 @@
       </div>
       <div class="dashboard-priority__actions">
         <div class="dashboard-priority__meta">{{ totalUrgentItems }} active work item(s)</div>
-        <ui-button variant="primary" (clicked)="openPriorityAction()" icon="eye" [iconOnly]="true" label="Open Priority Queue">Open Priority Queue</ui-button>
+        <ui-button variant="primary" (clicked)="openPriorityAction()" icon="eye" [iconOnly]="false" label="Open Priority Queue">Open Priority Queue</ui-button>
       </div>
     </div>
 
@@ -57,12 +57,13 @@
           [(ngModel)]="selectedQuickAuditId"
           [options]="quickAuditOptions">
         </ui-form-select>
-        <div class="attached-actions"><ui-button variant="primary" [disabled]="!selectedQuickAuditId" (clicked)="startSelectedAudit()" icon="eye" [iconOnly]="true" label="Start / Continue Audit →">
+        <div class="attached-actions"><ui-button variant="primary" [disabled]="!selectedQuickAuditId" (clicked)="startSelectedAudit()" icon="eye" [iconOnly]="false" label="Start / Continue Audit →">
           Start / Continue Audit →
         </ui-button></div>
       </div>
     </div>
 
+    <app-audit-context [audit]="selectedQuickAudit" />
     <div class="card mb-6">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -84,21 +85,21 @@
           [options]="auditTypeOptions">
         </ui-form-select>
         <ui-form-input
-          label="From"
-          type="text"
+          label="Due from"
+          type="date"
           [(ngModel)]="filter.fromDate"
           placeholder="YYYY-MM-DD">
         </ui-form-input>
         <div class="field-action-group">
         <ui-form-input class="action-field"
-          label="To"
-          type="text"
+          label="Due to"
+          type="date"
           [(ngModel)]="filter.toDate"
           placeholder="YYYY-MM-DD">
         </ui-form-input>
         <div class="attached-actions">
-          <ui-button variant="primary" (clicked)="applyFilters()" [fullWidth]="true" icon="search" [iconOnly]="true" label="Apply">Apply</ui-button>
-          <ui-button variant="secondary" (clicked)="resetFilters()" icon="undo" [iconOnly]="true" label="Reset">Reset</ui-button>
+          <ui-button variant="primary" (clicked)="applyFilters()" icon="search" [iconOnly]="false" label="Apply">Apply</ui-button>
+          <ui-button variant="secondary" (clicked)="resetFilters()" icon="undo" [iconOnly]="false" label="Reset">Reset</ui-button>
         </div>
         </div>
       </div>
@@ -142,6 +143,10 @@
       </ui-kpi-tile>
     </div>
 
+    <div class="flex gap-4 flex-wrap mb-6 text-sm">
+      <button class="standard-action" (click)="openStatusQueue('CORRECTION_PENDING')">Waiting for stakeholder corrections: {{ summary.correctionPending }}</button>
+      <button class="standard-action" (click)="openStatusQueue('COMPLETED')">Completed / pending submission: {{ summary.completed }}</button>
+    </div>
     <div class="card mb-6">
       <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div>
@@ -187,43 +192,29 @@
         </ng-template>
 
         <ng-template uiTableCell="branchName" let-row>
-          {{ row.branchName }}
+          {{ auditContext(row).branch }}
         </ng-template>
 
         <ng-template uiTableCell="auditName" let-row>
-          <div class="font-medium text-gray-900">{{ row.auditName }}</div>
+          <div class="font-medium text-gray-900">{{ auditContext(row).type }} · {{ auditContext(row).period }}<div class="text-xs">{{ auditContext(row).code }} · {{ auditContext(row).contractor }}</div></div>
           <div class="mt-1 text-xs text-gray-500">{{ getAuditHint(row) }}</div>
         </ng-template>
 
         <ng-template uiTableCell="dueDate" let-row>
-          {{ row.dueDate }}
+          {{ row.dueDate | date:'mediumDate' }}
         </ng-template>
 
         <ng-template uiTableCell="status" let-row>
           <ui-status-badge [status]="formatStatus(row.status)"></ui-status-badge>
         </ng-template>
 
-        <ng-template uiTableCell="progressPct" let-row>
-          <div class="flex items-center justify-center gap-2">
-            <div class="w-24 bg-gray-200 rounded-full h-2">
-              <div
-                class="h-2 rounded-full"
-                [ngClass]="{
-                  'bg-brand-500': row.progressPct < 100,
-                  'bg-green-500': row.progressPct === 100
-                }"
-                [style.width.%]="row.progressPct">
-              </div>
-            </div>
-            <span class="text-sm text-gray-600">{{ row.progressPct }}%</span>
-          </div>
-        </ng-template>
+        <ng-template uiTableCell="score" let-row><span>{{ row.score !== null && row.score !== undefined ? row.score + '%' : 'Not scored' }}</span></ng-template>
 
         <ng-template uiTableCell="actions" let-row>
           <ui-button
             variant="primary"
             size="sm"
-            (clicked)="openAudit(row)" [icon]="getAuditActionLabel(row) | actionIcon" [iconOnly]="true" [label]="getAuditActionLabel(row)">
+            (clicked)="openAudit(row)" [icon]="getAuditActionLabel(row) | actionIcon" [iconOnly]="false" [label]="getAuditActionLabel(row)">
             {{ getAuditActionLabel(row) }}
           </ui-button>
         </ng-template>
@@ -267,13 +258,13 @@
               @for (a of upcomingAudits; track a) {
 <tr>
                 <td class="px-4 py-2 text-sm">{{ a.clientName }}</td>
-                <td class="px-4 py-2 text-sm">{{ a.branchName }}</td>
-                <td class="px-4 py-2 text-sm">{{ a.contractorName || '-' }}</td>
+                <td class="px-4 py-2 text-sm">{{ auditContext(a).branch }}</td>
+                <td class="px-4 py-2 text-sm">{{ auditContext(a).contractor }}</td>
                 <td class="px-4 py-2 text-sm">{{ formatAuditType(a.auditType) }}</td>
                 <td class="px-4 py-2 text-sm">{{ a.periodCode }}</td>
                 <td class="px-4 py-2 text-center"><ui-status-badge [status]="formatStatus(a.status)"></ui-status-badge></td>
                 <td class="px-4 py-2 text-center">
-                  <ui-button variant="primary" size="sm" (clicked)="openAudit({ auditId: a.id })" icon="eye" [iconOnly]="true" label="Open">Open</ui-button>
+                  <ui-button variant="primary" size="sm" (clicked)="openAudit({ auditId: a.id })" icon="eye" [iconOnly]="false" label="Open">Open</ui-button>
                 </td>
               </tr>
 }
@@ -317,7 +308,7 @@
               @for (a of recentSubmitted; track a) {
 <tr>
                 <td class="px-4 py-2 text-sm">{{ a.clientName }}</td>
-                <td class="px-4 py-2 text-sm">{{ a.branchName }}</td>
+                <td class="px-4 py-2 text-sm">{{ auditContext(a).branch }}</td>
                 <td class="px-4 py-2 text-sm">{{ formatAuditType(a.auditType) }}</td>
                 <td class="px-4 py-2 text-sm">{{ a.periodCode }}</td>
                 <td class="px-4 py-2 text-sm font-medium">{{ a.score !== null && a.score !== undefined ? a.score + '%' : '-' }}</td>
@@ -360,7 +351,7 @@
           </ng-template>
 
           <ng-template uiTableCell="branchName" let-row>
-            {{ row.branchName }}
+            {{ auditContext(row).branch }}
           </ng-template>
 
           <ng-template uiTableCell="title" let-row>
@@ -394,9 +385,9 @@
 
           <ng-template uiTableCell="actions" let-row>
             <div class="flex flex-col gap-1.5 w-24">
-              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="followUpObservation(row)" icon="undo" [iconOnly]="true" label="Follow-up">Follow-up</ui-button>
-              <ui-button variant="primary" size="sm" [fullWidth]="true" (clicked)="updateObservation(row)" icon="pencil" [iconOnly]="true" label="Update">Update</ui-button>
-              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="closeObservation(row)" icon="eye" [iconOnly]="true" label="Review closure">Review closure</ui-button>
+              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="followUpObservation(row)" icon="undo" [iconOnly]="false" label="Follow-up">Follow-up</ui-button>
+              <ui-button variant="primary" size="sm" [fullWidth]="true" (clicked)="updateObservation(row)" icon="pencil" [iconOnly]="false" label="Update">Update</ui-button>
+              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="closeObservation(row)" icon="eye" [iconOnly]="false" label="Review closure">Review closure</ui-button>
             </div>
           </ng-template>
         </ui-data-table>
@@ -431,7 +422,7 @@
           </ng-template>
 
           <ng-template uiTableCell="branchName" let-row>
-            {{ row.branchName }}
+            {{ auditContext(row).branch }}
           </ng-template>
 
           <ng-template uiTableCell="evidenceName" let-row>
@@ -460,7 +451,7 @@
 
           <ng-template uiTableCell="actions" let-row>
             <div class="flex gap-2 justify-center flex-wrap">
-              <ui-button variant="secondary" size="sm" (clicked)="remindEvidence(row)" icon="send" [iconOnly]="true" label="Remind">Remind</ui-button>
+              <ui-button variant="secondary" size="sm" (clicked)="remindEvidence(row)" icon="send" [iconOnly]="false" label="Remind">Remind</ui-button>
               <ui-button variant="secondary" size="sm" (clicked)="markNotRequired(row)">Not Required</ui-button>
             </div>
           </ng-template>
@@ -480,7 +471,7 @@
     <div class="card mb-6">
       <div class="flex items-start justify-between gap-4 mb-4">
         <div>
-          <h3 class="card-title mb-1">Recent Activity</h3>
+          <h3 class="card-title mb-1">Recent Activity · all assigned work</h3>
           <p class="text-sm text-gray-600">A quick timeline of the latest changes across your audit work.</p>
         </div>
         <div class="text-sm text-gray-500">{{ recentActivities.length }} event(s)</div>

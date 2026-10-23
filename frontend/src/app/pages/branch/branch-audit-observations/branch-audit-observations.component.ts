@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, forkJoin, of } from 'rxjs';
+import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { AuthService } from '../../../core/auth.service';
@@ -95,6 +95,7 @@ interface ClosureDraft {
 })
 export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private messagesRequest?: Subscription;
 
   loading = true;
   saving = false;
@@ -167,7 +168,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   }
 
   get readyForVerificationCount(): number {
-    return this.cases.filter((c) => c.capaStatus === 'READY_FOR_VERIFICATION').length;
+    return this.cases.filter((c) => ['READY_FOR_VERIFICATION','CLOSED'].includes(c.capaStatus) && !['CLOSED','RESOLVED'].includes(c.status)).length;
   }
 
   get overdueCount(): number {
@@ -181,24 +182,24 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
 
   get activeCase(): ClosureCase | null {
     if (!this.selectedCases.length) return null;
-    return this.selectedCases[0];
+    return this.selectedCases.find(c => !['CLOSED','RESOLVED'].includes(c.status)) || null;
   }
 
   get auditorVerificationLabel(): string {
-    const c = this.activeCase;
+    if (this.selectedObservation?.status === 'CLOSED') return 'Closed';
+    const c = this.activeCase || this.selectedCases[0];
     if (!c) return 'Not submitted';
-    if (c.status === 'CLOSED' || c.capaStatus === 'CLOSED') return 'Closed';
-    if (c.status === 'RESOLVED') return 'Verified by reviewer';
-    if (c.capaStatus === 'READY_FOR_VERIFICATION') return 'Submitted for reviewer verification';
+    if (['RESOLVED','CLOSED'].includes(c.status)) return 'Response case finished; audit observation still awaits verification.';
+    if (['READY_FOR_VERIFICATION','CLOSED'].includes(c.capaStatus)) return 'Submitted for reviewer verification';
     return 'Pending reviewer verification';
   }
 
   get auditorVerificationStatus(): string {
-    const c = this.activeCase;
+    if (this.selectedObservation?.status === 'CLOSED') return 'CLOSED';
+    const c = this.activeCase || this.selectedCases[0];
     if (!c) return 'PENDING';
-    if (c.status === 'CLOSED' || c.capaStatus === 'CLOSED') return 'CLOSED';
-    if (c.status === 'RESOLVED') return 'VERIFIED';
-    if (c.capaStatus === 'READY_FOR_VERIFICATION') return 'UNDER_REVIEW';
+    if (['RESOLVED','CLOSED'].includes(c.status)) return 'UNDER_REVIEW';
+    if (['READY_FOR_VERIFICATION','CLOSED'].includes(c.capaStatus)) return 'UNDER_REVIEW';
     return 'PENDING';
   }
 
@@ -294,7 +295,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
           actionOwner: latest.actionOwner || obs.assignedTo || '',
           targetDueDate: latest.targetDueDate || '',
           closureRecommendation: latest.closureRecommendation || '',
-          capaStatus: latest.capaStatus || 'OPEN',
+          capaStatus: latest.capaStatus === 'CLOSED' ? 'READY_FOR_VERIFICATION' : (latest.capaStatus || 'OPEN'),
           notes: '',
         }
       : {
@@ -333,7 +334,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   }
 
   setCapaStatus(status: CapaWorkflow): void {
-    this.draft.capaStatus = status;
+    this.draft.capaStatus = status === 'CLOSED' ? 'READY_FOR_VERIFICATION' : status;
     if (status === 'READY_FOR_VERIFICATION' && !this.draft.closureRecommendation.trim()) {
       this.draft.closureRecommendation = 'Ready for auditor verification.';
     }
@@ -425,6 +426,8 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (obs.status === 'CLOSED') { this.toast.error('This observation is already closed.'); return; }
+    if (this.draft.capaStatus === 'CLOSED') this.draft.capaStatus = 'READY_FOR_VERIFICATION';
     this.saving = true;
     const activeCase = this.activeCase;
 
@@ -644,6 +647,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   }
 
   private loadCaseMessages(): void {
+    this.messagesRequest?.unsubscribe();
     const caseList = this.selectedCases.slice(0, 5);
     if (!caseList.length) {
       this.selectedMessages = [];
@@ -658,7 +662,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
       ),
     );
 
-    forkJoin(calls)
+    this.messagesRequest = forkJoin(calls)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (messageGroups) => {
@@ -733,7 +737,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
     const severity = this.normalizeSeverity(raw?.severity);
     const status = this.normalizeStatus(raw?.status);
     const raisedIso = this.toIsoDate(raw?.rawRaisedDate || raw?.raisedDate);
-    const dueIso = raw?.rawDueDate ? new Date(raw.rawDueDate).toISOString() : null;
+    const dueIso = this.toIsoDate(raw?.rawDueDate || raw?.dueDate);
 
     return {
       id: String(raw?.id || ''),

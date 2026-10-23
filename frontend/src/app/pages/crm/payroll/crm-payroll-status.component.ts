@@ -28,7 +28,7 @@ interface PayrollRun {
   month: string;
   status: string;
   employeeCount: number;
-  grossTotal: number;
+  grossTotal: number | null;
   createdAt: string;
 }
 
@@ -148,7 +148,7 @@ interface PayrollRun {
             </div>
           } @else {
             <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
+              <table class="payroll-runs-table min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
@@ -176,7 +176,7 @@ interface PayrollRun {
                         </span>
                       </td>
                       <td class="px-4 py-3 text-sm text-right text-gray-600">{{ r.employeeCount | number }}</td>
-                      <td class="px-4 py-3 text-sm text-right text-gray-600">{{ r.grossTotal | number:'1.0-0' }}</td>
+                      <td class="px-4 py-3 text-sm text-right text-gray-600">{{ (r.grossTotal === null || r.grossTotal === undefined) ? 'Not calculated' : (r.grossTotal | number:'1.2-2') }}</td>
                       <td class="px-4 py-3 text-sm text-gray-500">{{ r.createdAt | date:'mediumDate' }}</td>
                     </tr>
                   }
@@ -232,17 +232,17 @@ export class CrmPayrollStatusComponent implements OnInit, OnDestroy {
         pendingRuns: Number(r?.pendingRuns ?? 0),
         completedThisMonth: Number(r?.completedThisMonth ?? 0),
       }),
-      error: () => {},
+      error: () => this.error.set('Some payroll data could not be loaded. Please retry.'),
     });
 
     this.http.get<any[]>(`${this.base}/clients`).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (list) => this.clients.set((list || []).map(c => ({
+      next: (list) => this.clients.set((list || []).filter(c => !this.clientId || c.id === this.clientId).map(c => ({
         id: c.id,
         clientName: c.clientName || c.client_name || c.name || 'Unknown',
         clientCode: c.clientCode || c.client_code || '',
         status: c.status || 'active',
       }))),
-      error: () => {},
+      error: () => this.error.set('Some payroll data could not be loaded. Please retry.'),
     });
 
     this.loadRuns();
@@ -263,10 +263,10 @@ export class CrmPayrollStatusComponent implements OnInit, OnDestroy {
         this.runs.set((Array.isArray(items) ? items : []).map((r: any) => ({
           id: r.id,
           clientName: r.clientName || r.client_name || r.client?.clientName || '—',
-          month: r.month || r.payrollMonth || '',
+          month: r.month || r.payrollMonth || (r.periodYear && r.periodMonth ? `${r.periodYear}-${String(r.periodMonth).padStart(2, '0')}` : ''),
           status: r.status || 'DRAFT',
           employeeCount: Number(r.employeeCount ?? r.employee_count ?? 0),
-          grossTotal: Number(r.grossTotal ?? r.gross_total ?? 0),
+          grossTotal: (r.grossTotal === null || r.grossTotal === undefined) && (r.gross_total === null || r.gross_total === undefined) ? null : Number(r.grossTotal ?? r.gross_total),
           createdAt: r.createdAt || r.created_at || '',
         })));
         this.loading.set(false);

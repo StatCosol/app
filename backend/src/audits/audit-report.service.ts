@@ -99,6 +99,7 @@ export class AuditReportService {
       heldAt: latestReport.held_at || null,
       updatedAt: latestReport.updated_at || null,
       finalizedAt: latestReport.finalized_at || null,
+      returnFeedback: await this.getReturnFeedback(audit.id),
     };
   }
 
@@ -109,6 +110,7 @@ export class AuditReportService {
 
   async approveReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
     const audit = await this.getForCrm(user, auditId);
+    this.assertSubmittedAudit(audit);
     const rows = await this.dataSource.query(
       `SELECT id, status, held_at
        FROM audit_reports
@@ -138,6 +140,7 @@ export class AuditReportService {
 
   async publishReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
     const audit = await this.getForCrm(user, auditId);
+    this.assertSubmittedAudit(audit);
     const rows = await this.dataSource.query(
       `SELECT id, status, held_at
        FROM audit_reports
@@ -167,6 +170,11 @@ export class AuditReportService {
 
   async sendBackReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
     const audit = await this.getForCrm(user, auditId);
+    if (['COMPLETED', 'CLOSED', 'CANCELLED'].includes(audit.status)) {
+      throw new BadRequestException(
+        'Reopen the audit before requesting report corrections',
+      );
+    }
     if (!remarks?.trim()) {
       throw new BadRequestException('remarks are required to send back report');
     }
@@ -197,11 +205,22 @@ export class AuditReportService {
       : "status = 'DRAFT', updated_at = NOW()";
 
     const changed = await this.dataSource.query(
-      `WITH changed AS (UPDATE audit_reports
-       SET ${draftSet}, held_at = NULL, held_by_user_id = NULL, hold_remarks = NULL
-       WHERE id = $1 AND status IN ('SUBMITTED', 'APPROVED')
-       RETURNING id) SELECT id FROM changed`,
-      [current.id],
+      `WITH previous AS MATERIALIZED (
+         SELECT * FROM audit_reports WHERE id = $1
+           AND status IN ('SUBMITTED', 'APPROVED') FOR UPDATE
+       ), changed AS (
+         UPDATE audit_reports ar
+         SET ${draftSet}, held_at = NULL, held_by_user_id = NULL, hold_remarks = NULL,
+             approved_by_user_id = NULL, approved_date = NULL, published_date = NULL
+         FROM previous p WHERE ar.id = p.id
+         RETURNING ar.id, to_jsonb(p) AS prior_report
+       ), logged AS (
+         INSERT INTO audit_logs (entity_type, entity_id, action, performed_by, snapshot)
+         SELECT 'AUDIT', $2::uuid, 'RETURNED_FOR_CORRECTION', $3::uuid,
+           jsonb_build_object('reportId', id, 'reason', $4::text, 'before', prior_report)
+         FROM changed RETURNING id
+       ) SELECT id FROM changed`,
+      [current.id, auditId, user.userId, remarks.trim()],
     );
     if (!changed.length)
       throw new BadRequestException('Report changed; reload before continuing');
@@ -213,6 +232,14 @@ export class AuditReportService {
       remarks: remarks.trim(),
       action: 'SENT_BACK',
     };
+  }
+
+  private assertSubmittedAudit(audit: AuditEntity) {
+    if (!['SUBMITTED', 'COMPLETED', 'CLOSED'].includes(audit.status)) {
+      throw new BadRequestException(
+        'Submit the final audit before approving or publishing its report',
+      );
+    }
   }
 
   async holdReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
@@ -301,6 +328,9 @@ export class AuditReportService {
          ar.audit_id AS "auditId",
          ar.report_type AS "reportType",
          ar.status AS "status",
+         ar.version_no AS "revision",
+         ar.approved_date AS "approvedAt",
+         ar.published_date AS "publishedAt",
          ar.held_at AS "heldAt",
          ar.hold_remarks AS "holdRemarks",
          ar.executive_summary AS "executiveSummary",
@@ -318,11 +348,10 @@ export class AuditReportService {
       [auditId],
     );
 
-    return this.mapReportRow(
-      audit.id,
-      rows[0] ?? null,
-      audit.updatedAt || null,
-    );
+    return {
+      ...this.mapReportRow(audit.id, rows[0] ?? null, audit.updatedAt || null),
+      returnFeedback: await this.getReturnFeedback(audit.id),
+    };
   }
 
   async saveReportDraftForAuditor(
@@ -429,6 +458,8 @@ export class AuditReportService {
         insertValues,
       );
     } else {
+      if (existing.held_at)
+        throw new BadRequestException('Release the report hold first');
       const status = String(existing.status || '').toUpperCase();
       if (['APPROVED', 'PUBLISHED'].includes(status)) {
         throw new BadRequestException(
@@ -465,14 +496,19 @@ export class AuditReportService {
 
       params.push(existing.id);
 
-      await this.dataSource.query(
-        `UPDATE audit_reports
+      const changed = await this.dataSource.query(
+        `WITH changed AS (UPDATE audit_reports
          SET
            ${updates.join(',\n           ')},
            updated_at = NOW()
-         WHERE id = $${params.length}`,
+         WHERE id = $${params.length} AND status = 'DRAFT' AND held_at IS NULL
+         RETURNING id) SELECT id FROM changed`,
         params,
       );
+      if (!changed.length)
+        throw new BadRequestException(
+          'Report changed; reload before continuing',
+        );
     }
 
     return this.getReportForAuditor(user, auditId);
@@ -497,27 +533,11 @@ export class AuditReportService {
        LIMIT 1`,
       [auditId],
     );
-    let existing = existingRows[0] || null;
-    const userId = user.userId || user.id;
-
-    if (!existing) {
-      await this.dataSource.query(
-        `INSERT INTO audit_reports
-          (audit_id, report_type, status, prepared_by_user_id, prepared_date, updated_at)
-         VALUES
-          ($1, 'INTERNAL', 'DRAFT', $2, CURRENT_DATE, NOW())`,
-        [auditId, userId || null],
-      );
-      const postInsert = await this.dataSource.query(
-        `SELECT id, status, held_at
-         FROM audit_reports
-         WHERE audit_id = $1
-         ORDER BY updated_at DESC, created_at DESC
-         LIMIT 1`,
-        [auditId],
-      );
-      existing = postInsert[0] || null;
-    }
+    const existing = existingRows[0] || null;
+    if (!existing)
+      throw new BadRequestException('Save a report draft before submitting');
+    if (existing.held_at)
+      throw new BadRequestException('Release the report hold first');
 
     const status = String(existing?.status || '').toUpperCase();
     if (['APPROVED', 'PUBLISHED'].includes(status)) {
@@ -535,12 +555,15 @@ export class AuditReportService {
       ? "status = 'SUBMITTED', finalized_at = NOW(), updated_at = NOW()"
       : "status = 'SUBMITTED', updated_at = NOW()";
 
-    await this.dataSource.query(
-      `UPDATE audit_reports
+    const changed = await this.dataSource.query(
+      `WITH changed AS (UPDATE audit_reports
        SET ${finalizeSet}
-       WHERE id = $1`,
+       WHERE id = $1 AND status = 'DRAFT' AND held_at IS NULL
+       RETURNING id) SELECT id FROM changed`,
       [existing.id],
     );
+    if (!changed.length)
+      throw new BadRequestException('Report changed; reload before continuing');
 
     return this.getReportForAuditor(user, auditId);
   }
@@ -638,11 +661,17 @@ export class AuditReportService {
       auditCode: audit.auditCode || audit.id,
       clientName: audit.client?.clientName || null,
       branchName: audit.branch?.branchName || null,
+      contractorName: audit.contractorUser?.name || null,
+      auditType: audit.auditType || null,
       periodCode: audit.periodCode || null,
       version,
       stage: 'FINAL',
       updatedAt: report.updatedAt,
       finalizedAt: report.finalizedAt,
+      revision: report.revision,
+      reportStatus: report.status,
+      approvedAt: report.approvedAt,
+      publishedAt: report.publishedAt,
       executiveSummary: report.executiveSummary || '',
       scope: report.scope || '',
       methodology: report.methodology || '',
@@ -655,6 +684,11 @@ export class AuditReportService {
         risk: o.risk || null,
         status: o.status || 'OPEN',
         recommendation: o.recommendation || null,
+        consequences: o.consequences,
+        complianceRequirements: o.complianceRequirements,
+        elaboration: o.elaboration,
+        categoryName: o.category?.name,
+        evidenceFilePaths: o.evidenceFilePaths,
       })),
     });
   }
@@ -666,7 +700,7 @@ export class AuditReportService {
     this.assertAuditor(user);
     const audit = await this.repo.findOne({
       where: { id: auditId },
-      relations: ['client', 'branch'],
+      relations: ['client', 'branch', 'contractorUser'],
     });
     if (!audit) throw new NotFoundException('Audit not found');
     const callerId = user?.userId || user?.id;
@@ -693,6 +727,9 @@ export class AuditReportService {
       selectedObservationIds?: unknown;
       updatedAt?: Date | string | null;
       finalizedAt?: Date | string | null;
+      revision?: number | null;
+      approvedAt?: Date | string | null;
+      publishedAt?: Date | string | null;
     } | null,
     fallbackUpdatedAt: Date | null,
   ) {
@@ -701,6 +738,7 @@ export class AuditReportService {
         reportId: null,
         auditId,
         stage: 'DRAFT',
+        status: 'DRAFT',
         held: false,
         holdRemarks: null,
         version: 'INTERNAL',
@@ -712,6 +750,9 @@ export class AuditReportService {
         selectedObservationIds: [] as string[],
         updatedAt: fallbackUpdatedAt,
         finalizedAt: null,
+        revision: null,
+        approvedAt: null,
+        publishedAt: null,
       };
     }
 
@@ -743,6 +784,7 @@ export class AuditReportService {
       reportId: row.reportId || null,
       auditId: row.auditId || auditId,
       stage,
+      status,
       held: !!row.heldAt,
       holdRemarks: row.holdRemarks || null,
       version,
@@ -754,6 +796,9 @@ export class AuditReportService {
       selectedObservationIds,
       updatedAt: row.updatedAt || fallbackUpdatedAt,
       finalizedAt: row.finalizedAt || null,
+      revision: row.revision ?? null,
+      approvedAt: row.approvedAt || null,
+      publishedAt: row.publishedAt || null,
     };
   }
 
@@ -773,6 +818,25 @@ export class AuditReportService {
       [auditId],
     );
     return rows[0] || null;
+  }
+
+  private async getReturnFeedback(
+    auditId: string,
+  ): Promise<
+    Array<{ reason: string; returnedAt: string; returnedBy: string | null }>
+  > {
+    return this.dataSource.query(
+      `SELECT l.snapshot->>'reason' AS reason, l.created_at AS "returnedAt",
+              u.name AS "returnedBy"
+       FROM audit_logs l LEFT JOIN users u ON u.id = l.performed_by
+       WHERE l.entity_type = 'AUDIT' AND l.entity_id = $1
+         AND l.action = 'RETURNED_FOR_CORRECTION'
+         AND l.snapshot->>'reportId' = (
+           SELECT id::text FROM audit_reports WHERE audit_id = $1
+           ORDER BY updated_at DESC, created_at DESC LIMIT 1)
+       ORDER BY l.created_at DESC, l.id DESC`,
+      [auditId],
+    );
   }
 
   private async getAuditReportColumnsAvailability(): Promise<{

@@ -125,7 +125,7 @@ interface BranchOption { id: string; name: string }
       <!-- ────── PUNCH FEED TAB ────── -->
       @if (tab === 'punches') {
 
-        <div class="flex flex-wrap items-end gap-3 mb-4">
+        <div class="flex flex-wrap items-end gap-3 mb-4 aligned-filter-controls">
           <div>
             <label for="cmd-from-date" class="block text-xs font-medium text-gray-600 mb-1">From</label>
             <input autocomplete="off" id="cmd-from-date" name="fromDate" type="date" class="ui-input" [(ngModel)]="punchFrom">

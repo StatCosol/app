@@ -157,6 +157,7 @@ export const BRANCH_ROUTES: Routes = [
 
       { path: 'registrations', loadComponent: BranchRegistrationsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },
       { path: 'audits/evidence', loadComponent: () => import('../client/audits/client-audits.component').then(m => m.ClientAuditsComponent), canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
+      { path: 'audits', loadComponent: () => import('../client/audits/client-audits.component').then(m => m.ClientAuditsComponent), canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
       { path: 'audits/observations', loadComponent: BranchAuditObservationsComponent, canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
       { path: 'audit-observations', redirectTo: 'audits/observations', pathMatch: 'full' },
       { path: 'documents', loadComponent: BranchDocumentsComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')] },

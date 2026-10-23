@@ -30,16 +30,14 @@ interface LoadResult {
     <div class="page">
       <header class="hero">
         <div>
-          <p class="eyebrow">Contractor Payroll</p>
+          <p class="eyebrow">Contractor Payment Check</p>
           <h1>{{ title }}</h1>
           <p class="subtitle">
-            Wage, statutory deduction, employer contribution and exception view generated from contractor attendance/muster uploads.
+            Expected payments and contribution comparisons for billing and audit, based on reviewed contractor attendance. No contractor payslips or wage registers are generated.
           </p>
         </div>
       </header>
 
-      <app-contractor-attendance-approval [clientId]="clientId" [periodMonth]="periodMonth" />
-      <app-contractor-payroll-workflow [clientId]="clientId" [periodMonth]="periodMonth" />
       <section class="filters aligned-filter-controls">
         <label>
           <span>Period</span>
@@ -47,8 +45,13 @@ interface LoadResult {
         </label>
         @if (needsClientFilter) {
           <label>
-            <span>Client ID</span>
-            <input type="text" placeholder="Required for auditor view" [(ngModel)]="clientId" />
+            <span>Client</span>
+            <select [(ngModel)]="clientId" (ngModelChange)="load()" [disabled]="clientOptionsLoading">
+              <option value="">Select client</option>
+              @for (client of clients; track client.id) {
+                <option [value]="client.id">{{ client.clientName }}</option>
+              }
+            </select>
           </label>
         }
         <label>
@@ -60,8 +63,21 @@ interface LoadResult {
             <option value="NO_QUOTATION">No quotation</option>
           </select>
         </label>
-        <button type="button" class="compact-action btn secondary" (click)="load()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+        <button type="button" class="standard-action btn secondary" (click)="load()" [disabled]="loading" title="Refresh" aria-label="Refresh" data-action-label="Refresh" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> Refresh</button>
       </section>
+
+      <app-contractor-attendance-approval [clientId]="clientId" [periodMonth]="periodMonth" />
+      @if (!needsClientFilter || (clientId && !clientOptionsLoading)) {
+        <app-contractor-payroll-workflow [clientId]="clientId" [periodMonth]="periodMonth" />
+      }
+
+      @if (needsClientFilter && clientOptionsError) {
+        <p role="alert">{{ clientOptionsError }}</p>
+        <button type="button" (click)="loadAuditorClients()" [disabled]="clientOptionsLoading">Retry clients</button>
+      }
+      @if (needsClientFilter && !clientId && !clientOptionsLoading && !clientOptionsError) {
+        <p class="state">Select a client to review assigned contractor payroll.</p>
+      }
 
       @if (loading) {
         <div class="state">Loading generated contractor payroll...</div>
@@ -71,7 +87,7 @@ interface LoadResult {
         <div class="state error">{{ error }}</div>
       }
 
-      @if (!loading && !error) {
+      @if (!loading && !error && (!needsClientFilter || (clientId && !clientOptionsLoading))) {
         <section class="summary">
           <div><strong>{{ rows.length }}</strong><span>Rows</span></div>
           <div><strong>{{ money(total('grossWage')) }}</strong><span>Gross wage</span></div>
@@ -134,7 +150,7 @@ interface LoadResult {
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="11" class="empty">No generated payroll rows found for this period.</td>
+                  <td colspan="12" class="empty">No generated payroll rows found for this period.</td>
                 </tr>
               }
             </tbody>
@@ -187,6 +203,9 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
   periodMonth = new Date().toISOString().slice(0, 7);
   matchStatus = '';
   clientId = '';
+  clients: { id: string; clientName: string }[] = [];
+  clientOptionsLoading = false;
+  clientOptionsError = '';
 
   constructor(
     private readonly http: HttpClient,
@@ -209,7 +228,30 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
           this.error = error || '';
         });
       });
-    this.load();
+    if (this.needsClientFilter) this.loadAuditorClients();
+    else this.load();
+  }
+
+  loadAuditorClients(): void {
+    if (!this.needsClientFilter || this.clientOptionsLoading) return;
+    this.clientOptionsLoading = true;
+    this.clientOptionsError = '';
+    this.http.get<{ id: string; clientName: string }[]>('/api/v1/auditor/options/clients')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: clients => this.updateView(() => {
+          this.clients = Array.isArray(clients) ? clients : [];
+          if (!this.clients.some(client => client.id === this.clientId)) this.clientId = '';
+          this.clientOptionsLoading = false;
+          this.load();
+        }),
+        error: () => this.updateView(() => {
+          this.clientOptionsLoading = false;
+          this.clientId = '';
+          this.rows = [];
+          this.clientOptionsError = 'Could not load assigned clients. Retry to continue.';
+        }),
+      });
   }
 
   ngOnDestroy(): void {
@@ -219,10 +261,10 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
   }
 
   get title(): string {
-    if (this.portal === 'contractor') return 'My Generated Payroll';
-    if (this.portal === 'branch') return 'Contractor Payroll Review';
-    if (this.portal === 'auditor') return 'Contractor Payroll Audit View';
-    return 'Contractor Payroll Computation';
+    if (this.portal === 'contractor') return 'My Payment Cross-check';
+    if (this.portal === 'branch') return 'Contractor Payment Review';
+    if (this.portal === 'auditor') return 'Contractor Payment Audit Review';
+    return 'Contractor Payment Cross-check';
   }
 
   get needsClientFilter(): boolean {
@@ -238,12 +280,8 @@ export class ContractorPayrollComputationPageComponent implements OnInit, OnDest
   }
 
   private loadRows(): Observable<LoadResult> {
-    if (this.needsClientFilter && !this.clientId.trim()) {
-      return of({
-        rows: [],
-        error: 'Enter a client ID to load auditor-scoped contractor payroll rows.',
-      });
-    }
+    if (this.needsClientFilter && (this.clientOptionsLoading || !this.clientId.trim()))
+      return of({ rows: [] });
     const params: Record<string, string> = {};
     if (this.periodMonth) params['periodMonth'] = this.periodMonth;
     if (this.matchStatus) params['matchStatus'] = this.matchStatus;

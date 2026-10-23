@@ -12,6 +12,10 @@ export class ClientAuditsService {
     return this.http.get(`${this.baseUrl}/api/v1/client/audits/summary`);
   }
 
+  publishedReport(id: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/api/v1/client/audits/${id}/report/export`, { responseType: 'blob' });
+  }
+
   list(filters?: any): Observable<any> {
     let params = new HttpParams();
     if (filters) {

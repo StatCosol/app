@@ -20,6 +20,7 @@ const controllers=[
 ].map(([p,n])=>src(p,n));
 async function main(){
  const mocks={
+  DataSource:{query:async()=>[]},
   AuditListService:{list:async(_u,q)=>({items:[{id:'paged',filter:q.status}],total:1})},
   AuditsService:{listForAuditor:async(_u,q)=>[{id:'auditor-workspace',filter:q.status}],listForClient:async(_u,q)=>[{id:'client-workspace',filter:q.status}]},
   DocListService:{listContractorDocs:async()=>({items:[{id:'paged-documents'}],total:1})},
@@ -40,7 +41,7 @@ async function main(){
   for(const [url,role,expected]of[
    ['/auditor/audits?status=SCHEDULED','AUDITOR',[{id:'auditor-workspace',filter:'SCHEDULED'}]],
    ['/auditor/audit-list?status=SCHEDULED','AUDITOR',{items:[{id:'paged',filter:'SCHEDULED'}],total:1}],
-   ['/client/audits?status=SCHEDULED','CLIENT',[{id:'client-workspace',filter:'SCHEDULED'}]],
+   ['/client/audits?status=SCHEDULED','CLIENT',[{id:'client-workspace',filter:'SCHEDULED',publishedReportAvailable:false}]],
    ['/client/audit-list?status=SCHEDULED','CLIENT',{items:[{id:'paged',filter:'SCHEDULED'}],total:1}],
    ['/contractor/documents','CONTRACTOR',[{id:'contractor-upload-list'}]],
    ['/contractor/document-list','CONTRACTOR',{items:[{id:'paged-documents'}],total:1}],

@@ -92,6 +92,11 @@ export class ContractorProfileApiService {
     return this.http.post('/api/v1/contractor/documents/upload', form);
   }
 
+  resubmitEvidence(doc: {id:string;filePath:string;status:string;reviewedAt?:string|null},file:File,correctionNotes:string):Observable<any>{
+    const form=new FormData();form.append('file',file);form.append('correctionNotes',correctionNotes);form.append('expectedFilePath',doc.filePath);form.append('expectedStatus',doc.status);form.append('expectedReviewedAt',doc.reviewedAt||'');
+    return this.http.post('/api/v1/contractor/documents/reupload/'+encodeURIComponent(doc.id),form);
+  }
+
   uploadAttendanceForPayroll(params: {
     branchId: string;
     periodMonth: string;

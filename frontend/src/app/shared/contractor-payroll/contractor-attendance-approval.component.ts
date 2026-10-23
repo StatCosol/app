@@ -186,7 +186,7 @@ import { AuthService } from '../../core/auth.service';
           }
         }
         @if (hasMore()) {
-          <button type="button" (click)="load(true)" [disabled]="busy()" class="compact-action" title="Load more attendance" aria-label="Load more attendance" data-action-label="Load more attendance" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+          <button type="button" (click)="load(true)" [disabled]="busy()" class="compact-action" title="Load more attendance" aria-label="Load more attendance" data-action-label="Load more attendance" data-action-icon="chevron-down"><ui-icon name="chevron-down" [size]="20" /><span>Load more attendance</span></button>
         }
       </section>
     }

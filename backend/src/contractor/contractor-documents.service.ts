@@ -1,5 +1,10 @@
 import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/payroll-document-reconciliation.service';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
@@ -28,6 +33,10 @@ export type ContractorDocumentReviewDto = {
 
 export type ContractorDocumentReuploadDto = {
   title?: string;
+  correctionNotes?: string;
+  expectedFilePath?: string;
+  expectedStatus?: string;
+  expectedReviewedAt?: string | null;
 };
 
 @Injectable()
@@ -254,6 +263,14 @@ export class ContractorDocumentsService {
       .where('d.contractor_user_id = :contractorId', { contractorId: user.id })
       .andWhere('d.client_id = :clientId', { clientId: user.clientId });
 
+    if (q?.month) {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(q.month))
+        throw new BadRequestException('Invalid month');
+      qb.andWhere(
+        "COALESCE(NULLIF(d.doc_month,''),to_char(d.created_at AT TIME ZONE 'UTC','YYYY-MM')) = :month",
+        { month: q.month },
+      );
+    }
     if (q?.branchId)
       qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
     if (q?.branchIds && Array.isArray(q.branchIds) && q.branchIds.length)
@@ -305,6 +322,14 @@ export class ContractorDocumentsService {
       qb.andWhere('d.contractor_user_id = :contractorId', {
         contractorId: q.contractorId,
       });
+    if (q?.month) {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(q.month))
+        throw new BadRequestException('Invalid month');
+      qb.andWhere(
+        "COALESCE(NULLIF(d.doc_month,''),to_char(d.created_at AT TIME ZONE 'UTC','YYYY-MM')) = :month",
+        { month: q.month },
+      );
+    }
     if (q?.branchId)
       qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
     if (q?.branchIds && Array.isArray(q.branchIds) && q.branchIds.length)
@@ -386,48 +411,123 @@ export class ContractorDocumentsService {
     dto: ContractorDocumentReuploadDto,
     file: Express.Multer.File,
   ) {
-    if (!user?.id) throw new BadRequestException('Invalid user');
-    if (!user?.clientId) {
+    if (!user?.id || !user?.clientId)
       throw new BadRequestException('Contractor is not linked to a client');
-    }
-    if (!id) throw new BadRequestException('id is required');
-    if (!file) throw new BadRequestException('file is required');
-
-    const doc = await this.repo.findOne({ where: { id } });
-    if (!doc) throw new BadRequestException('Document not found');
-    if (doc.contractorUserId !== user.id || doc.clientId !== user.clientId) {
-      throw new BadRequestException('Not authorized to modify this document');
-    }
-
-    const link = await this.branchContractorRepo.findOne({
-      where: {
-        clientId: doc.clientId,
-        branchId: doc.branchId,
-        contractorUserId: user.id,
-      },
+    if (!id || !file)
+      throw new BadRequestException('Document and corrected file are required');
+    const saved = await this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(ContractorDocumentEntity);
+      const doc = await repo.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        !doc ||
+        doc.contractorUserId !== user.id ||
+        doc.clientId !== user.clientId
+      )
+        throw new BadRequestException('Document not found or not authorized');
+      const link = await manager.getRepository(BranchContractorEntity).findOne({
+        where: {
+          clientId: doc.clientId,
+          branchId: doc.branchId,
+          contractorUserId: user.id,
+        },
+      });
+      if (!link)
+        throw new BadRequestException(
+          'Contractor is not mapped to this branch',
+        );
+      const financial =
+        /BANK|PAYMENT_PROOF|CONTRACTOR_BILL|INVOICE|CREDIT_NOTE|DEBIT_NOTE/i.test(
+          String(doc.docType).replace(/[^a-z0-9]+/gi, '_'),
+        );
+      const correctionNotes =
+        typeof dto?.correctionNotes === 'string'
+          ? dto.correctionNotes.trim()
+          : '';
+      if (financial) {
+        if (
+          /^TEST([ _-]|$)/i.test(doc.fileName) !==
+          /^TEST([ _-]|$)/i.test(file.originalname)
+        )
+          throw new BadRequestException(
+            'Keep test evidence separate: retain the TEST filename prefix for test corrections',
+          );
+        if (
+          !dto?.expectedFilePath ||
+          !dto.expectedStatus ||
+          !Object.prototype.hasOwnProperty.call(dto, 'expectedReviewedAt')
+        )
+          throw new BadRequestException(
+            'Reload the rejected evidence before resubmitting',
+          );
+        const expected =
+          dto.expectedReviewedAt == null || dto.expectedReviewedAt === ''
+            ? null
+            : Date.parse(dto.expectedReviewedAt);
+        const actual =
+          doc.reviewedAt == null ? null : new Date(doc.reviewedAt).getTime();
+        if (expected !== null && !Number.isFinite(expected))
+          throw new BadRequestException('Invalid review timestamp');
+        if (
+          doc.filePath !== dto.expectedFilePath ||
+          doc.status !== dto.expectedStatus ||
+          expected !== actual
+        )
+          throw new ConflictException(
+            'This evidence changed. Reload and select the current rejected file.',
+          );
+        if (doc.status !== 'REJECTED')
+          throw new ConflictException(
+            'Only rejected bank or bill evidence can be corrected and resubmitted. Ask CRM to return it first.',
+          );
+        if (correctionNotes.length < 10 || correctionNotes.length > 2000)
+          throw new BadRequestException(
+            'Describe the correction in 10 to 2000 characters',
+          );
+      }
+      await this.assertUploadNotLocked(doc.auditId, {
+        allowRejectedReupload: doc.status === 'REJECTED',
+      });
+      const previous = {
+        filePath: doc.filePath,
+        fileName: doc.fileName,
+        status: doc.status,
+        reviewNotes: doc.reviewNotes,
+        reviewedAt: doc.reviewedAt,
+        reviewedByUserId: doc.reviewedByUserId,
+      };
+      doc.fileName = file.originalname;
+      doc.filePath = this.toUploadsRelativePath(file.path);
+      doc.fileType = file.mimetype ?? null;
+      doc.fileSize = file.size != null ? String(file.size) : null;
+      doc.title = dto?.title ?? doc.title;
+      doc.status = 'PENDING_REVIEW';
+      doc.reviewedAt = null;
+      doc.reviewedByUserId = null;
+      doc.reviewNotes = null;
+      doc.expiryDate = null;
+      const updated = await repo.save(doc);
+      if (financial)
+        await manager.query(
+          `INSERT INTO audit_logs(entity_type,entity_id,action,performed_by,snapshot) VALUES('CONTRACTOR_DOCUMENT',$1,'EVIDENCE_RESUBMITTED',$2,$3::jsonb)`,
+          [
+            id,
+            user.id,
+            JSON.stringify({
+              previous,
+              filePath: updated.filePath,
+              fileName: updated.fileName,
+              status: updated.status,
+              correctionNotes,
+              period: updated.docMonth,
+              submittedAt: new Date().toISOString(),
+            }),
+          ],
+        );
+      return updated;
     });
-    if (!link) {
-      throw new BadRequestException('Contractor is not mapped to this branch');
-    }
-
-    // Item #10: re-uploads of REJECTED docs bypass the audit upload lock —
-    // contractors must always be able to address auditor-flagged corrections.
-    await this.assertUploadNotLocked(doc.auditId, {
-      allowRejectedReupload: doc.status === 'REJECTED',
-    });
-
-    doc.fileName = file.originalname;
-    doc.filePath = this.toUploadsRelativePath(file.path);
-    doc.fileType = file.mimetype ?? null;
-    doc.fileSize = file.size != null ? String(file.size) : null;
-    doc.title = dto?.title ?? doc.title;
-    doc.status = 'PENDING_REVIEW';
-    doc.reviewedAt = null;
-    doc.reviewedByUserId = null;
-    doc.reviewNotes = null;
-    doc.expiryDate = null;
-
-    const saved = await this.repo.save(doc);
     await this.reconciliation
       ?.check(saved.id)
       .catch(() =>

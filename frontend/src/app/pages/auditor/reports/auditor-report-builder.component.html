@@ -4,15 +4,12 @@
       <h1>Audit Report Builder</h1>
       <p>Draft and finalize audit reports with section editor, observation import, internal/client versions, and export lock controls.</p>
     </div>
-    <ui-client-context-strip
-      [inline]="true"
-      [clientName]="audit?.client?.clientName || ''"
-      [clientCode]="audit?.client?.clientCode || ''"
-      [badges]="[{label: 'Audit', value: audit?.auditCode || ''}]">
-    </ui-client-context-strip>
+
   </header>
+  <app-audit-context [audit]="audit" />
 
   <div class="head-controls flex items-center gap-3 flex-wrap mb-3.5">
+    @if (audit?.id) { <a class="standard-action btn btn-secondary" [routerLink]="['/auditor/audits', audit.id, 'workspace']">Back to this audit</a> }
     <a class="btn btn-ghost" routerLink="/auditor/reports">Back to Reports</a>
   </div>
 
@@ -22,6 +19,16 @@
 
   @if (!loading && draft; as model) {
 
+    @if (model.returnFeedback?.length) {
+      <section class="report-hold" role="status" aria-label="CRM correction requests">
+        <strong>{{ model.stage === 'DRAFT' ? 'Returned for correction' : 'Previous CRM correction requests' }}</strong>
+        @for (feedback of model.returnFeedback; track $index) {
+          <p class="whitespace-pre-wrap break-words">{{ feedback.reason }}</p>
+          <p>{{ feedback.returnedBy || 'CRM' }} · {{ formatDate(feedback.returnedAt) }}</p>
+        }
+      </section>
+    }
+
     @if (model.held) {
 <section class="report-hold" role="status" aria-label="Report hold">
       <strong>On hold</strong>
@@ -30,6 +37,13 @@
 }
     </section>
 }
+
+    @if (auditClosed) {
+      <section class="report-hold" role="status" aria-label="Audit report read-only">
+        <strong>Read-only audit report</strong>
+        <p>{{ editBlockedReason }}</p>
+      </section>
+    }
 
     <section class="summary-grid">
       <article class="summary-card">
@@ -133,13 +147,13 @@
 } @else {
 
             <div class="empty-mini">No observations available for this audit.</div>
-          
+
 }
 
-          
+
 
           <div class="action-row">
-            <button type="button" class="compact-action btn btn-secondary" [disabled]="!canEdit" (click)="importSelectedObservations()" title="Import to Report" aria-label="Import to Report" data-action-label="Import to Report" data-action-icon="upload"><ui-icon name="upload" [size]="20" /></button>
+            <button type="button" class="standard-action btn btn-secondary" [disabled]="!canEdit" (click)="importSelectedObservations()" title="Import to Report" aria-label="Import to Report" data-action-label="Import to Report" data-action-icon="upload"><ui-icon name="upload" [size]="20" /> <span>Import to Report</span></button>
           </div>
         </article>
 
@@ -162,11 +176,11 @@
             >
               Finalize
             </button>
-            <button type="button" class="compact-action btn btn-ghost" [disabled]="exporting || !canExportFinal" (click)="exportFinalPdf()" title="Export PDF" aria-label="Export PDF" data-action-label="Export PDF" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
-              {{ exporting ? 'Exporting...' : 'Export PDF' }}
+            <button type="button" class="standard-action btn btn-ghost" [disabled]="exporting || !canExportFinal" (click)="exportFinalPdf()" title="Preview PDF" aria-label="Preview PDF" data-action-label="Preview PDF" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="audit-action-label">
+              {{ exporting ? 'Opening...' : 'Preview PDF' }}
             </span></button>
-            @if (!canEdit) {
-<button type="button" class="compact-action btn btn-danger" [disabled]="!canReopen || saving" (click)="reopenDraft()" title="Reopen Draft" aria-label="Reopen Draft" data-action-label="Reopen Draft" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
+            @if (model.stage === 'FINAL') {
+<button type="button" class="standard-action btn btn-danger" [disabled]="!canReopen || saving" (click)="reopenDraft()" title="Reopen Draft" aria-label="Reopen Draft" data-action-label="Reopen Draft" data-action-icon="undo"><ui-icon name="undo" [size]="20" /> <span>Reopen Draft</span></button>
 }
           </div>
 
@@ -200,6 +214,8 @@
         </article>
       </aside>
     </section>
-  
+
 }
 </div>
+
+@if (preview; as file) { <app-audit-file-preview [request]="file" (closed)="preview = null" /> }

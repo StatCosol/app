@@ -48,6 +48,22 @@ describe('Contractor task links', () => {
     component.ngOnDestroy();
   });
 
+  it('explains an unavailable deep link instead of silently showing an empty action area', () => {
+    const { component } = setup({}, 'missing-test-item');
+    component.ngOnInit();
+    expect(component.selectedRow).toBeNull();
+    expect(component.detailError).toContain('requested item is unavailable');
+    component.ngOnDestroy();
+  });
+
+  it('identifies the actual task instead of replacing its name with the generic law', () => {
+    const { component } = setup();
+    const row = component['mapTaskRow']({
+      id: 551, title: 'TEST UI DETAIL', compliance: { complianceName: 'Minimum Wages Act' },
+    });
+    expect(row.title).toBe('TEST UI DETAIL');
+  });
+
   for (const type of ['REUPLOAD', 'TASK'] as const) {
     it(`selects the linked ${type} when IDs overlap`, () => {
       const { component } = setup(type === 'REUPLOAD' ? { type } : {}, '42');

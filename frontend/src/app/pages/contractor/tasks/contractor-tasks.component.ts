@@ -1,3 +1,4 @@
+import { ContractorEvidenceCorrectionsComponent } from './contractor-evidence-corrections.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
@@ -5,6 +6,7 @@ import {
   Component,
   OnDestroy,
   OnInit,
+  ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -97,7 +99,7 @@ interface MonthlyChecklist {
 @Component({
   standalone: true,
   selector: 'app-contractor-tasks',
-  imports: [IconComponent,
+  imports: [ContractorEvidenceCorrectionsComponent, IconComponent,
     CommonModule,
     RouterModule,
     FormsModule,
@@ -118,6 +120,8 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   selectedRow: UnifiedWorkRow | null = null;
 
   selectedTaskDetail: any = null;
+  detailError = '';
+  private taskDetailSubscription?: Subscription;
   selectedTaskHistory: TimelineEvent[] = [];
   relatedReuploads: UnifiedWorkRow[] = [];
   auditNonCompliances: AuditNonComplianceRow[] = [];
@@ -164,6 +168,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   // Monthly document checklist
   monthlyChecklist: MonthlyChecklist | null = null;
   checklistLoading = false;
+  @ViewChild(ContractorEvidenceCorrectionsComponent) evidenceCorrections?: ContractorEvidenceCorrectionsComponent;
   checklistUploadItem: ChecklistItem | null = null;
   checklistUploadFile: File | null = null;
   checklistUploadTitle = '';
@@ -629,6 +634,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     });
 
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
+      this.detailError = '';
       this.pendingTaskIdFromRoute = params.get('id');
       if (this.pendingTaskIdFromRoute && this.filteredRows.length) {
         this.selectFromRouteId(this.pendingTaskIdFromRoute);
@@ -779,6 +785,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   selectRow(row: UnifiedWorkRow): void {
+    this.taskDetailSubscription?.unsubscribe();
+    this.detailError = '';
+    this.selectedTaskDetail = null;
+    this.selectedTaskHistory = [];
     this.selectedRow = row;
     this.taskUploadFile = null;
     this.taskUploadNote = '';
@@ -1218,8 +1228,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   private loadTaskDetail(taskId: string, silent = false): void {
+    this.taskDetailSubscription?.unsubscribe();
+    this.detailError = '';
     this.detailLoading = !silent;
-    forkJoin({
+    this.taskDetailSubscription = forkJoin({
       detail: this.api.getContractorTaskById(taskId),
       history: this.api.getContractorTaskHistory(taskId),
       reuploads: this.api.contractorGetReuploadRequests({}),
@@ -1270,6 +1282,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           this.selectedTaskDetail = null;
           this.relatedReuploads = [];
           this.selectedTaskHistory = [];
+          this.detailError = 'Unable to load this task. Try selecting it again or refresh the workboard.';
           this.toast.error(
             'Detail failed',
             err?.error?.message || 'Could not load selected task.',
@@ -1452,6 +1465,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   openChecklistUpload(item: ChecklistItem): void {
+    if (item.uploadedDocs.some(doc => doc.status === 'REJECTED') && /BANK|PAYMENT_PROOF|CONTRACTOR_BILL|INVOICE|CREDIT_NOTE|DEBIT_NOTE/i.test(item.docType)) {
+      this.evidenceCorrections?.showType(item.docType);
+      this.toast.info('Choose the rejected file', 'Use Bank proof and bill corrections below to resubmit the same document.');
+      return;
+    }
     this.checklistUploadItem = item;
     this.checklistUploadFile = null;
     const mon = this.monthNames[this.checklistMonth - 1];
@@ -1562,6 +1580,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       id: String(task?.id || ''),
       rowType: 'TASK',
       title:
+        task?.title ||
         task?.compliance?.complianceName ||
         task?.compliance?.title ||
         task?.complianceTitle ||
@@ -1683,6 +1702,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     if (row) {
       this.selectRow(row);
       this.pendingTaskIdFromRoute = null;
+    } else {
+      this.selectedRow = null;
+      this.selectedTaskDetail = null;
+      this.selectedTaskHistory = [];
+      this.detailError = 'The requested item is unavailable or hidden by the current filters. Check your filters or return to the workboard.';
     }
   }
 

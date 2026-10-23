@@ -1,9 +1,11 @@
 import { AuditFieldworkComponent } from '../../../shared/audit-fieldwork/audit-fieldwork.component';
+import { auditTypeLabel } from '../../auditor/audit-context';
+import { AuditFilePreviewComponent, AuditFilePreview } from '../../../shared/files/components/audit-file-preview.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientAuditsService } from '../../../core/client-audits.service';
 import { ReportsService } from '../../../core/reports.service';
@@ -12,15 +14,17 @@ import { PageHeaderComponent, DataTableComponent, TableCellDirective, TableColum
 @Component({
   standalone: true,
   selector: 'app-client-audits',
-  imports: [TableCellDirective, AuditFieldworkComponent, IconComponent, FormsModule, PageHeaderComponent, DataTableComponent, FormSelectComponent, StatusBadgeComponent],
+  imports: [AuditFieldworkComponent, AuditFilePreviewComponent, TableCellDirective, IconComponent, FormsModule, PageHeaderComponent, DataTableComponent, FormSelectComponent, StatusBadgeComponent],
   templateUrl: './client-audits.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-audits.component.scss'],
 })
 export class ClientAuditsComponent implements OnDestroy {
   private destroy$ = new Subject<void>();
+  preview: AuditFilePreview | null = null;
+  openingReport = '';
   loading = true;
-  error = "";
-  private listRequest?: import('rxjs').Subscription;
+  errorMessage = '';
+  private loadRequest?: Subscription;
   audits: any[] = [];
 
   filters = {
@@ -30,8 +34,10 @@ export class ClientAuditsComponent implements OnDestroy {
   };
 
   columns: TableColumn[] = [
+    { key: 'auditCode', header: 'Audit', sortable: true },
+    { key: 'branchName', header: 'Branch / unit', sortable: true },
+    { key: 'report', header: 'Published report', sortable: false },
     { key: 'auditType', header: 'Audit Type', sortable: true },
-    { key: 'branchName', header: 'Branch', sortable: true },
     { key: 'period', header: 'Period', sortable: false },
     { key: 'auditor', header: 'Auditor', sortable: false },
     { key: 'status', header: 'Status', sortable: true, align: 'center' },
@@ -72,16 +78,17 @@ export class ClientAuditsComponent implements OnDestroy {
   }
 
   ngOnDestroy() {
-    this.listRequest?.unsubscribe();
+    this.loadRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   loadAudits() {
-    this.listRequest?.unsubscribe();
+    this.loadRequest?.unsubscribe();
+    this.selectedAudit = null;
+    this.errorMessage = '';
     this.loading = true;
-    this.error = "";
-    this.listRequest = this.api.list(this.filters).pipe(
+    this.loadRequest = this.api.list(this.filters).pipe(
       takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
@@ -96,13 +103,24 @@ export class ClientAuditsComponent implements OnDestroy {
           period: audit.periodCode || String(audit.periodYear),
           branchName: audit.branch?.branchName || 'Company-wide',
           auditor: audit.assignedAuditor?.name || '—',
-          contractor: audit.contractorUser?.name || 'All',
+          contractor: audit.contractorUser?.name || (audit.auditType === 'CONTRACTOR' ? 'Not recorded' : 'Not applicable'),
           dueDate: this.formatDate(audit.dueDate),
           notes: audit.notes || '—'
         }));
         this.cdr.markForCheck();
       },
-      error: () => { this.error = "Unable to load audits. Please refresh to try again."; this.loading = false; this.cdr.markForCheck(); },
+      error: () => { this.audits = []; this.errorMessage = 'Unable to load audits. Please retry.'; this.loading = false; this.cdr.markForCheck(); },
+    });
+  }
+
+  openReport(audit: any): void {
+    if (!audit.publishedReportAvailable || this.openingReport) return;
+    this.openingReport = audit.id;
+    this.errorMessage = '';
+    this.api.publishedReport(audit.id).pipe(takeUntil(this.destroy$), timeout(20000),
+      finalize(() => { this.openingReport = ''; this.cdr.markForCheck(); })).subscribe({
+      next: blob => { this.preview = { blob, name: `${audit.auditCode || 'Audit'} - ${audit.contractorUser?.name || auditTypeLabel(audit.auditType)}.pdf` }; this.cdr.markForCheck(); },
+      error: () => { this.errorMessage = 'The published report could not be opened. Refresh and try again.'; this.cdr.markForCheck(); },
     });
   }
 
@@ -128,7 +146,7 @@ export class ClientAuditsComponent implements OnDestroy {
       total: this.audits.length,
       planned: this.audits.filter(a => a.status === 'PLANNED').length,
       inProgress: this.audits.filter(a => a.status === 'IN_PROGRESS').length,
-      completed: this.audits.filter(a => a.status === 'COMPLETED').length,
+      completed: this.audits.filter(a => ['COMPLETED','CLOSED'].includes(a.status)).length,
     };
   }
 

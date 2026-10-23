@@ -26,28 +26,28 @@
 }
 
     @if (selectedFrequency === 'QUARTERLY') {
-<select id="bpup-selected-quarter" name="selectedQuarter" class="filter-select" [(ngModel)]="selectedQuarter" (change)="load()">
+<div class="filter-field"><label for="bpup-selected-quarter">Quarter</label><select id="bpup-selected-quarter" name="selectedQuarter" class="filter-select" [(ngModel)]="selectedQuarter" (change)="load()">
       @for (q of quarters; track q) {
 <option [ngValue]="q.value">{{ q.label }}</option>
 }
-    </select>
+    </select></div>
 }
 
     @if (selectedFrequency === 'HALF_YEARLY') {
-<select id="bpup-selected-half" name="selectedHalf" class="filter-select" [(ngModel)]="selectedHalf" (change)="load()">
+<div class="filter-field"><label for="bpup-selected-half">Half-year</label><select id="bpup-selected-half" name="selectedHalf" class="filter-select" [(ngModel)]="selectedHalf" (change)="load()">
       @for (h of halves; track h) {
 <option [ngValue]="h.value">{{ h.label }}</option>
 }
-    </select>
+    </select></div>
 }
 
-    <select id="bpup-selected-year" name="selectedYear" class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
+    <div class="filter-field"><label for="bpup-selected-year">Year</label><select id="bpup-selected-year" name="selectedYear" class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
       @for (y of years; track y) {
 <option [ngValue]="y">{{ y }}</option>
 }
-    </select>
+    </select></div>
 
-    <select id="bpup-selected-status" name="selectedStatus" class="filter-select" [(ngModel)]="selectedStatus" (change)="onFiltersChanged()">
+    <div class="filter-field"><label for="bpup-selected-status">Status</label><select id="bpup-selected-status" name="selectedStatus" class="filter-select" [(ngModel)]="selectedStatus" (change)="onFiltersChanged()">
       <option value="ALL">All statuses</option>
       <option value="NOT_UPLOADED">Pending upload</option>
       <option value="SUBMITTED">Submitted</option>
@@ -55,28 +55,30 @@
       <option value="REUPLOAD_REQUIRED">Returned by CRM</option>
       <option value="APPROVED">Approved</option>
       <option value="OVERDUE">Overdue</option>
-    </select>
+    </select></div>
 
-    <select id="bpup-selected-law-area" name="selectedLawArea" class="filter-select" [(ngModel)]="selectedLawArea" (change)="onFiltersChanged()">
+    <div class="filter-field"><label for="bpup-selected-law-area">Law area</label><select id="bpup-selected-law-area" name="selectedLawArea" class="filter-select" [(ngModel)]="selectedLawArea" (change)="onFiltersChanged()">
       <option value="ALL">All law areas</option>
       @for (law of lawAreas; track law) {
 <option [value]="law">{{ law }}</option>
 }
-    </select>
+    </select></div>
 
-    <select id="bpup-selected-category" name="selectedCategory" class="filter-select" [(ngModel)]="selectedCategory" (change)="onFiltersChanged()">
+    <div class="filter-field"><label for="bpup-selected-category">Category</label><select id="bpup-selected-category" name="selectedCategory" class="filter-select" [(ngModel)]="selectedCategory" (change)="onFiltersChanged()">
       <option value="ALL">All categories</option>
       @for (category of categories; track category) {
 <option [value]="category">{{ category }}</option>
 }
-    </select>
+    </select></div>
 
+    <div class="filter-field filter-field--search"><label for="bpup-search-term">Search returns</label>
     <input autocomplete="off" id="bpup-search-term" name="searchTerm"
       class="workspace-search filter-input"
       type="text"
       placeholder="Search return name / code"
       [(ngModel)]="searchTerm"
       (input)="onFiltersChanged()">
+    </div>
   </div>
 
   <div class="summary-grid">
@@ -118,7 +120,8 @@
   </div>
 }
 
-  @if (!loading && !filteredChecklist.length) {
+  @if (!loading && errorMessage) { <div role="alert" class="empty-state">{{ errorMessage }} <button type="button" (click)="load()">Retry</button></div> }
+  @if (!loading && !errorMessage && !filteredChecklist.length) {
 <div class="empty-state">
     No returns found for {{ selectedFrequency | lowercase }} filings in {{ selectedYear }}.
   </div>

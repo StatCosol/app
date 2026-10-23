@@ -20,7 +20,7 @@ import { EffectiveComponent, PayrollEngineApiService, PayslipLayout, PayslipLayo
           <div class="toolbar">
             <label class="toggle"><input type="checkbox" name="enabled" [(ngModel)]="current.settings.enabled" (ngModelChange)="changed()">Custom layout enabled</label>
             <span class="currency">INR</span>
-            <button type="button" class="icon-button" title="Discard changes and reload" aria-label="Discard changes and reload" (click)="load()"><ui-icon name="refresh" /></button>
+            <button type="button" class="icon-button" title="Discard changes and reload" aria-label="Discard changes and reload" (click)="load()"><ui-icon name="undo" /><span>Discard changes and reload</span></button>
             <button type="submit" class="standard-action primary" [disabled]="!dirty || form.invalid">{{ saving ? 'Saving...' : 'Save layout' }}</button>
           </div>
           @for (section of current.sections; track section.key; let s = $index) {

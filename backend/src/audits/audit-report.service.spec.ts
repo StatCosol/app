@@ -8,7 +8,7 @@ describe('Audit report closure and holds', () => {
       id: 'audit',
       clientId: 'client',
       assignedAuditorId: 'auditor',
-      status: 'IN_PROGRESS',
+      status: 'SUBMITTED',
     };
     const report = {
       id: 'report',
@@ -18,7 +18,7 @@ describe('Audit report closure and holds', () => {
     };
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('information_schema')) return [];
-      if (sql.startsWith('WITH changed')) return [{ id: report.id }];
+      if (sql.startsWith('WITH ')) return [{ id: report.id }];
       if (sql.startsWith('UPDATE')) return [];
       return [report];
     });
@@ -85,9 +85,9 @@ describe('Audit report closure and holds', () => {
     await expect(
       t.service.reopenReportForAuditor(auditor, 'audit'),
     ).rejects.toThrow('hold');
-    expect(
-      t.query.mock.calls.some(([sql]) => sql.startsWith('WITH changed')),
-    ).toBe(false);
+    expect(t.query.mock.calls.some(([sql]) => sql.startsWith('WITH '))).toBe(
+      false,
+    );
   });
 
   it.each([
@@ -98,8 +98,9 @@ describe('Audit report closure and holds', () => {
     'reopenReportForAuditor',
   ] as const)('detects concurrent changes in %s', async (method) => {
     const t = setup();
+    if (method === 'publishReportForCrm') t.report.status = 'APPROVED';
     t.query.mockImplementation(async (sql) =>
-      sql.startsWith('WITH changed') || sql.includes('information_schema')
+      sql.startsWith('WITH ') || sql.includes('information_schema')
         ? []
         : [t.report],
     );
@@ -126,7 +127,7 @@ describe('Audit report closure and holds', () => {
       expect.stringContaining(
         'held_at = NULL, held_by_user_id = NULL, hold_remarks = NULL',
       ),
-      ['report'],
+      ['report', 'audit', 'crm', 'Evidence incomplete'],
     );
   });
 
@@ -149,6 +150,18 @@ describe('Audit report closure and holds', () => {
       );
     },
   );
+  it.each(['approveReportForCrm', 'publishReportForCrm'] as const)(
+    'blocks %s until the audit is submitted',
+    async (method) => {
+      const t = setup();
+      t.audit.status = 'IN_PROGRESS';
+      await expect(t.service[method](crm, 'audit')).rejects.toThrow(
+        'Submit the final audit',
+      );
+      expect(t.query).not.toHaveBeenCalled();
+    },
+  );
+
   it('blocks finalization of an untouched pending checklist without locking uploads', async () => {
     const t = setup();
     t.report.status = 'DRAFT';

@@ -294,8 +294,9 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
         next: (branches: any[]) => {
           this.branchOptions = (branches || []).map((b: any) => ({
             label: b.branchName || b.name || b.branch_name || 'Branch',
-            value: String(b.id || ''),
+            value: String(b.id || b.branchId || b.branch_id || ''),
           }));
+          this.recomputeWorkspace();
           this.cdr.markForCheck();
         },
         error: () => { this.branchOptions = []; },

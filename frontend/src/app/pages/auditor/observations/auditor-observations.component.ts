@@ -1,3 +1,5 @@
+import { AuditContextComponent } from '../audit-context.component';
+import { auditOptionLabel } from '../audit-context';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import {
   ChangeDetectionStrategy,
@@ -22,7 +24,7 @@ type ObservationAction = 'ACKNOWLEDGE' | 'RESOLVE' | 'VERIFY' | 'REOPEN';
 @Component({
   standalone: true,
   selector: 'app-auditor-observations',
-  imports: [IconComponent, FormsModule, RouterModule],
+  imports: [AuditContextComponent, IconComponent, FormsModule, RouterModule],
   templateUrl: './auditor-observations.component.html',
   styleUrls: ['./auditor-observations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,6 +35,13 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   private focusedId = '';
   loadError = '';
 
+  readonly auditOptionLabel = auditOptionLabel;
+  contextFor(row: any): any {
+    return this.audits.find(a => a.id === row?.auditId) || row?.audit || null;
+  }
+  get selectedAudit(): any {
+    return this.selected ? this.contextFor(this.selected) : this.audits.find(a => a.id === this.filterAuditId);
+  }
   loading = true;
   busy = false;
 
@@ -442,7 +451,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
 
   private loadAudits(): void {
     this.auditsApi
-      .auditorListAudits({ pageSize: 100 })
+      .auditorListAllAudits()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res: any) => {

@@ -42,12 +42,33 @@
                 "glob": "**/*",
                 "input": "src/assets",
                 "output": "assets"
+              },
+              {
+                "glob": "pdf.worker.mjs",
+                "input": "node_modules/pdfjs-dist/build",
+                "output": "assets/pdfjs"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/pdfjs-dist/cmaps",
+                "output": "assets/pdfjs/cmaps"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/pdfjs-dist/standard_fonts",
+                "output": "assets/pdfjs/standard_fonts"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/pdfjs-dist/wasm",
+                "output": "assets/pdfjs/wasm"
               }
             ],
             "styles": [
               "src/styles.scss",
               "src/styles/bootstrap-workspace.scss",
-              "src/styles/workspace.scss"
+              "src/styles/workspace.scss",
+              "src/styles/portal-identity.scss"
             ]
           },
           "configurations": {

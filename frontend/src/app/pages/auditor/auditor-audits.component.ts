@@ -23,6 +23,7 @@ import {
 type AuditorScheduleAudit = {
   id: string;
   auditCode?: string | null;
+  periodCode?: string | null;
   clientId?: string | null;
   clientName: string;
   auditType?: string | null;
@@ -96,12 +97,11 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
   filteredAudits: AuditorScheduleAudit[] = [];
 
   auditColumns: TableColumn[] = [
-    { key: 'auditCode', header: 'Schedule ID' },
-    { key: 'clientName', header: 'Client' },
-    { key: 'auditTypeLabel', header: 'Audit Type' },
-    { key: 'branchName', header: 'Branch / Unit' },
-    { key: 'contractorName', header: 'Contractor' },
-    { key: 'scheduledDate', header: 'Scheduled Date' },
+    { key: 'auditCode', header: 'Audit reference' },
+    { key: 'clientName', header: 'Client / branch' },
+    { key: 'auditTypeLabel', header: 'Audit type / contractor' },
+    { key: 'periodCode', header: 'Audit period' },
+    { key: 'scheduledDate', header: 'Due date' },
     { key: 'status', header: 'Status' },
     { key: 'action', header: 'Action' },
   ];
@@ -132,7 +132,7 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.cdr.markForCheck();
     this.auditsService
-      .auditorListAudits({ pageSize: 200 })
+      .auditorListAllAudits()
       .pipe(
         timeout(15000),
         takeUntil(this.destroy$),
@@ -140,24 +140,25 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (res) => {
-          const data = Array.isArray(res) ? res : res?.data || res?.items || [];
+          const data = res;
           this.audits = data.map((audit: any) => ({
             id: String(audit.id),
             auditCode: audit.auditCode || null,
+            periodCode: audit.periodCode || null,
             clientId: audit.clientId || audit.client?.id || null,
             clientName: audit.client?.clientName || audit.clientName || '-',
             auditType: audit.auditType || null,
             auditTypeLabel: this.formatAuditType(audit.auditType),
             branchId: audit.branchId || audit.branch?.id || null,
-            branchName: audit.branch?.branchName || audit.branchName || '-',
+            branchName: audit.branch?.branchName || audit.branchName || 'Branch not specified',
             contractorUserId: audit.contractorUserId || audit.contractorUser?.id || null,
-            contractorName: audit.contractorUser?.name || audit.contractorName || '-',
+            contractorName: audit.contractorUser?.name || audit.contractorName || (audit.auditType === 'CONTRACTOR' ? 'Contractor not specified' : 'Not a contractor audit'),
             dueDate: audit.dueDate || null,
             createdAt: audit.createdAt || null,
             status: audit.status || 'SCHEDULED',
           }));
           this.loading = false;
-          this.pruneSelections();
+
           this.recomputeViewModel();
           this.cdr.markForCheck();
         },
@@ -334,13 +335,14 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
     ];
 
     this.filteredAudits = clientAndTypeScopedAudits.filter((audit) => {
-      if (this.filters.status && String(audit.status || '').toUpperCase() !== this.filters.status) {
+      if (this.filters.status && this.statusKey(audit.status) !== this.filters.status) {
         return false;
       }
       if (this.filters.search.trim()) {
         const q = this.filters.search.trim().toLowerCase();
         const haystack = [
           audit.auditCode,
+          audit.periodCode,
           audit.clientName,
           audit.auditTypeLabel,
           audit.branchName,
@@ -418,7 +420,8 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
   }
 
   private statusKey(value: string | null | undefined): string {
-    return String(value || '').trim().toUpperCase();
+    const key = String(value || '').trim().toUpperCase();
+    return ['ASSIGNED', 'NOT_STARTED', 'SCHEDULED'].includes(key) ? 'PLANNED' : key;
   }
 
   private uniqueOptions(options: SelectOption[]): SelectOption[] {

@@ -3,8 +3,8 @@ import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRe
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subject } from 'rxjs';
-import { takeUntil, finalize, switchMap } from 'rxjs/operators';
+import { Subject, EMPTY, combineLatest } from 'rxjs';
+import { takeUntil, finalize, switchMap, startWith, catchError } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/appraisal.models';
 import { PageHeaderComponent } from '../../../shared/ui';
@@ -14,8 +14,16 @@ import { PageHeaderComponent } from '../../../shared/ui';
   standalone: true,
   imports: [IconComponent, CommonModule, FormsModule, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`.data-table { min-width: 860px; } .data-table th:nth-child(2), .data-table td:nth-child(2) { min-width: 240px; max-width: 420px; white-space: normal; overflow-wrap: anywhere; }`],
   styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
+    @if (error) {
+      <div role="alert" class="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <p>{{ error }}</p>
+        @if (!appraisal) { <button type="button" class="standard-action mt-2" (click)="retry()">Try again</button> }
+        <a routerLink="/client/appraisals" class="standard-action ml-3">Back to appraisals</a>
+      </div>
+    }
     @if (appraisal) {
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
@@ -32,7 +40,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <div><span class="text-gray-500">Department:</span> <span class="font-medium ml-1">{{ appraisal.department || '—' }}</span></div>
           <div><span class="text-gray-500">Designation:</span> <span class="font-medium ml-1">{{ appraisal.designation || '—' }}</span></div>
           <div><span class="text-gray-500">DOJ:</span> <span class="font-medium ml-1">{{ appraisal.date_of_joining | date:'dd/MM/yyyy' }}</span></div>
-          <div><span class="text-gray-500">CTC:</span> <span class="font-medium ml-1">{{ appraisal.ctc | number:'1.0-0' }}</span></div>
+          <div><span class="text-gray-500">CTC:</span> <span class="font-medium ml-1">{{ (appraisal.ctc !== null && appraisal.ctc !== undefined) ? (appraisal.ctc | number:'1.0-0') : '-' }}</span></div>
           <div><span class="text-gray-500">Score:</span> <span class="font-semibold ml-1 text-brand-600">{{ appraisal.totalScore ?? '—' }}</span></div>
           <div><span class="text-gray-500">Rating:</span> <span class="font-semibold ml-1">{{ appraisal.finalRatingLabel ?? '—' }}</span></div>
         </div>
@@ -101,7 +109,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <label class="text-xs font-medium text-gray-600 block mb-1" for="client-remarks">Remarks</label>
           <textarea id="client-remarks" name="clientRemarks" [(ngModel)]="clientRemarks" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Optional remarks..."></textarea>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <button (click)="approve()" [disabled]="submitting" class="compact-action appraisal-action appraisal-action--primary" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
           <button (click)="sendBack()" [disabled]="submitting" class="compact-action appraisal-action text-amber-600" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
           <button (click)="reject()" [disabled]="submitting" class="compact-action appraisal-action text-red-600" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
@@ -118,7 +126,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Approval History</h3>
         <div class="space-y-2">
           @for (a of appraisal.approvals; track a) {
-<div class="flex items-center gap-3 text-sm border-b pb-2">
+<div class="flex flex-wrap items-center gap-3 text-sm border-b pb-2">
             <span class="badge bg-gray-100 text-gray-700">{{ a.approvalLevel }}</span>
             <span class="font-medium">{{ a.action }}</span>
             <span class="text-xs text-gray-400">{{ a.actionAt | date:'dd/MM/yyyy HH:mm' }}</span>
@@ -141,6 +149,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
 export class ClientAppraisalApproveComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   loading = true;
+  error = '';
+  private reload$ = new Subject<void>();
   submitting = false;
   appraisal: EmployeeAppraisal | null = null;
   items: EmployeeAppraisalItem[] = [];
@@ -158,47 +168,79 @@ export class ClientAppraisalApproveComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.route.paramMap.pipe(
-      switchMap(p => { this.loading = true; return this.svc.getAppraisal(p.get('id')!); }),
+    combineLatest([this.route.paramMap, this.reload$.pipe(startWith(undefined))]).pipe(
+      switchMap(([p]) => {
+        this.loading = true;
+        this.error = '';
+        this.appraisal = null;
+        this.items = [];
+        const id = p.get('id');
+        if (!id) {
+          this.loading = false;
+          this.error = 'Appraisal not found.';
+          this.cdr.markForCheck();
+          return EMPTY;
+        }
+        return this.svc.getAppraisal(id).pipe(
+          catchError(() => {
+            this.error = 'Unable to load this appraisal. Check your access or try again.';
+            return EMPTY;
+          }),
+          finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
+        );
+      }),
       takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
-    ).subscribe(a => { this.appraisal = a; this.items = a.items ?? []; });
+    ).subscribe(a => {
+      this.appraisal = a;
+      this.items = a.items ?? [];
+      this.cdr.markForCheck();
+    });
   }
 
+  retry(): void { this.reload$.next(); }
+
   approve() {
-    if (!this.appraisal) return;
+    if (!this.appraisal || this.submitting) return;
+    this.error = '';
     this.submitting = true;
     this.svc.clientApprove(this.appraisal.id, { action: 'APPROVE', remarks: this.clientRemarks || undefined }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.submitting = false; this.cdr.markForCheck(); }),
-    ).subscribe(a => { this.appraisal = a; this.items = a.items ?? []; });
+    ).subscribe({ next: a => { this.appraisal = a; this.items = a.items ?? []; },
+      error: () => { this.error = 'Unable to save the decision. Please try again.'; } });
   }
 
   sendBack() {
-    if (!this.appraisal) return;
+    if (!this.appraisal || this.submitting) return;
+    this.error = '';
     this.submitting = true;
     this.svc.clientApprove(this.appraisal.id, { action: 'SEND_BACK', remarks: this.clientRemarks || undefined }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.submitting = false; this.cdr.markForCheck(); }),
-    ).subscribe(() => this.router.navigate(['/client/appraisals']));
+    ).subscribe({ next: () => this.router.navigate(['/client/appraisals']),
+      error: () => { this.error = 'Unable to save the decision. Please try again.'; } });
   }
 
   reject() {
-    if (!this.appraisal) return;
+    if (!this.appraisal || this.submitting) return;
+    this.error = '';
     this.submitting = true;
     this.svc.clientApprove(this.appraisal.id, { action: 'REJECT', remarks: this.clientRemarks || undefined }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.submitting = false; this.cdr.markForCheck(); }),
-    ).subscribe(a => { this.appraisal = a; this.items = a.items ?? []; });
+    ).subscribe({ next: a => { this.appraisal = a; this.items = a.items ?? []; },
+      error: () => { this.error = 'Unable to save the decision. Please try again.'; } });
   }
 
   lock() {
-    if (!this.appraisal) return;
+    if (!this.appraisal || this.submitting) return;
+    this.error = '';
     this.submitting = true;
     this.svc.lockAppraisal(this.appraisal.id).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.submitting = false; this.cdr.markForCheck(); }),
-    ).subscribe(() => this.router.navigate(['/client/appraisals']));
+    ).subscribe({ next: () => this.router.navigate(['/client/appraisals']),
+      error: () => { this.error = 'Unable to save the decision. Please try again.'; } });
   }
 
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }

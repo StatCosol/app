@@ -1,8 +1,8 @@
 import { loadAllPages } from '../shared/utils/load-all-pages';
-import { map } from 'rxjs/operators';
+import { map, expand, reduce } from 'rxjs/operators';
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, EMPTY } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export type AuditorReportVersion = 'INTERNAL' | 'CLIENT';
@@ -12,8 +12,10 @@ export interface AuditorReportDraft {
   reportId: string | null;
   auditId: string;
   stage: AuditorReportStage;
+  status?: string;
   held?: boolean;
   holdRemarks?: string | null;
+  returnFeedback?: Array<{ reason: string; returnedAt: string; returnedBy: string | null }>;
   version: AuditorReportVersion;
   executiveSummary: string;
   scope: string;
@@ -123,6 +125,14 @@ export class AuditsService {
   }
 
   // Auditor: list assigned audits with optional filters
+  auditorListAllAudits(): Observable<any[]> {
+    return this.auditorListAudits({ page: 1, pageSize: 250 }).pipe(
+      expand((res: any) => !Array.isArray(res) && res.page * res.pageSize < res.total
+        ? this.auditorListAudits({ page: res.page + 1, pageSize: 250 }) : EMPTY),
+      reduce((rows: any[], res: any) => rows.concat(Array.isArray(res) ? res : res?.data || res?.items || []), []),
+    );
+  }
+
   auditorListAudits(params: any): Observable<any> {
     let p = new HttpParams();
     Object.keys(params || {}).forEach((k) => {
@@ -180,8 +190,8 @@ export class AuditsService {
   }
 
   // Auditor: reopen completed audit for re-audit
-  auditorReopenAudit(auditId: string): Observable<any> {
-    return this.http.post(`${this.auditorBase}/${auditId}/reopen`, {});
+  auditorReopenAudit(auditId: string, reason: string): Observable<any> {
+    return this.http.post(`${this.auditorBase}/${auditId}/reopen`, { reason });
   }
 
   // ── Checklist ──
@@ -244,16 +254,16 @@ export class AuditsService {
   }
 
   // ── AuditXpert: Dashboard ──────────────────────────────────────
-  auditorDashboardSummary(): Observable<any> {
-    return this.http.get(`${this.auditorBase}/dashboard/summary`);
+  auditorDashboardSummary(params: Record<string, string> = {}): Observable<any> {
+    return this.http.get(`${this.auditorBase}/dashboard/summary`, { params });
   }
 
-  auditorUpcomingAudits(): Observable<any> {
-    return this.http.get(`${this.auditorBase}/dashboard/upcoming`);
+  auditorUpcomingAudits(params: Record<string, string> = {}): Observable<any> {
+    return this.http.get(`${this.auditorBase}/dashboard/upcoming`, { params });
   }
 
-  auditorRecentSubmitted(): Observable<any> {
-    return this.http.get(`${this.auditorBase}/dashboard/recent-submitted`);
+  auditorRecentSubmitted(params: Record<string, string> = {}): Observable<any> {
+    return this.http.get(`${this.auditorBase}/dashboard/recent-submitted`, { params });
   }
 
   // ── AuditXpert: Audit Detail / Workspace ───────────────────────

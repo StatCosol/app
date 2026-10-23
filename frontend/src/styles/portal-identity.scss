@@ -1,0 +1,131 @@
+/* One workspace identity; status badges, validation and report content retain
+   their semantic colours. Scoped away from public pages and other portals. */
+:is(app-client-layout, app-branch-layout, app-crm-layout, app-auditor-layout,
+    app-contractor-layout, app-payroll-layout, app-cco-layout).workspace-ui {
+  --portal-ink: #183c32;
+  --portal-primary: #116653;
+  --portal-primary-hover: #0b503f;
+  --portal-surface: #f5f7f2;
+  --portal-border: #d6e2dc;
+  --text-primary: var(--portal-ink);
+  --text-secondary: #526b61;
+  --text-muted: #5e7268;
+  --statco-primary: var(--portal-primary);
+
+  :is(.client-content, .branch-content, .crm-content, .auditor-content,
+      .contractor-content, .payroll-content, .cco-content) {
+    background: var(--portal-surface) !important;
+  }
+  :is(.dash-hero, .dashboard-hero) {
+    background: #163f32 !important;
+    color: #fff;
+    box-shadow: none !important;
+  }
+  :is(.dash-hero, .dashboard-hero) :is(h1,h2,h3) { color: #fff !important; }
+  :is(.dash-hero__glow, .hero-glow) { display:none; }
+  :is(.page-heading, .page-header, .page-head, ui-page-header) :is(h1,h2) {
+    color: var(--portal-ink);
+  }
+  :is(button,a).btn-primary:not(.compact-action):not(.ui-icon-action),
+  :is(button,a).btn-primary-sm,
+  :is(button,a).btn-accent,
+  button:not([class]),
+  header button[aria-label="Logout"],
+  :is(button,a)[class*="role-btn-"]:not(.compact-action):not(.ui-icon-action),
+  :is(button,a)[class*="role-fab-"]:not(.compact-action):not(.ui-icon-action),
+  :is(button,a).bg-brand-600:not(.compact-action):not(.ui-icon-action),
+  :is(button,a).bg-brand-700:not(.compact-action):not(.ui-icon-action),
+  :is(button,a).bg-brand-800:not(.compact-action):not(.ui-icon-action),
+  :is(button,a).bg-blue-600:not(.compact-action):not(.ui-icon-action) {
+    background: var(--portal-primary) !important;
+    border-color: var(--portal-primary) !important;
+    color: #fff !important;
+    box-shadow: none;
+  }
+  :is(button,a).btn-primary:hover:not(:disabled):not(.compact-action):not(.ui-icon-action) {
+    background: var(--portal-primary-hover) !important;
+    border-color: var(--portal-primary-hover) !important;
+  }
+  :is(button,a).btn-outline-primary:not(.compact-action):not(.ui-icon-action) {
+    background: #fff; color: var(--portal-primary); border-color: var(--portal-primary);
+  }
+  :is(button,a).compact-action:not([data-action-icon="x-circle"]):not([data-action-icon="trash"]):not([data-action-icon="user-minus"]),
+  ui-button .ui-icon-action:not([data-action-icon="x-circle"]):not([data-action-icon="trash"]):not([data-action-icon="user-minus"]) {
+    color: var(--portal-primary) !important; border-color: var(--portal-border) !important;
+  }
+  :is(.compact-action,.ui-icon-action):hover:not(:disabled) {
+    background:#edf5ef !important; border-color:#86ad97 !important;
+  }
+  :is(.compact-action,.ui-icon-action):focus-visible {
+    outline:3px solid var(--portal-primary); outline-offset:3px;
+  }
+  /* Neutral tabs/links use the brand, while red/amber/green status controls
+     are intentionally not recoloured. */
+  .tab-nav-item.active {
+    background:#edf5ef; border-color:var(--portal-primary); color:var(--portal-primary);
+  }
+  :is(.card,.panel,.filter-bar,.filter-panel) { border-color:var(--portal-border); }
+  :is(.toolbar,.filter-bar,.filter-panel,.filters) {
+    :is(input,select,textarea):focus { border-color:var(--portal-primary); }
+  }
+  @media(max-width:1023px) {
+    main .standard-action,
+    ui-button .btn:not(.ui-icon-action) {
+      white-space:normal; height:auto !important; max-height:none !important;
+      min-height:44px !important; max-width:100%; padding:8px 12px !important;
+      overflow-wrap:anywhere;
+    }
+    ui-button { min-width:0; max-width:100%; }
+    .compact-action, .ui-icon-action {
+      width:44px !important; min-width:44px !important; max-width:44px !important;
+      height:44px !important; min-height:44px !important; max-height:44px !important;
+      flex-basis:44px;
+    }
+  }
+}
+
+
+/* Common form geometry for the seven workspaces. Native checkbox/radio,
+   colour/range controls, multiline inputs and multi-selects retain their size. */
+:is(app-client-layout, app-branch-layout, app-crm-layout, app-auditor-layout,
+    app-contractor-layout, app-payroll-layout, app-cco-layout).workspace-ui {
+  --filter-control-height: 40px;
+  @media (max-width:1023px), (pointer:coarse) { --filter-control-height:44px; }
+
+  :is(ui-form-input, ui-form-select) { display:block; min-width:0; max-width:100%; }
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([type='file']):not([type='range']):not([type='color']):not([type='button']):not([type='submit']):not([type='image']),
+  select:not([multiple]):not([size]) {
+    height:var(--filter-control-height) !important;
+    min-height:var(--filter-control-height) !important;
+    box-sizing:border-box;
+    padding-block:6px;
+    max-width:100%;
+  }
+  input[type='file']:not([hidden]) {
+    min-height:var(--filter-control-height); max-width:100%; box-sizing:border-box;
+  }
+  label:has(> input[type='file'][hidden]) {
+    display:inline-flex; align-items:center; justify-content:center;
+    min-height:var(--filter-control-height); box-sizing:border-box;
+    padding-block:6px; gap:8px; margin-bottom:0;
+  }
+  .form-field { row-gap:6px; }
+  .form-field > .form-label { margin-bottom:0; }
+  .form-field > label:has(> input:not([type='checkbox']):not([type='radio'])) {
+    display:flex; flex-direction:column; align-items:stretch; gap:6px;
+  }
+  .aligned-filter-controls {
+    flex-wrap:wrap;
+    column-gap:12px; row-gap:12px;
+    > :is(div, label, ui-form-input, ui-form-select) { min-width:0; max-width:100%; }
+    > label:has(> input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([type='file'])):not(.flex):not(.inline-flex) {
+      display:flex; flex-direction:column; align-items:stretch; gap:4px;
+    }
+    > label > :is(input,select) { margin-inline:0 !important; }
+  }
+  :is(.form-actions,.modal-actions,.dialog-actions,.action-row) {
+    flex-wrap:wrap; gap:8px; align-items:center;
+  }
+  // Horizontal tab strips scroll as a group; individual labels must not shrink.
+  .overflow-x-auto > button { flex-shrink:0; }
+}

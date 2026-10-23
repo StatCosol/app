@@ -369,7 +369,31 @@ export class AuditNcService {
         await docReviewRepo.save(reviewRecord);
       }
 
-      // Check if all NCs for this audit are resolved — auto-transition to CLOSED
+      // Update only checkpoints explicitly linked to this document. Keep manual
+      // remarks and require the auditor to verify the changed suggestion.
+      if (nc.documentId && nc.sourceTable) {
+        await manager.query(
+          `UPDATE audit_checklist_items
+           SET status = $1, automated_remarks = $2, automation_reviewed = false,
+               reviewed_by = $3, reviewed_at = NOW(), updated_at = NOW()
+           WHERE audit_id = $4 AND linked_doc_id = $5 AND linked_doc_table = $6
+             AND status <> 'NOT_APPLICABLE' AND evidence_revision = 0
+             AND NOT EXISTS (SELECT 1 FROM audit_item_reviews r WHERE r.item_id = audit_checklist_items.id)`,
+          [
+            decision,
+            remark ||
+              (decision === 'COMPLIED'
+                ? 'Corrected document approved by auditor'
+                : 'Corrected document rejected by auditor'),
+            user.userId,
+            nc.auditId,
+            nc.documentId,
+            nc.sourceTable,
+          ],
+        );
+      }
+
+      // A file decision must not bypass checklist verification and final submission.
       const openNcs = await ncRepo.count({
         where: { auditId: nc.auditId },
       });
@@ -380,7 +404,7 @@ export class AuditNcService {
         ],
       });
       if (openNcs > 0 && openNcs === closedNcs) {
-        audit.status = 'CLOSED';
+        audit.status = 'IN_PROGRESS';
         await auditRepo.save(audit);
       }
       const event = decision === 'COMPLIED' ? 'NC_ACCEPTED' : 'NC_REJECTED';

@@ -29,6 +29,7 @@ export class PayrollClientScopeService {
            FROM client_assignments_current a
            JOIN clients c ON c.id = a.client_id
           WHERE a.assigned_to_user_id = $1
+            AND a.assignment_type = 'CRM'
             AND (c.is_deleted = false OR c.is_deleted IS NULL)`,
         [user.id],
       );
@@ -43,7 +44,7 @@ export class PayrollClientScopeService {
     if (user.roleCode === 'CRM') {
       return this.getCrmClientIds(user);
     }
-    if (user.roleCode === 'ADMIN' || user.roleCode === 'CCO') {
+    if (['ADMIN', 'CEO', 'CCO'].includes(user.roleCode)) {
       const clients = await this.clientRepo
         .createQueryBuilder('c')
         .select('c.id')

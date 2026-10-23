@@ -1,3 +1,4 @@
+import { AuditFilePreviewComponent, AuditFilePreview } from '../../../shared/files/components/audit-file-preview.component';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { ComplianceDocumentRecordsComponent } from '../../../shared/compliance/compliance-document-records.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
@@ -24,7 +25,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   standalone: true,
   selector: 'app-client-compliance-library',
-  imports: [ComplianceDocumentRecordsComponent, IconComponent,
+  imports: [AuditFilePreviewComponent, ComplianceDocumentRecordsComponent, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -35,6 +36,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
   styleUrls: ['../shared/client-theme.scss', './client-compliance-library.component.scss'],
 })
 export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
+  documentPreview: AuditFilePreview | null = null;
   private destroy$ = new Subject<void>();
 
   private documentRequest?: Subscription;
@@ -207,7 +209,8 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
 
   openLibraryDocument(doc: ComplianceDocument, download = false) {
     const url = this.getDownloadUrl(doc.id);
-    const request = download ? this.protectedFiles.download(url, doc.fileName) : this.protectedFiles.open(url, doc.fileName);
+    if (!download) { this.documentPreview = {url, name: doc.fileName}; return; }
+    const request = this.protectedFiles.download(url, doc.fileName);
     request.pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to open document.') });
   }
 

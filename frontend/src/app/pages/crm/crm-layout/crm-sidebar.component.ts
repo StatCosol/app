@@ -1,3 +1,4 @@
+import { ResponsiveNavigationDirective } from '../../../shared/directives/responsive-navigation.directive';
 import { FormsModule } from '@angular/forms';
 import { filterNavigation } from '../../../shared/navigation/navigation-filter';
 import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
@@ -22,13 +23,13 @@ interface SidebarItem {
 @Component({
   selector: 'app-crm-sidebar',
   standalone: true,
-  imports: [RouterModule, FormsModule],
+  imports: [ResponsiveNavigationDirective, RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
     @if (mobileOpen) {
 <div
-     
-      class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+
+      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
 }
@@ -37,6 +38,7 @@ interface SidebarItem {
     <aside
       [class]="sidebarClasses"
       [class.mobile-open]="mobileOpen"
+      [uiResponsiveNavigation]="mobileOpen" (navigationDismiss)="mobileOpen = false; mobileOpenChange.emit(false)"
     >
       <!-- Brand area -->
       @if (!collapsed) {
@@ -66,7 +68,7 @@ interface SidebarItem {
 
       <!-- Mobile close button -->
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
-        <button
+        <button type="button" aria-label="Close navigation"
           (click)="mobileOpen = false; mobileOpenChange.emit(false)"
           class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors"
         >
@@ -83,7 +85,7 @@ interface SidebarItem {
           <div class="collapsed-menu">
             @for (link of collapsedLinks; track link) {
 <a
-             
+
               [routerLink]="link.route"
               routerLinkActive="collapsed-active"
               [routerLinkActiveOptions]="{ exact: true }"
@@ -95,7 +97,7 @@ interface SidebarItem {
             </a>
 }
           </div>
-        
+
 } @else {
 
           <label class="block px-3 py-2 text-sm text-white">Find a menu
@@ -104,9 +106,9 @@ interface SidebarItem {
           @if (!filteredNavGroups.length) { <p class="px-3 text-sm text-white">No matching menus.</p> }
           @for (group of filteredNavGroups; track group.label) {
 <div
-           
+
           >
-            <div
+            <button type="button" [attr.aria-expanded]="group.expanded"
               class="sidebar-section"
               [class.active]="group.expanded"
               (click)="toggleGroup(group)"
@@ -115,11 +117,11 @@ interface SidebarItem {
               <svg class="chevron" [class.open]="group.expanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
               </svg>
-            </div>
+            </button>
             <div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
               @for (item of group.items; track item) {
 <a
-               
+
                 [routerLink]="item.route"
                 routerLinkActive="sidebar-active"
                 [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
@@ -133,10 +135,10 @@ interface SidebarItem {
             </div>
           </div>
 }
-        
+
 }
 
-        
+
       </nav>
 
       <!-- Version footer -->

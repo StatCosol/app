@@ -91,7 +91,7 @@ import {
         </div>
         <div class="flex justify-end">
           <ui-button variant="primary" [disabled]="generating || !genForm.clientId || !genForm.findingDescription"
-                     (clicked)="generate()" icon="refresh" [iconOnly]="true" label="Generate Observation">
+                     (clicked)="generate()" icon="document-plus" [iconOnly]="false" label="Generate Observation">
             {{ generating ? 'Generating...' : 'Generate Observation' }}
           </ui-button>
         </div>

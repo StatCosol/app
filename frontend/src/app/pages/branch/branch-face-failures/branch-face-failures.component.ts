@@ -181,7 +181,7 @@ const REASONS: { value: string; label: string }[] = [
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
             <span class="text-xs font-semibold uppercase text-gray-500">Top offenders</span>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 aligned-filter-controls">
               <label class="text-[10px] text-gray-500 flex items-center gap-1">
                 ≥
                 <input type="number" min="0" max="999" step="1"

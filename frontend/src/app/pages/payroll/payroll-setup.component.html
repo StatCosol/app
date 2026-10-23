@@ -1,4 +1,4 @@
-﻿<div class="page-wrap">
+<div class="page-wrap">
   <ui-page-header
     title="Payroll Setup"
     subtitle="Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.">
@@ -274,7 +274,7 @@
       <div class="el-accrual-section">
         <h3 class="text-sm font-bold text-gray-700 mt-4 mb-2">Earned Leave Accrual</h3>
         <p class="text-xs text-gray-500 mb-3">Credit 1 EL to employees who worked &ge; 20 days in a month</p>
-        <div class="flex items-end gap-3 flex-wrap">
+        <div class="flex items-end gap-3 flex-wrap aligned-filter-controls">
           <label class="text-sm">
             Year
             <input autocomplete="off" type="number" class="w-24" [(ngModel)]="elAccrualYear" min="2020" max="2030" />
@@ -287,7 +287,7 @@
 }
             </select>
           </label>
-          <button class="compact-action btn btn-primary" type="button" [disabled]="elAccruing" (click)="accrueEL()" title="Run EL Accrual" aria-label="Run EL Accrual" data-action-label="Run EL Accrual" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+          <button class="standard-action btn btn-primary" type="button" [disabled]="elAccruing" (click)="accrueEL()" title="Run EL Accrual" aria-label="Run EL Accrual" data-action-label="Run EL Accrual" data-action-icon="calculator"><ui-icon name="calculator" [size]="20" /><span class="compact-action-label">
             {{ elAccruing ? 'Processing...' : 'Run EL Accrual' }}
           </span></button>
         </div>
@@ -747,7 +747,7 @@
         </div>
 
         <footer class="section-actions">
-          <button class="compact-action btn btn-primary" type="button" [disabled]="previewLoading || !selectedStructureId" (click)="runPreview()" title="Run Live Preview" aria-label="Run Live Preview" data-action-label="Run Live Preview" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+          <button class="standard-action btn btn-primary" type="button" [disabled]="previewLoading || !selectedStructureId" (click)="runPreview()" title="Run Live Preview" aria-label="Run Live Preview" data-action-label="Run Live Preview" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
             {{ previewLoading ? 'Calculating...' : 'Run Live Preview' }}
           </span></button>
         </footer>
@@ -978,8 +978,8 @@
               </option>
 }
             </select>
-            <button type="button" class="compact-action btn btn-ghost" style="padding:3px 8px;font-size:12px;"
-                    [disabled]="!selectedTemplateId" (click)="applySelectedTemplate()" title="Load" aria-label="Load" data-action-label="Load" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
+            <button type="button" class="standard-action btn btn-ghost" style="padding:3px 8px;font-size:12px;"
+                    [disabled]="!selectedTemplateId" (click)="applySelectedTemplate()" title="Load" aria-label="Load" data-action-label="Load" data-action-icon="folder-open"><ui-icon name="folder-open" [size]="20" /><span>Load</span></button>
             <button type="button" class="standard-action btn btn-ghost" style="padding:3px 8px;font-size:12px;"
                     [disabled]="!formulaForm.formulaJson || savingTemplate"
                     (click)="saveAsTemplate()">

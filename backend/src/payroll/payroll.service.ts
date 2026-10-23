@@ -290,27 +290,16 @@ export class PayrollService {
     if (!['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user?.roleCode)) {
       throw new ForbiddenException('Only payroll/admin/CRM/CEO/CCO allowed');
     }
-    if (['ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
-      return this.clientRepo
-        .createQueryBuilder('c')
-        .select([
-          'c.id AS id',
-          'c.client_name AS "clientName"',
-          'c.client_code AS "clientCode"',
-        ])
-        .where('c.is_deleted = false')
-        .orderBy('c.client_name', 'ASC')
-        .getRawMany();
-    }
-    return this.assignRepo
-      .createQueryBuilder('a')
-      .innerJoin(ClientEntity, 'c', 'c.id = a.client_id')
-      .select('c.id', 'id')
-      .addSelect('c.client_name', 'clientName')
-      .addSelect('c.client_code', 'clientCode')
-      .where('a.payroll_user_id = :uid', { uid: user.id })
-      .andWhere('a.status = :s', { s: 'ACTIVE' })
-      .andWhere('a.end_date IS NULL')
+    const ids = await this.scopeService.getAssignedClientIds(user);
+    if (!ids.length) return [];
+    return this.clientRepo
+      .createQueryBuilder('c')
+      .select([
+        'c.id AS id',
+        'c.client_name AS "clientName"',
+        'c.client_code AS "clientCode"',
+      ])
+      .where('c.id IN (:...ids)', { ids })
       .andWhere('c.is_deleted = false')
       .orderBy('c.client_name', 'ASC')
       .getRawMany();
@@ -989,22 +978,7 @@ export class PayrollService {
   async getPfEsiSummary(user: ReqUser) {
     if (!user?.id) throw new BadRequestException('Invalid user');
 
-    // Get assigned client IDs
-    let clientIds: string[] = [];
-    if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
-      const clients = await this.clientRepo
-        .createQueryBuilder('c')
-        .select('c.id')
-        .where('c.is_deleted = false')
-        .getMany();
-      clientIds = clients.map((c) => c.id);
-    } else {
-      const assignments = await this.assignRepo.find({
-        where: { payrollUserId: user.id, status: 'ACTIVE', endDate: IsNull() },
-        select: ['clientId'],
-      });
-      clientIds = assignments.map((a) => a.clientId);
-    }
+    const clientIds = await this.scopeService.getAssignedClientIds(user);
 
     if (!clientIds.length) {
       return {

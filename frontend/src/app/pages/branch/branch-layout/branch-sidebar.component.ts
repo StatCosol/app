@@ -1,3 +1,4 @@
+import { ResponsiveNavigationDirective } from '../../../shared/directives/responsive-navigation.directive';
 import { Component, Input, Output, EventEmitter, OnDestroy, OnInit } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
@@ -22,13 +23,13 @@ interface SidebarItem {
 @Component({
   selector: 'app-branch-sidebar',
   standalone: true,
-  imports: [RouterModule, FormsModule],
+  imports: [ResponsiveNavigationDirective, RouterModule, FormsModule],
   template: `
     <!-- Mobile overlay -->
     @if (mobileOpen) {
 <div
 
-      class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="closeMobile()"
     ></div>
 }
@@ -37,6 +38,7 @@ interface SidebarItem {
     <aside
       [class]="sidebarClasses"
       [class.mobile-open]="mobileOpen"
+      [uiResponsiveNavigation]="mobileOpen" (navigationDismiss)="mobileOpen = false; mobileOpenChange.emit(false)"
     >
       <!-- Brand area -->
       @if (!collapsed) {
@@ -90,7 +92,7 @@ interface SidebarItem {
 
       <!-- Mobile close button -->
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
-        <button (click)="closeMobile()" class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors">
+        <button type="button" aria-label="Close navigation" (click)="closeMobile()" class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -172,7 +174,7 @@ interface SidebarItem {
                    Communication" renders as "Reports & Commu…" with no way to
                    read the rest. Applied to every label rather than shortening
                    this one, since the next long label would hit it too. -->
-              <button class="sidebar-item sidebar-group-toggle" (click)="toggleGroup(item)" [title]="item.label">
+              <button type="button" [attr.aria-expanded]="item.expanded" class="sidebar-item sidebar-group-toggle" (click)="toggleGroup(item)" [title]="item.label">
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
                 <span class="sidebar-label">{{ item.label }}</span>
                 @if (totalBadge(item)) {
@@ -182,7 +184,7 @@ interface SidebarItem {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
               </button>
-              <div class="sidebar-children" [class.sidebar-children--open]="item.expanded">
+              <div class="sidebar-children" [attr.inert]="item.expanded ? null : ''" [class.sidebar-children--open]="item.expanded">
                 <div class="sidebar-children-inner">
                 @for (child of item.children; track child.route) {
 <a
@@ -616,7 +618,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
     if (route.startsWith('/branch/reports')) return ['EMPLOYEE_COMPLIANCE', 'CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
     if (route.startsWith('/branch/contractor-payroll')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS', 'PAYROLL'];
     if (route.startsWith('/branch/contractors')) return ['CONTRACTOR_AUDIT', 'CONTRACTOR_DOCUMENTS'];
-    if (route.startsWith('/branch/audits/') || route.startsWith('/branch/audit-non-compliances')) return ['CONTRACTOR_AUDIT'];
+    if (route.startsWith('/branch/audits') || route.startsWith('/branch/audit-non-compliances')) return ['CONTRACTOR_AUDIT'];
     if (route.startsWith('/branch/attendance/contractor')) return ['CONTRACTOR_ATTENDANCE'];
     if (route.startsWith('/branch/facedesk-enrollment')) return ['CONTRACTOR_FACE_ATTENDANCE'];
     if (route.startsWith('/branch/face-failures')) return ['CONTRACTOR_FACE_ATTENDANCE'];
@@ -745,7 +747,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
           { label: 'Compliance Calendar',  route: '/branch/calendar',                icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Registrations',        route: '/branch/registrations',           icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Safety',              route: '/branch/safety',                  icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
-          { label: 'Audit Evidence', route: '/branch/audits/evidence', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2') },
+          { label: 'Audit Reports & Evidence', route: '/branch/audits', icon: this.svg('M9 5h6v14H9z') },
           { label: 'Audit Observations',   route: '/branch/audits/observations',     icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
           { label: 'Review / Reupload',    route: '/branch/compliance-docs',         icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Unit Documents',       route: '/branch/unit-documents',          icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },

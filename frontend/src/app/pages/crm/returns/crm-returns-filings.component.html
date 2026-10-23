@@ -89,7 +89,7 @@
         <h4>Generate Monthly Filings</h4>
         <p>Creates filing rows + tasks from return master rules for the current month.</p>
         @if (canManageAutomation) {
-        <ui-button variant="primary" size="sm" [disabled]="autoGenerating" (clicked)="runAutoGenerate()" icon="refresh" [iconOnly]="true" label="Generate Filings">
+        <ui-button variant="primary" size="sm" [disabled]="autoGenerating" (clicked)="runAutoGenerate()" icon="document-plus" [iconOnly]="false" label="Generate Filings">
           {{ autoGenerating ? 'Generating...' : 'Generate Filings' }}
         </ui-button>
         } @else { <p>Managed by your administrator in the Automation Control Centre.</p> }
@@ -105,7 +105,7 @@
         <h4>Generate Renewal Filings</h4>
         <p>Scans expiring registrations and creates renewal filing rows + tasks.</p>
         @if (canManageAutomation) {
-<ui-button variant="secondary" size="sm" [disabled]="autoRenewing" (clicked)="runAutoRenewals()" icon="refresh" [iconOnly]="true" label="Generate Renewals">
+<ui-button variant="secondary" size="sm" [disabled]="autoRenewing" (clicked)="runAutoRenewals()" icon="document-plus" [iconOnly]="false" label="Generate Renewals">
           {{ autoRenewing ? 'Scanning...' : 'Generate Renewals' }}
         </ui-button>
 } @else { <p>Managed by your administrator in the Automation Control Centre.</p> }

@@ -9,8 +9,8 @@ import { SharedFilePreviewData } from './file-preview.model';
   template: `
     <div class="border-b border-gray-200 p-4">
       <div class="flex items-start justify-between gap-4">
-        <div>
-          <h3 class="text-base font-semibold text-gray-900">{{ file?.name || file?.fileName || 'File Preview' }}</h3>
+        <div class="min-w-0">
+          <h3 class="text-base font-semibold text-gray-900 break-words" style="overflow-wrap:anywhere">{{ file?.name || file?.fileName || 'File Preview' }}</h3>
           <div class="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
             @if (file?.queryType) {
 <span>Type: {{ file?.queryType }}</span>

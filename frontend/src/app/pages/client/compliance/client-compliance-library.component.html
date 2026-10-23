@@ -82,8 +82,8 @@
   @if (!loading && !loadError && filteredDocs.length === 0) {
 <ui-empty-state
 
-    title="No documents found"
-    description="No compliance documents match the current filters. Check the selected filters or confirm that the files were uploaded for your company.">
+    title="No reference files or older uploads found"
+    description="No files in this section match the current filters. Current returns and challans appear in Compliance submissions above.">
   </ui-empty-state>
 }
 
@@ -128,3 +128,5 @@
 }
   </section>
 </div>
+
+@if (documentPreview) { <app-audit-file-preview [request]="documentPreview" (closed)="documentPreview = null" /> }

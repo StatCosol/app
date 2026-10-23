@@ -128,6 +128,10 @@ export class ReviewComplianceDocDto {
 
 export class ChecklistQueryDto {
   @IsOptional()
+  @IsIn(['ACTUAL', 'TEST'])
+  recordScope?: 'ACTUAL' | 'TEST';
+
+  @IsOptional()
   @IsString()
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
   monthKey?: string;

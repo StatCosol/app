@@ -1,10 +1,11 @@
+import { AuditFilePreviewComponent, AuditFilePreview } from '../../../shared/files/components/audit-file-preview.component';
 import { UnitRegistrationFieldsComponent, emptyRegistration, appendRegistration, registrationUploadError } from '../../../shared/components/unit-registration-fields.component';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
   CrmDocumentScope,
@@ -42,7 +43,7 @@ type ScopeFilter = '' | CrmDocumentScope;
 @Component({
   standalone: true,
   selector: 'app-branch-unit-documents',
-  imports: [UnitRegistrationFieldsComponent, IconComponent,
+  imports: [AuditFilePreviewComponent, UnitRegistrationFieldsComponent, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -59,22 +60,26 @@ type ScopeFilter = '' | CrmDocumentScope;
         <h2 class="font-medium mb-3">Upload Unit Document</h2>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           @if (branches.length > 1) {
+          <label class="flex flex-col gap-1 text-sm">Branch
           <select aria-label="Branch" name="uploadBranch" [(ngModel)]="uploadBranchId" required>
             <option value="">Select branch</option>
             @for (b of branches; track b.id) { <option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option> }
-          </select>
+          </select></label>
           } @else if (branches.length === 1) {
-            <span class="text-sm self-center">{{ branches[0].branchName || branches[0].name }}</span>
+            <div class="flex flex-col gap-1 text-sm"><span>Branch</span><strong>{{ branches[0].branchName || branches[0].name }}</strong></div>
           }
+          <label class="flex flex-col gap-1 text-sm">Law category
           <select aria-label="Law" name="uploadLaw" [(ngModel)]="uploadLaw" required>
             @for (law of lawCategories; track law) { <option [value]="law">{{ law }}</option> }
-          </select>
+          </select></label>
+          <label class="flex flex-col gap-1 text-sm">Document type
           <select aria-label="Document type" name="uploadType" [(ngModel)]="uploadType" required>
             @for (type of uploadDocTypes; track type) { <option [value]="type">{{ type }}</option> }
-          </select>
-          <label>Valid from <input type="date" name="validFrom" [(ngModel)]="validFrom"></label>
-          <label>Valid until <input type="date" name="validTo" [(ngModel)]="validTo" [disabled]="registration.noExpiry"></label>
-          <input #uploadInput type="file" aria-label="Document file" (change)="selectFile($event)">
+          </select></label>
+          <label class="flex flex-col gap-1 text-sm">Valid from <input type="date" name="validFrom" [(ngModel)]="validFrom"></label>
+          <label class="flex flex-col gap-1 text-sm">Valid until <input type="date" name="validTo" [(ngModel)]="validTo" [disabled]="registration.noExpiry"></label>
+          <label class="flex flex-col gap-1 text-sm">Document file
+          <input #uploadInput type="file" aria-label="Document file" (change)="selectFile($event)"></label>
         </div>
         <app-unit-registration-fields portal="branch" [clientId]="clientId" [branchId]="uploadBranchId" [type]="uploadType" (detailsChange)="registration = $event" />
         <textarea class="w-full border rounded mt-3 p-2" name="remarks" [(ngModel)]="uploadRemarks" placeholder="Remarks (optional)"></textarea>
@@ -82,7 +87,7 @@ type ScopeFilter = '' | CrmDocumentScope;
       </form>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div class="flex flex-wrap items-end gap-3">
+        <div class="flex flex-wrap items-end gap-3 aligned-filter-controls">
 
           <label class="text-sm">Document type
             <select id="bud-doctype" name="documentType" [(ngModel)]="filters.documentType" (ngModelChange)="loadDocuments()" class="form-select rounded-lg border-gray-300 text-sm">
@@ -119,11 +124,12 @@ type ScopeFilter = '' | CrmDocumentScope;
         </details>
       </div>
 
+      @if (!loading && errorMessage) { <div role="alert">{{ errorMessage }} <button type="button" (click)="loadDocuments()">Retry</button></div> }
       @if (loading) {
 <ui-loading-spinner text="Loading documents..."></ui-loading-spinner>
 }
 
-      @if (!loading && documents.length === 0) {
+      @if (!loading && !errorMessage && documents.length === 0) {
 <ui-empty-state
 
         icon="document"
@@ -193,11 +199,15 @@ type ScopeFilter = '' | CrmDocumentScope;
       </div>
 }
     </main>
+    @if (documentPreview) { <app-audit-file-preview [request]="documentPreview" (closed)="documentPreview = null" /> }
   `,
 })
 export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
+  documentPreview: AuditFilePreview | null = null;
   private readonly destroy$ = new Subject<void>();
 
+  private listRequest?: Subscription;
+  errorMessage = '';
   loading = false;
   documents: CrmUnitDocument[] = [];
 
@@ -292,6 +302,7 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.listRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -304,8 +315,9 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
   get hasRecordedMonth(): boolean { return this.documents.some(doc => !!doc.month); }
 
   loadDocuments(): void {
+    this.listRequest?.unsubscribe(); this.errorMessage = '';
     this.loading = true;
-    this.api.listForBranch({
+    this.listRequest = this.api.listForBranch({
       scope: this.filters.scope || undefined,
       month: this.filters.month || undefined,
       lawCategory: this.filters.lawCategory || undefined,
@@ -320,26 +332,16 @@ export class BranchUnitDocumentsComponent implements OnInit, OnDestroy {
       next: (docs) => {
         this.documents = docs;
       },
-      error: () => this.toast.error('Failed to load documents'),
+      error: () => { this.documents = []; this.errorMessage = 'Unable to load documents. Please retry.'; this.toast.error(this.errorMessage); },
     });
   }
 
   download(doc: CrmUnitDocument): void {
-    this.api.downloadBranch(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = doc.fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-      },
-      error: () => this.toast.error('Download failed'),
-    });
+    this.protectedFiles.download(this.api.downloadUrl(doc.id, 'branch'), doc.fileName)
+      .pipe(takeUntil(this.destroy$)).subscribe({error: () => this.toast.error('Download failed')});
   }
 
   view(doc: CrmUnitDocument): void {
-    this.protectedFiles.open(this.api.downloadUrl(doc.id, 'branch'), doc.fileName)
-      .pipe(takeUntil(this.destroy$)).subscribe({ error: () => this.toast.error('Unable to view document.') });
+    this.documentPreview = { url: this.api.downloadUrl(doc.id, 'branch'), name: doc.fileName };
   }
 }

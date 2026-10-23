@@ -23,7 +23,7 @@ export class ComplianceComment {
   @JoinColumn({ name: 'user_id' })
   user?: UserEntity;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'comment', type: 'text' })
   message: string;
 
   @CreateDateColumn({ name: 'created_at' })

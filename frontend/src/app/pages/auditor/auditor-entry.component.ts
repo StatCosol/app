@@ -70,7 +70,7 @@ export class AuditorEntryComponent implements OnInit, OnDestroy {
     this.api.auditorStartEntry({ clientId: this.clientId, branchId: this.branchId, auditType: this.auditType,
       periodCode: this.periodCode, ...(this.auditType === 'CONTRACTOR' ? { contractorUserId: this.contractorUserId } : {}),
     }).pipe(takeUntil(this.destroy$), finalize(() => { this.busy = false; this.cdr.markForCheck(); })).subscribe({
-      next: result => { void this.router.navigate(['/auditor/audits', result.auditId, 'workspace'], { queryParams: { tab: 'checklist' } }); },
+      next: result => { void this.router.navigate(['/auditor/audits', result.auditId, 'workspace'], { queryParams: { tab: this.auditType === 'CONTRACTOR' ? 'documents' : 'checklist' } }); },
       error: err => { this.error = err?.error?.message || 'The audit could not be opened. Your selections have been kept; retry when ready.'; },
     });
   }

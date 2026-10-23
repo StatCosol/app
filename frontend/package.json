@@ -35,6 +35,7 @@
     "autoprefixer": "^10.4.27",
     "bootstrap": "5.3.8",
     "chart.js": "^4.5.1",
+    "pdfjs-dist": "6.4.299",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
