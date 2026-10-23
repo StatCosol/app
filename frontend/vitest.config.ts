@@ -5,7 +5,7 @@ export default defineConfig({
     environment: 'node',
     // Browser layout and Angular component specs run in the full ng test suite.
     exclude: [
-      'src/app/shared/{control-alignment,detail-pages,portal-detail-responsive,readiness-fixes,remaining-form-layout,responsive-portals}.spec.ts',
+      'src/app/shared/{content-card-layout,tracker-card-layout,control-alignment,detail-pages,portal-detail-responsive,readiness-fixes,remaining-form-layout,responsive-portals}.spec.ts',
     ],
     // Vitest-native specs executed in CI via `npm run test:unit`.
     // Angular TestBed uses vitest.angular.config.ts and CLI test discovery.

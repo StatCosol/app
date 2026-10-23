@@ -844,3 +844,14 @@ tbody tr.selected {
     flex-direction: column;
   }
 }
+
+
+// Tracker entries contain a title and a due-date summary, so their height
+// follows the content rather than the compact toolbar action geometry.
+.tracker-card-action {
+  min-height:44px;
+  max-width:100%;
+  white-space:normal;
+}
+.tracker-card-action > span { min-width:0; overflow-wrap:anywhere; }
+.tracker-card-action > small { flex-shrink:0; }
