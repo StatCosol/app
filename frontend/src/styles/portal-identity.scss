@@ -126,4 +126,6 @@
   :is(.form-actions,.modal-actions,.dialog-actions,.action-row) {
     flex-wrap:wrap; gap:8px; align-items:center;
   }
+  // Horizontal tab strips scroll as a group; individual labels must not shrink.
+  .overflow-x-auto > button { flex-shrink:0; }
 }

@@ -30,6 +30,7 @@ import { ActionButtonComponent } from './ui/action-button/action-button.componen
    <ui-button variant="secondary" [disabled]="true">Save draft</ui-button>
   </div>
  <div class="long-label" style="width:200px;max-width:100%;margin-top:12px"><ui-button>Download the corrected evidence and all supporting attachments</ui-button></div>
+ <nav class="overflow-x-auto flex" aria-label="Escalation categories" style="width:240px;max-width:100%"><button class="whitespace-nowrap">Overdue compliance</button><button class="whitespace-nowrap">Repeat Defaults</button><button class="whitespace-nowrap">Critical Audits</button><button class="whitespace-nowrap">SLA Breached</button></nav>
  </main>`})
 class RemainingFormFixture { options=[{value:'TEST',label:'Test category'}]; }
 
@@ -59,6 +60,8 @@ describe.each(['client','branch','crm','auditor','contractor','payroll','cco'])(
   expect(longButton.getBoundingClientRect().height).toBeGreaterThan(expected);
   expect(longButton.scrollHeight).toBeLessThanOrEqual(longButton.clientHeight+1);
   expect(longButton.getBoundingClientRect().right).toBeLessThanOrEqual(width);
+  const tabs=host.querySelector('nav')!;expect(tabs.scrollWidth).toBeGreaterThan(tabs.clientWidth);
+  for(const button of tabs.querySelectorAll('button')) expect(button.scrollWidth).toBeLessThanOrEqual(button.clientWidth+1);
   const action=host.querySelector('.compact-action') as HTMLElement;action.focus();
   expect(getComputedStyle(action,'::after').maxWidth).not.toBe('none');
   f.destroy();
