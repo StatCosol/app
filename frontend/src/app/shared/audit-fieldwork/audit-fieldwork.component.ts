@@ -67,6 +67,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
   audit: any = null;
   items: AuditPoint[] = [];
   canEdit = false;
+  availablePoints = 0;
   loading = false;
   busy = false;
   error = '';
@@ -98,6 +99,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     this.drafts = {};
     this.items = [];
     this.audit = null;
+    this.availablePoints = 0;
     this.selectedId = '';
     this.busy = false;
     this.message = '';
@@ -135,6 +137,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
         (!q || i.itemLabel.toLowerCase().includes(q)) &&
         (this.filter === 'ALL' ||
           (this.filter === 'SITE_INSPECTION' && i.kind === 'SITE_INSPECTION') ||
+          (this.filter === 'DOCUMENT' && i.kind === 'DOCUMENT') ||
           (this.filter === 'PENDING' && ['PENDING', 'UPLOADED'].includes(i.status)) ||
           i.status === this.filter),
     );
@@ -166,6 +169,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
         this.audit = r.audit;
         this.items = r.items;
         this.canEdit = r.canEdit;
+        this.availablePoints = r.availablePoints || 0;
         for (const i of this.items) {
           const draft = this.drafts[i.id];
           if (draft && draft.revision !== i.revision) {
@@ -257,6 +261,15 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
         this.message = 'Review saved with your remarks.';
       },
     );
+  }
+  refreshChecklist() {
+    if (!this.auditor || !this.canEdit || this.loading || this.busy || !this.availablePoints)
+      return;
+    this.mutate('checklist/refresh', {}, (r) => {
+      this.message = r.created
+        ? `${r.created} missing audit points added. Existing evidence and reviews are preserved.`
+        : 'This audit already has the latest checklist points.';
+    });
   }
   addPoint() {
     if (

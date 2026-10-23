@@ -1,18 +1,30 @@
-// Operational review prompts. Auditors determine applicability for each site.
-export const AUDIT_CHECKLIST_TEMPLATES: Record<
-  string,
-  Array<[string, string?]>
-> = {
+import {
+  AUDIT_CHECKLIST_COVERAGE,
+  COMMON_AUDIT_CHECKS,
+} from './audit-checklist-coverage';
+export type AuditChecklistEntry = [
+  label: string,
+  docType?: string,
+  kind?: 'DOCUMENT' | 'SITE_INSPECTION',
+];
+// Preserve existing upload codes; applicability depends on site and audit period.
+const BASE_CHECKLISTS: Record<string, AuditChecklistEntry[]> = {
   FACTORY: [
-    ['Factory License', 'FACTORY_LICENSE'],
+    ['Applicable factory licence and validity', 'FACTORY_LICENSE'],
     ['Building Stability Certificate', 'BUILDING_STABILITY_CERT'],
     ['Fire Safety Certificate', 'FIRE_SAFETY_CERT'],
     ['Pollution Control Board Consent', 'PCB_CONSENT'],
     ['Hazardous Waste Authorization', 'HAZARDOUS_WASTE_AUTH'],
     ['Boiler Certificate', 'BOILER_CERTIFICATE'],
     ['Factory Plan Approval', 'FACTORY_PLAN_APPROVAL'],
-    ['Annual Return (Form 21)', 'ANNUAL_RETURN_F21'],
-    ['Half-Yearly Return (Form 22)', 'HALF_YEARLY_RETURN_F22'],
+    [
+      'Applicable factory annual return and acknowledgement',
+      'ANNUAL_RETURN_F21',
+    ],
+    [
+      'Applicable factory periodic returns and acknowledgements',
+      'HALF_YEARLY_RETURN_F22',
+    ],
     ['Register of Workers', 'WORKERS_REGISTER'],
     ['Leave Register', 'LEAVE_REGISTER'],
     ['Overtime Register', 'OT_REGISTER'],
@@ -48,7 +60,10 @@ export const AUDIT_CHECKLIST_TEMPLATES: Record<
     ['Wage Slips', 'WAGE_SLIPS'],
     ['Register of Employment (Form-13)', 'EMPLOYMENT_REGISTER_F13'],
     ['Bonus Register (Form C)', 'BONUS_FORM_C'],
-    ['CLRA Annual Return', 'HALF_YEARLY_RETURNS_F14'],
+    [
+      'Applicable contract-labour periodic return and acknowledgement',
+      'HALF_YEARLY_RETURNS_F14',
+    ],
   ],
   LABOUR_EMPLOYMENT: [
     ['Labour License', 'LABOUR_LICENSE'],
@@ -177,3 +192,21 @@ export const AUDIT_CHECKLIST_TEMPLATES: Record<
     ['Previous findings and closure evidence', 'PREVIOUS_FINDINGS'],
   ],
 };
+
+export const AUDIT_CHECKLIST_TEMPLATES: Record<string, AuditChecklistEntry[]> =
+  Object.fromEntries(
+    Object.entries(BASE_CHECKLISTS).map(([type, base]) => {
+      const entries = [...base];
+      const codes = new Set(base.map((entry) => entry[1]));
+      for (const entry of [
+        ...COMMON_AUDIT_CHECKS,
+        ...(AUDIT_CHECKLIST_COVERAGE[type] || []),
+      ]) {
+        if (!codes.has(entry[1])) {
+          entries.push(entry);
+          codes.add(entry[1]);
+        }
+      }
+      return [type, entries];
+    }),
+  );

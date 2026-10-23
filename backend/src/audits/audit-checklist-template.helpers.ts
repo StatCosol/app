@@ -1,5 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { AUDIT_CHECKLIST_TEMPLATES } from './audit-checklist-templates';
+import {
+  AUDIT_CHECKLIST_TEMPLATES,
+  AuditChecklistEntry,
+} from './audit-checklist-templates';
 
 type AuditScope = {
   id?: string;
@@ -12,11 +15,11 @@ type QueryRunner = { query(sql: string, parameters?: any[]): Promise<any> };
 export async function auditChecklistEntries(
   audit: AuditScope,
   db: QueryRunner,
-): Promise<Array<[string, string?]>> {
+): Promise<AuditChecklistEntry[]> {
   // For CONTRACTOR audits with a linked contractor, derive checklist from their
   // actual required document types so docType codes match uploaded documents
   // and auto-linking fires correctly.
-  let entries: Array<[string, string?]> =
+  let entries: AuditChecklistEntry[] =
     AUDIT_CHECKLIST_TEMPLATES[audit.auditType] || [];
 
   if (audit.auditType === 'CONTRACTOR' && audit.contractorUserId) {
@@ -68,10 +71,24 @@ export async function auditChecklistEntries(
 
     const allTypes = [...standardTypes];
     for (const dt of extraTypes) {
-      if (!allTypes.includes(dt)) allTypes.push(dt);
+      if (
+        !allTypes.some(
+          (existing) => checklistCode(existing) === checklistCode(dt),
+        )
+      )
+        allTypes.push(dt);
     }
 
-    entries = allTypes.map((dt) => [toLabel(dt), dt] as [string, string]);
+    // Configured/monthly uploads supplement the audit controls, never replace them.
+    const configured: AuditChecklistEntry[] = allTypes.map((dt) => [
+      toLabel(dt),
+      dt,
+    ]);
+    const codes = new Set(allTypes.map(checklistCode));
+    entries = [
+      ...configured,
+      ...entries.filter((entry) => !codes.has(checklistCode(entry[1]))),
+    ];
   }
 
   return entries;
@@ -95,12 +112,72 @@ export async function ensureAuditChecklist(
     throw new BadRequestException(
       'No checklist template is available for this audit type',
     );
-  for (const [index, [label, docType]] of entries.entries()) {
+  for (const [index, [label, docType, kind]] of entries.entries()) {
     await db.query(
-      `INSERT INTO audit_checklist_items (audit_id,item_label,doc_type,is_required,sort_order,status)
-      VALUES ($1,$2,$3,TRUE,$4,'PENDING')`,
-      [audit.id, label, docType || null, index + 1],
+      `INSERT INTO audit_checklist_items (audit_id,item_label,doc_type,is_required,sort_order,status,evidence_kind)
+      VALUES ($1,$2,$3,TRUE,$4,'PENDING',$5)`,
+      [audit.id, label, docType || null, index + 1, kind || 'DOCUMENT'],
     );
   }
   return { created: entries.length };
+}
+
+// Legacy monthly uploads use both spellings for the same attendance record.
+function checklistCode(code?: string | null) {
+  return code === 'MUSTER_ROLL_REGISTER' ? 'MUSTER_ROLL' : code;
+}
+
+export function missingChecklistEntries(
+  entries: AuditChecklistEntry[],
+  existing: Array<{ docType?: string | null; itemLabel: string }>,
+): AuditChecklistEntry[] {
+  const codes = new Set(
+    existing.map((item) => checklistCode(item.docType)).filter(Boolean),
+  );
+  const labels = new Set(
+    existing.map((item) => item.itemLabel.trim().toLowerCase()),
+  );
+  return entries.filter(([label, code]) => {
+    if (
+      (code && codes.has(checklistCode(code))) ||
+      labels.has(label.trim().toLowerCase())
+    )
+      return false;
+    if (code) codes.add(checklistCode(code));
+    labels.add(label.trim().toLowerCase());
+    return true;
+  });
+}
+
+// Explicit auditor action; caller must lock the audit and verify editable stage.
+// Only append missing points. Never reset evidence, decisions, custom items or order.
+export async function appendMissingAuditChecklist(
+  db: QueryRunner,
+  audit: AuditScope & { id: string },
+) {
+  await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+    'checklist:' + audit.id,
+  ]);
+  const existing = await db.query(
+    'SELECT doc_type AS "docType", item_label AS "itemLabel", sort_order AS "sortOrder" FROM audit_checklist_items WHERE audit_id=$1',
+    [audit.id],
+  );
+  const entries = await auditChecklistEntries(audit, db);
+  if (!entries.length)
+    throw new BadRequestException(
+      'No checklist template is available for this audit type',
+    );
+  const missing = missingChecklistEntries(entries, existing);
+  let order = Math.max(
+    0,
+    ...existing.map((item) => Number(item.sortOrder) || 0),
+  );
+  for (const [label, docType, kind] of missing) {
+    await db.query(
+      `INSERT INTO audit_checklist_items (audit_id,item_label,doc_type,is_required,sort_order,status,evidence_kind)
+       VALUES ($1,$2,$3,TRUE,$4,'PENDING',$5)`,
+      [audit.id, label, docType || null, ++order, kind || 'DOCUMENT'],
+    );
+  }
+  return { created: missing.length };
 }

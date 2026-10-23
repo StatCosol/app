@@ -61,6 +61,30 @@
         available.
       </p>
     }
+    @if (canEdit && availablePoints > 0) {
+      <div class="notice checklist-update">
+        <p>
+          <strong>{{ availablePoints }} additional checklist points are available.</strong> Existing
+          evidence and decisions will be kept. Added points need auditor review before completion.
+        </p>
+        @if (auditor) {
+          <button
+            type="button"
+            class="fw-button"
+            (click)="refreshChecklist()"
+            [disabled]="busy || loading"
+          >
+            Add missing checklist points
+          </button>
+        } @else {
+          <p>Your assigned auditor can add these points to this audit.</p>
+        }
+      </div>
+    }
+    <p class="checklist-guidance">
+      Assess each point for this site and audit period. Record the applicable criteria, sampled
+      evidence and your conclusion. Explain any Not applicable decision in the review remarks.
+    </p>
     <div class="fw-layout">
       <aside class="point-list">
         <div class="list-heading">
@@ -106,6 +130,8 @@
             <option value="UPLOADED">Evidence uploaded</option>
             <option value="NON_COMPLIED">Correction needed</option>
             <option value="SITE_INSPECTION">Site inspections</option>
+            <option value="DOCUMENT">Document reviews</option>
+            <option value="NOT_APPLICABLE">Not applicable</option>
             <option value="COMPLIED">Verified</option>
           </select></label
         >
