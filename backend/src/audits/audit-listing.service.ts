@@ -1,3 +1,4 @@
+import { applyClientBranchScope } from '../common/portal-client-scope';
 import {
   BadRequestException,
   ForbiddenException,
@@ -425,10 +426,12 @@ export class AuditListingService {
 
     const qb = this.repo
       .createQueryBuilder('a')
+      .leftJoinAndSelect('a.branch', 'branch')
       .leftJoinAndSelect('a.contractorUser', 'contractor')
       .leftJoinAndSelect('a.assignedAuditor', 'auditor')
       .where('a.clientId = :clientId', { clientId: user.clientId });
 
+    applyClientBranchScope(qb, user, 'a.branchId');
     if (q.frequency) {
       qb.andWhere('a.frequency = :freq', { freq: q.frequency });
     }

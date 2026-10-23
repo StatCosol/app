@@ -1,3 +1,4 @@
+import { fieldworkScore } from './audit-fieldwork-report';
 import {
   BadRequestException,
   ForbiddenException,
@@ -913,6 +914,12 @@ export class AuditsService implements OnModuleInit {
       throw new BadRequestException('Audit already completed/closed');
     }
 
+    const managed = await this.dataSource.query(
+      'SELECT 1 FROM audit_item_reviews WHERE audit_id=$1 UNION ALL SELECT 1 FROM audit_item_evidence WHERE audit_id=$1 LIMIT 1',
+      [auditId],
+    );
+    if (managed.length) return this.submitAudit(user, auditId, finalRemark);
+
     const obsScore = await this.calculateScore(auditId);
     audit.score = obsScore.score;
     audit.scoreCalculatedAt = new Date();
@@ -1160,8 +1167,12 @@ export class AuditsService implements OnModuleInit {
     const obsScore = await this.calculateScore(auditId);
 
     // Document compliance score: % of total documents that are complied
+    const fieldwork = await fieldworkScore(this.dataSource, auditId);
     const docScore =
-      stats.total > 0 ? Math.round((stats.complied / stats.total) * 100) : 100;
+      fieldwork?.score ??
+      (stats.total > 0
+        ? Math.round((stats.complied / stats.total) * 100)
+        : 100);
 
     // Blended score: 50% observation-based, 50% document-based
     const blendedScore = Math.round((obsScore.score + docScore) / 2);
@@ -1172,9 +1183,10 @@ export class AuditsService implements OnModuleInit {
     if (finalRemark) audit.finalRemark = finalRemark;
 
     // Check if there are open NCs — if so, set CORRECTION_PENDING instead of SUBMITTED
-    const openNcCount = await this.ncRepo.count({
-      where: { auditId, status: 'NC_RAISED' },
-    });
+    const openNcCount =
+      (await this.ncRepo.count({
+        where: { auditId, status: 'NC_RAISED' },
+      })) + (fieldwork?.nonComplied || 0);
     if (openNcCount > 0) {
       audit.status = 'CORRECTION_PENDING';
     } else {
@@ -1357,6 +1369,10 @@ export class AuditsService implements OnModuleInit {
       where: { id: itemId, auditId },
     });
     if (!item) throw new NotFoundException('Checklist item not found');
+    if (item.evidenceRevision > 0)
+      throw new BadRequestException(
+        'Use Evidence & site inspection to review the current evidence revision.',
+      );
 
     const nextStatus = body.status || item.status;
     const remark = body.remarks === undefined ? item.remarks : body.remarks;

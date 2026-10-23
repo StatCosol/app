@@ -1,3 +1,4 @@
+import { AuditFieldworkComponent } from '../../../shared/audit-fieldwork/audit-fieldwork.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 
@@ -6,18 +7,20 @@ import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientAuditsService } from '../../../core/client-audits.service';
 import { ReportsService } from '../../../core/reports.service';
-import { PageHeaderComponent, DataTableComponent, TableColumn, FormSelectComponent, StatusBadgeComponent } from '../../../shared/ui';
+import { PageHeaderComponent, DataTableComponent, TableCellDirective, TableColumn, FormSelectComponent, StatusBadgeComponent } from '../../../shared/ui';
 
 @Component({
   standalone: true,
   selector: 'app-client-audits',
-  imports: [IconComponent, FormsModule, PageHeaderComponent, DataTableComponent, FormSelectComponent, StatusBadgeComponent],
+  imports: [TableCellDirective, AuditFieldworkComponent, IconComponent, FormsModule, PageHeaderComponent, DataTableComponent, FormSelectComponent, StatusBadgeComponent],
   templateUrl: './client-audits.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-audits.component.scss'],
 })
 export class ClientAuditsComponent implements OnDestroy {
   private destroy$ = new Subject<void>();
   loading = true;
+  error = "";
+  private listRequest?: import('rxjs').Subscription;
   audits: any[] = [];
 
   filters = {
@@ -28,13 +31,12 @@ export class ClientAuditsComponent implements OnDestroy {
 
   columns: TableColumn[] = [
     { key: 'auditType', header: 'Audit Type', sortable: true },
-    { key: 'frequency', header: 'Frequency', sortable: true },
+    { key: 'branchName', header: 'Branch', sortable: true },
     { key: 'period', header: 'Period', sortable: false },
     { key: 'auditor', header: 'Auditor', sortable: false },
-    { key: 'contractor', header: 'Contractor', sortable: false },
     { key: 'status', header: 'Status', sortable: true, align: 'center' },
     { key: 'dueDate', header: 'Due Date', sortable: true },
-    { key: 'notes', header: 'Notes', sortable: false },
+    { key: 'notes', header: 'Audit evidence', sortable: false, width: '160px' },
   ];
 
   // Static options — must NOT be inline arrays in template (new refs every CD cycle → NG0103)
@@ -70,13 +72,16 @@ export class ClientAuditsComponent implements OnDestroy {
   }
 
   ngOnDestroy() {
+    this.listRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   loadAudits() {
+    this.listRequest?.unsubscribe();
     this.loading = true;
-    this.api.list(this.filters).pipe(
+    this.error = "";
+    this.listRequest = this.api.list(this.filters).pipe(
       takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
@@ -88,7 +93,8 @@ export class ClientAuditsComponent implements OnDestroy {
         // Transform data for table display
         this.audits = this.audits.map(audit => ({
           ...audit,
-          period: `${audit.periodCode} / ${audit.periodYear}`,
+          period: audit.periodCode || String(audit.periodYear),
+          branchName: audit.branch?.branchName || 'Company-wide',
           auditor: audit.assignedAuditor?.name || '—',
           contractor: audit.contractorUser?.name || 'All',
           dueDate: this.formatDate(audit.dueDate),
@@ -96,7 +102,7 @@ export class ClientAuditsComponent implements OnDestroy {
         }));
         this.cdr.markForCheck();
       },
-      error: () => { this.loading = false; this.cdr.markForCheck(); },
+      error: () => { this.error = "Unable to load audits. Please refresh to try again."; this.loading = false; this.cdr.markForCheck(); },
     });
   }
 

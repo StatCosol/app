@@ -11,6 +11,17 @@ export class AuditChecklistItemEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'evidence_revision', type: 'int', default: 0 })
+  evidenceRevision: number;
+
+  @Column({
+    name: 'evidence_kind',
+    type: 'varchar',
+    length: 20,
+    default: 'DOCUMENT',
+  })
+  evidenceKind: string;
+
   @Column({ name: 'audit_id', type: 'uuid' })
   auditId: string;
 

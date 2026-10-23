@@ -1,3 +1,5 @@
+import { AuditFieldworkController } from './audit-fieldwork.controller';
+import { AuditFieldworkService } from './audit-fieldwork.service';
 import { PayrollDocumentReconciliationModule } from '../payroll-reconciliation/payroll-document-reconciliation.module';
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -69,6 +71,7 @@ import { AuditEntryService } from './audit-entry.service';
     forwardRef(() => AutomationModule),
   ],
   controllers: [
+    AuditFieldworkController,
     AuditFollowUpsController,
     AuditEntryController,
     // Register the static KPI routes before the legacy /audits/:id alias.
@@ -83,6 +86,7 @@ import { AuditEntryService } from './audit-entry.service';
     AuditorObservationsController,
   ],
   providers: [
+    AuditFieldworkService,
     AuditFollowUpsService,
     AuditFollowUpsJob,
     AuditEntryService,

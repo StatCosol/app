@@ -1,4 +1,8 @@
 import {
+  fieldworkAppendix,
+  assertFieldworkReviewed,
+} from './audit-fieldwork-report';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -525,6 +529,8 @@ export class AuditReportService {
       return this.getReportForAuditor(user, auditId);
     }
 
+    await assertFieldworkReviewed(this.dataSource, auditId);
+
     const finalizeSet = availableCols.finalizedAt
       ? "status = 'SUBMITTED', finalized_at = NOW(), updated_at = NOW()"
       : "status = 'SUBMITTED', updated_at = NOW()";
@@ -625,7 +631,9 @@ export class AuditReportService {
     const observations = await obsQb.getMany();
     const version = report.version === 'CLIENT' ? 'CLIENT' : 'INTERNAL';
 
+    const fieldwork = await fieldworkAppendix(this.dataSource, auditId);
     return generateAuditReportPdfBuffer({
+      fieldwork,
       auditId: report.auditId,
       auditCode: audit.auditCode || audit.id,
       clientName: audit.client?.clientName || null,

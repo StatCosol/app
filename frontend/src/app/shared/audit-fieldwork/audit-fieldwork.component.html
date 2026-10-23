@@ -1,0 +1,343 @@
+<section class="fieldwork" aria-label="Audit evidence workspace">
+  <header class="fw-heading">
+    <div>
+      <span class="eyebrow">AUDITXPERT / {{ auditor ? 'FIELDWORK' : 'AUDIT EVIDENCE' }}</span>
+      <h2>{{ auditor ? 'Evidence & site inspection' : 'Documents for your audit' }}</h2>
+      <p>
+        {{
+          auditor
+            ? 'Review client documents. Capture site observations, photos and your decision at each audit point.'
+            : 'Choose an audit point, upload supporting documents and track the auditor’s feedback.'
+        }}
+      </p>
+    </div>
+    <button type="button" class="fw-button" (click)="load()" [disabled]="loading || busy">
+      Refresh evidence
+    </button>
+  </header>
+  @if (error) {
+    <div class="notice error" role="alert">{{ error }}</div>
+  }
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (loading) {
+    <p class="notice" role="status">Loading audit evidence…</p>
+  }
+  @if (audit) {
+    <div class="scope">
+      <strong>{{ audit.clientName }}</strong
+      ><span>{{ audit.branchName || 'Company-wide audit' }}</span
+      ><span>{{ label(audit.type) }}</span
+      ><span>{{ audit.period }}</span
+      ><span>{{ audit.code }}</span>
+    </div>
+    <div class="fw-metrics">
+      <div>
+        <strong>{{ counts.total }}</strong
+        ><span>Audit points</span>
+      </div>
+      <div>
+        <strong>{{ counts.waiting }}</strong
+        ><span>Ready for review</span>
+      </div>
+      <div class="correction-count">
+        <strong>{{ counts.corrections }}</strong
+        ><span>Need correction</span>
+      </div>
+      <div class="progress-metric">
+        <strong>{{ percent }}%</strong
+        ><span>Reviewed · {{ counts.reviewed }} of {{ counts.total }}</span
+        ><progress
+          [value]="counts.reviewed"
+          [max]="counts.total || 1"
+          aria-label="Audit points reviewed"
+        ></progress>
+      </div>
+    </div>
+    @if (!canEdit) {
+      <p class="notice">
+        This audit is read-only at its current stage. Uploaded evidence and review history remain
+        available.
+      </p>
+    }
+    <div class="fw-layout">
+      <aside class="point-list">
+        <div class="list-heading">
+          <h3>Audit points</h3>
+          @if (auditor && canEdit) {
+            <button type="button" class="text-button" (click)="adding = !adding" [disabled]="busy">
+              + Add point
+            </button>
+          }
+        </div>
+        @if (adding) {
+          <div class="add-point">
+            <label
+              >New audit point<input
+                [(ngModel)]="newLabel"
+                maxlength="255"
+                placeholder="e.g. Emergency exit in loading bay" /></label
+            ><label
+              >Review method<select [(ngModel)]="newKind">
+                <option value="SITE_INSPECTION">Site inspection</option>
+                <option value="DOCUMENT">Document review</option>
+              </select></label
+            ><button
+              type="button"
+              class="fw-button primary"
+              (click)="addPoint()"
+              [disabled]="busy || newLabel.trim().length < 3"
+            >
+              Add audit point
+            </button>
+          </div>
+        }
+        <label class="search-label"
+          >Find an audit point<input
+            type="search"
+            [(ngModel)]="search"
+            placeholder="Search licence, fire, payroll…"
+        /></label>
+        <label class="filter-label"
+          >Show<select [(ngModel)]="filter">
+            <option value="ALL">All audit points</option>
+            <option value="PENDING">Needs review</option>
+            <option value="UPLOADED">Evidence uploaded</option>
+            <option value="NON_COMPLIED">Correction needed</option>
+            <option value="SITE_INSPECTION">Site inspections</option>
+            <option value="COMPLIED">Verified</option>
+          </select></label
+        >
+        <div class="points" aria-label="Select an audit point">
+          @for (item of visible; track item.id) {
+            <button
+              type="button"
+              class="point audit-point-card"
+              [class.selected]="selectedId === item.id"
+              [attr.aria-pressed]="selectedId === item.id"
+              [disabled]="busy"
+              (click)="select(item)"
+            >
+              <span class="point-title">{{ item.itemLabel }}</span
+              ><span class="point-meta"
+                ><span class="status" [attr.data-status]="item.status">{{
+                  label(item.status)
+                }}</span
+                ><span
+                  >{{ item.evidence.length }} file{{ item.evidence.length === 1 ? '' : 's' }}</span
+                ></span
+              ><span class="point-kind">{{ label(item.kind) }}</span>
+            </button>
+          } @empty {
+            <p class="empty-list">No audit points match these filters.</p>
+          }
+        </div>
+      </aside>
+      <main class="point-detail">
+        @if (selected; as point) {
+          <header class="detail-heading">
+            <div>
+              <span class="eyebrow">{{ label(point.kind) }}</span>
+              <h3>{{ point.itemLabel }}</h3>
+            </div>
+            <span class="status" [attr.data-status]="point.status">{{ label(point.status) }}</span>
+          </header>
+          @if (point.status === 'NON_COMPLIED') {
+            <div class="notice warning">
+              <strong>Correction requested</strong>
+              <p>{{ point.remarks }}</p>
+              <span
+                >Upload the corrected evidence with an explanation. Earlier files remain in the
+                audit record.</span
+              >
+            </div>
+          }
+          <section class="evidence-section">
+            <div class="section-heading">
+              <h4>
+                Evidence files <span>{{ point.evidence.length }}</span>
+              </h4>
+              <small>Client documents & auditor artifacts</small>
+            </div>
+            @for (file of point.evidence; track file.id) {
+              <article class="evidence-card">
+                <div class="file-symbol" aria-hidden="true">
+                  {{ file.mimeType.startsWith('image/') ? 'IMG' : 'DOC' }}
+                </div>
+                <div class="file-content">
+                  <strong>{{ file.fileName }}</strong>
+                  <p>{{ file.description }}</p>
+                  <span class="file-meta"
+                    >{{ file.uploadedRole === 'AUDITOR' ? 'Auditor artifact' : 'Client upload' }} ·
+                    {{ file.uploadedByName }} ·
+                    {{ file.createdAt | date: 'dd MMM yyyy, HH:mm' }}</span
+                  >
+                  @if (file.location) {
+                    <span class="file-meta">Location: {{ file.location }}</span>
+                  }
+                </div>
+                <div class="file-actions">
+                  <button type="button" class="fw-button" (click)="view(file)">View</button
+                  ><button type="button" class="text-button" (click)="download(file)">
+                    Download
+                  </button>
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-evidence">
+                <strong>No evidence attached yet</strong>
+                <p>
+                  {{
+                    auditor
+                      ? 'Upload a site photo or supporting document below. Client uploads will appear here too.'
+                      : 'Upload the requested record below so your auditor can verify this point.'
+                  }}
+                </p>
+              </div>
+            }
+            @if (preview) {
+              <div class="image-preview">
+                <div>
+                  <strong>{{ previewName }}</strong
+                  ><button type="button" class="fw-button" (click)="closePreview()">
+                    Close preview
+                  </button>
+                </div>
+                <img [src]="preview.objectUrl" [alt]="previewName" />
+              </div>
+            }
+          </section>
+          @if (canEdit && draft) {
+            <section class="upload-section">
+              <h4>
+                {{ auditor ? 'Add evidence or a site artifact' : 'Upload supporting evidence' }}
+              </h4>
+              <p class="hint">
+                PDF, Word, Excel, CSV, JPG or PNG · up to 10 MB per file. Uploads are retained in
+                the audit history.
+              </p>
+              <div class="upload-grid">
+                <label class="file-picker"
+                  >Choose a document or photo<input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png"
+                    (change)="fileChanged($event)"
+                    [disabled]="busy"
+                  />
+                  @if (draft.file) {
+                    <strong>{{ draft.file.name }}</strong>
+                  }</label
+                ><label
+                  >Site / area (optional)<input
+                    [(ngModel)]="draft.location"
+                    maxlength="250"
+                    placeholder="e.g. Warehouse A, loading bay"
+                    [disabled]="busy"
+                /></label>
+              </div>
+              <label
+                >{{
+                  auditor ? 'Evidence description / site remarks' : 'What does this document show?'
+                }}<textarea
+                  rows="3"
+                  [(ngModel)]="draft.description"
+                  maxlength="5000"
+                  [disabled]="busy"
+                  placeholder="Describe what is shown, the period covered, or what was corrected."
+                ></textarea></label
+              ><button
+                type="button"
+                class="fw-button primary"
+                (click)="upload()"
+                [disabled]="busy || loading || !draft.file || draft.description.trim().length < 5"
+              >
+                {{ busy ? 'Saving…' : auditor ? 'Upload artifact' : 'Upload document' }}
+              </button>
+            </section>
+          }
+          @if (auditor && draft) {
+            <section class="review-section">
+              <div class="section-heading">
+                <h4>Auditor verification</h4>
+                <small>Review all attached evidence before saving</small>
+              </div>
+              @if (point.automatedRemarks) {
+                <details>
+                  <summary>Generated suggestions</summary>
+                  <p>{{ point.automatedRemarks }}</p>
+                  <label class="checkbox"
+                    ><input
+                      type="checkbox"
+                      [(ngModel)]="draft.verified"
+                      [disabled]="!canEdit || busy"
+                    />I checked these suggestions against the evidence.</label
+                  >
+                </details>
+              }
+              <label
+                >Auditor remarks<textarea
+                  rows="4"
+                  [(ngModel)]="draft.remarks"
+                  maxlength="10000"
+                  [disabled]="!canEdit || busy"
+                  placeholder="Record the inspection, evidence checked, finding and required correction."
+                ></textarea>
+              </label>
+              <div class="review-footer">
+                <label
+                  >Decision<select [(ngModel)]="draft.decision" [disabled]="!canEdit || busy">
+                    <option value="PENDING">Keep pending</option>
+                    <option value="COMPLIED">Verified / complied</option>
+                    <option value="NON_COMPLIED">Correction needed / non-complied</option>
+                    <option value="NOT_APPLICABLE">Not applicable</option>
+                  </select></label
+                ><button
+                  type="button"
+                  class="fw-button primary"
+                  (click)="saveReview()"
+                  [disabled]="!canEdit || busy || loading || draft.remarks.trim().length < 5"
+                >
+                  Save verification
+                </button>
+              </div>
+            </section>
+          }
+          @if (!auditor && point.remarks && point.status !== 'NON_COMPLIED') {
+            <section class="review-section">
+              <h4>Auditor feedback</h4>
+              <p class="remarks">{{ point.remarks }}</p>
+              @if (point.status === 'UPLOADED') {
+                <p class="hint">
+                  New evidence is awaiting review. These remarks are from the previous review.
+                </p>
+              }
+            </section>
+          }
+          <details class="history">
+            <summary>
+              Review history <span>{{ point.history.length }}</span>
+            </summary>
+            @for (review of point.history; track review.id) {
+              <article>
+                <strong>{{ label(review.decision) }}</strong>
+                <p class="remarks">{{ review.remarks }}</p>
+                <small
+                  >{{ review.reviewedByName }} ·
+                  {{ review.createdAt | date: 'dd MMM yyyy, HH:mm' }} · Evidence revision
+                  {{ review.revision }}</small
+                >
+              </article>
+            } @empty {
+              <p>No verification recorded yet.</p>
+            }
+          </details>
+        } @else {
+          <p class="empty-evidence">
+            No audit points are available. The assigned auditor can add the review criteria.
+          </p>
+        }
+      </main>
+    </div>
+  }
+</section>

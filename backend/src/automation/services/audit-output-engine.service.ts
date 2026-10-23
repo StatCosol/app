@@ -1,3 +1,7 @@
+import {
+  fieldworkAppendix,
+  fieldworkScore,
+} from '../../audits/audit-fieldwork-report';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -65,8 +69,10 @@ export class AuditOutputEngineService {
     const cS = ctrDocStats[0] || { total: 0, complied: 0 };
     const totalDocs = bS.total + cS.total;
     const compliedDocs = bS.complied + cS.complied;
+    const fieldwork = await fieldworkScore(manager ?? this.dataSource, auditId);
     const docScore =
-      totalDocs > 0 ? Math.round((compliedDocs / totalDocs) * 100) : 100;
+      fieldwork?.score ??
+      (totalDocs > 0 ? Math.round((compliedDocs / totalDocs) * 100) : 100);
 
     // Observation-based score (from audit_observations)
     const obsRows = await (manager ?? this.dataSource).query(
@@ -174,7 +180,12 @@ export class AuditOutputEngineService {
     // Generate PDF
     let pdfBuffer: Buffer | null = null;
     try {
+      const fieldwork = await fieldworkAppendix(
+        manager ?? this.dataSource,
+        auditId,
+      );
       pdfBuffer = await generateAuditReportPdfBuffer({
+        fieldwork,
         auditId,
         auditCode: audit.auditCode || audit.id,
         clientName: audit.client?.clientName || null,
