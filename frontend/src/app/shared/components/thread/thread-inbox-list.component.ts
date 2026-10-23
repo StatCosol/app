@@ -8,24 +8,29 @@ import { StatusChipComponent } from '../status/status-chip.component';
   selector: 'ui-thread-inbox-list',
   standalone: true,
   imports: [CommonModule, PriorityChipComponent, StatusChipComponent],
+  styles: [`
+    :host button.request-card { display: block; min-width: 0; white-space: normal; }
+    .request-content { min-width: 0; overflow-wrap: anywhere; }
+    .request-badges { flex: 0 0 auto; }
+  `],
   template: `
     <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 bg-white">
       @for (t of items; track t) {
 <button
        
         type="button"
-        class="w-full text-left px-3 py-2 hover:bg-gray-50"
+        class="request-card w-full text-left px-3 py-2 hover:bg-gray-50"
         [class.bg-brand-50]="t.id === selectedId"
         (click)="selected.emit(t)">
         <div class="flex items-start justify-between gap-2">
-          <div>
+          <div class="request-content">
             <div class="text-sm font-semibold text-gray-900">{{ t.title }}</div>
             <div class="text-xs text-gray-500">{{ t.subtitle || '-' }}</div>
             @if (t.updatedAt) {
 <div class="text-[11px] text-gray-400 mt-1">{{ t.updatedAt | date:'d MMM y, h:mm a' }}</div>
 }
           </div>
-          <div class="flex flex-col items-end gap-1">
+          <div class="request-badges flex flex-col items-end gap-1">
             <ui-priority-chip [priority]="t.priority || 'MEDIUM'"></ui-priority-chip>
             <ui-status-chip [status]="t.status || 'OPEN'"></ui-status-chip>
             @if (t.unreadCount) {
