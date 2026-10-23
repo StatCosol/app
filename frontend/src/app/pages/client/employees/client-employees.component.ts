@@ -264,6 +264,9 @@ import {
         white-space: nowrap;
       }
       .name-link {
+        min-height: 44px;
+        white-space: normal;
+        overflow-wrap: anywhere;
         display: block;
         width: 100%;
         text-align: left;

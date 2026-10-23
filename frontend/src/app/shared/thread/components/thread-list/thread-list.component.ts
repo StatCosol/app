@@ -7,6 +7,7 @@ import { ThreadListItem } from '../../models/thread.model';
   standalone: true,
   imports: [CommonModule, DatePipe],
   templateUrl: './thread-list.component.html',
+  styles: [':host button.thread-card { display: block; min-width: 0; overflow: hidden; } .thread-card > div { min-width: 0; }'],
 })
 export class ThreadListComponent {
   @Input() loading = false;

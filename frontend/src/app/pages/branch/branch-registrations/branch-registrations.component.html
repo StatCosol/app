@@ -231,7 +231,7 @@
               @for (item of expiringTrackerRows; track item) {
 <button
                 type="button"
-                class="tracker-item"
+                class="tracker-item tracker-card-action"
                
                 (click)="selectRegistration(item)"
               >
@@ -254,7 +254,7 @@
               @for (item of overdueTrackerRows; track item) {
 <button
                 type="button"
-                class="tracker-item tracker-item--bad"
+                class="tracker-item tracker-card-action tracker-item--bad"
                
                 (click)="selectRegistration(item)"
               >
