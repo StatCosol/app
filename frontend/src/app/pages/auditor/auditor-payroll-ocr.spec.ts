@@ -1,3 +1,5 @@
+import { HttpClient } from '@angular/common/http';
+import { AuditFieldworkComponent } from '../../shared/audit-fieldwork/audit-fieldwork.component';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -33,6 +35,7 @@ describe('Auditor contractor OCR evidence', () => {
         .map(provide => ({ provide, useValue: { url: '/auditor' } })) }).compileComponents();
     const fixture = TestBed.createComponent(AuditorAuditWorkspaceComponent);
     const c = fixture.componentInstance;
+    c.activeTab = 'documents';
     c.loading = false; c.auditId = 'audit'; c.audit = { status: 'IN_PROGRESS', client: { clientName: 'Test client' } };
     const payrollCheck = { status: 'NEEDS_REVIEW', findings: [], ocr: { rows: 1, pages: [{ page: 1, text: 'Worker PF 1800 <script>unsafe</script>' }] } };
     c.branchDocuments = [{ id: 'branch-doc', fileName: 'branch.pdf', sourceTable: 'branch_documents', payrollCheck }] as any;
@@ -47,17 +50,54 @@ describe('Auditor contractor OCR evidence', () => {
     expect(vendor.querySelector('script')).toBeNull();
     expect(branch.textContent).not.toContain('Compare with payroll');
     expect(branch.querySelector('pre')).toBeNull();
-    const checklistFixture = TestBed.createComponent(AuditorAuditWorkspaceComponent);
-    const checklist = checklistFixture.componentInstance;
-    checklist.loading=false; checklist.auditId='audit'; checklist.audit={status:'IN_PROGRESS',auditType:'SAFETY',client:{clientName:'Test client'}};
-    checklist.activeTab='checklist';
-    checklist.checklistItems=[{id:'point',itemLabel:'Emergency exits',automatedRemarks:'Inspect blocked exit'}];
-    checklist.checklistRemarks['point']='Exit checked'; checklist.checklistDecisions['point']='NON_COMPLIED';
-    checklistFixture.detectChanges();
-    expect(checklistFixture.nativeElement.textContent).toContain('Emergency exits');
-    expect(checklistFixture.nativeElement.textContent).toContain('Inspect blocked exit');
-    expect(checklistFixture.nativeElement.querySelector('textarea[aria-label="Auditor remarks for Emergency exits"]')).not.toBeNull();
-    expect(checklistFixture.nativeElement.textContent).toContain('Generated remarks reviewed');
+
+  });
+  it('renders inspection notes and generated suggestions in the shared evidence workspace', async () => {
+    await TestBed.configureTestingModule({
+      imports: [AuditFieldworkComponent],
+      providers: [
+        {
+          provide: HttpClient,
+          useValue: {
+            get: () =>
+              of({
+                audit: { id: 'audit', type: 'SAFETY' },
+                canEdit: true,
+                items: [
+                  {
+                    id: 'point',
+                    itemLabel: 'Emergency exits',
+                    kind: 'SITE_INSPECTION',
+                    status: 'PENDING',
+                    revision: 0,
+                    evidence: [],
+                    history: [],
+                    remarks: 'Exit checked',
+                    automatedRemarks: 'Inspect blocked exit',
+                    automationReviewed: false,
+                  },
+                ],
+              }),
+          },
+        },
+        { provide: ProtectedFileService, useValue: {} },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(AuditFieldworkComponent);
+    fixture.componentRef.setInput('auditId', 'audit');
+    fixture.componentRef.setInput('auditor', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Emergency exits');
+    expect(fixture.nativeElement.textContent).toContain('Inspect blocked exit');
+    expect(fixture.nativeElement.querySelector('.review-section textarea').value).toBe(
+      'Exit checked',
+    );
+    expect(
+      fixture.nativeElement.querySelector('.review-section input[type="checkbox"]').checked,
+    ).toBe(false);
+    expect(fixture.nativeElement.querySelector('input[type="file"]')).not.toBeNull();
   });
   it('restores saved remarks, keeps automation separate, and requires cross-check before deciding', () => {
     const doc = { id:'doc', status:'SUBMITTED', sourceTable:'contractor_documents', reviewNotes:'Saved auditor remark',

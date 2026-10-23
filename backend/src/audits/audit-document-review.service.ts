@@ -534,6 +534,7 @@ export class AuditDocumentReviewService {
 
     // Match: exact docType, word-by-word overlap (handles "PF_CHALLAN" → "pf monthly challan"), or filename
     const matched = pendingItems.find((item) => {
+      if (item.evidenceRevision > 0) return false;
       const labelNorm = normalize(item.itemLabel);
       const itemDocTypeNorm = normalize(item.docType ?? '');
       // 1. Exact docType match (works when checklist item has docType set)

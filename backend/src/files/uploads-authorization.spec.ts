@@ -51,6 +51,7 @@ describe('static upload authorization', () => {
     'payroll-run-employees/a.xlsx',
     'temp/a.pdf',
     'face-photos/a.jpg',
+    'audit-evidence/a.pdf',
   ])('does not expose scratch or biometric files: %s', async (p) => {
     await request(appFor().app)
       .get('/uploads/' + p)

@@ -1,3 +1,4 @@
+import { AuditFieldworkComponent } from '../../shared/audit-fieldwork/audit-fieldwork.component';
 import { ActionIconPipe } from '../../shared/ui/action-icon.pipe';
 import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
@@ -80,7 +81,7 @@ interface WorkspaceTabItem {
 @Component({
   standalone: true,
   selector: 'app-auditor-audit-workspace',
-  imports: [ActionIconPipe, IconComponent, CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [AuditFieldworkComponent, ActionIconPipe, IconComponent, CommonModule, FormsModule, ClientContextStripComponent],
   templateUrl: './auditor-audit-workspace.component.html',
   styleUrls: ['./auditor-audit-workspace.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -133,7 +134,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   contractorDocBranchFilter: string = 'ALL';
 
   // ─── Workspace Tabs ───────────────────────────
-  activeTab: WorkspaceTabKey = 'documents';
+  activeTab: WorkspaceTabKey = 'checklist';
   auditInfo: any = null;
   loadingInfo = false;
   submissionHistory: any[] = [];
@@ -210,10 +211,14 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
+  get evidenceFileCount(): number {
+    return this.evidenceRows.length + this.checklistItems.reduce((n, item) => n + (item.evidenceRevision || 0), 0);
+  }
+
   get checklist(): ChecklistItem[] {
     return [
       { label: 'Audit scope loaded', done: !!this.audit },
-      { label: 'Evidence tray populated', done: this.evidenceRows.length > 0 },
+      { label: 'Audit evidence attached', done: this.evidenceFileCount > 0 },
       { label: 'Observation draft logged', done: this.observations.length > 0 },
       { label: 'Severity score calculated', done: this.audit?.score !== null && this.audit?.score !== undefined },
       { label: 'Report draft finalized', done: this.isReportFinalized },
@@ -225,7 +230,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     const tabs: WorkspaceTabItem[] = [
       {
         key: 'documents',
-        label: '1. Review Documents',
+        label: 'Uploaded records',
         meta: this.pendingReviewCount > 0
           ? `${this.pendingReviewCount} pending`
           : `${this.reviewedDocumentCount} reviewed`,
@@ -233,7 +238,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       },
       {
         key: 'corrected',
-        label: '2. Review Corrections',
+        label: 'Corrections',
         meta: this.correctedPendingReviewCount > 0
           ? `${this.correctedPendingReviewCount} waiting`
           : `${this.unresolvedCorrectionCount} open`,
@@ -245,17 +250,17 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       },
       {
         key: 'checklist',
-        label: '3. Checklist',
+        label: 'Evidence & site inspection',
         meta: `${this.checklistSummary.pending || 0} pending`,
       },
       {
         key: 'findings',
-        label: '4. Findings & Remarks',
+        label: 'Findings & remarks',
         meta: `${this.observations.length} findings`,
       },
       {
         key: 'submit',
-        label: '5. Finish Audit',
+        label: 'Finish audit',
         meta: this.canSubmitReviewRound ? 'Ready' : 'Blocked',
         attention: !this.canSubmitReviewRound,
       },
@@ -271,7 +276,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       },
     ];
 
-    return tabs.filter((tab) => tab.show !== false);
+    return tabs.filter((tab) => tab.show !== false).sort((a, b) => Number(b.key === 'checklist') - Number(a.key === 'checklist'));
   }
 
   get reviewedDocumentCount(): number {
@@ -392,9 +397,9 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       },
       {
         label: 'Evidence Readiness',
-        passed: this.evidenceRows.length > 0,
-        detail: this.evidenceRows.length
-          ? `${this.evidenceRows.length} evidence files in tray`
+        passed: this.evidenceFileCount > 0,
+        detail: this.evidenceFileCount
+          ? `${this.evidenceFileCount} evidence files attached`
           : 'No evidence uploaded in this scope',
       },
       {
@@ -1310,7 +1315,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.branchDocuments = [];
     this.contractorDocuments = [];
     this.documentsError = '';
-    this.activeTab = 'documents';
+    this.activeTab = 'checklist';
     this.uploadLockFrom = '';
     this.uploadLockUntil = '';
     this.loading = true;

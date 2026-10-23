@@ -175,4 +175,35 @@ describe('AuditsService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
+  it('uses the fieldwork blend when the standard Mark Completed action is used', async () => {
+    audits.findOne.mockResolvedValue({
+      id: 'audit',
+      assignedAuditorId: 'auditor',
+      status: 'IN_PROGRESS',
+    });
+    audits.save.mockImplementation(async (a) => a);
+    checklist.find.mockResolvedValue([{ status: 'COMPLIED' }]);
+    (service as any).reportService.getLatestReportRow = jest
+      .fn()
+      .mockResolvedValue({ status: 'SUBMITTED' });
+    (service as any).observationRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(0),
+    });
+    (service as any).dataSource.query.mockImplementation(async (sql: string) =>
+      sql.includes('AS managed')
+        ? [{ managed: true, total: 2, complied: 2, nonComplied: 0 }]
+        : [],
+    );
+    jest.spyOn(service, 'calculateScore').mockResolvedValue({
+      score: 80,
+      breakdown: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+    });
+    const result = await service.updateStatus(user, 'audit', 'COMPLETED');
+    expect(result.score).toBe(90);
+    expect(audits.save).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'COMPLETED', score: 90 }),
+    );
+  });
 });

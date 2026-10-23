@@ -1,8 +1,8 @@
 <div class="page-wrap">
   <header class="page-head card">
     <div>
-      <h1>Conduct Audit · Document Review</h1>
-      <p>Work from left to right: review uploads, recheck corrections if needed, capture findings, and submit only when the audit is fully cleared.</p>
+      <h1>Conduct Audit</h1>
+      <p>Review evidence, record site inspections and follow corrections through to the final report.</p>
     </div>
     @if (hasAuditContext) {
 <ui-client-context-strip
@@ -102,6 +102,7 @@
 
   @if (!loading && hasAuditContext && audit; as auditDetail) {
 
+    @if(activeTab !== 'checklist'){
     <section class="summary-grid">
       <article class="summary-card summary-card--info">
         <span class="label">Audit Status</span>
@@ -110,12 +111,12 @@
       </article>
       <article class="summary-card summary-card--warn">
         <span class="label">Pending Decisions</span>
-        <strong>{{ pendingReviewCount }}</strong>
+        <strong>{{ pendingReviewCount + (checklistSummary.pending || 0) }}</strong>
         <span class="sub">{{ reviewedDocumentCount }} of {{ auditDocuments.length }} files reviewed</span>
       </article>
       <article class="summary-card summary-card--warn">
         <span class="label">Corrections Open</span>
-        <strong>{{ unresolvedCorrectionCount }}</strong>
+        <strong>{{ unresolvedCorrectionCount + (checklistSummary.nonComplied || 0) }}</strong>
         <span class="sub">{{ correctedPendingReviewCount }} corrected upload(s) ready</span>
       </article>
       <article class="summary-card summary-card--info">
@@ -146,6 +147,7 @@
       </span></button>
     </section>
 
+    }
     <nav class="tab-bar card">
       @for (tab of workspaceTabs; track tab) {
 <button
@@ -507,7 +509,7 @@
         
       </section>
 
-      <ng-container [ngTemplateOutlet]="auditChecklist"></ng-container>
+      <section class="card"><h2>Audit-specific evidence & site inspections</h2><p>Client submissions, inspection photos, remarks and checklist decisions are in the evidence workspace.</p><button type="button" class="standard-action btn btn-primary" (click)="activeTab = 'checklist'">Open evidence & site inspection</button></section>
 
       @if (filteredEvidenceRows.length > 0) {
 <section class="card mb-5">
@@ -1005,39 +1007,5 @@
 </div>
 
 <ng-template #auditChecklist>
-  <section class="card mb-5">
-    <header class="section-head"><h2>{{ formatLabel(audit?.auditType) }} Audit Checklist</h2><span>{{ checklistSummary.total || 0 }} checkpoints · {{ checklistSummary.pending || 0 }} pending</span></header>
-    <p class="section-intro">Review each checkpoint for this site. Record your decision and remarks. Generated remarks are suggestions; cross-check them before confirming.</p>
-    @if (loadingChecklist) { <p role="status">Loading checklist…</p> }
-    @if (checklistError) { <div role="alert">{{ checklistError }} <button type="button" class="compact-action btn btn-secondary" (click)="loadChecklist()" title="Retry checklist" aria-label="Retry checklist" data-action-label="Retry checklist" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div> }
-    @if (!loadingChecklist && !checklistItems.length && !checklistError) {
-      <ol class="list-decimal pl-6 mb-4">@for (item of checklistTemplate; track item[0]) { <li>{{ item[0] }}</li> }</ol>
-      <button type="button" class="compact-action btn btn-primary" [disabled]="!canReviewDocuments" (click)="generateChecklist()" title="Load type checklist" aria-label="Load type checklist" data-action-label="Load type checklist" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
-    }
-    @if (checklistItems.length) {
-      <div class="table-wrap"><table>
-        <thead><tr><th>Checkpoint</th><th>Generated remarks</th><th>Auditor remarks</th><th>Decision</th><th>Save</th></tr></thead>
-        <tbody>@for (item of checklistItems; track item.id) {
-          <tr>
-            <td><strong>{{ item.itemLabel }}</strong>@if (item.linkedDocId) { <p class="minor">Linked to document review</p> }</td>
-            <td>
-              @if (item.automatedRemarks) {
-                <p class="whitespace-pre-wrap">{{ item.automatedRemarks }}</p>
-                <button type="button" class="compact-action link" [disabled]="!canReviewDocuments || !!checklistSavingId" (click)="useChecklistSuggestion(item)" title="Copy to my remarks" aria-label="Copy to my remarks" data-action-label="Copy to my remarks" data-action-icon="document"><ui-icon name="document" [size]="20" /></button>
-                <label class="block mt-2"><input type="checkbox" [(ngModel)]="checklistVerified[item.id]" [disabled]="!canReviewDocuments || !!checklistSavingId" /> Generated remarks reviewed</label>
-              } @else { <span class="minor">No generated remarks. Inspect the evidence and record your findings.</span> }
-            </td>
-            <td><textarea rows="3" [attr.aria-label]="'Auditor remarks for ' + item.itemLabel" [(ngModel)]="checklistRemarks[item.id]" [disabled]="!canReviewDocuments || !!checklistSavingId" placeholder="Your observations, evidence checked and reason for the decision" class="min-w-[200px] w-full border border-slate-300 rounded p-2"></textarea></td>
-            <td><select [attr.aria-label]="'Decision for ' + item.itemLabel" [(ngModel)]="checklistDecisions[item.id]" [disabled]="!canReviewDocuments || !!checklistSavingId">
-              <option value="PENDING">Pending review</option><option value="UPLOADED">Evidence uploaded</option><option value="COMPLIED">Complied</option><option value="NON_COMPLIED">Non-complied</option><option value="NOT_APPLICABLE">Not applicable</option>
-            </select></td>
-            <td><button type="button" class="standard-action btn btn-primary" [disabled]="!canReviewDocuments || !!checklistSavingId" (click)="saveChecklistItem(item)">{{ checklistSavingId === item.id ? 'Saving…' : 'Save review' }}</button></td>
-          </tr>
-        }</tbody>
-      </table></div>
-    }
-    @if (canReviewDocuments) {
-      <div class="flex gap-2 items-center mt-4"><label class="flex-1">Additional checkpoint<input type="text" [(ngModel)]="newChecklistLabel" placeholder="Add a site-specific checkpoint" class="block w-full border border-slate-300 rounded p-2" /></label><button type="button" class="compact-action btn btn-secondary" [disabled]="addingChecklistItem || !newChecklistLabel.trim()" (click)="addChecklistItem()" title="Add checkpoint" aria-label="Add checkpoint" data-action-label="Add checkpoint" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button></div>
-    }
-  </section>
+ @if(auditId){<app-audit-fieldwork [auditId]="auditId" [auditor]="true" (changed)="loadChecklist()" />}
 </ng-template>

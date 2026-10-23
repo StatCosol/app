@@ -25,6 +25,12 @@ export type AuditReportPdfInput = {
   findings: string;
   recommendations: string;
   observations: AuditReportPdfObservation[];
+  fieldwork?: Array<{
+    label: string;
+    status: string;
+    remarks: string;
+    evidence: string;
+  }>;
 };
 
 function formatDate(value?: string | Date | null): string {
@@ -114,6 +120,22 @@ export async function generateAuditReportPdfBuffer(
         });
       }
 
+      if (input.fieldwork?.length) {
+        doc.addPage();
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(14)
+          .text('Audit evidence & site inspection record');
+        doc.moveDown();
+        for (const point of input.fieldwork) {
+          section(
+            doc,
+            point.label + ' - ' + point.status.replace(/_/g, ' '),
+            point.remarks,
+          );
+          section(doc, 'Supporting evidence', point.evidence);
+        }
+      }
       doc.end();
     } catch (err) {
       reject(err instanceof Error ? err : new Error(String(err)));

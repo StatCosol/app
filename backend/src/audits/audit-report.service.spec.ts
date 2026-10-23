@@ -149,4 +149,21 @@ describe('Audit report closure and holds', () => {
       );
     },
   );
+  it('blocks finalization of an untouched pending checklist without locking uploads', async () => {
+    const t = setup();
+    t.report.status = 'DRAFT';
+    t.query.mockImplementation(async (sql) => {
+      if (sql.includes('information_schema')) return [];
+      if (sql.includes('FROM audit_checklist_items'))
+        return [{ id: 'pending-point' }] as any;
+      return [t.report];
+    });
+    await expect(
+      t.service.finalizeReportForAuditor(auditor, 'audit'),
+    ).rejects.toThrow('Review all audit evidence');
+    expect(t.query.mock.calls.some(([sql]) => sql.startsWith('UPDATE'))).toBe(
+      false,
+    );
+    expect(t.report.status).toBe('DRAFT');
+  });
 });
