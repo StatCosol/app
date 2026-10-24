@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { Client } = require('pg');
 const { PGlite } = require('./auditxpert-test-db.cjs');
-const { changeAuditSchedule } = require('../dist/src/audits/audit-schedule-actions');
+const { reviewAuditAction } = require('../dist/src/audits/audit-action-approval');
 const { AuditReportService } = require('../dist/src/audits/audit-report.service');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -22,6 +22,7 @@ const outcome=p=>p.then(value=>({ok:true,value}),error=>({ok:false,error}));
       CREATE TABLE audit_checklist_items(audit_id uuid,status text,automated_remarks text,automation_reviewed boolean);
       CREATE TABLE audit_logs(entity_type text,entity_id uuid,action text,performed_by uuid,snapshot jsonb);`);
     await db.exec(fs.readFileSync(path.join(__dirname,'../migrations/20261024_cancelled_audit_guard.sql'),'utf8'));
+    await db.exec(fs.readFileSync(path.join(__dirname,'../migrations/20261024b_audit_action_approvals.sql'),'utf8'));
     const adapter=(client,hold)=>({
       query:async(sql,params)=>(await client.query(sql,params)).rows,
       transaction:async fn=>{
@@ -36,7 +37,7 @@ const outcome=p=>p.then(value=>({ok:true,value}),error=>({ok:false,error}));
         }catch(e){await client.query('ROLLBACK');throw e;}
       },
     });
-    const crm={userId:id(10),roleCode:'CRM'},auditor={userId:id(11),roleCode:'AUDITOR'};
+    const cco={userId:id(12),roleCode:'CCO'},auditor={userId:id(11),roleCode:'AUDITOR'};
     function reportService(source){
       const service=new AuditReportService({}, {}, source, {});
       service.auditReportColumnsCache={scope:false,methodology:false,selectedObservationIds:false,finalizedAt:false};
@@ -56,9 +57,10 @@ const outcome=p=>p.then(value=>({ok:true,value}),error=>({ok:false,error}));
       const n=cancelFirst?1:2;
       await db.query("INSERT INTO audits(id,client_id,assigned_auditor_id,status) VALUES($1,$2,$3,'IN_PROGRESS')",[id(n),id(20),auditor.userId]);
       await db.query("INSERT INTO audit_reports(id,audit_id,status,created_at,updated_at) VALUES($1,$2,'DRAFT',NOW(),NOW())",[id(n+30),id(n)]);
+      await db.query("INSERT INTO audit_action_requests(id,audit_id,client_id,action,reason,requested_by,audit_snapshot) VALUES($1,$2,$3,'CANCEL','TEST ONLY concurrent approval',$4,$5::jsonb)",[id(n+40),id(n),id(20),id(10),JSON.stringify({client_id:id(20)})]);
       const hold={locked:deferred(),release:deferred()};
       const firstSource=adapter(db.client,hold),secondSource=adapter(second);
-      const cancel=source=>changeAuditSchedule(source,crm,id(n),'CANCEL','TEST ONLY concurrent cancellation',async()=>true);
+      const cancel=source=>reviewAuditAction(source,cco,id(n+40),'APPROVE','TEST ONLY CCO concurrent approval',async()=>{});
       const finalize=source=>reportService(source).finalizeReportForAuditor(auditor,id(n));
       const first=outcome(cancelFirst?cancel(firstSource):finalize(firstSource));
       await hold.locked.promise;

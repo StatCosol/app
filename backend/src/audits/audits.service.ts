@@ -1,5 +1,5 @@
 import { fieldworkScore } from './audit-fieldwork-report';
-import { changeAuditSchedule } from './audit-schedule-actions';
+import { requestAuditAction } from './audit-action-approval';
 import { randomUUID } from 'crypto';
 import { AuditorSummaryQueryDto } from '../auditor/dto/auditor-dashboard-query.dto';
 import {
@@ -776,7 +776,7 @@ export class AuditsService implements OnModuleInit {
     action: 'CANCEL' | 'DELETE',
     reason: string,
   ) {
-    return changeAuditSchedule(
+    return requestAuditAction(
       this.dataSource,
       user,
       auditId,

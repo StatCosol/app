@@ -13,11 +13,11 @@ export async function changeAuditSchedule(
   id: string,
   action: 'CANCEL' | 'DELETE',
   reason: string,
-  isAssigned: (clientId: string, userId: string) => Promise<boolean>,
+  _isAssigned: (clientId: string, userId: string) => Promise<boolean>,
 ) {
-  if (!['CRM', 'ADMIN'].includes(user.roleCode))
+  if (user.roleCode !== 'CCO')
     throw new ForbiddenException(
-      'Only the assigned CRM or administrator can manage audit schedules',
+      'CCO approval is required to cancel or delete an audit schedule',
     );
   const explanation = typeof reason === 'string' ? reason.trim() : '';
   if (explanation.length < 5 || explanation.length > 2000)
@@ -30,11 +30,6 @@ export async function changeAuditSchedule(
       [id],
     );
     if (!audit) throw new NotFoundException('Audit not found');
-    if (
-      user.roleCode === 'CRM' &&
-      !(await isAssigned(audit.client_id, user.userId))
-    )
-      throw new ForbiddenException('Client not assigned to this CRM');
     if (
       !(
         action === 'DELETE' ? ['PLANNED'] : ['PLANNED', 'IN_PROGRESS']

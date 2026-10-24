@@ -184,10 +184,10 @@
                 <td class="td td-actions text-right">
                   <div class="flex flex-wrap justify-end gap-2" (click)="$event.stopPropagation()">
                     @if (canCancel(row)) {
-                      <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy" (click)="changeStatus(row, 'CANCELLED')"><ui-icon name="x-circle" [size]="18" /> Cancel audit</button>
+                      <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy" (click)="changeStatus(row, 'CANCELLED')"><ui-icon name="x-circle" [size]="18" /> Request cancellation</button>
                     }
                     @if (row.status === 'PLANNED') {
-                      <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy" (click)="deleteSchedule(row)"><ui-icon name="trash" [size]="18" /> Delete schedule</button>
+                      <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy" (click)="deleteSchedule(row)"><ui-icon name="trash" [size]="18" /> Request deletion</button>
                     }
                     @if (!['CANCELLED','COMPLETED','CLOSED'].includes(row.status)) {
                       <button type="button" class="status-action-btn" [disabled]="actionBusy" (click)="openScheduleModal(row)">Reassign</button>
@@ -297,13 +297,16 @@
 }
         <div class="flex flex-wrap gap-2 mt-3" aria-label="Audit schedule actions">
           @if (canCancel(audit)) {
-            <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy || detailBusy" (click)="changeStatus(audit, 'CANCELLED')"><ui-icon name="x-circle" [size]="18" /> Cancel audit</button>
+            <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy || detailBusy" (click)="changeStatus(audit, 'CANCELLED')"><ui-icon name="x-circle" [size]="18" /> Request cancellation</button>
           }
           @if (audit.status === 'PLANNED') {
-            <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy || detailBusy" (click)="deleteSchedule(audit)"><ui-icon name="trash" [size]="18" /> Delete schedule</button>
+            <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy || detailBusy" (click)="deleteSchedule(audit)"><ui-icon name="trash" [size]="18" /> Request deletion</button>
           }
         </div>
-        <p class="text-xs text-gray-500 mt-2">Cancel retains evidence and review history. Delete is only available for unused planned audits; audits with checklist work, documents or reports cannot be deleted.</p>
+        <p class="text-xs text-gray-500 mt-2">CCO approval is required. Requests leave the audit unchanged until approved. Cancellation retains evidence and history; deletion is restricted to unused planned audits.</p>
+        @for (request of actionRequests; track request.id) {
+          <p class="note-box mt-2">{{ request.action === 'DELETE' ? 'Deletion' : 'Cancellation' }} request: {{ request.status }} · {{ request.reason }} @if (request.review_note) {<span> · CCO: {{ request.review_note }}</span>}</p>
+        }
       </div>
 }
 

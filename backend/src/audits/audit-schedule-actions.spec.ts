@@ -20,7 +20,7 @@ function setup(status = 'PLANNED') {
   const manager = { query };
   const db = { transaction: jest.fn((fn) => fn(manager)) } as any;
   const assigned = jest.fn(async () => true);
-  const user: any = { roleCode: 'CRM', userId: 'crm' };
+  const user: any = { roleCode: 'CCO', userId: 'cco' };
   const run = (
     action: 'DELETE' | 'CANCEL' = 'CANCEL',
     reason = 'TEST ONLY duplicate schedule',
@@ -36,7 +36,7 @@ function setup(status = 'PLANNED') {
   };
 }
 describe('Audit schedule actions', () => {
-  it.each(['CLIENT', 'BRANCH', 'AUDITOR', 'CONTRACTOR'])(
+  it.each(['CLIENT', 'BRANCH', 'AUDITOR', 'CONTRACTOR', 'CRM', 'ADMIN'])(
     'denies %s schedule mutation',
     async (role) => {
       const t = setup();
@@ -45,9 +45,9 @@ describe('Audit schedule actions', () => {
       expect(t.query).not.toHaveBeenCalled();
     },
   );
-  it('denies CRM outside assigned clients', async () => {
+  it('denies direct CRM cancellation even for an assigned client', async () => {
     const t = setup();
-    t.assigned.mockResolvedValue(false);
+    t.user.roleCode = 'CRM';
     await expect(t.run()).rejects.toThrow(ForbiddenException);
     expect(t.query.mock.calls.some(([s]) => s.startsWith('UPDATE'))).toBe(
       false,

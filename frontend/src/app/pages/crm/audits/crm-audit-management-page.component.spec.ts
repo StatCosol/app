@@ -15,6 +15,7 @@ describe('CRM report holds', () => {
       crmPublishReport: vi.fn(() => of({})),
       crmReleaseReportHold: vi.fn(() => of({})),
       crmGetReadiness: vi.fn(() => of({})),
+      crmAuditActionRequests: vi.fn(() => of([])),
       crmGetReportStatus: vi.fn(() => of({ status: 'SUBMITTED', held: false })),
     };
     const toast = { success: vi.fn(), error: vi.fn() };
@@ -124,12 +125,13 @@ describe('CRM schedule actions', () => {
     await t.component.changeStatus(t.audit,'CANCELLED'); await t.component.deleteSchedule(t.audit);
     expect(t.dialog.prompt).not.toHaveBeenCalled();
   });
-  it('clears a successfully deleted schedule but retains selection on backend refusal', async () => {
+  it('retains the schedule while deletion awaits CCO approval', async () => {
     const t = setup(); t.api.crmDeleteSchedule.mockReturnValueOnce(throwError(() => ({error:{message:'Evidence exists'}})));
     await t.component.deleteSchedule(t.audit);
     expect(t.component.selectedAudit).toBe(t.audit); expect(t.toast.error).toHaveBeenCalledWith('Evidence exists');
     await t.component.deleteSchedule(t.audit);
-    expect(t.component.selectedAudit).toBeNull(); expect(t.component.refreshWorkspace).toHaveBeenCalledWith(null);
+    expect(t.component.selectedAudit).toBe(t.audit); expect(t.component.refreshWorkspace).toHaveBeenCalledWith('test');
+    expect(t.toast.success).toHaveBeenCalledWith('Deletion request sent to CCO; schedule unchanged');
   });
   it('preserves contractor, due date and notes when editing an assignment', async () => {
     const t = setup();

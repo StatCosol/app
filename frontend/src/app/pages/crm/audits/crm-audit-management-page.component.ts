@@ -180,6 +180,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   scheduleModel: ScheduleModel = this.defaultScheduleModel();
   latestReadiness: ReadinessResponse | null = null;
   latestReportStatus: ReportStatusResponse | null = null;
+  actionRequests: any[] = [];
   autoGenerating = false;
   governanceBusy = false;
   reportPreview: AuditFilePreview | null = null;
@@ -483,9 +484,9 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   async changeStatus(audit: AuditRow, newStatus: AuditStatus): Promise<void> {
     if (this.actionBusy || newStatus !== 'CANCELLED' || !this.canCancel(audit)) return;
     const result = await this.dialog.prompt(
-      'Cancel audit',
-      `Cancel ${audit.auditCode} for ${this.auditClientName(audit)}, ${audit.periodCode}? Evidence and review history will be retained. Enter the cancellation reason.`,
-      { confirmText: 'Cancel audit', cancelText: 'Keep audit', placeholder: 'Reason (at least 5 characters)' },
+      'Request cancellation',
+      `Ask CCO to cancel ${audit.auditCode} for ${this.auditClientName(audit)}, ${audit.periodCode}? The audit stays unchanged until CCO approval. Evidence and history will be retained. Enter the reason.`,
+      { confirmText: 'Send to CCO', cancelText: 'Back', placeholder: 'Reason (at least 5 characters)' },
     );
     if (!result.confirmed) return;
     const reason = result.value?.trim() || '';
@@ -503,7 +504,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success(`Audit moved to ${newStatus.replace('_', ' ')}`);
+          this.toast.success('Cancellation request sent to CCO; audit unchanged');
           this.refreshWorkspace(audit.id);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to update status'),
@@ -516,9 +517,9 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   async deleteSchedule(audit: AuditRow): Promise<void> {
     if (this.actionBusy || audit.status !== 'PLANNED') return;
-    const result = await this.dialog.prompt('Delete unused schedule',
-      `Permanently remove ${audit.auditCode} for ${this.auditClientName(audit)}, ${audit.periodCode}? Only an unused planned audit can be deleted. If checklist work, documents or reports exist, deletion is blocked. Enter the reason.`,
-      { confirmText: 'Delete schedule', cancelText: 'Keep schedule', placeholder: 'Reason (at least 5 characters)' });
+    const result = await this.dialog.prompt('Request schedule deletion',
+      `Ask CCO to delete ${audit.auditCode} for ${this.auditClientName(audit)}, ${audit.periodCode}? The schedule remains until CCO approves. Only unused planned audits can be deleted. Enter the reason.`,
+      { confirmText: 'Send to CCO', cancelText: 'Back', placeholder: 'Reason (at least 5 characters)' });
     if (!result.confirmed) return;
     const reason = result.value?.trim() || '';
     if (reason.length < 5 || reason.length > 2000) { this.toast.error('Enter a reason between 5 and 2000 characters'); return; }
@@ -527,8 +528,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$), finalize(() => { this.actionBusy = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: () => {
-          if (this.currentAudit?.id === audit.id) { this.selectedAudit = null; this.selectedDetail = null; this.latestReportStatus = null; }
-          this.toast.success('Unused audit schedule deleted'); this.refreshWorkspace(null);
+          this.toast.success('Deletion request sent to CCO; schedule unchanged'); this.refreshWorkspace(audit.id);
         },
         error: err => this.toast.error(err?.error?.message || 'Unable to delete the schedule'),
       });
@@ -841,7 +841,9 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   private loadAuditInsights(auditId: string): void {
+    this.actionRequests = [];
     forkJoin({
+      actionRequests: this.auditsService.crmAuditActionRequests(auditId).pipe(catchError(() => of([]))),
       readiness: this.auditsService
         .crmGetReadiness(auditId)
         .pipe(catchError(() => of(null))),
@@ -850,7 +852,9 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
         .pipe(catchError(() => of(null))),
     })
       .pipe(takeUntil(this.destroy$))
-      .subscribe(({ readiness, reportStatus }) => {
+      .subscribe(({ readiness, reportStatus, actionRequests }) => {
+        if (this.currentAudit?.id !== auditId) return;
+        this.actionRequests = actionRequests;
         this.latestReadiness = readiness as ReadinessResponse | null;
         this.latestReportStatus = reportStatus as ReportStatusResponse | null;
         for (const row of this.audits) if (row.id === auditId) {
