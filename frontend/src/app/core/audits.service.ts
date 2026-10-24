@@ -78,6 +78,22 @@ export class AuditsService {
     return this.http.patch(`${this.crmBase}/${id}/status`, { status, notes });
   }
 
+  crmDeleteSchedule(id: string, reason: string): Observable<any> {
+    return this.http.post(`${this.crmBase}/${id}/delete-request`, { reason });
+  }
+
+  crmAuditActionRequests(id: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.crmBase}/${id}/action-requests`);
+  }
+
+  ccoAuditActionRequests(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/cco/audit-action-approvals`);
+  }
+
+  ccoReviewAuditAction(id: string, decision: 'APPROVE'|'REJECT', note: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/v1/cco/audit-action-approvals/${id}/review`, {decision,note});
+  }
+
   // CRM: assign auditor / due date / notes update
   crmAssignAuditor(
     id: string,

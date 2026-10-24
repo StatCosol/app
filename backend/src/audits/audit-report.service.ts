@@ -515,56 +515,68 @@ export class AuditReportService {
   }
 
   async finalizeReportForAuditor(user: ReqUser, auditId: string) {
-    const audit = await this.ensureAuditorAuditAccess(user, auditId);
+    this.assertAuditor(user);
     const availableCols = await this.getAuditReportColumnsAvailability();
-    if (
-      ['COMPLETED', 'CLOSED', 'CANCELLED'].includes(
-        String(audit.status || '').toUpperCase(),
-      )
-    ) {
-      throw new BadRequestException('Audit is already completed or closed');
-    }
+    await this.dataSource.transaction(async (manager) => {
+      // Match cancellation's lock order: audit first, then its report. Recheck
+      // assignment and terminal state after waiting for any competing action.
+      const [audit] = await manager.query(
+        'SELECT id, status, assigned_auditor_id FROM audits WHERE id=$1 FOR UPDATE',
+        [auditId],
+      );
+      if (!audit) throw new NotFoundException('Audit not found');
+      if (audit.assigned_auditor_id !== (user.userId || user.id))
+        throw new ForbiddenException('Not your audit');
+      if (
+        ['COMPLETED', 'CLOSED', 'CANCELLED'].includes(
+          String(audit.status || '').toUpperCase(),
+        )
+      ) {
+        throw new BadRequestException('Audit is already completed or closed');
+      }
 
-    const existingRows = await this.dataSource.query(
-      `SELECT id, status, held_at
+      const existingRows = await manager.query(
+        `SELECT id, status, held_at
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
-       LIMIT 1`,
-      [auditId],
-    );
-    const existing = existingRows[0] || null;
-    if (!existing)
-      throw new BadRequestException('Save a report draft before submitting');
-    if (existing.held_at)
-      throw new BadRequestException('Release the report hold first');
-
-    const status = String(existing?.status || '').toUpperCase();
-    if (['APPROVED', 'PUBLISHED'].includes(status)) {
-      throw new BadRequestException(
-        'Cannot finalize approved or published report',
+       LIMIT 1 FOR UPDATE`,
+        [auditId],
       );
-    }
-    if (status !== 'DRAFT') {
-      return this.getReportForAuditor(user, auditId);
-    }
+      const existing = existingRows[0] || null;
+      if (!existing)
+        throw new BadRequestException('Save a report draft before submitting');
+      if (existing.held_at)
+        throw new BadRequestException('Release the report hold first');
 
-    await assertFieldworkReviewed(this.dataSource, auditId);
+      const status = String(existing?.status || '').toUpperCase();
+      if (['APPROVED', 'PUBLISHED'].includes(status)) {
+        throw new BadRequestException(
+          'Cannot finalize approved or published report',
+        );
+      }
+      if (status !== 'DRAFT') {
+        return;
+      }
 
-    const finalizeSet = availableCols.finalizedAt
-      ? "status = 'SUBMITTED', finalized_at = NOW(), updated_at = NOW()"
-      : "status = 'SUBMITTED', updated_at = NOW()";
+      await assertFieldworkReviewed(manager, auditId);
 
-    const changed = await this.dataSource.query(
-      `WITH changed AS (UPDATE audit_reports
+      const finalizeSet = availableCols.finalizedAt
+        ? "status = 'SUBMITTED', finalized_at = NOW(), updated_at = NOW()"
+        : "status = 'SUBMITTED', updated_at = NOW()";
+
+      const changed = await manager.query(
+        `WITH changed AS (UPDATE audit_reports
        SET ${finalizeSet}
        WHERE id = $1 AND status = 'DRAFT' AND held_at IS NULL
        RETURNING id) SELECT id FROM changed`,
-      [existing.id],
-    );
-    if (!changed.length)
-      throw new BadRequestException('Report changed; reload before continuing');
-
+        [existing.id],
+      );
+      if (!changed.length)
+        throw new BadRequestException(
+          'Report changed; reload before continuing',
+        );
+    });
     return this.getReportForAuditor(user, auditId);
   }
 

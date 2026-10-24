@@ -205,6 +205,27 @@ export class CrmAuditsController {
     return this.svc.updateStatus(user, id, dto.status, dto.notes);
   }
 
+  @Post(':id/delete-request')
+  deleteUnusedSchedule(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.svc.manageSchedule(user, id, 'DELETE', body?.reason || '');
+  }
+
+  @Get(':id/action-requests')
+  async actionRequests(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.assertCrmAudit(user, id);
+    return this.ds.query(
+      'SELECT id,action,reason,status,requested_at,reviewed_at,review_note FROM audit_action_requests WHERE audit_id=$1 ORDER BY requested_at DESC',
+      [id],
+    );
+  }
+
   @ApiOperation({ summary: 'Assign Auditor / Reschedule' })
   @Post(':id/assign-auditor')
   assignAuditor(

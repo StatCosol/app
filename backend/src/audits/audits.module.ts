@@ -1,4 +1,5 @@
 import { AuditFieldworkController } from './audit-fieldwork.controller';
+import { AuditActionApprovalController } from './audit-action-approval.controller';
 import { AuditFieldworkService } from './audit-fieldwork.service';
 import { PayrollDocumentReconciliationModule } from '../payroll-reconciliation/payroll-document-reconciliation.module';
 import { Module, forwardRef } from '@nestjs/common';
@@ -71,6 +72,7 @@ import { AuditEntryService } from './audit-entry.service';
     forwardRef(() => AutomationModule),
   ],
   controllers: [
+    AuditActionApprovalController,
     AuditFieldworkController,
     AuditFollowUpsController,
     AuditEntryController,

@@ -51,6 +51,7 @@ export const CCO_ROUTES: Routes = [
       { path: 'approvals', loadComponent: CcoApprovalsComponent },
       { path: 'service-package-approvals', loadComponent: CcoServicePackageApprovalsComponent },
       { path: 'payroll-approvals', loadComponent: CcoPayrollApprovalsComponent },
+      { path: 'audit-action-approvals', loadComponent: () => import('./cco-audit-action-approvals.component').then(m => m.CcoAuditActionApprovalsComponent) },
       { path: 'oversight', loadComponent: CcoOversightExceptionPageComponent },
       { path: 'crms-under-me', loadComponent: CcoCrmsUnderMeComponent },
       { path: 'crm-performance', loadComponent: CcoCrmPerformanceComponent },

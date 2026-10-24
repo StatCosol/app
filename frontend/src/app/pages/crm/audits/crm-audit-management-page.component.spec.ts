@@ -15,6 +15,7 @@ describe('CRM report holds', () => {
       crmPublishReport: vi.fn(() => of({})),
       crmReleaseReportHold: vi.fn(() => of({})),
       crmGetReadiness: vi.fn(() => of({})),
+      crmAuditActionRequests: vi.fn(() => of([])),
       crmGetReportStatus: vi.fn(() => of({ status: 'SUBMITTED', held: false })),
     };
     const toast = { success: vi.fn(), error: vi.fn() };
@@ -93,5 +94,51 @@ describe('CRM report holds', () => {
     fixture.detectChanges(); await fixture.whenStable();
     expect(findButton('Hold')).toBeUndefined();
     fixture.destroy(); TestBed.resetTestingModule();
+  });
+});
+
+describe('CRM schedule actions', () => {
+  function setup(status = 'PLANNED') {
+    const api = { crmUpdateStatus: vi.fn(() => of({})), crmDeleteSchedule: vi.fn(() => of({})) };
+    const dialog = { prompt: vi.fn(async () => ({ confirmed: true, value: 'TEST ONLY schedule correction' })) };
+    const toast = { success: vi.fn(), error: vi.fn() };
+    const component = new CrmAuditManagementPageComponent(api as any, {} as any, {} as any, {} as any, toast as any, dialog as any, {} as any, {markForCheck: vi.fn()} as any);
+    const audit = {id:'test', auditCode:'TEST-2099', status, clientId:'test-client', periodCode:'2099-11', client:{clientName:'Test client'}} as any;
+    component.selectedAudit = audit;
+    vi.spyOn(component, 'refreshWorkspace').mockImplementation(() => {});
+    return { component, api, dialog, toast, audit };
+  }
+  it('passes the reason when cancelling active audits and refreshes their status', async () => {
+    const t = setup('IN_PROGRESS'); await t.component.changeStatus(t.audit, 'CANCELLED');
+    expect(t.api.crmUpdateStatus).toHaveBeenCalledWith('test', 'CANCELLED', 'TEST ONLY schedule correction');
+    expect(t.component.refreshWorkspace).toHaveBeenCalledWith('test');
+  });
+  it('does not mutate after dismissing the prompt or entering a blank reason', async () => {
+    const t = setup(); t.dialog.prompt.mockResolvedValue({confirmed:false,value:''});
+    await t.component.changeStatus(t.audit,'CANCELLED');
+    t.dialog.prompt.mockResolvedValue({confirmed:true,value:' '});
+    await t.component.deleteSchedule(t.audit);
+    expect(t.api.crmUpdateStatus).not.toHaveBeenCalled(); expect(t.api.crmDeleteSchedule).not.toHaveBeenCalled();
+  });
+  it('blocks cancellation for a published report and deletion after work starts', async () => {
+    const t = setup('IN_PROGRESS'); t.audit.reportStatus = 'PUBLISHED';
+    await t.component.changeStatus(t.audit,'CANCELLED'); await t.component.deleteSchedule(t.audit);
+    expect(t.dialog.prompt).not.toHaveBeenCalled();
+  });
+  it('retains the schedule while deletion awaits CCO approval', async () => {
+    const t = setup(); t.api.crmDeleteSchedule.mockReturnValueOnce(throwError(() => ({error:{message:'Evidence exists'}})));
+    await t.component.deleteSchedule(t.audit);
+    expect(t.component.selectedAudit).toBe(t.audit); expect(t.toast.error).toHaveBeenCalledWith('Evidence exists');
+    await t.component.deleteSchedule(t.audit);
+    expect(t.component.selectedAudit).toBe(t.audit); expect(t.component.refreshWorkspace).toHaveBeenCalledWith('test');
+    expect(t.toast.success).toHaveBeenCalledWith('Deletion request sent to CCO; schedule unchanged');
+  });
+  it('preserves contractor, due date and notes when editing an assignment', async () => {
+    const t = setup();
+    vi.spyOn(t.component as any,'loadBranchesForClient').mockImplementation(() => {});
+    vi.spyOn(t.component as any,'loadContractorsForClient').mockImplementation(() => {});
+    Object.assign(t.audit,{contractorUserId:'vendor',dueDate:'2099-11-15',notes:'Keep this note'});
+    await t.component.openScheduleModal(t.audit);
+    expect(t.component.scheduleModel).toMatchObject({contractorUserId:'vendor',dueDate:'2099-11-15',notes:'Keep this note'});
   });
 });

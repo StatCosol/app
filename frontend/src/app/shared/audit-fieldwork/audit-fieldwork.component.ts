@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Subscription } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { AuditFilePreviewComponent, AuditFilePreview } from '../files/components/audit-file-preview.component';
 import {
   ProtectedFileService,
   ProtectedFileHandle,
@@ -56,7 +57,7 @@ interface Draft {
 @Component({
   standalone: true,
   selector: 'app-audit-fieldwork',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AuditFilePreviewComponent],
   templateUrl: './audit-fieldwork.component.html',
   styleUrls: ['./audit-fieldwork.component.scss'],
 })
@@ -81,6 +82,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
   adding = false;
   preview: ProtectedFileHandle | null = null;
   previewName = '';
+  documentPreview: AuditFilePreview | null = null;
   private requests = new Subscription();
   private loadRequest?: Subscription;
   private generation = 0;
@@ -323,14 +325,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     this.closePreview();
     this.error = '';
     if (!e.mimeType.startsWith('image/')) {
-      this.requests.add(
-        this.files.open(e.url, e.fileName).subscribe({
-          error: (err) => {
-            this.error = this.errorText(err);
-            this.cdr.markForCheck();
-          },
-        }),
-      );
+      this.documentPreview = { url: e.url, name: e.fileName };
       return;
     }
     const epoch = this.generation;
@@ -369,6 +364,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     );
   }
   closePreview() {
+    this.documentPreview = null;
     this.previewGeneration++;
     this.preview?.revoke();
     this.preview = null;

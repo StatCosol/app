@@ -27,6 +27,16 @@ function setup() {
   return { c, http, files };
 }
 describe('Audit fieldwork', () => {
+  it.each([true, false])('previews PDFs in the audit page and clears them on scope change (auditor=%s)', auditor => {
+    const { c, files } = setup();
+    c.auditor = auditor;
+    c.view({ url: '/protected/evidence', fileName: 'test.pdf', mimeType: 'application/pdf' } as any);
+    expect(c.documentPreview).toEqual({ url: '/protected/evidence', name: 'test.pdf' });
+    expect(files.open).not.toHaveBeenCalled();
+    c.ngOnChanges();
+    expect(c.documentPreview).toBeNull();
+    c.ngOnDestroy();
+  });
   it('retains unfinished remarks when switching points or refreshing', () => {
     const { c, http } = setup();
     http.get.mockReturnValue(of(response([point(), point('p2')])));
