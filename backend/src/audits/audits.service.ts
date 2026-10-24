@@ -1,4 +1,5 @@
 import { fieldworkScore } from './audit-fieldwork-report';
+import { changeAuditSchedule } from './audit-schedule-actions';
 import { randomUUID } from 'crypto';
 import { AuditorSummaryQueryDto } from '../auditor/dto/auditor-dashboard-query.dto';
 import {
@@ -617,6 +618,7 @@ export class AuditsService implements OnModuleInit {
     notes?: string,
   ) {
     const targetStatus = String(newStatus || '').toUpperCase();
+    if (targetStatus === 'CANCELLED') return this.manageSchedule(user, auditId, 'CANCEL', notes || '');
     if (!targetStatus) {
       throw new BadRequestException('status is required');
     }
@@ -765,6 +767,11 @@ export class AuditsService implements OnModuleInit {
 
   async getReportForAuditor(user: ReqUser, auditId: string) {
     return this.reportService.getReportForAuditor(user, auditId);
+  }
+
+  manageSchedule(user: ReqUser, auditId: string, action: 'CANCEL' | 'DELETE', reason: string) {
+    return changeAuditSchedule(this.dataSource, user, auditId, action, reason,
+      (clientId, userId) => this.assignmentsService.isClientAssignedToCrm(clientId, userId));
   }
 
   async saveReportDraftForAuditor(
@@ -1664,10 +1671,11 @@ export class AuditsService implements OnModuleInit {
     // an audit derived from it). Without this, any AUDITOR-role user could
     // open another auditor's workspace via a guessed schedule UUID.
     const sched = await this.dataSource.query(
-      `SELECT auditor_user_id FROM audit_schedules WHERE id = $1`,
+      `SELECT auditor_user_id, status FROM audit_schedules WHERE id = $1`,
       [scheduleId],
     );
     if (!sched.length) throw new NotFoundException('Schedule not found');
+    if (sched[0].status === 'CANCELLED') throw new BadRequestException('This audit schedule has been cancelled');
     const assignedAuditorId = sched[0].auditor_user_id as string | null;
     if (assignedAuditorId && assignedAuditorId !== userId) {
       throw new ForbiddenException('Schedule is not assigned to you');

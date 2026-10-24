@@ -1,4 +1,3 @@
-import { ActionIconPipe } from '../../../shared/ui/action-icon.pipe';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -132,7 +131,7 @@ interface ScheduleModel {
 @Component({
   selector: 'app-crm-audit-management-page',
   standalone: true,
-  imports: [AuditFilePreviewComponent, ActionIconPipe, IconComponent,
+  imports: [AuditFilePreviewComponent, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -474,7 +473,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       PLANNED: [
         { label: 'Cancel', value: 'CANCELLED', variant: 'danger' },
       ],
-      IN_PROGRESS: [],
+      IN_PROGRESS: [{ label: 'Cancel audit', value: 'CANCELLED', variant: 'danger' }],
       COMPLETED: [],
       CANCELLED: [],
     };
@@ -482,21 +481,19 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   async changeStatus(audit: AuditRow, newStatus: AuditStatus): Promise<void> {
-    if (this.actionBusy) return;
-    const label = newStatus === 'IN_PROGRESS' ? 'start' : newStatus === 'COMPLETED' ? 'complete' : 'cancel';
-    const confirmed = await this.dialog.confirm(
-      'Update Audit Status',
-      `Do you want to ${label} ${audit.auditCode}?`,
-      {
-        confirmText: label.charAt(0).toUpperCase() + label.slice(1),
-        variant: newStatus === 'CANCELLED' ? 'danger' : 'default',
-      },
+    if (this.actionBusy || newStatus !== 'CANCELLED' || !this.canCancel(audit)) return;
+    const result = await this.dialog.prompt(
+      'Cancel audit',
+      `Cancel ${audit.auditCode} for ${this.auditClientName(audit)}, ${audit.periodCode}? Evidence and review history will be retained. Enter the cancellation reason.`,
+      { confirmText: 'Cancel audit', cancelText: 'Keep audit', placeholder: 'Reason (at least 5 characters)' },
     );
-    if (!confirmed) return;
+    if (!result.confirmed) return;
+    const reason = result.value?.trim() || '';
+    if (reason.length < 5 || reason.length > 2000) { this.toast.error('Enter a reason between 5 and 2000 characters'); return; }
 
     this.actionBusy = true;
     this.auditsService
-      .crmUpdateStatus(audit.id, newStatus)
+      .crmUpdateStatus(audit.id, newStatus, reason)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -513,7 +510,32 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       });
   }
 
+  canCancel(audit: AuditRow): boolean {
+    return ['PLANNED', 'IN_PROGRESS'].includes(audit.status) && !['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(audit.reportStatus || '');
+  }
+
+  async deleteSchedule(audit: AuditRow): Promise<void> {
+    if (this.actionBusy || audit.status !== 'PLANNED') return;
+    const result = await this.dialog.prompt('Delete unused schedule',
+      `Permanently remove ${audit.auditCode} for ${this.auditClientName(audit)}, ${audit.periodCode}? Only an unused planned audit can be deleted. If checklist work, documents or reports exist, deletion is blocked. Enter the reason.`,
+      { confirmText: 'Delete schedule', cancelText: 'Keep schedule', placeholder: 'Reason (at least 5 characters)' });
+    if (!result.confirmed) return;
+    const reason = result.value?.trim() || '';
+    if (reason.length < 5 || reason.length > 2000) { this.toast.error('Enter a reason between 5 and 2000 characters'); return; }
+    this.actionBusy = true;
+    this.auditsService.crmDeleteSchedule(audit.id, reason)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.actionBusy = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: () => {
+          if (this.currentAudit?.id === audit.id) { this.selectedAudit = null; this.selectedDetail = null; this.latestReportStatus = null; }
+          this.toast.success('Unused audit schedule deleted'); this.refreshWorkspace(null);
+        },
+        error: err => this.toast.error(err?.error?.message || 'Unable to delete the schedule'),
+      });
+  }
+
   async openScheduleModal(base?: AuditRow): Promise<void> {
+    if (base && ['CANCELLED', 'COMPLETED', 'CLOSED'].includes(base.status)) return;
     this.scheduleModel = this.defaultScheduleModel();
     this.scheduleMode = base ? 'ASSIGN' : 'CREATE';
     this.scheduleAuditId = base?.id || null;
@@ -527,6 +549,9 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
         periodYear: base.periodYear || new Date().getFullYear(),
         periodCode: base.periodCode || this.defaultPeriodCode(),
         assignedAuditorId: base.assignedAuditorId || '',
+        contractorUserId: base.contractorUserId || '',
+        dueDate: base.dueDate?.slice(0, 10) || '',
+        notes: base.notes || '',
       };
     }
     this.showScheduleModal = true;

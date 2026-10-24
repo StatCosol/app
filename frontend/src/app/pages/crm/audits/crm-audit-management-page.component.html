@@ -182,22 +182,16 @@
                 </td>
                 <td class="td"><ui-status-badge [status]="row.status"></ui-status-badge></td>
                 <td class="td td-actions text-right">
-                  <div class="inline-flex gap-1" (click)="$event.stopPropagation()">
-                    @for (action of getNextStatuses(row.status); track action) {
-<button type="button"
-                     
-                      class="compact-action status-action-btn"
-                      [ngClass]="{
-                        'status-action-btn--primary': action.variant === 'primary',
-                        'status-action-btn--danger': action.variant === 'danger'
-                      }"
-                      [disabled]="actionBusy"
-                      (click)="changeStatus(row, action.value)"
-                     [attr.title]="action.label" [attr.aria-label]="action.label" [attr.data-action-label]="action.label" [attr.data-action-icon]="action.label | actionIcon"><ui-icon [name]="action.label | actionIcon" [size]="20" /><span class="compact-action-label">
-                      {{ action.label }}
-                    </span></button>
-}
-                    <button type="button" class="status-action-btn" (click)="openScheduleModal(row)">Reassign</button>
+                  <div class="flex flex-wrap justify-end gap-2" (click)="$event.stopPropagation()">
+                    @if (canCancel(row)) {
+                      <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy" (click)="changeStatus(row, 'CANCELLED')"><ui-icon name="x-circle" [size]="18" /> Cancel audit</button>
+                    }
+                    @if (row.status === 'PLANNED') {
+                      <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy" (click)="deleteSchedule(row)"><ui-icon name="trash" [size]="18" /> Delete schedule</button>
+                    }
+                    @if (!['CANCELLED','COMPLETED','CLOSED'].includes(row.status)) {
+                      <button type="button" class="status-action-btn" [disabled]="actionBusy" (click)="openScheduleModal(row)">Reassign</button>
+                    }
                   </div>
                 </td>
               </tr>
@@ -301,6 +295,15 @@
         @if (audit.notes) {
 <div class="note-box mt-3">{{ audit.notes }}</div>
 }
+        <div class="flex flex-wrap gap-2 mt-3" aria-label="Audit schedule actions">
+          @if (canCancel(audit)) {
+            <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy || detailBusy" (click)="changeStatus(audit, 'CANCELLED')"><ui-icon name="x-circle" [size]="18" /> Cancel audit</button>
+          }
+          @if (audit.status === 'PLANNED') {
+            <button type="button" class="status-action-btn status-action-btn--danger" [disabled]="actionBusy || detailBusy" (click)="deleteSchedule(audit)"><ui-icon name="trash" [size]="18" /> Delete schedule</button>
+          }
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Cancel retains evidence and review history. Delete is only available for unused planned audits; audits with checklist work, documents or reports cannot be deleted.</p>
       </div>
 }
 

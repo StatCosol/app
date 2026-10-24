@@ -99,6 +99,11 @@
 }
 
 .status-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
   border: 1px solid #e5e7eb;
   background: #fff;
   color: #374151;

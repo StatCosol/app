@@ -205,6 +205,15 @@ export class CrmAuditsController {
     return this.svc.updateStatus(user, id, dto.status, dto.notes);
   }
 
+  @Delete(':id')
+  deleteUnusedSchedule(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.svc.manageSchedule(user, id, 'DELETE', body?.reason || '');
+  }
+
   @ApiOperation({ summary: 'Assign Auditor / Reschedule' })
   @Post(':id/assign-auditor')
   assignAuditor(

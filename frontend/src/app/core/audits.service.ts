@@ -78,6 +78,10 @@ export class AuditsService {
     return this.http.patch(`${this.crmBase}/${id}/status`, { status, notes });
   }
 
+  crmDeleteSchedule(id: string, reason: string): Observable<any> {
+    return this.http.delete(`${this.crmBase}/${id}`, { body: { reason } });
+  }
+
   // CRM: assign auditor / due date / notes update
   crmAssignAuditor(
     id: string,

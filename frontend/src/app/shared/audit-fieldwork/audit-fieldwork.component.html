@@ -367,3 +367,6 @@
     </div>
   }
 </section>
+@if (documentPreview) {
+  <app-audit-file-preview [request]="documentPreview" (closed)="closePreview()" />
+}
