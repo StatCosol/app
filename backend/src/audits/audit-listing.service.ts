@@ -175,7 +175,9 @@ export class AuditListingService {
       throw new ForbiddenException('Client not assigned to this CRM');
     }
     if (['CANCELLED', 'COMPLETED', 'CLOSED'].includes(audit.status)) {
-      throw new BadRequestException('Cancelled or completed audits cannot be reassigned');
+      throw new BadRequestException(
+        'Cancelled or completed audits cannot be reassigned',
+      );
     }
 
     if (dto.assignedAuditorId) {

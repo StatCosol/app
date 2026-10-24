@@ -618,7 +618,8 @@ export class AuditsService implements OnModuleInit {
     notes?: string,
   ) {
     const targetStatus = String(newStatus || '').toUpperCase();
-    if (targetStatus === 'CANCELLED') return this.manageSchedule(user, auditId, 'CANCEL', notes || '');
+    if (targetStatus === 'CANCELLED')
+      return this.manageSchedule(user, auditId, 'CANCEL', notes || '');
     if (!targetStatus) {
       throw new BadRequestException('status is required');
     }
@@ -769,9 +770,21 @@ export class AuditsService implements OnModuleInit {
     return this.reportService.getReportForAuditor(user, auditId);
   }
 
-  manageSchedule(user: ReqUser, auditId: string, action: 'CANCEL' | 'DELETE', reason: string) {
-    return changeAuditSchedule(this.dataSource, user, auditId, action, reason,
-      (clientId, userId) => this.assignmentsService.isClientAssignedToCrm(clientId, userId));
+  manageSchedule(
+    user: ReqUser,
+    auditId: string,
+    action: 'CANCEL' | 'DELETE',
+    reason: string,
+  ) {
+    return changeAuditSchedule(
+      this.dataSource,
+      user,
+      auditId,
+      action,
+      reason,
+      (clientId, userId) =>
+        this.assignmentsService.isClientAssignedToCrm(clientId, userId),
+    );
   }
 
   async saveReportDraftForAuditor(
@@ -1675,7 +1688,8 @@ export class AuditsService implements OnModuleInit {
       [scheduleId],
     );
     if (!sched.length) throw new NotFoundException('Schedule not found');
-    if (sched[0].status === 'CANCELLED') throw new BadRequestException('This audit schedule has been cancelled');
+    if (sched[0].status === 'CANCELLED')
+      throw new BadRequestException('This audit schedule has been cancelled');
     const assignedAuditorId = sched[0].auditor_user_id as string | null;
     if (assignedAuditorId && assignedAuditorId !== userId) {
       throw new ForbiddenException('Schedule is not assigned to you');

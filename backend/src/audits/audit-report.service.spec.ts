@@ -18,6 +18,8 @@ describe('Audit report closure and holds', () => {
     };
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('information_schema')) return [];
+      if (sql.startsWith('SELECT id, status, assigned_auditor_id FROM audits'))
+        return [{ ...audit, assigned_auditor_id: audit.assignedAuditorId }];
       if (sql.startsWith('WITH ')) return [{ id: report.id }];
       if (sql.startsWith('UPDATE')) return [];
       return [report];
@@ -26,7 +28,7 @@ describe('Audit report closure and holds', () => {
     const service = new AuditReportService(
       { findOne: jest.fn().mockResolvedValue(audit) } as any,
       {} as any,
-      { query } as any,
+      { query, transaction: (fn: any) => fn({ query }) } as any,
       { isClientAssignedToCrm: assignment } as any,
     );
     return { service, audit, report, query, assignment };
@@ -47,7 +49,7 @@ describe('Audit report closure and holds', () => {
         t.service.reopenReportForAuditor(auditor, 'audit'),
       ).rejects.toThrow('completion or closure');
       expect(
-        t.query.mock.calls.some(([sql]) => /UPDATE|INSERT/.test(sql)),
+        t.query.mock.calls.some(([sql]) => /^(UPDATE|INSERT|WITH )/.test(sql)),
       ).toBe(false);
     },
   );
@@ -167,6 +169,10 @@ describe('Audit report closure and holds', () => {
     t.report.status = 'DRAFT';
     t.query.mockImplementation(async (sql) => {
       if (sql.includes('information_schema')) return [];
+      if (sql.startsWith('SELECT id, status, assigned_auditor_id FROM audits'))
+        return [
+          { ...t.audit, assigned_auditor_id: t.audit.assignedAuditorId },
+        ] as any;
       if (sql.includes('FROM audit_checklist_items'))
         return [{ id: 'pending-point' }] as any;
       return [t.report];
@@ -178,5 +184,28 @@ describe('Audit report closure and holds', () => {
       false,
     );
     expect(t.report.status).toBe('DRAFT');
+  });
+
+  it('locks the audit then report and rechecks finalization state in one transaction', async () => {
+    const t = setup();
+    t.report.status = 'DRAFT';
+    const original = t.query.getMockImplementation()!;
+    t.query.mockImplementation(async (sql) =>
+      sql.includes('FROM audit_checklist_items') ? [] : original(sql),
+    );
+    await t.service.finalizeReportForAuditor(auditor, 'audit');
+    const statements = t.query.mock.calls.map(([sql]) => sql);
+    const auditLock = statements.findIndex((sql) =>
+      sql.includes('FROM audits WHERE id=$1 FOR UPDATE'),
+    );
+    const reportLock = statements.findIndex((sql) =>
+      sql.includes('LIMIT 1 FOR UPDATE'),
+    );
+    const update = statements.findIndex((sql) =>
+      sql.startsWith('WITH changed'),
+    );
+    expect(auditLock).toBeGreaterThan(-1);
+    expect(reportLock).toBeGreaterThan(auditLock);
+    expect(update).toBeGreaterThan(reportLock);
   });
 });
