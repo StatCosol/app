@@ -1,4 +1,5 @@
 import { ResponsiveNavigationDirective } from '../../../shared/directives/responsive-navigation.directive';
+import { activeNavigationRoute } from '../../../shared/navigation/active-route';
 import { Component, Input, Output, EventEmitter, OnDestroy, OnInit } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
@@ -110,8 +111,9 @@ interface SidebarItem {
 <a
 
                 [routerLink]="link.route"
-                routerLinkActive="collapsed-active"
-                [routerLinkActiveOptions]="{ exact: link.route.endsWith('dashboard') }"
+                [class.collapsed-active]="isCurrentPage(link.route)"
+                [attr.aria-current]="isCurrentPage(link.route) ? 'page' : null"
+                [attr.aria-label]="link.label"
                 (click)="onNavClick()"
                 class="collapsed-icon"
               >
@@ -128,7 +130,9 @@ interface SidebarItem {
 <a
 
                   [routerLink]="child.route"
-                  routerLinkActive="collapsed-active"
+                  [class.collapsed-active]="isCurrentPage(child.route)"
+                  [attr.aria-current]="isCurrentPage(child.route) ? 'page' : null"
+                  [attr.aria-label]="child.label"
                   (click)="onNavClick()"
                   class="collapsed-icon"
                 >
@@ -154,8 +158,8 @@ interface SidebarItem {
 <a
 
               [routerLink]="item.route"
-              routerLinkActive="sidebar-active"
-              [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
+              [class.sidebar-active]="isCurrentPage(item.route)"
+              [attr.aria-current]="isCurrentPage(item.route) ? 'page' : null"
               (click)="onNavClick()"
               class="sidebar-item"
             >
@@ -190,8 +194,8 @@ interface SidebarItem {
 <a
 
                   [routerLink]="child.route"
-                  routerLinkActive="sidebar-active"
-                  [routerLinkActiveOptions]="{ exact: child.route === '/branch/compliance' || child.route === '/branch/attendance' }"
+                  [class.sidebar-active]="isCurrentPage(child.route)"
+                  [attr.aria-current]="isCurrentPage(child.route) ? 'page' : null"
                   (click)="onNavClick()"
                   class="sidebar-item sidebar-child"
                   [title]="child.label"
@@ -343,7 +347,7 @@ interface SidebarItem {
     }
     .sidebar-icon svg { width: 20px; height: 20px; stroke: currentColor; }
     .sidebar-item:hover .sidebar-icon { color: #FFFFFF; }
-    .sidebar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sidebar-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
 
     /* Collapsed menu */
     .collapsed-menu {
@@ -683,11 +687,15 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   }
 
   /** Auto-expand group when on a matching child route */
+  isCurrentPage(route: string): boolean {
+    const routes = this.navItems.flatMap(item => item.children ? item.children.map(child => child.route) : [item.route]);
+    return route === activeNavigationRoute(this.router.url, routes);
+  }
+
   private autoExpandCompliance(): void {
-    const url = this.router.url;
     for (const item of this.navItems) {
       if (!item.children) continue;
-      const shouldExpand = item.children.some(c => url.startsWith(c.route));
+      const shouldExpand = item.children.some(c => this.isCurrentPage(c.route));
       if (shouldExpand) item.expanded = true;
     }
   }
@@ -742,16 +750,16 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         children: [
           { label: 'Compliance Dashboard', route: '/branch/compliance/status',       icon: this.svg('M3 13h4v8H3v-8zm7-5h4v13h-4V8zm7-5h4v18h-4V3z') },
           { label: 'Monthly Compliance',   route: '/branch/compliance/monthly',      icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
-          { label: 'Periodic Uploads (all assigned branches)',     route: '/branch/uploads',                 icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
+          { label: 'Periodic Uploads',     route: '/branch/uploads',                 icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
           { label: 'Compliance Items',     route: '/branch/compliance-items',        icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Compliance Calendar',  route: '/branch/calendar',                icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Registrations',        route: '/branch/registrations',           icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Safety',              route: '/branch/safety',                  icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
-          { label: 'Audit Reports & Evidence', route: '/branch/audits', icon: this.svg('M9 5h6v14H9z') },
+          { label: 'Audit Reports & Evidence', route: '/branch/audits', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Audit Observations',   route: '/branch/audits/observations',     icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
           { label: 'Review / Reupload',    route: '/branch/compliance-docs',         icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Unit Documents',       route: '/branch/unit-documents',          icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
-          { label: 'Documents',            route: '/branch/documents',               icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+          { label: 'Document Repository',            route: '/branch/documents',               icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Notices',              route: '/branch/notices',                 icon: this.svg('M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z') },
         ],
       },
