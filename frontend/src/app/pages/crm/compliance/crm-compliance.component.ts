@@ -371,9 +371,14 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     this.loadDocs();
   }
 
+  docSearch = '';
+  get filteredDocs(): any[] {
+    const term = this.docSearch.trim().toLowerCase();
+    return term ? this.docs.filter(d => [d.title, d.name, d.fileName, d.documentName, d.docName, d.contractorName, d.branchName, d.docType].some(value => String(value || '').toLowerCase().includes(term))) : this.docs;
+  }
   loadDocs(): void {
     this.docLoading = true; this.docErrorMsg = null;
-    this.crmDocsApi.list(this.docFilters).pipe(
+    this.crmDocsApi.list({ ...this.docFilters, clientId: this.routeClientId || this.docFilters.clientId }).pipe(
       takeUntil(this.destroy$),
       catchError((err) => { this.docErrorMsg = err?.error?.message || 'Failed to load documents'; return of({ data: [] }); }),
       finalize(() => { this.docLoading = false; this.cdr.detectChanges(); }),
@@ -381,9 +386,10 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   }
 
   async reviewDoc(doc: any, status: string): Promise<void> {
+    if (this.reviewingDocId) return;
     const label = status === 'REJECTED' ? 'Rejection reason (required):' : 'Review notes (optional):';
     const result = await this.dialog.prompt(status === 'REJECTED' ? 'Reject Document' : 'Review Document', label, { placeholder: 'Notes' });
-    if (!result.confirmed) return;
+    if (!result.confirmed || this.reviewingDocId) return;
     const notes = result.value || '';
     if (status === 'REJECTED' && !notes.trim()) return;
     this.reviewingDocId = doc.id;
@@ -413,7 +419,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     const isReject = status === 'REUPLOAD_REQUIRED';
     const label = isReject ? 'Rejection reason (required):' : 'Review notes (optional):';
     const result = await this.dialog.prompt(isReject ? 'Request Reupload' : 'Approve Document', label, { placeholder: 'Notes' });
-    if (!result.confirmed) return;
+    if (!result.confirmed || this.reviewingDocId) return;
     const remarks = result.value || '';
     if (isReject && !remarks.trim()) return;
     this.reviewingCompDocId = doc.id;
@@ -634,7 +640,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
 
   async closeObservation(auditId: string): Promise<void> {
     const result = await this.dialog.prompt('Close Observation', 'Closure notes (optional):', { placeholder: 'Notes' });
-    if (!result.confirmed) return;
+    if (!result.confirmed || this.reviewingDocId) return;
     const notes = result.value || '';
     this.closingObsId = auditId;
     this.complianceApi.crmCloseAuditObservation(auditId, { notes })

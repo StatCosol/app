@@ -2,7 +2,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent } from '../../../shared/ui';
@@ -75,6 +75,7 @@ export class ClientReturnsComponent implements OnDestroy {
     private readonly auth: AuthService,
     private readonly toast: ToastService,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly complianceContext: ComplianceContextService,
   ) {
@@ -92,11 +93,12 @@ export class ClientReturnsComponent implements OnDestroy {
   }
 
   ngOnInit() {
+    this.focusedFilingId = this.route.snapshot.queryParamMap.get('filingId') || '';
     const params = this.route.snapshot.queryParamMap;
     const branchId = params.get('branchId') || '';
     const code = params.get('code') || '';
     const month = Number(params.get('periodMonth') || params.get('month')?.split('-')[1] || '');
-    const year = Number(params.get('year') || params.get('month')?.split('-')[0] || '');
+    const year = Number(params.get('periodYear') || params.get('year') || params.get('month')?.split('-')[0] || '');
     this.focusCode = this.normalizeReturnCode(code);
     if (branchId) {
       this.filters.branchId = branchId;
@@ -172,7 +174,14 @@ export class ClientReturnsComponent implements OnDestroy {
     });
   }
 
+  get visibleFilings() { return this.focusedFilingId ? this.filings.filter(f => f.id === this.focusedFilingId) : this.filings; }
+  clearFilingFocus() { this.focusedFilingId = ''; void this.router.navigate([], {relativeTo: this.route, queryParams: {filingId: null}, queryParamsHandling: 'merge'}); }
+  focusedFilingId = '';
+
   loadFilings() {
+    void this.router.navigate([], {relativeTo: this.route, replaceUrl: true, queryParamsHandling: 'merge',
+      queryParams: {filingId: this.focusedFilingId || null, branchId: this.filters.branchId || null, periodMonth: this.filters.periodMonth || null, periodYear: this.filters.periodYear || null}});
+
     this.loading = true;
     this.returnsSvc
       .listFilings(this.filters)

@@ -1,3 +1,4 @@
+@if (focusedFilingId) { <div class="p-3 mb-4 border rounded-lg bg-brand-50">Showing the filing selected from Status. <button type="button" class="underline" (click)="clearFilingFocus()">Show all filings</button></div> }
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
   <ui-page-header
     title="Returns / Filings"
@@ -21,7 +22,7 @@
     <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
       <div class="w-full sm:w-52">
         <label class="form-label" for="cr-branch-id">Branch</label>
-        <select id="cr-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (ngModelChange)="loadFilings()" [disabled]="singleBranch">
+        <select id="cr-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (ngModelChange)="clearFilingFocus(); loadFilings()" [disabled]="singleBranch">
           <option value="">All branches</option>
           @for (b of branches; track b) {
 <option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
@@ -30,7 +31,7 @@
       </div>
       <div class="w-36">
         <label class="form-label" for="cr-status">Status</label>
-        <select id="cr-status" name="status" class="form-select" [(ngModel)]="filters.status" (ngModelChange)="loadFilings()">
+        <select id="cr-status" name="status" class="form-select" [(ngModel)]="filters.status" (ngModelChange)="clearFilingFocus(); loadFilings()">
           <option value="">All</option>
           <option value="PENDING">Pending</option>
           <option value="IN_PROGRESS">In Progress</option>
@@ -41,7 +42,7 @@
       </div>
       <div class="w-28">
         <label class="form-label" for="cr-period-month">Month</label>
-        <select id="cr-period-month" name="periodMonth" class="form-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="loadFilings()">
+        <select id="cr-period-month" name="periodMonth" class="form-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="clearFilingFocus(); loadFilings()">
           <option value="">All</option>
           @for (m of monthOptions; track m) {
 <option [value]="m.value">{{ m.label }}</option>
@@ -50,7 +51,7 @@
       </div>
       <div class="w-28">
         <label class="form-label" for="cr-period-year">Year</label>
-        <select id="cr-period-year" name="periodYear" class="form-select" [(ngModel)]="filters.periodYear" (ngModelChange)="loadFilings()">
+        <select id="cr-period-year" name="periodYear" class="form-select" [(ngModel)]="filters.periodYear" (ngModelChange)="clearFilingFocus(); loadFilings()">
           @for (y of yearOptions; track y) {
 <option [value]="y">{{ y }}</option>
 }
@@ -111,7 +112,7 @@
 }
     </div>
 
-    @if (!filings.length && !loading) {
+    @if (!visibleFilings.length && !loading) {
 <div class="p-5">
       <ui-empty-state
         icon="document-text"
@@ -121,7 +122,7 @@
     </div>
 }
 
-    @if (filings.length) {
+    @if (visibleFilings.length) {
 <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
       <table class="min-w-full">
         <thead>
@@ -136,7 +137,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (f of filings; track f) {
+          @for (f of visibleFilings; track f) {
 <tr
             class="border-t border-gray-100 text-sm"
             [ngClass]="{ 'bg-sky-50': isFocusedFiling(f) }">
@@ -160,7 +161,7 @@
                   @if (f.ackFilePath) {
 
                     <a [href]="f.ackFilePath" target="_blank" class="compact-action link" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
-                  
+
 } @else {
 
                     @if (canUpload()) {
@@ -179,14 +180,14 @@
 }
 
 }
-                  
+
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="w-20 text-slate-500">Challan</span>
                   @if (f.challanFilePath) {
 
                     <a [href]="f.challanFilePath" target="_blank" class="compact-action link" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
-                  
+
 } @else {
 
                     @if (canUpload()) {
@@ -203,7 +204,7 @@
                     @if (!canUpload()) {
 <span class="text-slate-400">Branch only</span>
 }
-                  
+
 }
 
                 </div>

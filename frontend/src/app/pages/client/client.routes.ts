@@ -47,8 +47,6 @@ const ClientReturnsComponent = () =>
   import('./compliance/client-returns.component').then((m) => m.ClientReturnsComponent);
 const ClientMcdComponent = () =>
   import('./compliance/client-mcd.component').then((m) => m.ClientMcdComponent);
-const ClientMcdUploadsComponent = () =>
-  import('./compliance/client-mcd-uploads.component').then((m) => m.ClientMcdUploadsComponent);
 const NominationApprovalsComponent = () =>
   import('./approvals/nomination-approvals.component').then((m) => m.NominationApprovalsComponent);
 const LeaveApprovalsComponent = () =>
@@ -162,7 +160,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'compliance/mcd', loadComponent: ClientMcdComponent, canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE')], runGuardsAndResolvers: 'always' },
       {
         path: 'compliance/mcd/uploads',
-        loadComponent: ClientMcdUploadsComponent,
+        loadComponent: ClientMcdComponent,
         canActivate: [moduleAccessGuard('EMPLOYEE_COMPLIANCE'), branchUserOnlyGuard],
         runGuardsAndResolvers: 'always',
       },
