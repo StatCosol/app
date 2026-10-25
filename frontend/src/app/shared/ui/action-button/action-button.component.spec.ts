@@ -1,3 +1,4 @@
+import { page } from '@vitest/browser/context';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, RouterModule } from '@angular/router';
@@ -7,6 +8,7 @@ import { ActionButtonComponent } from './action-button.component';
   standalone: true,
   imports: [ActionButtonComponent, RouterModule],
   template: `
+    <div style="width:140px"><ui-button id="long-action" icon="user-plus">Register Employee</ui-button></div>
     <ui-button id="sm" size="sm">Small</ui-button>
     <ui-button id="md">Default</ui-button>
     <ui-button id="lg" size="lg">Large</ui-button>
@@ -47,5 +49,20 @@ describe('ActionButtonComponent sizes', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#scoped a').getAttribute('href')).toBe('/auditor/observations?auditId=audit-b');
     expect(fixture.nativeElement.querySelector('#disabled-link a').hasAttribute('href')).toBe(false);
+  });
+});
+
+describe('Form action labels in narrow containers', () => {
+  it.each([390, 768, 1280])('keeps the action readable and inside its container at %s', async width => {
+    await page.viewport(width, 900);
+    await TestBed.configureTestingModule({imports:[HostComponent],providers:[provideRouter([])]}).compileComponents();
+    const fixture=TestBed.createComponent(HostComponent); fixture.detectChanges();
+    const host=fixture.nativeElement.querySelector('#long-action') as HTMLElement;
+    const button=host.querySelector('button')!;
+    expect(host.getBoundingClientRect().width).toBeLessThanOrEqual(140);
+    expect(button.scrollWidth).toBeLessThanOrEqual(button.clientWidth+1);
+    expect(button.querySelector('.action-label-hidden')).toBeNull();
+    expect(button.textContent).toContain('Register Employee');
+    fixture.destroy(); TestBed.resetTestingModule();
   });
 });

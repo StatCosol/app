@@ -1,3 +1,4 @@
+import { detailPagePurpose } from '../../../shared/navigation/detail-page-purpose';
 import { activeNavigationRoute } from '../../../shared/navigation/active-route';
 
 export const BRANCH_COMPLIANCE_PURPOSE: Record<string, { title: string; purpose: string }> = {
@@ -19,6 +20,8 @@ export const BRANCH_COMPLIANCE_PURPOSE: Record<string, { title: string; purpose:
 };
 
 export function branchCompliancePurpose(url: string) {
+  const detail = detailPagePurpose(url);
+  if (detail) return detail;
   const route = activeNavigationRoute(url, Object.keys(BRANCH_COMPLIANCE_PURPOSE));
   return route ? BRANCH_COMPLIANCE_PURPOSE[route] : undefined;
 }

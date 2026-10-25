@@ -1,3 +1,4 @@
+import { branchNavigationUrl } from '../../../shared/navigation/detail-page-purpose';
 import { ResponsiveNavigationDirective } from '../../../shared/directives/responsive-navigation.directive';
 import { activeNavigationRoute } from '../../../shared/navigation/active-route';
 import { Component, Input, Output, EventEmitter, OnDestroy, OnInit } from '@angular/core';
@@ -689,7 +690,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   /** Auto-expand group when on a matching child route */
   isCurrentPage(route: string): boolean {
     const routes = this.navItems.flatMap(item => item.children ? item.children.map(child => child.route) : [item.route]);
-    return route === activeNavigationRoute(this.router.url, routes);
+    return route === activeNavigationRoute(branchNavigationUrl(this.router.url), routes);
   }
 
   private autoExpandCompliance(): void {

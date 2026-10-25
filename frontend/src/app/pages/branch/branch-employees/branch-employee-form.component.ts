@@ -306,7 +306,7 @@ import {
 
         <div class="action-bar">
           <ui-button variant="secondary" (clicked)="goBack()">Cancel</ui-button>
-          <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()" icon="user-plus" [iconOnly]="true" label="Register Employee">
+          <ui-button variant="primary" [disabled]="saving" [loading]="saving" (clicked)="save()" [icon]="isEdit ? 'check-circle' : 'user-plus'">
             {{ isEdit ? 'Update Employee' : 'Register Employee' }}
           </ui-button>
         </div>

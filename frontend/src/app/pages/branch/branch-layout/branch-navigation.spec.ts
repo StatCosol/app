@@ -30,11 +30,11 @@ describe('Branch compliance navigation', () => {
     fixture.detectChanges();
     for(const collapsed of [false,true]) {
       fixture.componentInstance.collapsed=collapsed;
-      for(const route of ['/branch/audits','/branch/audits/observations','/branch/audits/evidence?auditId=test','/branch/attendance/daily']) {
+      for(const route of ['/branch/audits','/branch/audits/observations','/branch/audits/test-audit/non-compliances','/branch/audits/evidence?auditId=test','/branch/attendance/daily']) {
         await router.navigateByUrl(route); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
         const selected=fixture.nativeElement.querySelectorAll('a[aria-current="page"]');
         expect(selected.length).toBe(1);
-        expect(selected[0].getAttribute('href')).toBe(route.includes('/observations')?'/branch/audits/observations':route.includes('/attendance')?'/branch/attendance/daily':'/branch/audits');
+        expect(selected[0].getAttribute('href')).toBe((route.includes('/observations')||route.includes('/non-compliances'))?'/branch/audits/observations':route.includes('/attendance')?'/branch/attendance/daily':'/branch/audits');
         expect(fixture.nativeElement.querySelectorAll(collapsed?'a.collapsed-active':'a.sidebar-active').length).toBe(1);
       }
     }
