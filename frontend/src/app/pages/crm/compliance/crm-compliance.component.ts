@@ -353,6 +353,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
 
   /* ═══════ Tab 1: Documents ═══════ */
   loadDocKpis(): void {
+    if (this.routeClientId) { this.docKpis = null; return; }
     this.crmDocsApi.kpis().pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => { this.docKpis = data; this.cdr.detectChanges(); },
       error: () => { this.toast.error('Failed to load document KPIs.'); },
@@ -360,6 +361,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   }
 
   loadReuploadBacklog(): void {
+    if (this.routeClientId) { this.reuploadBacklog = null; return; }
     this.complianceApi.crmGetReuploadBacklog().pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => { this.reuploadBacklog = res; this.cdr.detectChanges(); },
       error: () => { this.toast.error('Failed to load reupload backlog.'); },
@@ -371,19 +373,25 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     this.loadDocs();
   }
 
+  docSearch = '';
+  get filteredDocs(): any[] {
+    const term = this.docSearch.trim().toLowerCase();
+    return term ? this.docs.filter(d => [d.title, d.name, d.fileName, d.documentName, d.docName, d.contractorName, d.branchName, d.docType].some(value => String(value || '').toLowerCase().includes(term))) : this.docs;
+  }
   loadDocs(): void {
     this.docLoading = true; this.docErrorMsg = null;
-    this.crmDocsApi.list(this.docFilters).pipe(
+    this.crmDocsApi.list({ ...this.docFilters, clientId: this.routeClientId || this.docFilters.clientId }).pipe(
       takeUntil(this.destroy$),
       catchError((err) => { this.docErrorMsg = err?.error?.message || 'Failed to load documents'; return of({ data: [] }); }),
       finalize(() => { this.docLoading = false; this.cdr.detectChanges(); }),
-    ).subscribe((res: any) => { this.docs = res?.data || res || []; });
+    ).subscribe((res: any) => { this.docs = Array.isArray(res) ? res : res?.data || res?.items || []; });
   }
 
   async reviewDoc(doc: any, status: string): Promise<void> {
+    if (this.reviewingDocId) return;
     const label = status === 'REJECTED' ? 'Rejection reason (required):' : 'Review notes (optional):';
     const result = await this.dialog.prompt(status === 'REJECTED' ? 'Reject Document' : 'Review Document', label, { placeholder: 'Notes' });
-    if (!result.confirmed) return;
+    if (!result.confirmed || this.reviewingDocId) return;
     const notes = result.value || '';
     if (status === 'REJECTED' && !notes.trim()) return;
     this.reviewingDocId = doc.id;
@@ -413,7 +421,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     const isReject = status === 'REUPLOAD_REQUIRED';
     const label = isReject ? 'Rejection reason (required):' : 'Review notes (optional):';
     const result = await this.dialog.prompt(isReject ? 'Request Reupload' : 'Approve Document', label, { placeholder: 'Notes' });
-    if (!result.confirmed) return;
+    if (!result.confirmed || this.reviewingDocId) return;
     const remarks = result.value || '';
     if (isReject && !remarks.trim()) return;
     this.reviewingCompDocId = doc.id;
@@ -613,10 +621,10 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   /* ═══════ Tab 3: Expiry / Renewals ═══════ */
   loadExpiry(): void {
     this.expiryLoading = true;
-    this.crmDocsApi.list({ expiringInDays: this.expiryDays })
+    this.crmDocsApi.list({ expiringInDays: this.expiryDays, clientId: this.routeClientId || undefined })
       .pipe(takeUntil(this.destroy$), finalize(() => { this.expiryLoading = false; this.cdr.detectChanges(); }))
       .subscribe({
-        next: (res) => { this.expiryDocs = res?.data || []; },
+        next: (res) => { this.expiryDocs = Array.isArray(res) ? res : res?.data || res?.items || []; },
         error: () => { this.expiryDocs = []; this.toast.error('Failed to load expiring documents.'); },
       });
   }
@@ -634,7 +642,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
 
   async closeObservation(auditId: string): Promise<void> {
     const result = await this.dialog.prompt('Close Observation', 'Closure notes (optional):', { placeholder: 'Notes' });
-    if (!result.confirmed) return;
+    if (!result.confirmed || this.reviewingDocId) return;
     const notes = result.value || '';
     this.closingObsId = auditId;
     this.complianceApi.crmCloseAuditObservation(auditId, { notes })

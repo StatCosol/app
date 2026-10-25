@@ -130,16 +130,16 @@
           <td>
             <div class="flex flex-col gap-1">
               @if (r.documentUrl) {
-<a [href]="r.documentUrl" target="_blank" class="compact-action btn secondary text-[11px] px-2 py-1" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
+<button type="button" (click)="viewDocument(r.documentUrl)" class="compact-action btn secondary text-[11px] px-2 py-1" title="View" aria-label="View" data-action-label="View" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
 }
               @if (!r.documentUrl) {
 <span class="muted text-[11px]">No file</span>
 }
 
               @if (r.renewalDocumentUrl) {
-<a [href]="r.renewalDocumentUrl" target="_blank" class="btn secondary text-[11px] px-2 py-1">
+<button type="button" (click)="viewDocument(r.renewalDocumentUrl)" class="btn secondary text-[11px] px-2 py-1">
                 🔄 Renewal
-              </a>
+              </button>
 }
             </div>
           </td>
@@ -246,7 +246,7 @@
         <span class="block font-medium">Document (PDF, PNG, JPG)</span>
         @if (existingDocumentUrl && !documentFile) {
 <div class="flex items-center gap-2 mb-1.5">
-          <a [href]="existingDocumentUrl" target="_blank" class="compact-action btn secondary text-xs px-2 py-1" title="View current" aria-label="View current" data-action-label="View current" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
+          <button type="button" (click)="viewDocument(existingDocumentUrl)" class="compact-action btn secondary text-xs px-2 py-1" title="View current" aria-label="View current" data-action-label="View current" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></button>
         </div>
 }
         <label class="btn secondary cursor-pointer inline-flex items-center gap-1.5 m-0">
@@ -268,3 +268,5 @@
 }
 
 </div>
+
+@if (documentPreview) { <app-audit-file-preview [request]="documentPreview" (closed)="documentPreview = null" /> }

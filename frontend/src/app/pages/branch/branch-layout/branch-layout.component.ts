@@ -1,3 +1,4 @@
+import { WorkspaceNavigationComponent } from '../../../shared/navigation/workspace-navigation.component';
 import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { branchCompliancePurpose } from './branch-compliance-purpose';
 import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
@@ -13,7 +14,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   standalone: true,
   host: { class: 'workspace-ui' },
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [WorkspaceToolsComponent, RouterOutlet, BranchSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
+  imports: [WorkspaceNavigationComponent, WorkspaceToolsComponent, RouterOutlet, BranchSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="branch-shell">
       <!-- Mobile menu toggle -->
@@ -136,6 +137,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
                 <p>{{ guide.purpose }}</p>
               </aside>
             }
+            <app-workspace-navigation></app-workspace-navigation>
             <router-outlet></router-outlet>
           </div>
         </main>

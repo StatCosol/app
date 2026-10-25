@@ -22,7 +22,7 @@ import {
   imports: [CommonModule, LoadingSpinnerComponent, PageHeaderComponent, EmptyStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <ui-page-header title="Renewals & Expiry" subtitle="Upcoming registration and license renewals"></ui-page-header>
+    <ui-page-header title="Upcoming Expiries" subtitle="Registration validity dates and expiry overview. Open Renewal Tasks to track assigned renewal work."></ui-page-header>
 
     <div class="p-6 space-y-6">
       @if (loading) {
