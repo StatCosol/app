@@ -1,4 +1,5 @@
 import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
+import { branchCompliancePurpose } from './branch-compliance-purpose';
 import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 import { RouterOutlet, Router } from '@angular/router';
@@ -128,7 +129,14 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-brand-50/30 to-slate-50">
           <div class="branch-content">
-            <app-workspace-tools></app-workspace-tools><router-outlet></router-outlet>
+            <app-workspace-tools></app-workspace-tools>
+            @if (pagePurpose; as guide) {
+              <aside class="page-purpose" aria-label="Page purpose">
+                <strong>{{ guide.title }}</strong>
+                <p>{{ guide.purpose }}</p>
+              </aside>
+            }
+            <router-outlet></router-outlet>
           </div>
         </main>
       </div>
@@ -136,6 +144,8 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   `,
   styles: [`
     :host { display: block; width: 100%; }
+    .page-purpose { margin: 0 0 1rem; padding: 1rem; border: 1px solid #dce5df; border-left: 4px solid #176b56; border-radius: .5rem; background: #f4f8f2; color: #193e35; overflow-wrap: anywhere; }
+    .page-purpose p { margin: .35rem 0 0; font-size: .875rem; line-height: 1.6; }
     .branch-shell { display: flex; min-height: 100vh; }
     .branch-content {
       min-height: calc(100vh - 56px);
@@ -151,6 +161,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   `]
 })
 export class BranchLayoutComponent implements OnInit {
+  get pagePurpose() { return branchCompliancePurpose(this.router.url); }
   sidebarCollapsed = false;
   mobileOpen = false;
   userName = 'Branch User';
