@@ -26,8 +26,6 @@ const CrmContractorsComponent = () =>
   import('./contractors/crm-contractors.component').then((m) => m.CrmContractorsComponent);
 const CrmPayrollStatusComponent = () =>
   import('./payroll/crm-payroll-status.component').then((m) => m.CrmPayrollStatusComponent);
-const CrmDocumentsComponent = () =>
-  import('./documents/crm-documents.component').then((m) => m.CrmDocumentsComponent);
 const CrmRequestsComponent = () =>
   import('./requests/crm-requests.component').then((m) => m.CrmRequestsComponent);
 const CrmProfileComponent = () =>
@@ -130,7 +128,7 @@ export const CRM_ROUTES: Routes = [
               { path: 'quotation-comparison', loadComponent: CrmQuotationComparisonComponent },
               { path: 'clra', loadComponent: CrmClraWorkspaceComponent },
               { path: 'compliance-tracker', loadComponent: CrmComplianceComponent },
-              { path: 'documents', loadComponent: CrmDocumentsComponent },
+              { path: 'documents', loadComponent: CrmComplianceComponent },
               { path: 'compliance-docs', loadComponent: CrmComplianceDocsComponent },
               { path: 'registrations', loadComponent: CrmRegistrationsComponent },
               { path: 'payroll-status', loadComponent: CrmPayrollStatusComponent },

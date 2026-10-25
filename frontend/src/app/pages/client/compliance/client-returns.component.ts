@@ -2,7 +2,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent } from '../../../shared/ui';
@@ -75,6 +75,7 @@ export class ClientReturnsComponent implements OnDestroy {
     private readonly auth: AuthService,
     private readonly toast: ToastService,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly complianceContext: ComplianceContextService,
   ) {
@@ -92,11 +93,12 @@ export class ClientReturnsComponent implements OnDestroy {
   }
 
   ngOnInit() {
+    this.focusedFilingId = this.route.snapshot.queryParamMap.get('filingId') || '';
     const params = this.route.snapshot.queryParamMap;
     const branchId = params.get('branchId') || '';
-    const code = params.get('code') || '';
+    const code = this.focusedFilingId ? '' : params.get('code') || '';
     const month = Number(params.get('periodMonth') || params.get('month')?.split('-')[1] || '');
-    const year = Number(params.get('year') || params.get('month')?.split('-')[0] || '');
+    const year = Number(params.get('periodYear') || params.get('year') || params.get('month')?.split('-')[0] || '');
     this.focusCode = this.normalizeReturnCode(code);
     if (branchId) {
       this.filters.branchId = branchId;
@@ -115,6 +117,17 @@ export class ClientReturnsComponent implements OnDestroy {
       this.newFiling.returnType = this.focusCode;
     }
     this.loadBranches();
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      const branchId = params.get('branchId') || '';
+      const month = Number(params.get('periodMonth') || params.get('month')?.split('-')[1]) || '';
+      const year = Number(params.get('periodYear') || params.get('year') || params.get('month')?.split('-')[0]) || new Date().getFullYear();
+      const filingId = params.get('filingId') || '';
+      const code = filingId ? '' : this.normalizeReturnCode(params.get('code') || '');
+      if (branchId === this.filters.branchId && month === this.filters.periodMonth && year === this.filters.periodYear && filingId === this.focusedFilingId && code === this.filters.returnType) return;
+      this.filters.branchId = branchId; this.filters.periodMonth = month; this.filters.periodYear = year;
+      this.filters.returnType = code; this.focusCode = code; this.focusedFilingId = filingId;
+      this.loadFilings();
+    });
   }
 
   ngOnDestroy() {
@@ -172,19 +185,31 @@ export class ClientReturnsComponent implements OnDestroy {
     });
   }
 
+  get visibleFilings() { return this.focusedFilingId ? this.filings.filter(f => f.id === this.focusedFilingId) : this.filings; }
+  clearFilingFocus() { this.focusedFilingId = ''; this.focusCode = ''; this.filters.returnType = ''; this.loadFilings(); }
+  focusedFilingId = '';
+  private filingRequestVersion = 0;
+
   loadFilings() {
+    const version = ++this.filingRequestVersion;
+    this.filings = [];
+    void this.router.navigate([], {relativeTo: this.route, replaceUrl: true, queryParamsHandling: 'merge',
+      queryParams: {code: this.filters.returnType || null, filingId: this.focusedFilingId || null, branchId: this.filters.branchId || null, periodMonth: this.filters.periodMonth || null, periodYear: this.filters.periodYear || null}});
+
     this.loading = true;
     this.returnsSvc
       .listFilings(this.filters)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (version !== this.filingRequestVersion) return;
           this.loading = false;
           this.cdr.detectChanges();
         }),
       )
       .subscribe({
         next: (res: any) => {
+          if (version !== this.filingRequestVersion) return;
           this.loading = false;
           this.filings = res?.data || res || [];
           if (this.focusCode && !this.newFiling.returnType) {
@@ -193,6 +218,7 @@ export class ClientReturnsComponent implements OnDestroy {
           this.cdr.detectChanges();
         },
         error: () => {
+          if (version !== this.filingRequestVersion) return;
           this.loading = false;
           this.filings = [];
           this.toast.error('Failed to load filings');

@@ -179,6 +179,8 @@ jobs:
         run: npm run build
       - name: Lint
         run: npm run lint
+      - name: Navigation compatibility regressions
+        run: node --test navigation-contract.test.cjs
       - name: Portal option and menu inventory
         run: node puppeteer-tests/option-inventory.cjs
       - name: ESS native session bridge regressions

@@ -35,8 +35,8 @@ import {
   template: `
     <div class="page">
       <ui-page-header
-        title="Assigned Clients"
-        description="Clients assigned to your payroll processing"
+        [title]="selectionTitle"
+        description="Choose an assigned client to continue. Your client access remains unchanged."
         icon="users"
       >
       </ui-page-header>
@@ -91,6 +91,12 @@ import {
   ],
 })
 export class PayrollClientsComponent implements OnInit, OnDestroy {
+  get selectionTitle(): string {
+    const labels: Record<string, string> = { 'rule-sets': 'Rule Sets', structures: 'Salary Structures', employees: 'Employees', runs: 'Payroll Runs', 'pf-esi': 'PF & ESI', queries: 'Payroll Queries', 'full-and-final': 'Full & Final Settlement', setup: 'Payroll Setup', registers: 'Registers & Reports' };
+    const section = this.route.snapshot.queryParamMap.get('runId') ? 'runs' : this.route.snapshot.data['nextSection'];
+    return section ? 'Choose client for ' + (labels[section] || 'Payroll') : 'Assigned Payroll Clients';
+  }
+
   clients: PayrollClient[] = [];
   loading = false;
   error = '';
