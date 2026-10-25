@@ -23,3 +23,12 @@ Auditor review remains distinct from client evidence submission. Attendance capt
 - Frontend unit suite and navigation compatibility contracts.
 - Real Chromium tests for branch/period handoff, exact filing links, guarded audit aliases, permission-filtered category links, and 390 / 768 / 1280 px layouts.
 - Repository release checks must pass before merging. Verify the deployed revision and public application after deployment. Signed-in production testing must use an authorized account and a designated test record; do not submit synthetic evidence to real client work.
+
+## Additional deep review
+
+- Exact filing links no longer normalize or filter by the display return code. Older links containing both filing ID and code also resolve by identity, including GRATUITY_FORM_LM and CLRA_FORM_XXV.
+- Leaving exact filing focus clears the hidden type restriction and reloads the full filtered list.
+- Returns views respond to query-only navigation. Superseded requests cannot replace a newer branch selection; failed status loads clear stale rows and offer retry.
+- Client-scoped CRM expiry requests include the selected client ID. Portfolio-wide counters are not displayed under a client heading.
+- Shared CRM lists accept array, data and items response envelopes used by the older screen.
+- Fifteen targeted Chromium regressions pass after these changes; production build and lint are repeated before publishing the update.

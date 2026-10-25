@@ -2,6 +2,8 @@ import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DestroyRef } from '@angular/core';
 import { finalize } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
 import { ClientComplianceService } from '../../../core/client-compliance.service';
@@ -48,6 +50,7 @@ type StatusTab = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'OV
           placeholder="Search returns..." class="workspace-search border border-gray-300 rounded-lg px-3 py-2 text-sm w-56" />
       </div>
 
+      @if (errorMessage) { <p role="alert" class="p-3 bg-red-50 text-red-700">{{ errorMessage }} <button type="button" class="underline" (click)="load()">Retry</button></p> }
       @if (loading) {
         <ui-loading-spinner text="Loading returns..."></ui-loading-spinner>
       }
@@ -76,7 +79,7 @@ type StatusTab = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'OV
                   <td class="px-4 py-3">{{ r.branch_name || '—' }}</td>
                   <td class="px-4 py-3">{{ r.law_type }}</td>
                   <td class="px-4 py-3"><a class="text-brand-700 underline" routerLink="/client/compliance/returns"
-                    [queryParams]="{branchId: r.branch_id, periodMonth: r.period_month, periodYear: r.period_year, code: r.return_type, filingId: r.id}">{{ r.return_type }} â€” open filing</a></td>
+                    [queryParams]="{branchId: r.branch_id, periodMonth: r.period_month, periodYear: r.period_year, filingId: r.id}">{{ r.return_type }} - open filing</a></td>
                   <td class="px-4 py-3">{{ r.period_label || (r.period_month + '/' + r.period_year) }}</td>
                   <td class="px-4 py-3">{{ r.due_date | date:'mediumDate' }}</td>
                   <td class="px-4 py-3">{{ r.filed_date ? (r.filed_date | date:'mediumDate') : '—' }}</td>
@@ -102,11 +105,14 @@ export class ClientReturnsPageComponent implements OnInit {
   periodMonth = 0;
   periodYear: number | null = null;
   searchTerm = '';
+  errorMessage = '';
   loading = false;
   branches: Array<{ id: string; name?: string; branchName?: string; code?: string }> = [];
 
   rows: any[] = [];
   filtered: any[] = [];
+  private readonly destroyRef = inject(DestroyRef);
+  private requestVersion = 0;
   private clientId = '';
   private readonly cdr = inject(ChangeDetectorRef);
 
@@ -127,10 +133,18 @@ export class ClientReturnsPageComponent implements OnInit {
       this.route.parent?.snapshot.params['clientId'] || this.auth.getUser()?.clientId || '';
     this.loadBranches();
     this.load();
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      const branchId = params.get('branchId') || '';
+      const periodMonth = Number(params.get('periodMonth')) || 0;
+      const periodYear = Number(params.get('periodYear') || params.get('year')) || null;
+      if (branchId === this.branchId && periodMonth === this.periodMonth && periodYear === this.periodYear) return;
+      this.branchId = branchId; this.periodMonth = periodMonth; this.periodYear = periodYear;
+      this.load();
+    });
   }
 
   loadBranches(): void {
-    this.complianceSvc.getBranches().subscribe({
+    this.complianceSvc.getBranches().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.branches = res?.data || res || [];
         this.cdr.markForCheck();
@@ -147,17 +161,21 @@ export class ClientReturnsPageComponent implements OnInit {
     void this.router.navigate([], {relativeTo: this.route, replaceUrl: true, queryParamsHandling: 'merge',
       queryParams: {branchId: this.branchId || null, periodMonth: this.periodMonth || null, periodYear: this.periodYear || null}});
 
+    this.errorMessage = '';
+    const version = ++this.requestVersion;
+    this.rows = []; this.filtered = [];
     this.loading = true;
     this.cdr.markForCheck();
     this.returnsService
       .getClientReturns(this.clientId, this.branchId || undefined)
-      .pipe(finalize(() => {
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => {
+        if (version !== this.requestVersion) return;
         this.loading = false;
         this.cdr.markForCheck();
       }))
       .subscribe({
-        next: (data) => { this.rows = data || []; this.applyFilter(); },
-        error: (err) => console.error('Failed to load returns', err?.message || err?.statusText),
+        next: (data) => { if (version !== this.requestVersion) return; this.rows = data || []; this.applyFilter(); },
+        error: () => { if (version !== this.requestVersion) return; this.rows = []; this.filtered = []; this.errorMessage = 'Unable to load filings. Please retry.'; },
       });
   }
 

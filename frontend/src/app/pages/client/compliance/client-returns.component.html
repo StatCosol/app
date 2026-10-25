@@ -22,7 +22,7 @@
     <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
       <div class="w-full sm:w-52">
         <label class="form-label" for="cr-branch-id">Branch</label>
-        <select id="cr-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (ngModelChange)="clearFilingFocus(); loadFilings()" [disabled]="singleBranch">
+        <select id="cr-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (ngModelChange)="clearFilingFocus()" [disabled]="singleBranch">
           <option value="">All branches</option>
           @for (b of branches; track b) {
 <option [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
@@ -31,7 +31,7 @@
       </div>
       <div class="w-36">
         <label class="form-label" for="cr-status">Status</label>
-        <select id="cr-status" name="status" class="form-select" [(ngModel)]="filters.status" (ngModelChange)="clearFilingFocus(); loadFilings()">
+        <select id="cr-status" name="status" class="form-select" [(ngModel)]="filters.status" (ngModelChange)="clearFilingFocus()">
           <option value="">All</option>
           <option value="PENDING">Pending</option>
           <option value="IN_PROGRESS">In Progress</option>
@@ -42,7 +42,7 @@
       </div>
       <div class="w-28">
         <label class="form-label" for="cr-period-month">Month</label>
-        <select id="cr-period-month" name="periodMonth" class="form-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="clearFilingFocus(); loadFilings()">
+        <select id="cr-period-month" name="periodMonth" class="form-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="clearFilingFocus()">
           <option value="">All</option>
           @for (m of monthOptions; track m) {
 <option [value]="m.value">{{ m.label }}</option>
@@ -51,7 +51,7 @@
       </div>
       <div class="w-28">
         <label class="form-label" for="cr-period-year">Year</label>
-        <select id="cr-period-year" name="periodYear" class="form-select" [(ngModel)]="filters.periodYear" (ngModelChange)="clearFilingFocus(); loadFilings()">
+        <select id="cr-period-year" name="periodYear" class="form-select" [(ngModel)]="filters.periodYear" (ngModelChange)="clearFilingFocus()">
           @for (y of yearOptions; track y) {
 <option [value]="y">{{ y }}</option>
 }

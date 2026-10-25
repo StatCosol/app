@@ -53,6 +53,7 @@
 }
 
     <!-- KPI Chips -->
+    @if (!routeClientId) {
     <div class="flex flex-wrap gap-3 mb-6">
       <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
         [class.bg-yellow-100]="docFilters.status==='UPLOADED'" [class.border-yellow-300]="docFilters.status==='UPLOADED'"
@@ -91,6 +92,7 @@
 }
     </div>
 
+    }
     <!-- Doc Filters -->
     <div class="card mb-6">
       <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
