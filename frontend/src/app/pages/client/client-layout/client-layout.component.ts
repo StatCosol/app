@@ -1,3 +1,4 @@
+import { PortalPagePurposeComponent } from '../../../shared/navigation/portal-page-purpose.component';
 import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
 import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
@@ -12,7 +13,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   standalone: true,
   host: { class: 'workspace-ui' },
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [WorkspaceToolsComponent, RouterOutlet, ClientSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
+  imports: [PortalPagePurposeComponent, WorkspaceToolsComponent, RouterOutlet, ClientSidebarComponent, NewsTickerComponent, StatcoWordmarkComponent],
   template: `
     <div class="client-shell">
       <!-- Mobile menu toggle FAB -->
@@ -143,7 +144,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-brand-50/20 to-slate-50">
           <div class="client-content">
-            <app-workspace-tools #workspaceTools></app-workspace-tools><router-outlet></router-outlet>
+            <app-workspace-tools #workspaceTools></app-workspace-tools><app-portal-page-purpose></app-portal-page-purpose><router-outlet></router-outlet>
           </div>
         </main>
       </div>
