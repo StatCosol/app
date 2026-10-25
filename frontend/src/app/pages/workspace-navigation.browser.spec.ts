@@ -113,3 +113,29 @@ it.each(['GRATUITY_FORM_LM','CLRA_FORM_XXV'])('opens an exact %s filing even fro
  expect(component.filters.returnType).toBe('');expect(component.visibleFilings.map(f=>f.id)).toEqual(['exact-id']);
  expect(listFilings.mock.calls.every(call=>call[0].branchId==='branch-a')).toBe(true);component.ngOnDestroy();
 });
+
+import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { BranchLayoutComponent } from './branch/branch-layout/branch-layout.component';
+import { BranchSidebarComponent } from './branch/branch-layout/branch-sidebar.component';
+import { NewsTickerComponent } from '../shared/news/news-ticker.component';
+import { WorkspaceToolsComponent } from '../shared/components/workspace-tools/workspace-tools.component';
+
+it.each([['EMPLOYEE_COMPLIANCE'], ['EMPLOYEE_COMPLIANCE','CONTRACTOR_AUDIT']])('renders document navigation in the actual branch layout with permitted modules %j', async (...modules: string[]) => {
+ await TestBed.configureTestingModule({imports:[BranchLayoutComponent],providers:[
+  provideRouter([{path:'**',component:Destination}]),
+  {provide:AuthService,useValue:{getUser:()=>({name:'Test branch'}),fetchMe:()=>of({}),hasModule:(m:string)=>modules.includes(m)}}
+ ]}).overrideComponent(BranchLayoutComponent, {
+  remove:{imports:[BranchSidebarComponent,NewsTickerComponent,WorkspaceToolsComponent]},
+  add:{schemas:[NO_ERRORS_SCHEMA]}
+ }).compileComponents();
+ const router=TestBed.inject(Router); await router.navigateByUrl('/branch/unit-documents?branchId=branch-a');
+ const fixture=TestBed.createComponent(BranchLayoutComponent); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+ const nav=fixture.nativeElement.querySelector('app-workspace-navigation nav');
+ expect(nav).not.toBeNull();
+ expect(nav.querySelectorAll('a').length).toBe(modules.includes('CONTRACTOR_AUDIT') ? 6 : 5);
+ expect(nav.querySelector('[aria-current=page]').textContent).toContain('Unit Certificates');
+ const library=[...nav.querySelectorAll('a')].find((a:any)=>a.textContent.includes('Submission Library')) as HTMLAnchorElement;
+ library.click(); await fixture.whenStable(); fixture.detectChanges();
+ expect(router.url).toBe('/branch/compliance-library?branchId=branch-a');
+ expect(nav.textContent.includes('Audit Evidence')).toBe(modules.includes('CONTRACTOR_AUDIT'));
+});
