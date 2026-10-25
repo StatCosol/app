@@ -1,3 +1,4 @@
+import { detailPagePurpose } from './detail-page-purpose';
 import { activeNavigationRoute } from './active-route';
 
 export interface PagePurpose { title: string; purpose: string; }
@@ -140,8 +141,25 @@ add('cco', {
   'registers': ['Available compliance and payroll registers', 'Select the client and period to review available register outputs. Confirm scope and approval status before downloading or sharing.'],
 });
 
+add('crm', {
+  'clients/:clientId/overview': ['Selected client workspace', 'Review this client’s branch coverage, services and outstanding work. Use the workspace tabs to open records within the selected client.'],
+  'clients/:clientId/branches': ['Maintain this client’s branches', 'Review branch locations, scheduled employment and service assignments. Confirm the client and branch before adding or updating a record.'],
+  'clients/:clientId/contractors': ['Manage this client’s contractors', 'Review contractor registrations and branch assignments. Maintain scheduled employment at contractor level and employee skills on individual worker records.'],
+  'clients/:clientId/contractor-computation': ['Check contractor wages and payments', 'Review contractor wage calculations and reconcile supporting evidence for this client. These calculations support billing and audit checks, not contractor payslip generation.'],
+  'clients/:clientId/quotation-comparison': ['Compare contractor quotations', 'Compare quotations within the selected client and branch scope. Check wage assumptions, coverage and supporting documents before recording a decision.'],
+  'clients/:clientId/clra': ['Manage contract labour records', 'Review principal establishments, contractors, assignments and supporting licence records for this client. Confirm the branch and contractor before changing an assignment.'],
+  'clients/:clientId/compliance-tracker': ['Track this client’s compliance work', 'Review assigned requirements, due dates and submission progress for the selected client. Open a requirement to inspect evidence and follow-up actions.'],
+  'clients/:clientId/documents': ['Review this client’s documents', 'Find uploaded records for the selected client and branch. Check document scope, period and review status before opening or downloading a file.'],
+  'clients/:clientId/compliance-docs': ['Review compliance submissions', 'Check this client’s submitted evidence and reviewer remarks. Approve sufficient evidence or return it with a clear correction request through the available review controls.'],
+  'clients/:clientId/registrations': ['Manage this client’s registrations', 'Review registration and licence records, validity and pending requests. Confirm the branch and registration before updating details or following up.'],
+  'clients/:clientId/payroll-status': ['Review this client’s payroll status', 'Check payroll processing and approval progress for the selected client and period. Payroll calculation and processing are managed centrally in PayDek.'],
+  'clients/:clientId/unit-documents': ['Manage this client’s unit records', 'Review certificates, registrations and other unit documents by branch. Confirm the document category and branch before uploading or replacing a record.'],
+  'clients/:clientId/safety': ['Review this client’s safety evidence', 'Check safety requirements, submitted records and open actions for the selected client and branch. Review evidence before recording the available verification decision.'],
+});
 export function portalPagePurpose(url: string): PagePurpose | undefined {
-  const path = url.replace(/^\/app(?=\/)/, '').replace(/^(\/payroll\/clients)\/[^/?#]+/, '$1/:clientId');
+  const detail = detailPagePurpose(url);
+  if (detail) return detail;
+  const path = url.replace(/^\/app(?=\/)/, '').replace(/^(\/(?:payroll|crm)\/clients)\/[^/?#]+/, '$1/:clientId');
   if (/^\/contractor\/tasks(?:[/?#]|$)/.test(path) && new URLSearchParams((url.split('?')[1] || '').split('#')[0]).get('type') === 'AUDIT') {
     return {title: 'Assigned audit work and evidence', purpose: 'Review your assigned contractor audits, provide the requested documents and respond to correction requests. Confirm the client, branch and audit before submitting evidence.'};
   }

@@ -69,7 +69,7 @@
       </div>
     </div>
     <div class="flex gap-3 mt-6">
-      <ui-button variant="primary" (clicked)="registerContractor()" [disabled]="loading" icon="user-plus" [iconOnly]="true" label="Register Contractor">
+      <ui-button variant="primary" (clicked)="registerContractor()" [disabled]="loading" icon="user-plus" >
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
@@ -291,7 +291,7 @@
 }
 
       <div class="quote-actions">
-        <ui-button variant="primary" [disabled]="quoteUploading || (quoteMode === 'excel' && !quoteFile) || (quoteMode === 'vendor' && !vendorDrafts.length)" (clicked)="uploadQuote()" icon="upload" [iconOnly]="true" label="Upload Quotation">
+        <ui-button variant="primary" [disabled]="quoteUploading || (quoteMode === 'excel' && !quoteFile) || (quoteMode === 'vendor' && !vendorDrafts.length)" (clicked)="uploadQuote()" icon="upload" >
           {{ quoteUploading ? 'Uploading...' : quoteMode === 'vendor' ? 'Import selected roles' : 'Upload Quotation' }}
         </ui-button>
         <ui-button variant="secondary" (clicked)="closeQuoteUpload()">Close</ui-button>

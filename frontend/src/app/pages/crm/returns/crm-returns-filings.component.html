@@ -255,7 +255,7 @@
         <input type="date" id="nf-due" class="field" [(ngModel)]="newFiling.dueDate" name="nfDueDate">
       </div>
       <div class="form-field form-field--actions">
-        <ui-button variant="primary" [disabled]="creating" (clicked)="createFiling()" icon="plus" [iconOnly]="true" label="Create Filing">
+        <ui-button variant="primary" [disabled]="creating" (clicked)="createFiling()" icon="plus" >
           {{ creating ? 'Creating...' : 'Create Filing' }}
         </ui-button>
       </div>

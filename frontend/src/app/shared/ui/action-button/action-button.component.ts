@@ -69,7 +69,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
        height space and makes the button sit slightly high next to inputs in
        flex/grid toolbars. inline-flex makes it a tight box that aligns cleanly
        everywhere the button is used. */
-    ':host { display: inline-flex; vertical-align: middle; position: relative; }',
+    ':host { display: inline-flex; vertical-align: middle; position: relative; min-width: 0; max-width: 100%; }',
     /* fullWidth must still span the parent — an inline-flex host would shrink
        to content and defeat the inner w-full. */
     ':host(.ui-button--full) { display: flex; width: 100%; }',
