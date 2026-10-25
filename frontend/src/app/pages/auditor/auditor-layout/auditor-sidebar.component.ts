@@ -1,3 +1,4 @@
+import { activeNavigationItem, collapsedNavigationItems } from '../../../shared/navigation/active-navigation-item';
 import { ResponsiveNavigationDirective } from '../../../shared/directives/responsive-navigation.directive';
 import { FormsModule } from '@angular/forms';
 import { filterNavigation } from '../../../shared/navigation/navigation-filter';
@@ -83,12 +84,13 @@ interface SidebarItem {
         @if (collapsed) {
 
           <div class="collapsed-menu">
-            @for (link of collapsedLinks; track link) {
+            @for (link of visibleCollapsedLinks; track link) {
 <a
 
               [routerLink]="link.route"
-              routerLinkActive="collapsed-active"
-              [routerLinkActiveOptions]="{ exact: true }"
+              [class.collapsed-active]="isCurrentPage(link, true)"
+              [attr.aria-current]="isCurrentPage(link, true) ? 'page' : null"
+              [attr.aria-label]="link.label"
               (click)="onNavClick()"
               class="collapsed-icon"
             >
@@ -123,8 +125,8 @@ interface SidebarItem {
 <a
 
                 [routerLink]="item.route"
-                routerLinkActive="sidebar-active"
-                [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
+                [class.sidebar-active]="isCurrentPage(item)"
+                [attr.aria-current]="isCurrentPage(item) ? 'page' : null"
                 (click)="onNavClick()"
                 class="sidebar-item"
               >
@@ -335,9 +337,9 @@ interface SidebarItem {
     }
 
     .sidebar-label {
-      overflow: hidden;
-      text-overflow: clip;
+      min-width: 0;
       white-space: normal;
+      overflow-wrap: anywhere;
       line-height: 1.4;
     }
 
@@ -480,10 +482,21 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
     }
   }
 
+  private navigationUrl(url = this.router.url): string {
+    return url;
+  }
+  get visibleCollapsedLinks(): SidebarItem[] {
+    return collapsedNavigationItems(this.navigationUrl(), this.collapsedLinks, this.navGroups.flatMap(group => group.items));
+  }
+  isCurrentPage(item: SidebarItem, collapsed = false): boolean {
+    return activeNavigationItem(this.navigationUrl(), collapsed ? this.visibleCollapsedLinks : this.navGroups.flatMap(group => group.items)) === item;
+  }
+
   private syncExpandedWithRoute(url: string): void {
+    const active = activeNavigationItem(this.navigationUrl(url), this.navGroups.flatMap(group => group.items));
     let matched = false;
     this.navGroups.forEach(g => {
-      const match = g.items.some(item => url.startsWith(item.route));
+      const match = g.items.some(item => item === active);
       g.expanded = match;
       if (match) matched = true;
     });
