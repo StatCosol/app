@@ -216,10 +216,10 @@
         </div>
 
         <div class="action-row">
-          <button type="button" class="compact-action btn btn-primary" [disabled]="saving || uploading" (click)="submitClosureResponse()" title="Create Closure Case" aria-label="Create Closure Case" data-action-label="Create Closure Case" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
+          <button type="button" class="standard-action btn btn-primary" [disabled]="saving || uploading" (click)="submitClosureResponse()"><ui-icon [name]="activeCase ? 'check-circle' : 'plus'" [size]="20" /><span>
             {{ saving ? 'Submitting...' : (activeCase ? 'Update Closure Case' : 'Create Closure Case') }}
           </span></button>
-          <button type="button" class="compact-action btn btn-secondary" [disabled]="saving || uploading" (click)="addComment()" title="Add Progress Comment" aria-label="Add Progress Comment" data-action-label="Add Progress Comment" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
+          <button type="button" class="standard-action btn btn-secondary" [disabled]="saving || uploading" (click)="addComment()"><ui-icon name="plus" [size]="20" /><span>Add Progress Comment</span></button>
         </div>
       </article>
 
