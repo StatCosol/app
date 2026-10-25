@@ -308,7 +308,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
           notes: '',
         };
 
-    this.loadCaseMessages();
+    this.loadCaseMessages(true);
   }
 
   retryEvidence(): void {
@@ -646,7 +646,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
     this.selectObservation(this.filteredObservations[0]);
   }
 
-  private loadCaseMessages(): void {
+  private loadCaseMessages(hydrateDraft = false): void {
     this.messagesRequest?.unsubscribe();
     const draftAtRequest = { ...this.draft };
     const caseList = this.selectedCases.slice(0, 5);
@@ -682,10 +682,10 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
           const sortedMessages = flat.sort((a, b) => this.timeValue(b.createdAt) - this.timeValue(a.createdAt));
           this.selectedMessages = sortedMessages;
           this.selectedCases = this.mergeCaseUpdates(this.selectedCases, sortedMessages);
-          // Restore saved corrections after loading the case thread, without
+          // Restore saved corrections only when selecting an observation, without
           // overwriting a field the user has edited while messages were loading.
           const latest = this.selectedCases[0];
-          if (latest) {
+          if (hydrateDraft && latest) {
             const fields = ['rootCause', 'correctiveAction', 'actionOwner', 'targetDueDate', 'closureRecommendation', 'capaStatus'] as const;
             for (const field of fields) {
               if (this.draft[field] !== draftAtRequest[field]) continue;
