@@ -28,6 +28,10 @@ Legacy **V1 KIOSK** (1:N offline roster match) is available again: check **Offli
                            Header: Authorization: Bearer <deviceToken>
 ```
 
+### FaceDesk V2 offline capture
+
+FaceDesk V2 offline capture (APK 0.7.31+): connect once after updating so the kiosk can cache its server-approved offline-sync policy. If enabled, network failures save an encrypted pending capture in FACE_ONLY, FACE_THEN_BIOMETRIC and PIN_THEN_FACE modes. PIN mode still requires a PIN. This is delayed server verification, not local offline face identification: identity, face/liveness and any required fingerprint corroboration are checked after reconnection. The original capture time and offline reference are retained. Server rejections are not queued. Updating the web portal alone does not update the installed Android APK; do not uninstall or clear app data while captures are pending.
+
 ### V1 roster encryption (`encrypted-v1`)
 
 When the offline 1:N kiosk path is used, roster embeddings are AES-256-GCM ciphertexts:

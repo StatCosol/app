@@ -1,6 +1,11 @@
 package com.statcosol.attendance.facedesk
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Shared offline-queue flush logic used by [FaceDeskAttendanceActivity] and
@@ -9,6 +14,7 @@ import android.util.Log
 object FaceDeskOfflineSync {
 
     private const val TAG = "FaceDeskOfflineSync"
+    private val replayLock = Mutex()
 
     data class Result(
         val synced: Int,
@@ -24,64 +30,44 @@ object FaceDeskOfflineSync {
         api: FaceDeskApiClient,
         store: FaceDeskOfflineStore,
         appVersion: String? = null,
-    ): Result {
-        val pending = store.peekAll()
-        if (pending.isEmpty()) return Result.EMPTY
+    ): Result = replayLock.withLock {
+        // Activity and workers must share one replay, including its queue snapshot.
+        val pending = withContext(Dispatchers.IO) { store.peekAll() }
+        if (pending.isEmpty()) return@withLock Result.EMPTY
 
         val retryRefs = mutableSetOf<String>()
         var synced = 0
         var dropped = 0
 
-        try {
+        // A capture contains multiple JPEGs. Sending the entire queue breaches
+        // the API body limit and parallel workers multiply cloud verification calls.
+        for (req in pending) {
+          try {
             val res = api.offlineSync(
                 OfflineSyncRequest(
-                    punches = pending,
+                    punches = listOf(req),
                     appVersion = appVersion,
                     offlineQueueDepth = pending.size,
                 ),
             )
-            for (item in res.results) {
-                when (item.status) {
-                    "RETRY" -> item.offlineRef?.let { retryRefs.add(it) }
-                    "DROPPED" -> dropped++
-                    else -> synced++
+            val item = res.results.singleOrNull { it.offlineRef == req.offlineRef }
+            val outcome = if (item != null) {
+                OfflineReplayPolicy.classify(item.status, item.message)
+            } else if (res.results.isEmpty() && res.failed == 0 &&
+                res.synced + res.duplicateSkipped == 1) {
+                OfflineReplayPolicy.Outcome.ACCEPTED
+            } else OfflineReplayPolicy.Outcome.RETRY
+            when (outcome) {
+                OfflineReplayPolicy.Outcome.ACCEPTED -> synced++
+                OfflineReplayPolicy.Outcome.REJECTED -> {
+                    dropped++
+                    Log.w(TAG, "offline capture rejected ref=${req.offlineRef}: ${item?.message}")
                 }
+                OfflineReplayPolicy.Outcome.RETRY -> req.offlineRef?.let { retryRefs.add(it) }
             }
-            // Backward compat: older backends omit per-punch results.
-            if (res.results.isEmpty()) {
-                if (res.failed == 0) {
-                    store.finishFlush(pending, emptySet())
-                    synced = pending.size
-                    logOutcome(synced, 0, 0)
-                    return Result(synced, 0, 0)
-                }
-                return Result(0, 0, pending.size)
-            }
-            store.finishFlush(pending, retryRefs)
-            logOutcome(synced, dropped, retryRefs.size)
-            return Result(synced, dropped, retryRefs.size)
-        } catch (e: Exception) {
-            Log.w(TAG, "batch offline sync failed, falling back to per-punch: ${e.message}")
-        }
-
-        return flushPerPunch(api, store, pending)
-    }
-
-    private suspend fun flushPerPunch(
-        api: FaceDeskApiClient,
-        store: FaceDeskOfflineStore,
-        pending: List<MarkAttendanceRequest>,
-    ): Result {
-        val retryRefs = mutableSetOf<String>()
-        var synced = 0
-        var dropped = 0
-        for (req in pending) {
-            try {
-                when (api.markAttendance(req).status) {
-                    "RETRY" -> req.offlineRef?.let { retryRefs.add(it) }
-                    else -> synced++
-                }
-            } catch (e: FaceDeskApiException) {
+          } catch (e: CancellationException) {
+                throw e
+          } catch (e: FaceDeskApiException) {
                 if (isTransientHttp(e.code)) {
                     req.offlineRef?.let { retryRefs.add(it) }
                     Log.w(TAG, "offline punch deferred ref=${req.offlineRef}: HTTP ${e.code}")
@@ -89,14 +75,19 @@ object FaceDeskOfflineSync {
                     dropped++
                     Log.w(TAG, "dropped offline punch ref=${req.offlineRef}: HTTP ${e.code}")
                 }
-            } catch (e: Exception) {
+          } catch (e: Exception) {
                 req.offlineRef?.let { retryRefs.add(it) }
                 Log.w(TAG, "offline punch deferred ref=${req.offlineRef}: ${e.message}")
-            }
+          }
+          // Stop after a transient failure; do not hammer a throttled provider.
+          if (req.offlineRef in retryRefs) {
+              pending.dropWhile { it !== req }.forEach { it.offlineRef?.let(retryRefs::add) }
+              break
+          }
         }
-        store.finishFlush(pending, retryRefs)
-        logOutcome(synced, dropped, retryRefs.size)
-        return Result(synced, dropped, retryRefs.size)
+        val remaining = withContext(Dispatchers.IO) { store.finishFlush(pending, retryRefs) }
+        logOutcome(synced, dropped, remaining)
+        Result(synced, dropped, remaining)
     }
 
     private fun isTransientHttp(code: Int): Boolean =

@@ -51,6 +51,48 @@ function makeService(
 const dto = { frames: [{ photoB64: 'jpeg' }] } as any;
 
 describe('FaceDeskFaceOnlyAttendanceService', () => {
+  it.each(['AZURE_ERROR', 'AZURE_UNAVAILABLE'])(
+    'preserves queued captures when identification returns %s',
+    async (reason) => {
+      const { service, punchAcceptService, failedAttemptService } = makeService(
+        {
+          identify: { ok: false, reason },
+        },
+      );
+      await expect(
+        service.markByFace(
+          'c1',
+          'b1',
+          'd1',
+          {
+            ...dto,
+            offlineRef: 'queued-1',
+          },
+          [],
+        ),
+      ).rejects.toMatchObject({ status: 503 });
+      expect(punchAcceptService.acceptPunch).not.toHaveBeenCalled();
+      expect(failedAttemptService.recordFailed).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps offline captures retryable while identification is disabled', async () => {
+    const { service, failedAttemptService } = makeService({ enabled: false });
+    await expect(
+      service.markByFace(
+        'c1',
+        'b1',
+        'd1',
+        {
+          ...dto,
+          offlineRef: 'queued-2',
+        },
+        [],
+      ),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(failedAttemptService.recordFailed).not.toHaveBeenCalled();
+  });
+
   it('marks the punch on a clear identification', async () => {
     const { service, punchAcceptService } = makeService({
       identify: { ok: true, employeeId: 'e1', confidence: 0.91, margin: 0.2 },

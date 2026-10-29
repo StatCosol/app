@@ -40,6 +40,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ExecutorService
@@ -118,6 +120,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
         tvResult = findViewById(R.id.fdResult)
 
         config = DeviceConfig(this)
+        offlineSyncEnabled = config.faceDeskOfflineSyncEnabled
         api = FaceDeskApiClient(config)
         offline = FaceDeskOfflineStore(this)
         embedder = FaceEmbedder(this)
@@ -560,12 +563,15 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
             try {
                 val res = api.markAttendance(req)
                 showResult(res)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: FaceDeskApiException) {
                 showRejection(e.userMessage(this@FaceDeskAttendanceActivity, R.string.facedesk_not_recognized))
             } catch (e: Exception) {
-                if (!offlineSyncEnabled || isFaceIdentified()) {
+                if (!OfflineCapturePolicy.canQueue(offlineSyncEnabled, config.faceDeskIdentificationMode, req, e)) {
                     showRejection(getString(R.string.facedesk_network_error))
-                } else if (offline.enqueue(req)) {
+                } else if (withContext(Dispatchers.IO) { offline.enqueue(req) }) {
+                    chrome.setServerReachable(false)
                     FaceDeskOfflineSyncWorker.enqueue(this@FaceDeskAttendanceActivity)
                     showOfflineSaved()
                 } else {
@@ -763,6 +769,7 @@ class FaceDeskAttendanceActivity : AppCompatActivity() {
                 FaceKioskTuning.applyFrom(cfg.captureTuning)
                 livenessRequired = cfg.livenessRequired ?: true
                 offlineSyncEnabled = cfg.offlineSyncEnabled ?: true
+                config.faceDeskOfflineSyncEnabled = offlineSyncEnabled
                 val frameCount = cfg.frameCaptureCount ?: FaceKioskTuning.ATTENDANCE_REQUIRED_FRAMES
                 requiredFrames = frameCount.coerceIn(3, 30)
                 maxFrames = (requiredFrames * 3).coerceAtMost(60)

@@ -1,5 +1,6 @@
 # Android / Gradle / IDE
 .gradle/
+.kotlin/
 build/
 local.properties
 key.properties

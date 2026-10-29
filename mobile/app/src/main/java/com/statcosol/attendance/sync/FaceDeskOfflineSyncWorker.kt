@@ -3,6 +3,7 @@ package com.statcosol.attendance.sync
 import android.content.Context
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
 import androidx.work.CoroutineWorker
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -51,7 +52,11 @@ class FaceDeskOfflineSyncWorker(ctx: Context, params: WorkerParameters) :
                 )
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
-            WorkManager.getInstance(ctx).enqueue(req)
+            WorkManager.getInstance(ctx).enqueueUniqueWork(
+                // Append even when a worker is finishing: KEEP can lose the
+                // only trigger for a capture added after its final queue read.
+                "facedesk-offline-sync", ExistingWorkPolicy.APPEND_OR_REPLACE, req,
+            )
         }
     }
 }
