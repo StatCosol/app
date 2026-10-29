@@ -121,10 +121,11 @@
           >Find an audit point<input
             type="search"
             [(ngModel)]="search"
+            (ngModelChange)="changeFilters()"
             placeholder="Search licence, fire, payroll…"
         /></label>
         <label class="filter-label"
-          >Show<select [(ngModel)]="filter">
+          >Show<select [(ngModel)]="filter" (ngModelChange)="changeFilters()">
             <option value="ALL">All audit points</option>
             <option value="PENDING">Needs review</option>
             <option value="UPLOADED">Evidence uploaded</option>
@@ -186,7 +187,15 @@
               </h4>
               <small>Client documents & auditor artifacts</small>
             </div>
-            @for (file of point.evidence; track file.id) {
+            @if (point.evidence.length > 1) {
+              <label class="filter-label">Evidence file
+                <select [(ngModel)]="evidenceFilter" (ngModelChange)="closePreview()">
+                  <option value="">All files for this audit point</option>
+                  @for (file of point.evidence; track file.id) { <option [value]="file.id">{{ file.fileName }}</option> }
+                </select>
+              </label>
+            }
+            @for (file of visibleEvidence; track file.id) {
               <article class="evidence-card">
                 <div class="file-symbol" aria-hidden="true">
                   {{ file.mimeType.startsWith('image/') ? 'IMG' : 'DOC' }}
@@ -360,7 +369,7 @@
           </details>
         } @else {
           <p class="empty-evidence">
-            No audit points are available. The assigned auditor can add the review criteria.
+            {{ items.length ? 'No audit point matches these filters. Change the search or filter to select a point.' : 'No audit points are available. The assigned auditor can add the review criteria.' }}
           </p>
         }
       </main>

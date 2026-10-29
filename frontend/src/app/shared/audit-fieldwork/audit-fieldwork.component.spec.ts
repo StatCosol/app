@@ -27,6 +27,40 @@ function setup() {
   return { c, http, files };
 }
 describe('Audit fieldwork', () => {
+  it('clears the old file selection when a refreshed status filter moves to another point', () => {
+    const { c, http } = setup();
+    const nextPoint = { ...point('next'), evidence: [{ id: 'next-file', fileName: 'next.pdf' }] };
+    http.get.mockReturnValue(of(response([point(), nextPoint] as any))); c.load();
+    c.filter = 'UPLOADED'; c.evidenceFilter = 'old-file';
+    http.get.mockReturnValue(of(response([{ ...point(), status: 'COMPLIED' }, nextPoint] as any))); c.load();
+    expect(c.selected?.id).toBe('next'); expect(c.evidenceFilter).toBe('');
+    expect(c.visibleEvidence.map(file => file.id)).toEqual(['next-file']); c.ngOnDestroy();
+  });
+  it('clears hidden point details and previews when filters have no matches', () => {
+    const { c } = setup();
+    c.documentPreview = { url: '/old-file', name: 'old.pdf' };
+    c.search = 'no such audit point'; c.changeFilters();
+    expect(c.visible).toEqual([]);
+    expect(c.selected).toBeUndefined();
+    expect(c.selectedId).toBe('');
+    expect(c.documentPreview).toBeNull();
+    c.ngOnDestroy();
+  });
+  it('selects only a matching point and narrows files within that point', () => {
+    const { c, http } = setup();
+    const first = { ...point(), itemLabel: 'Fire exit', evidence: [{ id: 'one', fileName: 'first.pdf' }, { id: 'two', fileName: 'second.pdf' }] };
+    const other = { ...point('other'), itemLabel: 'Payroll register', kind: 'DOCUMENT' };
+    http.get.mockReturnValue(of(response([first, other] as any)));
+    c.load(); c.evidenceFilter = 'two';
+    expect(c.visibleEvidence.map(file => file.id)).toEqual(['two']);
+    c.search = 'Payroll'; c.changeFilters();
+    expect(c.selected?.id).toBe('other');
+    expect(c.evidenceFilter).toBe('');
+    expect(c.visibleEvidence).toEqual([]);
+    c.select(first as any);
+    expect(c.selected?.id).toBe('other');
+    c.ngOnDestroy();
+  });
   it.each([true, false])('previews PDFs in the audit page and clears them on scope change (auditor=%s)', auditor => {
     const { c, files } = setup();
     c.auditor = auditor;

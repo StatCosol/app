@@ -106,6 +106,7 @@ jobs:
           node scripts/validate-recall-release.cjs
           node scripts/verify-audit-fieldwork.cjs
           node scripts/verify-audit-corrections.cjs
+            node scripts/test-audit-report-readiness-db.cjs
           node scripts/verify-audit-follow-ups.cjs
           node scripts/verify-invoice-delivery.cjs
           node scripts/verify-audit-entry.cjs ./auditxpert-test-db.cjs

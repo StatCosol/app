@@ -48,14 +48,18 @@ describe('Auditor contractor OCR evidence', () => {
     const payrollCheck = { status: 'NEEDS_REVIEW', findings: [], ocr: { rows: 1, pages: [{ page: 1, text: 'Worker PF 1800 <script>unsafe</script>' }] } };
     c.branchDocuments = [{ id: 'branch-doc', fileName: 'branch.pdf', sourceTable: 'branch_documents', payrollCheck }] as any;
     c.contractorDocuments = [{ id: 'contractor-doc', fileName: 'vendor.pdf', sourceTable: 'contractor_documents', payrollCheck }] as any;
+    c.documentGroup = 'CONTRACTOR'; c.changeDocumentFilters('group');
     fixture.detectChanges();
     const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr, .document-review'));
     const vendor = rows.find(row => row.textContent?.includes('vendor.pdf'))!;
-    const branch = rows.find(row => row.textContent?.includes('branch.pdf'))!;
+    expect(rows.some(row => row.textContent?.includes('branch.pdf'))).toBe(false);
     expect(vendor.textContent).toContain('1 candidate rows');
     expect(fixture.nativeElement.querySelector('.comparison-help').textContent).toContain('up to 5 pages and 10 MB');
     expect(vendor.querySelector('pre')?.textContent).toContain('<script>unsafe</script>');
     expect(vendor.querySelector('script')).toBeNull();
+    await fixture.whenStable();
+    c.documentGroup = 'BRANCH'; c.changeDocumentFilters('group'); fixture.changeDetectorRef.markForCheck(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const branch = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr')).find(row => row.textContent?.includes('branch.pdf'))!;
     expect(branch.textContent).not.toContain('Compare with payroll');
     expect(branch.querySelector('pre')).toBeNull();
 

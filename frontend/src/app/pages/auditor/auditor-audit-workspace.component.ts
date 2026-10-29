@@ -90,6 +90,7 @@ interface WorkspaceTabItem {
 export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   preview: AuditFilePreview | null = null;
   private readonly destroy$ = new Subject<void>();
+  private readonly scopeChanged$ = new Subject<void>();
 
   loading = true;
   loadingAudit = false;
@@ -133,9 +134,102 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   reviewingDocId: string | null = null;
   docRemarks: Record<string, string> = {};
   correctedRemarks: Record<string, string> = {};
-  // Branch filter for the contractor documents review table.
-  // 'ALL' = show every branch; otherwise only docs whose branchId matches.
-  contractorDocBranchFilter: string = 'ALL';
+  // Empty scope displays no documents. Broad views require an explicit choice.
+  contractorDocBranchFilter = '';
+  documentGroup = '';
+  documentContractorFilter = '';
+  documentTypeFilter = '';
+  documentStatusFilter = '';
+  documentFileFilter = '';
+  documentSearch = '';
+
+  private get documentGroupRows(): any[] {
+    if (this.documentGroup === 'BRANCH') return this.branchDocuments;
+    if (this.documentGroup === 'CONTRACTOR') return this.contractorDocuments;
+    if (this.documentGroup === 'SUPPORTING') return this.evidenceRows;
+    return [];
+  }
+
+  private documentBranchId(row: any): string {
+    return String(row.branchId || row.task?.branchId || row.task?.branch_id || '__UNASSIGNED__');
+  }
+
+  private documentOptions(rows: any[], key: (row: any) => string, label: (row: any) => string): Array<{ id: string; name: string }> {
+    return Array.from(new Map(rows.map(row => [key(row), { id: key(row), name: label(row) }])).values())
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  get documentBranchOptions(): Array<{ id: string; name: string }> {
+    return this.documentOptions(this.documentGroupRows, row => this.documentBranchId(row), row =>
+      row.branchName || row.task?.branch?.branchName || row.task?.branch?.branchname ||
+      (this.documentBranchId(row) === '__UNASSIGNED__' ? 'No branch specified' : this.audit?.branch?.branchName || 'Audit branch'));
+  }
+
+  private get branchScopedDocuments(): any[] {
+    if (!this.contractorDocBranchFilter) return [];
+    return this.documentGroupRows.filter(row => this.contractorDocBranchFilter === 'ALL' || this.documentBranchId(row) === this.contractorDocBranchFilter);
+  }
+
+  get documentContractorOptions(): Array<{ id: string; name: string }> {
+    return this.documentOptions(this.branchScopedDocuments, row => String(row.contractorUserId || '__UNASSIGNED__'), row => row.contractorName || row.contractorEmail || 'No contractor specified');
+  }
+
+  private get contractorScopedDocuments(): any[] {
+    if (this.documentGroup !== 'CONTRACTOR') return this.branchScopedDocuments;
+    if (!this.documentContractorFilter) return [];
+    return this.branchScopedDocuments.filter(row => this.documentContractorFilter === 'ALL' || String(row.contractorUserId || '__UNASSIGNED__') === this.documentContractorFilter);
+  }
+
+  private documentType(row: any): string {
+    return row.docType || row.category || row.task?.compliance?.title || 'Unspecified';
+  }
+
+  get documentTypeOptions(): Array<{ id: string; name: string }> {
+    return this.documentOptions(this.contractorScopedDocuments, row => this.documentType(row), row => this.formatLabel(this.documentType(row)));
+  }
+
+  private get matchingDocuments(): any[] {
+    const query = this.documentSearch.trim().toLowerCase();
+    return this.contractorScopedDocuments.filter(row =>
+      (!this.documentTypeFilter || this.documentType(row) === this.documentTypeFilter) &&
+      (!this.documentStatusFilter || this.statusKey(row.status || row.task?.status || 'PENDING_REVIEW') === this.documentStatusFilter) &&
+      (!query || [row.fileName, row.title, row.contractorName, row.branchName, this.documentType(row)].filter(Boolean).join(' ').toLowerCase().includes(query)));
+  }
+
+  get documentFileOptions(): Array<{ id: string; name: string }> {
+    return this.matchingDocuments.map(row => ({ id: String(row.id), name: row.fileName || row.title || this.documentType(row) }));
+  }
+
+  get documentSelectionReady(): boolean {
+    return !!this.documentGroup && !!this.contractorDocBranchFilter && (this.documentGroup !== 'CONTRACTOR' || !!this.documentContractorFilter);
+  }
+
+  get visibleDocuments(): any[] {
+    if (!this.documentSelectionReady) return [];
+    return this.matchingDocuments.filter(row => !this.documentFileFilter || String(row.id) === this.documentFileFilter);
+  }
+
+  get filteredBranchDocuments(): any[] {
+    return this.documentGroup === 'BRANCH' ? this.visibleDocuments : [];
+  }
+
+  changeDocumentFilters(level: 'group' | 'branch' | 'contractor' | 'detail'): void {
+    this.preview = null;
+    if (level !== 'detail') {
+      this.documentTypeFilter = '';
+      this.documentStatusFilter = '';
+      this.documentSearch = '';
+    }
+    this.documentFileFilter = '';
+    if (level === 'group') {
+      const branches = this.documentBranchOptions;
+      this.contractorDocBranchFilter = this.audit?.branchId || (branches.length === 1 ? branches[0].id : '');
+    }
+    if (level === 'group' || level === 'branch') {
+      const contractors = this.documentContractorOptions;
+      this.documentContractorFilter = this.audit?.contractorUserId || (contractors.length === 1 ? contractors[0].id : '');
+    }
+  }
 
   // ─── Workspace Tabs ───────────────────────────
   activeTab: WorkspaceTabKey = 'checklist';
@@ -199,6 +293,8 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.scopeChanged$.next();
+    this.scopeChanged$.complete();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -208,12 +304,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get filteredEvidenceRows(): AuditorDocRow[] {
-    const q = this.evidenceSearch.trim().toLowerCase();
-    if (!q) return this.evidenceRows;
-    return this.evidenceRows.filter((row) => {
-      const text = `${row.fileName} ${row.task?.compliance?.title || ''} ${row.task?.status || ''}`.toLowerCase();
-      return text.includes(q);
-    });
+    return this.documentGroup === 'SUPPORTING' ? this.visibleDocuments : [];
   }
 
   get evidenceFileCount(): number {
@@ -292,7 +383,11 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   get currentFocus(): { title: string; detail: string; tab: WorkspaceTabKey; button: string } {
     const status = this.statusKey(this.audit?.status);
     if (['CLOSED','COMPLETED','CANCELLED'].includes(status)) return { title: `Audit ${this.formatLabel(status)}`, detail: 'This audit is read-only. Published reports remain available; reopen a closed or completed audit to make corrections.', tab: 'submit', button: 'View audit status' };
-    if (status === 'SUBMITTED') return { title: ['APPROVED','PUBLISHED'].includes(this.reportStatus || '') ? 'Ready to close audit' : 'Awaiting CRM report approval', detail: 'Close the audit from Overview after CRM approves the latest report and all findings are resolved.', tab: 'info', button: 'View closure controls' };
+    if (status === 'SUBMITTED') {
+      if (!this.reportStage || this.reportStage === 'DRAFT') return { title: 'Prepare and submit the audit report', detail: 'Fieldwork is submitted. Save and submit the report from Report Builder before CRM can review it.', tab: 'submit', button: 'Open report preparation' };
+      if (this.reportHeld) return { title: 'Report on hold', detail: 'CRM has placed this report on hold. Check Report Builder for the hold reason.', tab: 'submit', button: 'View report status' };
+      return { title: ['APPROVED','PUBLISHED'].includes(this.reportStatus || '') ? 'Ready to close audit' : 'Awaiting CRM report approval', detail: 'Close the audit from Overview after CRM approves the latest report and all findings are resolved.', tab: 'info', button: 'View closure controls' };
+    }
     if (this.pendingReviewCount > 0) {
       return {
         title: 'Review uploaded documents',
@@ -327,8 +422,8 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       return {
         title: 'Calculate the severity score',
         detail: 'All document reviews are complete. Calculate the score before final submission.',
-        tab: 'submit',
-        button: 'Open finish audit',
+        tab: 'info',
+        button: 'Open score calculation',
       };
     }
 
@@ -522,7 +617,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.busy = true;
     this.auditsApi
       .auditorPreliminaryPublish(this.auditId, { windowDays: days, remark: this.preliminaryRemark || undefined })
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.busy = false; this.cdr.markForCheck(); }))
+      .pipe(takeUntil(this.scopeChanged$), takeUntil(this.destroy$), finalize(() => { this.busy = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: (res: any) => {
           const n = res?.publishedNcCount ?? res?.counts?.total ?? 0;
@@ -560,7 +655,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (!this.auditId || this.loadingInfo) return;
     this.loadingInfo = true;
     this.auditsApi.auditorGetAuditInfo(this.auditId).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
       finalize(() => { this.loadingInfo = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: (data) => { this.auditInfo = data; },
@@ -572,7 +667,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (!this.auditId || this.loadingHistory) return;
     this.loadingHistory = true;
     this.auditsApi.auditorGetSubmissionHistory(this.auditId).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
       finalize(() => { this.loadingHistory = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: (data: any) => { this.submissionHistory = data?.submissions || []; },
@@ -584,7 +679,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (!this.auditId || this.loadingNc) return;
     this.loadingNc = true;
     this.auditsApi.auditorGetNonCompliances(this.auditId).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
       finalize(() => { this.loadingNc = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: (res: any) => { this.nonCompliances = res?.items || []; this.ncSummary = res?.summary || {}; },
@@ -592,7 +687,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     });
     // Phase 5 — also load NC overview (counts + recurring) for the banner
     this.auditsApi.auditorGetNcOverview(this.auditId).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
     ).subscribe({
       next: (res: any) => { this.ncOverview = res || null; this.cdr.markForCheck(); },
       error: () => { /* non-critical */ },
@@ -607,7 +702,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     }
     this.busy = true;
     this.auditsApi.auditorSubmitAuditWithRemark(this.auditId, this.finalRemark || undefined).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
       finalize(() => { this.busy = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: (res: any) => {
@@ -631,18 +726,18 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   async forceCompleteAudit(): Promise<void> {
     if (!this.auditId || this.busy) return;
     const ok = await this.dialog.confirm(
-      'Finalize Audit',
-      'Finalize this audit? Pending documents and non-compliances will be overridden. This cannot be undone.',
-      { variant: 'danger', confirmText: 'Finalize' },
+      'Submit exceptional review round',
+      'Submit this review round? This does not finalize the report or close the audit. Managed evidence still requires normal review. Legacy document decisions may remain outstanding.',
+      { variant: 'danger', confirmText: 'Submit review round' },
     );
     if (!ok) return;
     this.busy = true;
     this.auditsApi.auditorForceCompleteAudit(this.auditId, this.finalRemark || undefined).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
       finalize(() => { this.busy = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: (res: any) => {
-        this.toast.success('Audit finalized. ' + (res.message || ''));
+        this.toast.success('Review round submitted. Report preparation and CRM approval are separate steps.');
         this.finalRemark = '';
         this.refreshCockpit();
       },
@@ -654,7 +749,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (!this.auditId) return;
     this.uploadLockLoading = true;
     this.auditsApi.auditorGetUploadLock(this.auditId).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
       finalize(() => { this.uploadLockLoading = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: (res: any) => {
@@ -677,7 +772,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     }
     this.uploadLockSaving = true;
     this.auditsApi.auditorSetUploadLock(this.auditId, this.uploadLockFrom, this.uploadLockUntil).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
       finalize(() => { this.uploadLockSaving = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: () => this.toast.success('Upload lock window saved.'),
@@ -689,7 +784,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (!this.auditId || this.uploadLockSaving || !this.canReviewDocuments) return;
     this.uploadLockSaving = true;
     this.auditsApi.auditorSetUploadLock(this.auditId, null, null).pipe(
-      takeUntil(this.destroy$),
+      takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
       finalize(() => { this.uploadLockSaving = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: () => {
@@ -722,7 +817,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorUpdateStatus(this.auditId, nextStatus, this.statusNote || undefined)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.busy = false;
           this.cdr.markForCheck();
@@ -745,7 +840,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorCalculateScore(this.auditId)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.busy = false;
           this.cdr.markForCheck();
@@ -782,7 +877,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
         risk: this.observationForm.risk,
       })
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.busy = false;
           this.cdr.markForCheck();
@@ -823,7 +918,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
         applicableState: this.audit?.branch?.stateCode || undefined,
       })
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.aiDrafting = false;
           this.cdr.markForCheck();
@@ -899,7 +994,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    this.protectedFiles.download(url, fileName || null).pipe(takeUntil(this.destroy$)).subscribe({
+    this.protectedFiles.download(url, fileName || null).pipe(takeUntil(this.scopeChanged$), takeUntil(this.destroy$)).subscribe({
       error: () => this.toast.error('Unable to download file.'),
     });
   }
@@ -909,38 +1004,8 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     return this.auditDocuments.filter((d) => d.status === 'APPROVED').length;
   }
 
-  /**
-   * Distinct branches present in the contractor documents list, used to
-   * populate the branch filter dropdown above the review table. Only includes
-   * branches that actually appear in the loaded docs.
-   */
-  get contractorDocBranchOptions(): { id: string; name: string; count: number }[] {
-    const map = new Map<string, { id: string; name: string; count: number }>();
-    for (const d of this.contractorDocuments || []) {
-      const id = d?.branchId || '__NO_BRANCH__';
-      const name = d?.branchName || (d?.branchId ? 'Unknown branch' : 'No branch');
-      const ex = map.get(id);
-      if (ex) ex.count += 1;
-      else map.set(id, { id, name, count: 1 });
-    }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  /**
-   * Contractor documents filtered by the selected branch. When the filter is
-   * 'ALL', returns the full list. Used by the template to render the review
-   * table per branch instead of dumping every branch's docs together.
-   */
   get filteredContractorDocuments(): any[] {
-    if (!this.contractorDocBranchFilter || this.contractorDocBranchFilter === 'ALL') {
-      return this.contractorDocuments;
-    }
-    if (this.contractorDocBranchFilter === '__NO_BRANCH__') {
-      return this.contractorDocuments.filter((d) => !d?.branchId);
-    }
-    return this.contractorDocuments.filter(
-      (d) => d?.branchId === this.contractorDocBranchFilter,
-    );
+    return this.documentGroup === 'CONTRACTOR' ? this.visibleDocuments : [];
   }
 
   get nonCompliedCount(): number {
@@ -1029,7 +1094,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorReconcileDocument(this.auditId, doc.id)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.reviewingDocId = null;
           this.cdr.markForCheck();
@@ -1062,7 +1127,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorReviewDocument(this.auditId, doc.id, decision, remarks, sourceTable)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.reviewingDocId = null;
           this.cdr.markForCheck();
@@ -1097,7 +1162,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorReviewCorrectedDoc(String(nc.id), decision, remarks || undefined)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.busy = false;
           this.cdr.markForCheck();
@@ -1127,7 +1192,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorSubmitAudit(this.auditId)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.busy = false;
           this.cdr.markForCheck();
@@ -1155,7 +1220,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorReopenAudit(this.auditId, reason)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.busy = false;
           this.cdr.markForCheck();
@@ -1179,7 +1244,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.checklistError = '';
     this.auditsApi.auditorGetChecklist(this.auditId)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => { this.loadingChecklist = false; this.cdr.markForCheck(); }),
       )
       .subscribe({
@@ -1206,7 +1271,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.loadingChecklist = true;
     this.auditsApi.auditorGenerateChecklist(this.auditId)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => { this.loadingChecklist = false; this.cdr.markForCheck(); }),
       )
       .subscribe({
@@ -1223,7 +1288,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.addingChecklistItem = true;
     this.auditsApi.auditorAddChecklistItem(this.auditId, { itemLabel: this.newChecklistLabel.trim() })
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => { this.addingChecklistItem = false; this.cdr.markForCheck(); }),
       )
       .subscribe({
@@ -1248,7 +1313,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.checklistSavingId = item.id;
     this.auditsApi.auditorUpdateChecklistItem(this.auditId, item.id, {
       status, remarks, automationReviewed: !!this.checklistVerified[item.id],
-    }).pipe(takeUntil(this.destroy$), finalize(() => { this.checklistSavingId = ''; this.cdr.markForCheck(); })).subscribe({
+    }).pipe(takeUntil(this.scopeChanged$), takeUntil(this.destroy$), finalize(() => { this.checklistSavingId = ''; this.cdr.markForCheck(); })).subscribe({
       next: () => {
         delete this.checklistRemarks[item.id]; delete this.checklistDecisions[item.id]; delete this.checklistVerified[item.id];
         this.toast.success('Checklist decision and remarks saved'); this.loadChecklist();
@@ -1266,7 +1331,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   deleteChecklistItem(item: any): void {
     if (!this.auditId) return;
     this.auditsApi.auditorDeleteChecklistItem(this.auditId, item.id)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.scopeChanged$), takeUntil(this.destroy$))
       .subscribe({
         next: () => { this.loadChecklist(); },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to delete'),
@@ -1280,7 +1345,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorListAuditDocuments(this.auditId)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.loadingDocs = false;
           this.cdr.markForCheck();
@@ -1308,6 +1373,20 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   private initializeForAudit(auditId: string | null): void {
+    this.scopeChanged$.next();
+    this.preview = null;
+    this.busy = false;
+    this.auditDocuments = [];
+    this.documentGroup = '';
+    this.contractorDocBranchFilter = '';
+    this.documentContractorFilter = '';
+    this.documentTypeFilter = '';
+    this.documentStatusFilter = '';
+    this.documentFileFilter = '';
+    this.documentSearch = '';
+    this.evidenceSearch = '';
+    this.reportStatus = null;
+    this.reportHeld = false;
     this.auditId = auditId;
     this.audit = null;
     this.assignedAudits = [];
@@ -1347,7 +1426,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorListAudits({ pageSize: 50 })
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.loading = false;
           this.cdr.markForCheck();
@@ -1369,7 +1448,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorGetAudit(auditId)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.loadingAudit = false;
           this.loading = false;
@@ -1410,12 +1489,15 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (monthlyPeriod) {
       filters['month'] = String(monthlyPeriod.month);
       filters['year'] = String(monthlyPeriod.year);
+    } else {
+      const year = Number(this.audit.periodYear || /^(\d{4})/.exec(String(this.audit.periodCode || ''))?.[1]);
+      if (year) filters.year = String(year);
     }
 
     this.auditApi
       .listDocs(filters)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.loadingEvidence = false;
           this.cdr.markForCheck();
@@ -1426,12 +1508,12 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
           const docs = res?.data || [];
           this.evidenceRows = docs.filter((d) => {
             const taskClientId = d.task?.clientId || d.task?.client_id;
-            if (taskClientId && String(taskClientId) !== String(this.audit?.clientId)) {
+            if (String(taskClientId || '') !== String(this.audit?.clientId)) {
               return false;
             }
             if (this.audit?.branchId) {
               const taskBranchId = d.task?.branchId || d.task?.branch_id;
-              if (taskBranchId && String(taskBranchId) !== String(this.audit.branchId)) {
+              if (String(taskBranchId || '') !== String(this.audit.branchId)) {
                 return false;
               }
             }
@@ -1450,7 +1532,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.observationsApi
       .list(this.auditId)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         finalize(() => {
           this.loadingObservations = false;
           this.cdr.markForCheck();
@@ -1470,7 +1552,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (this.categories.length) return;
     this.observationsApi
       .listCategories()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.scopeChanged$), takeUntil(this.destroy$))
       .subscribe({
         next: (rows: any) => {
           this.categories = Array.isArray(rows) ? rows : [];
@@ -1519,7 +1601,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.auditsApi
       .auditorGetReport(this.auditId)
       .pipe(
-        takeUntil(this.destroy$),
+        takeUntil(this.scopeChanged$), takeUntil(this.destroy$),
         catchError(() => of(null)),
       )
       .subscribe((report) => {

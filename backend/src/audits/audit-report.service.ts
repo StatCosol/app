@@ -536,7 +536,7 @@ export class AuditReportService {
       }
 
       const existingRows = await manager.query(
-        `SELECT id, status, held_at
+        `SELECT id, status, held_at, to_jsonb(audit_reports) AS content
        FROM audit_reports
        WHERE audit_id = $1
        ORDER BY updated_at DESC, created_at DESC
@@ -559,6 +559,39 @@ export class AuditReportService {
         return;
       }
 
+      const content = existing.content || existing;
+      const requiredSections = [
+        ['executive_summary', 'Executive summary', 20],
+        ['scope', 'Scope', 10],
+        ['methodology', 'Methodology', 10],
+        ['findings', 'Findings', 20],
+        ['recommendations', 'Recommendations', 20],
+      ] as const;
+      for (const [field, label, minimum] of requiredSections) {
+        if (String(content[field] || '').trim().length < minimum) {
+          throw new BadRequestException(
+            `${label}: add at least ${minimum} characters before submitting the report`,
+          );
+        }
+      }
+      const observations: Array<{ id: string }> = await manager.query(
+        'SELECT id FROM audit_observations WHERE audit_id = $1',
+        [auditId],
+      );
+      const selected = Array.isArray(content.selected_observation_ids)
+        ? content.selected_observation_ids.map(String)
+        : [];
+      if (observations.length && !selected.length) {
+        throw new BadRequestException(
+          'Select at least one observation before submitting the report',
+        );
+      }
+      const allowedIds = new Set(observations.map((row) => String(row.id)));
+      if (selected.some((id: string) => !allowedIds.has(id))) {
+        throw new BadRequestException(
+          'Report contains an observation outside this audit. Reload the report and select its observations again.',
+        );
+      }
       await assertFieldworkReviewed(manager, auditId);
 
       const finalizeSet = availableCols.finalizedAt
