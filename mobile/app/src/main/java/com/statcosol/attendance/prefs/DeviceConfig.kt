@@ -107,6 +107,11 @@ class DeviceConfig(context: Context) {
         get() = prefs.getString(KEY_FD_ID_MODE, "PIN_THEN_FACE") ?: "PIN_THEN_FACE"
         set(value) = prefs.edit().putString(KEY_FD_ID_MODE, value).apply()
 
+    /** Last server-approved policy survives an offline restart; unknown policy fails closed. */
+    var faceDeskOfflineSyncEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FD_OFFLINE_SYNC, false)
+        set(value) = prefs.edit().putBoolean(KEY_FD_OFFLINE_SYNC, value).apply()
+
     /**
      * Until when an admin has deliberately left the kiosk, epoch millis.
      *
@@ -169,6 +174,7 @@ class DeviceConfig(context: Context) {
         // re-registering elsewhere would otherwise start in FACE_ONLY and skip
         // the PIN before any config for the new client had arrived.
         .remove(KEY_FD_ID_MODE)
+        .remove(KEY_FD_OFFLINE_SYNC)
         .remove(KEY_ROSTER_DEVICE_ID)
         .apply()
 
@@ -184,6 +190,7 @@ class DeviceConfig(context: Context) {
         private const val KEY_ROSTER_DEVICE_ID = "roster_device_id"
         private const val KEY_FD_ADMIN_PIN = "fd_admin_pin"
         private const val KEY_FD_ID_MODE = "fd_identification_mode"
+        private const val KEY_FD_OFFLINE_SYNC = "fd_offline_sync"
         private const val KEY_MAINTENANCE_UNTIL = "maintenance_until_ms"
         private const val KEY_SERVICE_MODE = "service_mode"
         private const val DEFAULT_API_BASE = "https://app.statcosol.com"

@@ -276,6 +276,7 @@ class SetupActivity : AppCompatActivity() {
                 config.deviceToken = res.deviceToken
                 config.deviceMode = "FACEDESK_${res.mode}"
                 config.faceDeskAdminPin = enteredPin
+                config.faceDeskOfflineSyncEnabled = false
                 res.identificationMode?.let { config.faceDeskIdentificationMode = it }
                 // Start this registration with a clean offline queue — never carry
                 // punches captured under a previous registration (possibly another

@@ -133,7 +133,7 @@
     <!-- FaceDesk V2 -->
     <string name="facedesk_look_at_camera">Please look at the camera</string>
     <string name="facedesk_loading_config">Loading kiosk settings…</string>
-    <string name="facedesk_offline_saved">Offline attendance saved</string>
+    <string name="facedesk_offline_saved">Capture saved offline — verification pending. It will sync when connected.</string>
     <string name="facedesk_not_recognized">Face not recognized</string>
     <string name="facedesk_network_error">Network required — please check connection and try again</string>
     <string name="facedesk_biometric_only_hint">Use the fingerprint device to mark attendance</string>
@@ -185,7 +185,7 @@
     <string name="facedesk_voice_look_straight">Look straight at the camera</string>
     <string name="facedesk_voice_success">Attendance recorded for %1$s</string>
     <string name="facedesk_voice_success_generic">Attendance recorded successfully</string>
-    <string name="facedesk_voice_offline">Attendance saved offline. It will sync when the network is back.</string>
+    <string name="facedesk_voice_offline">Capture saved offline. Verification is pending. It will sync when the network is back.</string>
     <string name="facedesk_voice_not_recognized">Face not recognized. Please try again.</string>
     <string name="facedesk_voice_wrong_pin">Incorrect PIN. Please try again.</string>
     <string name="facedesk_voice_enroll_start">Tap capture, then follow the voice instructions</string>
