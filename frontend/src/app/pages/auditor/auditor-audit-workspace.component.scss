@@ -657,6 +657,9 @@ textarea:focus {
 }
 
 /* Scope stays readable without pushing review work below multiple summaries. */
+.document-filters { display:flex; flex-wrap:wrap; gap:1rem; margin:1rem 0; }
+.document-filters label { display:flex; flex:1 1 220px; flex-direction:column; gap:.35rem; min-width:0; font-size:.85rem; font-weight:600; }
+.document-filters select, .document-filters input { width:100%; min-width:0; padding:.65rem; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#172b44; font-size:.875rem; font-weight:400; }
 .head-controls { flex-wrap: wrap; align-items: center; margin: 0; }
 .report-actions { margin-left: auto; }
 .report-actions > summary { cursor: pointer; color: #245343; padding: .65rem; font-size: .85rem; font-weight: 700; }

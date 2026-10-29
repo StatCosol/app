@@ -62,7 +62,7 @@ export const AUDITOR_ROUTES: Routes = [
       { path: 'reverification', redirectTo: 'observations', pathMatch: 'full' },
       { path: 'compliance', redirectTo: 'observations', pathMatch: 'full' },
       { path: 'registers', redirectTo: 'audits', pathMatch: 'full' },
-      { path: 'reports/:auditId/builder', loadComponent: AuditorReportBuilderPageComponent },
+      { path: 'reports/:auditId/builder', loadComponent: AuditorReportBuilderPageComponent, canDeactivate: [(component: { canLeave(): boolean }) => component.canLeave()] },
       { path: 'reports', loadComponent: AuditorReportsComponent },
       { path: 'notifications', loadComponent: AuditorNotificationsComponent },
       { path: 'news', loadComponent: NewsDetailComponent },

@@ -15,9 +15,16 @@ describe('Audit report closure and holds', () => {
       status: 'SUBMITTED',
       held_at: null as Date | null,
       hold_remarks: null as string | null,
+      executive_summary: 'A sufficiently detailed audit summary.',
+      scope: 'The audited site and period.',
+      methodology: 'Review of documents and site inspection.',
+      findings: 'Detailed findings for the selected audit.',
+      recommendations: 'Recommendations and corrective follow-up actions.',
+      selected_observation_ids: [] as string[],
     };
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('information_schema')) return [];
+      if (sql.includes('FROM audit_observations')) return [];
       if (sql.startsWith('SELECT id, status, assigned_auditor_id FROM audits'))
         return [{ ...audit, assigned_auditor_id: audit.assignedAuditorId }];
       if (sql.startsWith('WITH ')) return [{ id: report.id }];
@@ -169,6 +176,7 @@ describe('Audit report closure and holds', () => {
     t.report.status = 'DRAFT';
     t.query.mockImplementation(async (sql) => {
       if (sql.includes('information_schema')) return [];
+      if (sql.includes('FROM audit_observations')) return [];
       if (sql.startsWith('SELECT id, status, assigned_auditor_id FROM audits'))
         return [
           { ...t.audit, assigned_auditor_id: t.audit.assignedAuditorId },
@@ -207,5 +215,67 @@ describe('Audit report closure and holds', () => {
     expect(auditLock).toBeGreaterThan(-1);
     expect(reportLock).toBeGreaterThan(auditLock);
     expect(update).toBeGreaterThan(reportLock);
+  });
+
+  it.each([
+    'executive_summary',
+    'scope',
+    'methodology',
+    'findings',
+    'recommendations',
+  ] as const)(
+    'rejects an incomplete %s before submitting the report',
+    async (field) => {
+      const t = setup();
+      t.report.status = 'DRAFT';
+      t.report[field] = 'short';
+      await expect(
+        t.service.finalizeReportForAuditor(auditor, 'audit'),
+      ).rejects.toThrow('characters');
+      expect(
+        t.query.mock.calls.some(([sql]) => sql.startsWith('WITH changed')),
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    { selected: [] as string[] },
+    { selected: ['foreign-observation'] },
+  ])(
+    'rejects missing or foreign observation selection: %j',
+    async ({ selected }) => {
+      const t = setup();
+      t.report.status = 'DRAFT';
+      t.report.selected_observation_ids = selected;
+      const original = t.query.getMockImplementation()!;
+      t.query.mockImplementation(async (sql) =>
+        sql.includes('FROM audit_observations')
+          ? ([{ id: 'owned-observation' }] as any)
+          : original(sql),
+      );
+      await expect(
+        t.service.finalizeReportForAuditor(auditor, 'audit'),
+      ).rejects.toThrow(/observation/);
+      expect(
+        t.query.mock.calls.some(([sql]) => sql.startsWith('WITH changed')),
+      ).toBe(false);
+    },
+  );
+
+  it('accepts complete persisted sections and observations belonging to the audit', async () => {
+    const t = setup();
+    t.report.status = 'DRAFT';
+    t.report.selected_observation_ids = ['owned-observation'];
+    const original = t.query.getMockImplementation()!;
+    t.query.mockImplementation(async (sql) => {
+      if (sql.includes('FROM audit_observations'))
+        return [{ id: 'owned-observation' }] as any;
+      if (sql.includes('FROM audit_checklist_items')) return [];
+      return original(sql);
+    });
+    await t.service.finalizeReportForAuditor(auditor, 'audit');
+    expect(
+      t.query.mock.calls.some(([sql]) => sql.startsWith('WITH changed')),
+    ).toBe(true);
   });
 });

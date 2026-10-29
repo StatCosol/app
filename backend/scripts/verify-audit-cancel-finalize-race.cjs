@@ -18,7 +18,11 @@ const outcome=p=>p.then(value=>({ok:true,value}),error=>({ok:false,error}));
     await second.connect();
     await db.exec(`CREATE TABLE audit_schedules(id uuid PRIMARY KEY,status text,updated_at timestamptz);
       CREATE TABLE audits(id uuid PRIMARY KEY,client_id uuid,assigned_auditor_id uuid,status text,notes text,schedule_id uuid,upload_lock_from date,upload_lock_until date,updated_at timestamptz);
-      CREATE TABLE audit_reports(id uuid PRIMARY KEY,audit_id uuid REFERENCES audits(id),status text,held_at timestamptz,created_at timestamptz,updated_at timestamptz);
+      CREATE TABLE audit_reports(id uuid PRIMARY KEY,audit_id uuid REFERENCES audits(id),status text,held_at timestamptz,
+        executive_summary text DEFAULT 'Complete executive summary for the test audit',scope text DEFAULT 'The audited site and period',
+        methodology text DEFAULT 'Document and site review methodology',findings text DEFAULT 'Detailed verified audit findings',
+        recommendations text DEFAULT 'Recommended corrective actions for the audit',selected_observation_ids jsonb DEFAULT '[]',created_at timestamptz,updated_at timestamptz);
+      CREATE TABLE audit_observations(id uuid PRIMARY KEY,audit_id uuid);
       CREATE TABLE audit_checklist_items(audit_id uuid,status text,automated_remarks text,automation_reviewed boolean);
       CREATE TABLE audit_logs(entity_type text,entity_id uuid,action text,performed_by uuid,snapshot jsonb);`);
     await db.exec(fs.readFileSync(path.join(__dirname,'../migrations/20261024_cancelled_audit_guard.sql'),'utf8'));

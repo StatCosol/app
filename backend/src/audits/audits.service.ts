@@ -1002,7 +1002,7 @@ export class AuditsService implements OnModuleInit {
       status: audit.status,
       score: obsScore.score,
       message:
-        'Audit finalized by auditor. Pending documents/NCs were overridden.',
+        'Exceptional review round submitted. The report still requires preparation and CRM review; the audit is not closed.',
     };
   }
 

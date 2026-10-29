@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  HostListener,
   OnDestroy,
   OnInit,
 } from '@angular/core';
@@ -11,7 +12,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { Subject, forkJoin } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { finalize, switchMap, takeUntil } from 'rxjs/operators';
 
 import {
   AuditorReportDraft,
@@ -42,6 +43,32 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
   audit: any | null = null;
   observations: any[] = [];
   draft: AuditorReportDraft | null = null;
+  private savedFingerprint: string | null = null;
+
+  private reportPayload() {
+    const draft = this.draft!;
+    return { version: draft.version, executiveSummary: draft.executiveSummary, scope: draft.scope,
+      methodology: draft.methodology, findings: draft.findings, recommendations: draft.recommendations,
+      selectedObservationIds: [...draft.selectedObservationIds] };
+  }
+
+  get hasUnsavedChanges(): boolean {
+    return !!this.draft && this.savedFingerprint !== null && JSON.stringify(this.reportPayload()) !== this.savedFingerprint;
+  }
+
+  canLeave(): boolean {
+    if (this.saving) return false;
+    return !this.hasUnsavedChanges || window.confirm('Leave without saving your report changes?');
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  beforeUnload(event: BeforeUnloadEvent): void {
+    if (this.hasUnsavedChanges || this.saving) { event.preventDefault(); event.returnValue = ''; }
+  }
+
+  private rememberSavedDraft(): void {
+    this.savedFingerprint = JSON.stringify(this.reportPayload());
+  }
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -77,7 +104,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   get canEdit(): boolean {
-    return !!this.draft && !this.auditClosed && !this.draft.held && this.draft.stage === 'DRAFT';
+    return !!this.draft && !this.saving && !this.auditClosed && !this.draft.held && this.draft.stage === 'DRAFT';
   }
 
   get selectedCount(): number {
@@ -242,6 +269,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (draft) => {
           this.draft = this.normalizeReport(draft, this.observations);
+          this.rememberSavedDraft();
           this.toast.success('Report draft saved');
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to save draft'),
@@ -254,10 +282,12 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       this.toast.warning(this.finalizeGuardReason || 'Complete all required sections before finalizing');
       return;
     }
+    const payload = this.reportPayload();
     this.saving = true;
     this.auditsApi
-      .auditorFinalizeReport(this.auditId)
+      .auditorSaveReport(this.auditId, payload)
       .pipe(
+        switchMap(() => this.auditsApi.auditorFinalizeReport(this.auditId)),
         takeUntil(this.destroy$),
         finalize(() => {
           this.saving = false;
@@ -267,7 +297,8 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (draft) => {
           this.draft = this.normalizeReport(draft, this.observations);
-          this.toast.success('Report finalized and locked');
+          this.rememberSavedDraft();
+          this.toast.success('Current report saved and submitted for CRM review');
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to finalize report'),
       });
@@ -288,6 +319,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (draft) => {
           this.draft = this.normalizeReport(draft, this.observations);
+          this.rememberSavedDraft();
           this.toast.info('Report moved back to draft');
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to reopen report'),
@@ -346,6 +378,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
           this.audit = audit || null;
           this.observations = Array.isArray(observations) ? observations : [];
           this.draft = this.normalizeReport(report, this.observations);
+          this.rememberSavedDraft();
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to load report builder'),
       });
@@ -359,6 +392,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       ? report!.selectedObservationIds.map((x) => String(x))
       : [];
     const defaultIds = observations.map((o) => String(o.id));
+    const validSelected = report?.stage === 'FINAL' ? selected : selected.filter(id => defaultIds.includes(id));
 
     return {
       reportId: report?.reportId || null,
@@ -374,7 +408,7 @@ export class AuditorReportBuilderComponent implements OnInit, OnDestroy {
       methodology: report?.methodology || '',
       findings: report?.findings || '',
       recommendations: report?.recommendations || '',
-      selectedObservationIds: selected.length ? selected : defaultIds,
+      selectedObservationIds: Array.isArray(report?.selectedObservationIds) ? validSelected : defaultIds,
       updatedAt: report?.updatedAt || null,
       finalizedAt: report?.finalizedAt || null,
     };

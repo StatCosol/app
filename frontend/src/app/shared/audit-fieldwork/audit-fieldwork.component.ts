@@ -76,6 +76,7 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
   search = '';
   filter = 'ALL';
   selectedId = '';
+  evidenceFilter = '';
   drafts: Record<string, Draft> = {};
   newLabel = '';
   newKind = 'SITE_INSPECTION';
@@ -103,6 +104,9 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     this.audit = null;
     this.availablePoints = 0;
     this.selectedId = '';
+    this.search = '';
+    this.filter = 'ALL';
+    this.evidenceFilter = '';
     this.busy = false;
     this.message = '';
     this.load();
@@ -114,7 +118,17 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     this.closePreview();
   }
   get selected() {
-    return this.items.find((i) => i.id === this.selectedId);
+    return this.visible.find((i) => i.id === this.selectedId);
+  }
+  get visibleEvidence() {
+    return (this.selected?.evidence || []).filter(file => !this.evidenceFilter || file.id === this.evidenceFilter);
+  }
+  changeFilters() {
+    this.closePreview();
+    this.evidenceFilter = '';
+    if (!this.selected) this.selectedId = this.visible[0]?.id || '';
+    this.error = '';
+    this.message = '';
   }
   get draft() {
     return this.drafts[this.selectedId];
@@ -189,7 +203,11 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
             file: null,
           };
         }
-        if (!this.selected) this.selectedId = this.items[0]?.id || '';
+        if (!this.selected) {
+          this.closePreview();
+          this.evidenceFilter = '';
+          this.selectedId = this.visible[0]?.id || '';
+        }
         this.loading = false;
         this.cdr.markForCheck();
       },
@@ -202,8 +220,9 @@ export class AuditFieldworkComponent implements OnChanges, OnDestroy {
     });
   }
   select(item: AuditPoint) {
-    if (this.busy) return;
+    if (this.busy || !this.visible.some(row => row.id === item.id)) return;
     this.closePreview();
+    this.evidenceFilter = '';
     this.selectedId = item.id;
     this.error = '';
     this.message = '';

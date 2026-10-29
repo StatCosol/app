@@ -263,14 +263,70 @@
     }
 
     @if (activeTab === 'documents') {
+      <section class="card mb-5" aria-label="Document filters">
+        <h2>Documents for this audit</h2>
+        <p class="section-intro">Choose a document group, then narrow the list. Client, audit period and assigned audit remain fixed to the audit shown above.</p>
+        <div class="document-filters">
+          <label>Document group
+            <select [(ngModel)]="documentGroup" (ngModelChange)="changeDocumentFilters('group')">
+              <option value="">Select a document group</option>
+              <option value="BRANCH">Branch / unit documents</option>
+              <option value="CONTRACTOR">Contractor documents</option>
+              <option value="SUPPORTING">Supporting task evidence</option>
+            </select>
+          </label>
+          @if (documentGroup) {
+            <label>Branch / unit
+              <select [(ngModel)]="contractorDocBranchFilter" (ngModelChange)="changeDocumentFilters('branch')">
+                <option value="">Select a branch / unit</option>
+                @if (!audit?.branchId && documentBranchOptions.length > 1) { <option value="ALL">All branches in this audit</option> }
+                @for (branch of documentBranchOptions; track branch.id) { <option [value]="branch.id">{{ branch.name }}</option> }
+              </select>
+            </label>
+            @if (documentGroup === 'CONTRACTOR' && contractorDocBranchFilter) {
+              <label>Contractor
+                <select [(ngModel)]="documentContractorFilter" (ngModelChange)="changeDocumentFilters('contractor')">
+                  <option value="">Select a contractor</option>
+                  @if (!audit?.contractorUserId && documentContractorOptions.length > 1) { <option value="ALL">All contractors in this branch</option> }
+                  @for (contractor of documentContractorOptions; track contractor.id) { <option [value]="contractor.id">{{ contractor.name }}</option> }
+                </select>
+              </label>
+            }
+          }
+          @if (documentSelectionReady) {
+            <label>Document type
+              <select [(ngModel)]="documentTypeFilter" (ngModelChange)="changeDocumentFilters('detail')">
+                <option value="">All types in selected scope</option>
+                @for (type of documentTypeOptions; track type.id) { <option [value]="type.id">{{ type.name }}</option> }
+              </select>
+            </label>
+            <label>Review status
+              <select [(ngModel)]="documentStatusFilter" (ngModelChange)="changeDocumentFilters('detail')">
+                <option value="">All statuses</option><option value="SUBMITTED">Needs review</option>
+                <option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option><option value="NOT_APPLICABLE">Not applicable</option>
+                @if (documentGroup === 'SUPPORTING') { <option value="PENDING_REVIEW">Pending review</option><option value="COMPLETED">Completed</option> }
+              </select>
+            </label>
+            <label>Search documents<input type="search" [(ngModel)]="documentSearch" (ngModelChange)="changeDocumentFilters('detail')" placeholder="File name, document type or contractor" /></label>
+            <label>Specific document
+              <select [(ngModel)]="documentFileFilter" (ngModelChange)="preview = null">
+                <option value="">All matching documents</option>
+                @for (file of documentFileOptions; track file.id) { <option [value]="file.id">{{ file.name }}</option> }
+              </select>
+            </label>
+          }
+        </div>
+        <p role="status">{{ documentSelectionReady ? visibleDocuments.length + ' matching document(s) in the selected scope' : 'Select a document group and its branch / contractor to display documents.' }}</p>
+        @if (documentSelectionReady && !visibleDocuments.length && !loadingDocs && !loadingEvidence) { <p>No documents match these filters. Change a filter to see other documents in this audit.</p> }
+      </section>
       @if (documentsError) { <div role="alert" class="card">{{ documentsError }} <button type="button" class="standard-action btn btn-secondary" (click)="loadAuditDocuments()" title="Retry documents" aria-label="Retry documents" data-action-label="Retry documents" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> <span>Retry documents</span></button></div> }
       @if (!canReviewDocuments) { <p class="card">This audit is {{ formatLabel(audit?.status) }}. Document decisions are read-only.</p> }
 
-      @if (branchDocuments.length > 0) {
+      @if (documentGroup === 'BRANCH' && filteredBranchDocuments.length > 0) {
 <section class="card mb-5">
         <header class="section-head">
           <h2>Branch / Unit Documents</h2>
-          <span>{{ branchDocuments.length }} documents uploaded by branch for this schedule</span>
+          <span>{{ filteredBranchDocuments.length }} matching documents in the selected branch</span>
         </header>
         <p class="section-intro">Review branch-submitted files first if they are part of the audit scope.</p>
 
@@ -289,7 +345,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (doc of branchDocuments; track doc) {
+              @for (doc of filteredBranchDocuments; track doc.id) {
 <tr>
                 <td>
                   <div class="strong">{{ doc.fileName }}</div>
@@ -348,36 +404,18 @@
       </section>
 }
 
+      @if (documentGroup === 'CONTRACTOR' && documentSelectionReady) {
       <section class="card mb-5">
         <header class="section-head">
           <h2>Contractor Documents To Review</h2>
-          <span>{{ contractorDocuments.length }} documents &middot; {{ compliedCount }} complied &middot; {{ nonCompliedCount }} non-complied &middot; {{ pendingReviewCount }} pending</span>
+          <span>{{ filteredContractorDocuments.length }} matching documents in the selected scope</span>
         </header>
         <p class="section-intro">This is the main review queue. Every uploaded file needs an auditor decision before the audit can move forward.</p>
-
-        <!-- Branch filter: show docs branch-wise so multi-branch contractor uploads aren't all dumped together -->
-        @if (contractorDocBranchOptions.length > 1) {
-<div class="flex items-center gap-2.5 mb-2.5 flex-wrap">
-          <label class="text-xs font-semibold text-gray-700">Filter by branch:</label>
-          <select [(ngModel)]="contractorDocBranchFilter"
-                  class="text-xs px-2.5 py-1 border border-gray-300 rounded-md min-w-[200px]">
-            <option value="ALL">All branches ({{ contractorDocuments.length }})</option>
-            @for (b of contractorDocBranchOptions; track b) {
-<option [value]="b.id">{{ b.name }} ({{ b.count }})</option>
-}
-          </select>
-          @if (contractorDocBranchFilter !== 'ALL') {
-<span class="text-xs text-gray-500">
-            Showing {{ filteredContractorDocuments.length }} of {{ contractorDocuments.length }}
-          </span>
-}
-        </div>
-}
 
         @if (auditDocuments.length) {
 <div class="mb-3">
           <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-sm font-semibold text-emerald-700">Compliance: {{ docCompliancePercent }}%</span>
+            <span class="text-sm font-semibold text-emerald-700">Whole-audit document compliance: {{ docCompliancePercent }}%</span>
           </div>
           <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
@@ -483,21 +521,16 @@
 
       </section>
 
-      <section class="card"><h2>Audit-specific evidence & site inspections</h2><p>Client submissions, inspection photos, remarks and checklist decisions are in the evidence workspace.</p><button type="button" class="standard-action btn btn-primary" (click)="activeTab = 'checklist'">Open evidence & site inspection</button></section>
+      }
+      <section class="card"><h2>Audit-specific evidence & site inspections</h2><p>Evidence for individual checklist points is in the evidence workspace, not repeated in these document queues.</p><button type="button" class="standard-action btn btn-primary" (click)="activeTab = 'checklist'">Open evidence & site inspection</button></section>
 
-      @if (filteredEvidenceRows.length > 0) {
+      @if (documentGroup === 'SUPPORTING' && filteredEvidenceRows.length > 0) {
 <section class="card mb-5">
         <header class="section-head">
           <h2>Supporting Evidence</h2>
           <span>{{ filteredEvidenceRows.length }} rows</span>
         </header>
         <p class="section-intro">Reference files that help you validate the audit scope and uploaded documents.</p>
-        <div class="mb-2.5">
-          <label class="search-box max-w-xs">
-            Search Evidence
-            <input class="workspace-search" autocomplete="off" id="aaw-evidence-search" name="evidenceSearch" type="search" [(ngModel)]="evidenceSearch" placeholder="File / compliance / status" />
-          </label>
-        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -571,7 +604,14 @@
             </span>
 }
           </div>
-          <p class="text-[13px] text-gray-600">Awaiting CRM review. No further action required unless corrections are requested.</p>
+          @if (!reportStage || reportStage === 'DRAFT') {
+            <p>Fieldwork is submitted. Prepare and submit your report next; CRM cannot approve a draft report.</p>
+            <button type="button" class="standard-action btn btn-primary" (click)="openReportBuilder()">Prepare and submit report</button>
+          } @else if (reportHeld) {
+            <p>CRM has put the report on hold. Open Report Builder to read the reason.</p>
+          } @else {
+            <p class="text-[13px] text-gray-600">{{ ['APPROVED','PUBLISHED'].includes(reportStatus || '') ? 'CRM has approved the report. Use Overview to check closure requirements.' : 'Report submitted. Awaiting CRM review; check Report Builder if corrections are requested.' }}</p>
+          }
         </div>
 }
 
@@ -635,12 +675,12 @@
           <!-- Force Finalize: bypass pending docs/NCs -->
           <div class="mt-5 pt-3.5 border-t border-gray-200">
             <p class="text-xs text-gray-500 mb-2">
-              <strong class="text-amber-700">Force Finalize:</strong> Use only if the vendor has not responded and you want to close the audit regardless. Pending documents and open NCs will be overridden.
+              <strong class="text-amber-700">Exceptional review submission:</strong> Submits a review round without closing the audit or finalizing its report. Managed evidence still requires normal review; legacy document decisions may remain outstanding.
             </p>
             <button type="button"
               class="bg-amber-100 border border-amber-500 text-amber-900 rounded-md px-3.5 py-1.5 text-xs font-semibold"
               [disabled]="busy" (click)="forceCompleteAudit()">
-              {{ busy ? 'Finalizing...' : 'Force Finalize Audit' }}
+              {{ busy ? 'Submitting...' : 'Submit exceptional review round' }}
             </button>
           </div>
         </div>
