@@ -120,22 +120,11 @@ class FaceDeskOfflineStore(private val context: Context) {
     fun finishFlush(
         snapshot: List<MarkAttendanceRequest>,
         retryRefs: Set<String>,
-    ) = synchronized(AtomicQueueFile.lock) {
-        val snapshotRefSet = snapshot.mapNotNull { it.offlineRef }.toSet()
-        if (snapshotRefSet.isEmpty()) return@synchronized
-        val retryByRef = snapshot
-            .filter { it.offlineRef != null && it.offlineRef in retryRefs }
-            .associateBy { it.offlineRef!! }
-        val kept = mutableListOf<MarkAttendanceRequest>()
-        for (req in peekAll()) {
-            val ref = req.offlineRef
-            when {
-                ref == null -> kept.add(req)
-                ref !in snapshotRefSet -> kept.add(req)
-                ref in retryRefs -> retryByRef[ref]?.let { kept.add(it) }
-            }
-        }
+    ): Int = synchronized(AtomicQueueFile.lock) {
+        val kept = OfflineQueueReconciliation.keep(peekAll(), snapshot, retryRefs)
         replaceAll(kept)
+        // Include captures saved while the network request was in flight.
+        kept.size
     }
 
     companion object {

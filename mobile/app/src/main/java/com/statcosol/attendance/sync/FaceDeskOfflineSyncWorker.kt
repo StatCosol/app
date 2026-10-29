@@ -53,7 +53,9 @@ class FaceDeskOfflineSyncWorker(ctx: Context, params: WorkerParameters) :
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
             WorkManager.getInstance(ctx).enqueueUniqueWork(
-                "facedesk-offline-sync", ExistingWorkPolicy.KEEP, req,
+                // Append even when a worker is finishing: KEEP can lose the
+                // only trigger for a capture added after its final queue read.
+                "facedesk-offline-sync", ExistingWorkPolicy.APPEND_OR_REPLACE, req,
             )
         }
     }

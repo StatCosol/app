@@ -85,9 +85,9 @@ object FaceDeskOfflineSync {
               break
           }
         }
-        withContext(Dispatchers.IO) { store.finishFlush(pending, retryRefs) }
-        logOutcome(synced, dropped, retryRefs.size)
-        Result(synced, dropped, retryRefs.size)
+        val remaining = withContext(Dispatchers.IO) { store.finishFlush(pending, retryRefs) }
+        logOutcome(synced, dropped, remaining)
+        Result(synced, dropped, remaining)
     }
 
     private fun isTransientHttp(code: Int): Boolean =
