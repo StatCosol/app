@@ -1,4 +1,8 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MarkAttendanceDto } from './facedesk.dto';
 import {
@@ -92,7 +96,9 @@ export class FaceDeskFaceOnlyAttendanceService {
 
     if (!this.azureFace.enabled) {
       if (dto.offlineRef) {
-        throw new ServiceUnavailableException(FACE_ONLY_REJECTION_MESSAGES.AZURE_UNAVAILABLE);
+        throw new ServiceUnavailableException(
+          FACE_ONLY_REJECTION_MESSAGES.AZURE_UNAVAILABLE,
+        );
       }
       // Refusing is the point. There is no safe local answer to "who is this?".
       this.logger.warn(
@@ -112,9 +118,14 @@ export class FaceDeskFaceOnlyAttendanceService {
     if (!outcome.ok) {
       // A cloud outage/rate limit can recover; never consume a queued capture as
       // a deterministic face rejection, or record it as a failed employee match.
-      if (dto.offlineRef &&
-          (outcome.reason === 'AZURE_ERROR' || outcome.reason === 'AZURE_UNAVAILABLE')) {
-        throw new ServiceUnavailableException(FACE_ONLY_REJECTION_MESSAGES[outcome.reason]);
+      if (
+        dto.offlineRef &&
+        (outcome.reason === 'AZURE_ERROR' ||
+          outcome.reason === 'AZURE_UNAVAILABLE')
+      ) {
+        throw new ServiceUnavailableException(
+          FACE_ONLY_REJECTION_MESSAGES[outcome.reason],
+        );
       }
       // Every one of these was previously "Face not recognised", which sent a
       // worker away to retry regardless of whether retrying could ever help.
