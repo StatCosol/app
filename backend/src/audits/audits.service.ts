@@ -1,3 +1,4 @@
+import { StatutoryAuditEntryService } from './statutory-audit-entry.service';
 import { fieldworkScore } from './audit-fieldwork-report';
 import { requestAuditAction } from './audit-action-approval';
 import { randomUUID } from 'crypto';
@@ -74,6 +75,7 @@ export class AuditsService implements OnModuleInit {
     private readonly listingService: AuditListingService,
     private readonly documentReviewService: AuditDocumentReviewService,
     @Optional() private readonly auditLogs?: AuditLogsService,
+    @Optional() private readonly statutoryEntry?: StatutoryAuditEntryService,
   ) {}
 
   async onModuleInit() {
@@ -986,7 +988,11 @@ export class AuditsService implements OnModuleInit {
       'SELECT 1 FROM audit_item_reviews WHERE audit_id=$1 UNION ALL SELECT 1 FROM audit_item_evidence WHERE audit_id=$1 LIMIT 1',
       [auditId],
     );
-    if (managed.length) return this.submitAudit(user, auditId, finalRemark);
+    if (
+      managed.length ||
+      (this.statutoryEntry && (await this.statutoryEntry.hasSession(auditId)))
+    )
+      return this.submitAudit(user, auditId, finalRemark);
 
     const obsScore = await this.calculateScore(auditId);
     audit.score = obsScore.score;
@@ -1201,6 +1207,34 @@ export class AuditsService implements OnModuleInit {
       throw new BadRequestException(
         'Review all audit documents before submitting',
       );
+    }
+    if (
+      this.statutoryEntry &&
+      (await this.statutoryEntry.hasSession(auditId))
+    ) {
+      const result = await this.statutoryEntry.submit(
+        user,
+        auditId,
+        finalRemark,
+      );
+      // The durable submission is already committed. Ancillary failures must not
+      // tell the auditor to resubmit or duplicate their findings.
+      try {
+        await this.updateScheduleStatusOnSubmit(auditId);
+        const submitted = await this.repo.findOneByOrFail({ id: auditId });
+        await this.notificationsService.createTicket(user.userId, 'AUDITOR', {
+          queryType: 'COMPLIANCE',
+          subject: `Audit ${submitted.auditCode || auditId} submitted`,
+          message: `Statutory audit submitted. Status: ${result.status}. Score: ${result.score === null ? 'Not applicable' : result.score + '%'}.`,
+          clientId: submitted.clientId,
+          branchId: submitted.branchId || undefined,
+        });
+      } catch (error) {
+        this.logger.warn(
+          'Statutory audit submitted; follow-up notification or schedule update failed',
+        );
+      }
+      return result;
     }
     const count = (docs: typeof scoped) => ({
       total: docs.filter((doc) => doc.status !== 'NOT_APPLICABLE').length,

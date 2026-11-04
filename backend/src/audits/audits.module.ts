@@ -1,3 +1,8 @@
+import {
+  StatutoryAuditEntryController,
+  AuditeeStatutoryAuditEntryController,
+} from './statutory-audit-entry.controller';
+import { StatutoryAuditEntryService } from './statutory-audit-entry.service';
 import { AuditFieldworkController } from './audit-fieldwork.controller';
 import { AuditActionApprovalController } from './audit-action-approval.controller';
 import { AuditFieldworkService } from './audit-fieldwork.service';
@@ -72,6 +77,8 @@ import { AuditEntryService } from './audit-entry.service';
     forwardRef(() => AutomationModule),
   ],
   controllers: [
+    StatutoryAuditEntryController,
+    AuditeeStatutoryAuditEntryController,
     AuditActionApprovalController,
     AuditFieldworkController,
     AuditFollowUpsController,
@@ -88,6 +95,7 @@ import { AuditEntryService } from './audit-entry.service';
     AuditorObservationsController,
   ],
   providers: [
+    StatutoryAuditEntryService,
     AuditFieldworkService,
     AuditFollowUpsService,
     AuditFollowUpsJob,

@@ -1,0 +1,159 @@
+<main class="entry-page">
+  <header>
+    <div>
+      <p class="eyebrow">ONLINE / VIRTUAL AUDITS</p>
+      <h1>Audit documents</h1>
+      <p>
+        Upload supporting documents for each requirement. Your auditor will review them and share
+        feedback here.
+      </p>
+    </div>
+  </header>
+  @if (error) {
+    <p class="error" role="alert">{{ error }}</p>
+  }
+  @if (message) {
+    <p class="success" role="status">{{ message }}</p>
+  }
+  @if (loading) {
+    <p role="status">Loading your audits…</p>
+  }
+  <section class="filters">
+    <label
+      >Audit<select
+        [ngModel]="auditId"
+        (ngModelChange)="selectAudit($event)"
+        [disabled]="busy || loading"
+      >
+        <option value="">Select an online audit</option>
+        @for (a of audits; track a.id) {
+          <option [value]="a.id">
+            {{ a.auditCode || a.id }} · {{ a.branchName || 'Company-wide' }} · {{ a.periodCode }}
+          </option>
+        }
+      </select></label
+    >
+    @if (auditId) {
+      <button type="button" (click)="refresh()" [disabled]="busy">Refresh review feedback</button>
+    }
+  </section>
+  @if (!loading && !audits.length) {
+    <p class="notice">
+      No online or virtual audits are available. The auditor must first choose Online / Virtual mode
+      and set the checklist scope.
+    </p>
+  }
+  @if (auditId && items.length) {
+    <section class="context">
+      <span
+        >Auditee <strong>{{ auditeeName }}</strong></span
+      ><span
+        ><strong>{{ uploaded }} / {{ items.length }}</strong> requirements with documents</span
+      >
+    </section>
+    @if (readonly) {
+      <p class="notice">
+        This audit has been submitted. Documents are available to download; further submissions use
+        the audit correction workflow.
+      </p>
+    } @else if (locked) {
+      <p class="notice">
+        Uploads are temporarily locked during auditor review. You can still view your documents and
+        feedback.
+      </p>
+    }
+    <section class="filters">
+      <label
+        >Category<select [(ngModel)]="category" (ngModelChange)="page = 1">
+          <option value="">All categories</option>
+          @for (c of categories; track c) {
+            <option [value]="c">{{ c }}</option>
+          }
+        </select></label
+      ><label
+        >Find a requirement<input
+          type="search"
+          [(ngModel)]="search"
+          (ngModelChange)="page = 1"
+          placeholder="Description, statute or parameter" /></label
+      ><label
+        >Document status<select [(ngModel)]="status" (ngModelChange)="page = 1">
+          <option value="">All requirements</option>
+          <option value="MISSING">Not uploaded</option>
+          <option value="PENDING">Awaiting review</option>
+          <option value="APPROVED">Accepted</option>
+          <option value="REJECTED">Re-upload requested</option>
+        </select></label
+      >
+    </section>
+    @for (p of visible; track p.id) {
+      <article class="point">
+        <header>
+          <div>
+            <p class="eyebrow">{{ p.category }} · POINT {{ p.serial }}</p>
+            <h2>{{ p.description }}</h2>
+          </div>
+        </header>
+        <dl>
+          <div>
+            <dt>Statute / provision</dt>
+            <dd>{{ p.statute }} · {{ p.legalProvision || 'Not supplied' }}</dd>
+          </div>
+          <div>
+            <dt>Audit parameter</dt>
+            <dd>{{ p.auditParameter || 'Not supplied' }}</dd>
+          </div>
+          <div>
+            <dt>Relevant form / requirement</dt>
+            <dd>{{ p.relevantForm || 'Not supplied' }}</dd>
+          </div>
+          <div>
+            <dt>Due date / frequency</dt>
+            <dd>{{ p.dueDate || 'Not supplied' }}</dd>
+          </div>
+        </dl>
+        @if (documents[p.id]; as doc) {
+          <section class="auditee-document">
+            <button type="button" (click)="download(doc)">{{ doc.filename }}</button>
+            <p>
+              Version {{ doc.revision }} ·
+              <strong>{{
+                doc.review_status === 'APPROVED'
+                  ? 'Accepted'
+                  : doc.review_status === 'REJECTED'
+                    ? 'Re-upload requested'
+                    : 'Awaiting review'
+              }}</strong>
+            </p>
+            @if (doc.review_remarks) {
+              <p><strong>Auditor feedback:</strong> {{ doc.review_remarks }}</p>
+            }
+          </section>
+        } @else {
+          <p>No document uploaded yet.</p>
+        }
+        <label
+          >{{ documents[p.id] ? 'Upload a new version' : 'Upload supporting document'
+          }}<input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv,.txt"
+            (change)="upload(p, $event)"
+            [disabled]="busy || readonly || locked" /></label
+        ><small
+          >Up to 10 MB per file. Upload saves immediately. New versions retain earlier evidence and
+          require fresh review.</small
+        >
+      </article>
+    } @empty {
+      <p class="notice">No requirements match these filters.</p>
+    }
+    <nav class="pagination" aria-label="Requirement pages">
+      <button type="button" [disabled]="page <= 1 || busy" (click)="page = page - 1">
+        Previous</button
+      ><span>Page {{ page }} of {{ pages }} · {{ filtered.length }} requirements</span
+      ><button type="button" [disabled]="page >= pages || busy" (click)="page = page + 1">
+        Next
+      </button>
+    </nav>
+  }
+</main>
