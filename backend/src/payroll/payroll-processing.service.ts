@@ -612,7 +612,6 @@ export class PayrollProcessingService {
     const daysInMonth = new Date(run.periodYear, run.periodMonth, 0).getDate();
     const skipped: string[] = [];
     let matched = 0;
-    let maxPayableDays = 0;
     const parsedAttendance: Array<{
       emp: (typeof employees)[0];
       workingDays: number;
@@ -669,7 +668,6 @@ export class PayrollProcessingService {
           ? Math.max(0, this.cellNum(row.getCell(slLeaveCol).value) ?? 0)
           : 0;
 
-      if (payableDays > maxPayableDays) maxPayableDays = payableDays;
       parsedAttendance.push({
         emp,
         workingDays,
@@ -685,13 +683,14 @@ export class PayrollProcessingService {
       matched++;
     }
 
-    // Second pass: compute LOP using max payable days as the month total
-    let totalPayable = maxPayableDays > 0 ? maxPayableDays : daysInMonth;
+    // The uploaded working days are the employee's month total. The largest
+    // payable value is attendance, not a reliable measure of the period.
+    let internTotalDays: number | undefined;
     if (run.payrollCategory === 'INTERN') {
       const setup = await this.ds
         .getRepository(PayrollClientSetupEntity)
         .findOne({ where: { clientId: run.clientId } });
-      totalPayable =
+      internTotalDays =
         setup?.wageBasisDays === 'CALENDAR_DAYS' ? daysInMonth : 26;
       for (const att of parsedAttendance) {
         if (
@@ -714,9 +713,10 @@ export class PayrollProcessingService {
         arrearAttBonus,
         otherDeductions,
       } = att;
-      const lopDays = Math.max(0, totalPayable - payableDays);
+      const totalDays = internTotalDays ?? att.workingDays;
+      const lopDays = Math.max(0, totalDays - payableDays);
 
-      emp.totalDays = totalPayable;
+      emp.totalDays = totalDays;
       emp.daysPresent = payableDays;
       emp.lopDays = lopDays;
       emp.ncpDays = lopDays;
