@@ -37,10 +37,12 @@ Catalogue IDs and version are stored against each scope. Preserve released catal
 
 - Release backend TypeScript compile passed against current production main.
 - Production compatibility: existing workspace review requirements remain enforced; held/submitted reports block new edits, and database guards prevent premature report/audit finalization. Statutory results are appended to report output.
-- 33 backend tests passed across the statutory entry service, workbook exports and existing audit service suite.
+- 242 backend tests passed across the audit suites, including statutory entries, workbook exports and report appendices.
 - 6 frontend workflow tests passed: saved progress, optimistic save failures, document replacement, mode selection, review invalidation and auditee feedback/locks.
-- Full Angular development build passed; existing Sass deprecation warnings remain.
+- Full Angular production build and lint passed; existing Sass deprecation and bundle-budget warnings remain.
 - Isolated PostgreSQL 18 smoke checks passed for applying the migration twice, real SQL saves, both submission modes, retained document revisions, rejected uploads, stale conclusions, NC creation, scoring and submission locks. No production database was used.
+- All 34 existing fieldwork database regression checks passed with both migrations applied, including report finalization, concurrency and authorization.
+- Release checks use Ubuntu 24.04 for the pinned Playwright browser. Joi is patched to 17.13.9; the backend production dependency audit reports no high or critical findings.
 - The actual auditor component rendered with synthetic data in the local browser preview. Screenshot capture became unavailable in the browser integration, so no screenshot-based visual acceptance is claimed.
 
 Reproduce database smoke checks with an isolated local PostgreSQL instance and `AUDIT_ENTRY_TEST_URL`, then run `node scripts/verify-statutory-audit-entry-postgres.cjs` from `backend`. The script creates and removes its own schema and does not load the application's `.env` file. It exercises service SQL using minimal parent-table fixtures; it does not replace a deployment smoke test against the full application schema.

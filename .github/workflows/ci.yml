@@ -167,7 +167,9 @@ jobs:
         run: npx jest ci-boot-check --runInBand
 
   frontend:
-    runs-on: ubuntu-latest
+    # The pinned Playwright release supports Ubuntu 24.04; ubuntu-latest
+    # moved to 26.04 before that browser build became available.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
