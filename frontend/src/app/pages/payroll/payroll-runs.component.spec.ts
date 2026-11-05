@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
+import { vi } from 'vitest';
 import { PayrollRunsComponent } from './payroll-runs.component';
 
 describe('PayrollRunsComponent', () => {
@@ -30,6 +31,24 @@ describe('PayrollRunsComponent', () => {
   it('should create', () => {
     const fixture = TestBed.createComponent(PayrollRunsComponent);
     expect(fixture.componentInstance).toBeTruthy();
+  });
+
+  it('reruns a processed payroll and reports calculation errors instead of success', async () => {
+    const component = TestBed.createComponent(PayrollRunsComponent).componentInstance;
+    const run = { id: '1', status: 'PROCESSED', employeeCount: 28 } as any;
+    component.selectedRun = run;
+    const dialog = (component as any).dialog;
+    const toast = (component as any).toast;
+    vi.spyOn(dialog, 'confirm').mockResolvedValue(true);
+    const error = vi.spyOn(toast, 'error');
+    const success = vi.spyOn(toast, 'success');
+    vi.spyOn(component, 'loadRuns').mockImplementation(() => undefined);
+
+    await component.rerunRun(run);
+    const request = controller.expectOne('/api/v1/payroll/runs/1/process');
+    request.flush({ processed: 0, status: 'DRAFT', errors: ['No active salary structure'] });
+    expect(error).toHaveBeenCalledWith('No active salary structure');
+    expect(success).not.toHaveBeenCalled();
   });
 
   it('should load runs on init', () => {

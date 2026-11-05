@@ -134,6 +134,33 @@ describe('Intern payroll through the payroll engine', () => {
     expect(emp).toMatchObject({ totalDays: 29, grossEarnings: '13000' });
   });
 
+  it('keeps a regular run in draft when paid attendance has no structure or salary breakup', async () => {
+    const { svc, run, qr, master } = fixture(28, 'CALENDAR_DAYS', 10, 2026);
+    run.payrollCategory = 'REGULAR';
+    master.payrollCategory = 'REGULAR';
+    svc.structureResolver.resolve.mockResolvedValue(null);
+    const result = await svc.processWithEngine('run');
+    expect(result.status).toBe('DRAFT');
+    expect(result.errors.join(' ')).toContain(
+      'No approved active salary structure',
+    );
+    expect(qr.rollbackTransaction).toHaveBeenCalled();
+    expect(svc.persistComponentValues).not.toHaveBeenCalled();
+  });
+
+  it('allows a regular run with an explicitly uploaded salary breakup', async () => {
+    const { svc, run, master } = fixture(28, 'CALENDAR_DAYS', 10, 2026);
+    run.payrollCategory = 'REGULAR';
+    master.payrollCategory = 'REGULAR';
+    svc.structureResolver.resolve.mockResolvedValue(null);
+    svc.compValRepo.find.mockResolvedValue([
+      { componentCode: 'PAYABLE_DAYS', amount: 28 },
+      { componentCode: 'WORKED_DAYS', amount: 31 },
+      { componentCode: 'BASIC', amount: 15000 },
+    ]);
+    expect((await svc.processWithEngine('run')).status).toBe('PROCESSED');
+  });
+
   it('includes paid holidays and approved paid leave from payable attendance, also on rerun', async () => {
     const { svc, emp } = fixture(null);
     svc.attendanceService.getMonthlySummary.mockResolvedValue([

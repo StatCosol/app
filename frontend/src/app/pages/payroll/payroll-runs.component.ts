@@ -478,17 +478,17 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       });
   }
 
-  async processRun(run: PayrollRunItem): Promise<void> {
+  async processRun(run: PayrollRunItem, action: 'PROCESS' | 'RERUN' = 'PROCESS'): Promise<void> {
     if (this.isConsoleBusy()) return;
-    const guard = this.actionGuardReason(run, 'PROCESS');
+    const guard = this.actionGuardReason(run, action);
     if (guard) {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
     const ok = await this.dialog.confirm(
-      'Process Payroll Run',
-      'Are you sure you want to process this payroll run?',
-      { confirmText: 'Process' },
+      action === 'RERUN' ? 'Rerun Payroll Run' : 'Process Payroll Run',
+      action === 'RERUN' ? 'Are you sure you want to rerun this payroll run? This will reprocess the data.' : 'Are you sure you want to process this payroll run?',
+      { confirmText: action === 'RERUN' ? 'Rerun' : 'Process' },
     );
     if (!ok) return;
     this.actionBusy = true;
@@ -502,7 +502,13 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: () => {
+        next: (result: any) => {
+          if (result?.errors?.length || result?.status !== 'PROCESSED') {
+            const details = Array.isArray(result?.errors) ? result.errors.slice(0, 3).join(' | ') : '';
+            this.toast.error(details || 'Payroll was not processed. Check the payroll inputs and try again.');
+            this.loadRuns();
+            return;
+          }
           this.addRunEvent(run.id, 'PROCESS', 'Run processed', 'Moved to processed stage');
           this.toast.success('Payroll run moved to processed stage.');
           this.loadRuns();
@@ -588,20 +594,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   async rerunRun(run: PayrollRunItem): Promise<void> {
-    if (this.isConsoleBusy()) return;
-    const guard = this.actionGuardReason(run, 'RERUN');
-    if (guard) {
-      this.toast.warning(`Action blocked: ${guard}`);
-      return;
-    }
-    const ok = await this.dialog.confirm(
-      'Rerun Payroll Run',
-      'Are you sure you want to rerun this payroll run? This will reprocess the data.',
-      { confirmText: 'Rerun' },
-    );
-    if (!ok) return;
-    this.addRunEvent(run.id, 'RERUN', 'Rerun requested', 'Run sent for reprocessing');
-    this.processRun(run);
+    await this.processRun(run, 'RERUN');
   }
 
   async rejectRun(run: PayrollRunItem): Promise<void> {
