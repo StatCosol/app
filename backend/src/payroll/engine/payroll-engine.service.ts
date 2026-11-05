@@ -1474,6 +1474,33 @@ export class PayrollEngineService {
             asOfDate,
           });
 
+      // A monthly gross is only a reference input; without a structure (or
+      // explicitly supplied salary earnings) it cannot produce a payslip.
+      // Do not mark a paid employee successfully processed with zero wages.
+      const hasSalaryInput = components.some(
+        (component) =>
+          component.componentType === 'EARNING' &&
+          ![
+            'ACTUAL_GROSS',
+            'OTHER_EARNINGS',
+            'ARREAR_ATT_BONUS',
+            'ATT_BONUS',
+            'OT',
+          ].includes(component.code) &&
+          uploadedCodes.has(component.code) &&
+          values[component.code] > 0,
+      );
+      if (
+        !isIntern &&
+        !resolved &&
+        (values['PAYABLE_DAYS'] ?? 0) > 0 &&
+        !hasSalaryInput
+      ) {
+        throw new BadRequestException(
+          'No approved active salary structure applies and no salary earnings were supplied. Review the salary structure or upload the salary breakup before processing.',
+        );
+      }
+
       let structureId: string | null = null;
       let ruleSetId: string | null = null;
 
