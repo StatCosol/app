@@ -1,3 +1,4 @@
+import { ENTRY_CATEGORIES } from './statutory-audit-entry.catalogue';
 import { BadRequestException } from '@nestjs/common';
 type Db = { query(sql: string, params?: any[]): Promise<any> };
 /** Use audit-point decisions once fieldwork is in use; do not double-count uploads. */
@@ -16,10 +17,46 @@ export async function fieldworkAppendix(
 ): Promise<
   Array<{ label: string; status: string; remarks: string; evidence: string }>
 > {
-  return db.query(
+  const fieldwork = await db.query(
     `SELECT i.item_label AS label,i.status,COALESCE(i.remarks,'') AS remarks,COALESCE((SELECT string_agg(e.file_name || ' [' || e.uploaded_role || ', revision ' || e.revision || '] - ' || e.description || CASE WHEN e.location IS NOT NULL THEN ' | Location: ' || e.location ELSE '' END, E'\n' ORDER BY e.created_at) FROM audit_item_evidence e WHERE e.item_id=i.id),'No files attached') AS evidence FROM audit_checklist_items i WHERE i.audit_id=$1 ORDER BY i.sort_order,i.created_at,i.id`,
     [auditId],
   );
+  const statutory = await db.query(
+    `SELECT a.item_id,a.answer,a.status,a.remarks,e.filename AS evidence,d.filename AS document,d.revision,d.review_status FROM audit_entry_answers a LEFT JOIN audit_entry_evidence e ON e.audit_id=a.audit_id AND e.item_id=a.item_id LEFT JOIN LATERAL (SELECT filename,revision,review_status FROM audit_entry_documents WHERE audit_id=a.audit_id AND item_id=a.item_id ORDER BY revision DESC LIMIT 1) d ON true WHERE a.audit_id=$1 ORDER BY a.item_id`,
+    [auditId],
+  );
+  const points = new Map(
+    ENTRY_CATEGORIES.flatMap((c) =>
+      c.items.map((p) => [p.id, { ...p, category: c.name }] as const),
+    ),
+  );
+  return [
+    ...fieldwork,
+    ...statutory.map((row) => {
+      const point = points.get(row.item_id);
+      return {
+        label: point
+          ? point.category + ' / ' + point.serial + ': ' + point.description
+          : row.item_id,
+        status: row.status,
+        remarks: [row.answer, row.remarks].filter(Boolean).join(' — '),
+        evidence:
+          [
+            row.evidence,
+            row.document
+              ? row.document +
+                ' [Auditee, version ' +
+                row.revision +
+                ', ' +
+                row.review_status +
+                ']'
+              : null,
+          ]
+            .filter(Boolean)
+            .join('; ') || 'No files attached',
+      };
+    }),
+  ];
 }
 
 export async function assertFieldworkReviewed(db: Db, auditId: string) {

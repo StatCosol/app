@@ -800,6 +800,10 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.router.navigate(['/auditor/audits']);
   }
 
+  openStatutoryEntry(): void {
+    this.router.navigate(['/auditor/entry'], {queryParams: {auditId: this.auditId}});
+  }
+
   openReportBuilder(): void {
     if (!this.auditId) return;
     this.router.navigate(['/auditor/reports', this.auditId, 'builder']);

@@ -2,6 +2,7 @@ import { detailPagePurpose } from '../../../shared/navigation/detail-page-purpos
 import { activeNavigationRoute } from '../../../shared/navigation/active-route';
 
 export const BRANCH_COMPLIANCE_PURPOSE: Record<string, { title: string; purpose: string }> = {
+  '/branch/audit-documents': { title: 'Documents for online audits', purpose: 'Select an online or virtual audit for your branch, upload the requested checklist documents and follow the auditor’s feedback when a replacement is needed.' },
   '/branch/compliance/status': { title: 'Compliance overview', purpose: 'Check completion, overdue work and pending reviews across your assigned branches. Open the relevant work page to upload evidence or respond to a reviewer.' },
   '/branch/compliance/monthly': { title: 'Monthly submissions', purpose: 'Choose a branch and month, upload the required monthly records, and track reviewer decisions. Use Periodic Uploads for quarterly, half-yearly and yearly submissions.' },
   '/branch/uploads': { title: 'Periodic submissions', purpose: 'Upload quarterly, half-yearly and yearly compliance records for your assigned branches. Choose the branch, frequency and period, then submit the file to CRM for review.' },

@@ -137,17 +137,21 @@ describe('payroll attendance upload — column handling', () => {
     },
   );
 
-  it('derives LOP from the highest payable days in the sheet', async () => {
+  it('uses the uploaded working days for total days and LOP when nobody has full attendance', async () => {
     const path = await writeSheet(
       ['Employee Code', 'Working Days', 'Payable Days'],
-      [['E001', 26, 24]],
+      [['E001', 31, 28]],
     );
-    const { svc, upserts } = makeService();
+    const { svc, upserts, saved } = makeService();
 
     await svc.uploadAttendance('run-1', { path } as any);
 
-    // One row, so it is its own maximum and nothing is lost.
-    expect(valueOf(upserts, 'LOP_DAYS')).toBe(0);
+    expect(saved[0]).toMatchObject({
+      totalDays: 31,
+      daysPresent: 28,
+      lopDays: 3,
+    });
+    expect(valueOf(upserts, 'LOP_DAYS')).toBe(3);
   });
 
   it.each([
