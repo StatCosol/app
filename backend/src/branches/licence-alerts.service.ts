@@ -174,11 +174,14 @@ export class LicenceAlertsService {
     );
     if (!recipients.length) return;
     const claimed: Array<{ id: string }> = await this.dataSource.query(
-      `UPDATE registration_alerts SET email_lease_until=NOW()+INTERVAL '10 minutes'
-       WHERE id=$1 AND emailed=false AND (email_lease_until IS NULL OR email_lease_until < NOW()) RETURNING id`,
+      `WITH claimed AS (UPDATE registration_alerts SET email_lease_until=NOW()+INTERVAL '10 minutes'
+       WHERE id=$1 AND emailed=false AND (email_lease_until IS NULL OR email_lease_until < NOW()) RETURNING id)
+       SELECT id FROM claimed`,
       [alerts[0].id],
     );
-    if (!claimed.length) return;
+    // TypeORM returns [rows, affected] for UPDATE, even when no row is claimed.
+    // SELECT above returns rows only; require an actual claim before sending.
+    if (!claimed[0]?.id) return;
     try {
       const result = await this.email.sendAuditMail(
         recipients.map((recipient) => recipient.email),

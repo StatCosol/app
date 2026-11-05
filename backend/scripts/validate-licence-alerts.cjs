@@ -2,15 +2,15 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { Client } = require('pg');
+const { DataSource } = require('typeorm');
 const { LicenceAlertsService } = require('../dist/src/branches/licence-alerts.service');
 const { LICENCE_RECIPIENTS_SQL } = require('../dist/src/branches/licence-alerts.sql');
 const { operationalDate, addCalendarDays } = require('../dist/src/common/operational-date');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 
 (async () => {
- const db = new Client({host:'127.0.0.1',port:Number(process.env.AUTOMATION_TEST_PORT||55439),user:process.env.AUTOMATION_TEST_USER||'monthly_close_test',password:process.env.AUTOMATION_TEST_PASSWORD||undefined,database:process.env.AUTOMATION_TEST_DATABASE||'postgres'});
- await db.connect();
+ const source = new DataSource({type:'postgres',host:'127.0.0.1',port:Number(process.env.AUTOMATION_TEST_PORT||55439),username:process.env.AUTOMATION_TEST_USER||'monthly_close_test',password:process.env.AUTOMATION_TEST_PASSWORD||undefined,database:process.env.AUTOMATION_TEST_DATABASE||'postgres'});
+ await source.initialize(); const runner=source.createQueryRunner(); const db=await runner.connect();
  try {
   await db.query(`CREATE TEMP TABLE clients(id uuid,client_name text,is_deleted boolean,is_active boolean);
    CREATE TEMP TABLE client_branches(id uuid,clientid uuid,branchname text,isdeleted boolean,isactive boolean);
@@ -51,7 +51,8 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
   await db.query('INSERT INTO biometric_punches VALUES($1,NULL,$2,$3,$4,\'MOBILE_ESS\')',[client,id(231),branch,`${today}T09:00:00+05:30`]);
   // Date and tenant mismatches must not create a person in the selected day's deployment.
   await db.query('INSERT INTO ess_attendance_punches VALUES($1,$3,$4,$5),($2,$3,$4,$6)',[client,otherClient,id(172),today,`${addCalendarDays(today,-1)}T23:59:59+05:30`,`${today}T12:00:00+05:30`]);
-  const ds={query:async(sql,params)=>(await db.query(sql,params)).rows};
+  // Use the production TypeORM result shape: raw UPDATE returns [rows, count].
+  const ds={query:(sql,params)=>runner.query(sql,params)};
   let deliveries=0, mode='skipped', to=[];
   const mail={sendAuditMail:async(recipients)=>{deliveries++;to=recipients;return mode==='skipped'?{skipped:true}:mode==='failed'?{ok:false}:{ok:true};}};
   const access={listAllowedBranches:async()=>[{id:branch}]};
@@ -96,7 +97,12 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
   mode='ok';deliveries=0;
   await Promise.all([service.checkScheduled(),service.checkScheduled()]);
   assert.equal(deliveries,2,'one mail per event despite concurrent scans');
-  await service.checkScheduled();assert.equal(deliveries,2,'successful events are not resent');
+  for(let scan=0;scan<12;scan++) await service.checkScheduled();
+  assert.equal(deliveries,2,'an hour of five-minute scans must not resend successful events');
+  await db.query("UPDATE registration_alerts SET emailed=false,email_lease_until=NOW()+INTERVAL '10 minutes'");
+  await service.checkScheduled();
+  assert.equal(deliveries,2,'an active delivery lease must block another sender');
+  await db.query('UPDATE registration_alerts SET emailed=true,email_lease_until=NULL');
   assert.equal((await db.query('SELECT count(*)::int AS n FROM registration_alerts')).rows[0].n,2);
   await db.query('UPDATE branch_registrations SET expiry_date=$2,licensed_worker_limit=120 WHERE id=$1',[reg,addCalendarDays(today,365)]);
   snapshot=await service.snapshot([branch],today);
@@ -109,5 +115,5 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
   assert.deepEqual(await service.snapshot([],today),{date:today,renewals:[],manpower:[]});
   await assert.rejects(service.listForUser({},otherBranch),/Branch not allowed/);
   console.log('PASS: 100 allowed / 101 breach; accepted distinct on-roll + contractor punches; pending/rejected, roster-only, tenant and IST exclusions; 60/30-day deadlines; scoped recipients; idempotent migration; retry and concurrent email dedup; renewal/amendment races.');
- } finally { await db.end(); }
+ } finally { await runner.release(); await source.destroy(); }
 })().catch(error=>{console.error(error);process.exitCode=1;});
