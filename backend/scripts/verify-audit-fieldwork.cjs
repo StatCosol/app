@@ -33,6 +33,9 @@ let app,db,source;let checks=0;const check=message=>{checks++;console.log('PASS 
  CREATE TABLE audit_checklist_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),audit_id uuid,item_label varchar(255),doc_type text,status text,is_required boolean,sort_order int,remarks text,automated_remarks text,automation_reviewed boolean NOT NULL DEFAULT false,reviewed_by uuid,reviewed_at timestamptz,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
  CREATE TABLE contractor_required_documents(contractor_user_id uuid,client_id uuid,doc_type text,is_required boolean);`);
  const migration=fs.readFileSync(path.join(root,'backend/migrations/20261023_audit_fieldwork.sql'),'utf8');await db.exec(migration);await db.exec(migration);check('Migration safely replays');
+ // Report appendices now include optional statutory entries; retain real production schema guards in this legacy fixture.
+ await db.exec('CREATE TABLE audit_non_compliances(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),audit_id uuid REFERENCES audits(id))');
+ const statutoryMigration=fs.readFileSync(path.join(root,'backend/migrations/20261104_statutory_audit_entry.sql'),'utf8');await db.exec(statutoryMigration);await db.exec(statutoryMigration);
  await db.query('INSERT INTO clients VALUES($1,$2),($3,$4)',[clientId,'Northstar Industries',uuid(20),'Other Company']);
  await db.query('INSERT INTO client_branches VALUES($1,$2,$3,true,false),($4,$2,$5,true,false)',[branchId,clientId,'Chennai - Manufacturing Unit',otherBranchId,'Other branch']);
  for(const [name,u]of Object.entries(identities)){u.userId=u.id;u.name='Test '+name;u.email=name+'@audit-test.invalid';await db.query('INSERT INTO users VALUES($1,$2)',[u.id,u.name]);for(const b of u.branchIds||[])await db.query('INSERT INTO user_branches VALUES($1,$2)',[u.id,b]);}

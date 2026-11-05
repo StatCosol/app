@@ -51,6 +51,7 @@ export const AUDITOR_ROUTES: Routes = [
     loadComponent: AuditorLayoutComponent,
     canActivate: [roleGuard(['AUDITOR'])],
     children: [
+      { path: 'entry', loadComponent: () => import('./auditor-statutory-entry.component').then(m => m.AuditorStatutoryEntryComponent), canDeactivate: [(component: {canLeave:()=>boolean}) => component.canLeave()] },
       { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'dashboard', loadComponent: AuditorDashboardComponent },
       { path: 'conduct-audit', loadComponent: () => import('./auditor-entry.component').then(m => m.AuditorEntryComponent) },

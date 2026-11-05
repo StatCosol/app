@@ -122,6 +122,7 @@ export const BRANCH_ROUTES: Routes = [
     loadComponent: BranchLayoutComponent,
     canActivate: [branchPortalGuard],
     children: [
+      { path: 'audit-documents', loadComponent: () => import('../../shared/statutory-audit-entry/auditee-audit-documents.component').then(m => m.AuditeeAuditDocumentsComponent), canDeactivate: [(component) => component.canLeave()], canActivate: [moduleAccessGuard('CONTRACTOR_AUDIT')] },
       { path: 'my-work', loadComponent: () => import('../../shared/my-work/my-work.component').then(m => m.MyWorkComponent) },
       { path: 'monthly-close', loadComponent: () => import('../monthly-close/monthly-close.component').then(m => m.MonthlyCloseComponent) },
       { path: 'dashboard', loadComponent: BranchDashboardComponent },

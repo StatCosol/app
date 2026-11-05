@@ -123,6 +123,7 @@ const serviceMigrationFiles = new Set([
   '20261023_audit_fieldwork.sql',
   '20261024_cancelled_audit_guard.sql',
   '20261024b_audit_action_approvals.sql',
+  '20261104_statutory_audit_entry.sql',
 ]);
 
 const config = {

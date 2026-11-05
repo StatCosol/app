@@ -1,0 +1,400 @@
+<main class="entry-page">
+  <header>
+    <div>
+      <p class="eyebrow">AUDITXPERT</p>
+      <h1>Auditor level entry</h1>
+      <p>Review the legal requirements, record your findings and save each compliance point.</p>
+    </div>
+    <a routerLink="/auditor/audits">Assigned audits</a>
+  </header>
+  @if (loading) {
+    <p role="status">Loading assigned audits…</p>
+  }
+  @if (error) {
+    <div class="error" role="alert">
+      {{ error }} <button type="button" (click)="error = ''">Dismiss</button>
+    </div>
+  }
+  @if (message) {
+    <p class="success" role="status">{{ message }}</p>
+  }
+  <section class="filters" aria-label="Audit selection">
+    <label
+      >Company<select
+        [ngModel]="clientId"
+        (ngModelChange)="changeContext('clientId', $event)"
+        [disabled]="busy || loading"
+      >
+        <option value="">Select company</option>
+        @for (c of clients; track c.id) {
+          <option [value]="c.id">{{ c.name }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Unit type<select
+        [ngModel]="unitType"
+        (ngModelChange)="changeContext('unitType', $event)"
+        [disabled]="busy || loading"
+      >
+        @for (t of types; track t.value) {
+          <option [value]="t.value">{{ t.label }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Unit<select
+        [ngModel]="branchId"
+        (ngModelChange)="changeContext('branchId', $event)"
+        [disabled]="busy || !clientId"
+      >
+        <option value="">Select unit</option>
+        @for (u of units; track u.id) {
+          <option [value]="u.id">{{ u.name }}</option>
+        }
+      </select></label
+    >
+    <label
+      >Audit<select
+        [ngModel]="auditId"
+        (ngModelChange)="selectAudit($event)"
+        [disabled]="busy || !branchId"
+      >
+        <option value="">Select audit</option>
+        @for (a of audits; track a.id) {
+          <option [value]="a.id">{{ a.auditCode || a.id }} · {{ a.periodCode }}</option>
+        }
+      </select></label
+    >
+  </section>
+  @if (!supported && !loading) {
+    <section class="notice">
+      <h2>Checklist source pending</h2>
+      <p>
+        The {{ unitType.replaceAll('_', ' ') }} checklist has not been supplied yet. Factory points
+        are not used for this audit type.
+      </p>
+    </section>
+  }
+  @if (audit) {
+    <section class="context">
+      <span
+        >Period <strong>{{ audit.periodCode }}</strong></span
+      ><span
+        >Auditor <strong>{{ audit.auditorName }}</strong></span
+      ><span
+        >Status <strong>{{ audit.status.replaceAll('_', ' ') }}</strong></span
+      >
+      @if (session) {
+        <span
+          >Auditee <strong>{{ session.auditee_name }}</strong></span
+        >
+      }
+      <a [routerLink]="['/auditor/audits', audit.id, 'workspace']">Review workspace documents & reports</a>
+    </section>
+    @if (!session && supported && !busy) {
+      @if (readonly) {
+        <p class="notice">This audit is read-only. A new entry scope cannot be added.</p>
+      } @else {
+        <section class="scope">
+          <h2>Choose the audit scope</h2>
+          <p>
+            17 supplied categories contain 1,121 points. Select the categories included in this
+            audit. The scope is fixed once started.
+          </p>
+          <p class="notice">
+            Source still required: {{ missing.join(', ') }}. These categories cannot be audited here
+            yet.
+          </p>
+          <label>Auditee name<input [(ngModel)]="auditeeName" maxlength="200" required /></label>
+          <label
+            >Audit mode<select [(ngModel)]="auditMode">
+              <option value="PHYSICAL">Physical / onsite inspection</option>
+              <option value="ONLINE">Online / virtual document audit</option>
+            </select></label
+          >
+          @if (auditMode === 'ONLINE') {
+            <p class="notice">
+              The auditee can upload documents against each point from their Audit Documents page.
+              Review their uploads before recording compliance. A complied point requires an
+              approved document.
+            </p>
+          }
+          <fieldset>
+            <legend>Included categories</legend>
+            <div class="category-grid">
+              @for (c of categories; track c.name) {
+                <label class="check"
+                  ><input
+                    type="checkbox"
+                    [checked]="scope.includes(c.name)"
+                    (change)="toggleScope(c.name, $any($event.target).checked)"
+                  />{{ c.name }} <span>{{ c.count }}</span></label
+                >
+              }
+            </div>
+          </fieldset>
+          <label class="check"
+            ><input type="checkbox" [(ngModel)]="scopeAcknowledged" />I confirm this audit covers
+            the selected categories only. Missing categories are excluded from this scope.</label
+          >
+          <button
+            type="button"
+            class="primary"
+            (click)="configure()"
+            [disabled]="busy || !auditeeName.trim() || !scope.length || !scopeAcknowledged"
+          >
+            Start {{ scopeCount }} audit points
+          </button>
+        </section>
+      }
+    }
+    @if (session) {
+      <p class="notice">
+        Mode:
+        <strong>{{
+          session.audit_mode === 'ONLINE' ? 'Online / Virtual' : 'Physical / Onsite'
+        }}</strong
+        >. Scope: {{ session.categories.length }} selected categories.
+      </p>
+      <button type="button" (click)="reloadSaved()" [disabled]="busy">Reload saved answers</button>
+      @if (session.audit_mode === 'ONLINE') {
+        <button type="button" (click)="refreshDocuments()" [disabled]="busy">
+          Refresh auditee documents
+        </button>
+      }
+      <section class="progress-bar">
+        <div>
+          <strong>{{ completed }} / {{ items.length }} saved</strong
+          ><progress [value]="completed" [max]="items.length"></progress>
+        </div>
+        <span>{{ dirty.size }} unsaved edits</span
+        ><button type="button" (click)="download()" [disabled]="busy">Download all</button
+        ><button type="button" (click)="download(true)" [disabled]="busy">Download NC</button>
+      </section>
+      <section class="filters checklist-filters">
+        <label
+          >Category<select [(ngModel)]="category" (ngModelChange)="page = 1">
+            <option value="">All selected categories</option>
+            @for (c of session.categories; track c) {
+              <option [value]="c">{{ c }}</option>
+            }
+          </select></label
+        >
+        <label
+          >Find a requirement<input
+            type="search"
+            [(ngModel)]="search"
+            (ngModelChange)="page = 1"
+            placeholder="Description, statute or parameter"
+        /></label>
+        <label
+          >Saved status<select [(ngModel)]="statusFilter" (ngModelChange)="page = 1">
+            <option value="">All points</option>
+            <option value="PENDING">Pending</option>
+            <option value="COMPLIED">Complied</option>
+            <option value="NON_COMPLIED">Non-complied</option>
+            <option value="NOT_APPLICABLE">Not applicable</option>
+          </select></label
+        >
+      </section>
+      <p class="hint">
+        The source exports do not contain dropdown answer choices. Enter the observed result and
+        select the compliance status. Non-compliance and non-applicability require remarks.
+      </p>
+      @for (p of visible; track p.id) {
+        <article class="point" [class.unsaved]="dirty.has(p.id)">
+          <header>
+            <div>
+              <p class="eyebrow">{{ p.category }} · POINT {{ p.serial }}</p>
+              <h2>{{ p.description }}</h2>
+            </div>
+            <span class="risk">{{ p.riskType }} · {{ p.maxMarks }} marks</span>
+          </header>
+          <dl>
+            <div>
+              <dt>Statute</dt>
+              <dd>{{ p.statute }}</dd>
+            </div>
+            <div>
+              <dt>Item head</dt>
+              <dd>{{ p.head }}</dd>
+            </div>
+            <div>
+              <dt>Legal provisions</dt>
+              <dd>{{ p.legalProvision || 'Not supplied' }}</dd>
+            </div>
+            <div>
+              <dt>Audit parameter</dt>
+              <dd>{{ p.auditParameter || 'Not supplied' }}</dd>
+            </div>
+            <div>
+              <dt>Relevant form / requirement</dt>
+              <dd>{{ p.relevantForm || 'Not supplied' }}</dd>
+            </div>
+            <div>
+              <dt>Due date / frequency</dt>
+              <dd>{{ p.dueDate || 'Not supplied' }}</dd>
+            </div>
+          </dl>
+          @if (session.audit_mode === 'ONLINE') {
+            <section class="auditee-document">
+              <h3>Auditee document</h3>
+              @if (documents[p.id]; as doc) {
+                <button type="button" (click)="openDocument(p)">{{ doc.filename }}</button>
+                <p>
+                  Version {{ doc.revision }} ·
+                  {{ doc.review_status === 'REJECTED' ? 'Re-upload requested' : doc.review_status }}
+                </p>
+                <label
+                  >Document review feedback<textarea
+                    [(ngModel)]="reviewRemarks[p.id]"
+                    [disabled]="readonly || busy"
+                    maxlength="4000"
+                    rows="2"
+                  ></textarea>
+                </label>
+                <button
+                  type="button"
+                  (click)="reviewDocument(p, 'APPROVED')"
+                  [disabled]="readonly || busy"
+                >
+                  Accept document</button
+                ><button
+                  type="button"
+                  (click)="reviewDocument(p, 'REJECTED')"
+                  [disabled]="readonly || busy || !reviewRemarks[p.id]?.trim()"
+                >
+                  Request re-upload
+                </button>
+              } @else {
+                <p>
+                  Awaiting document from the auditee. Record a reason if the point is non-complied
+                  or not applicable.
+                </p>
+              }
+            </section>
+          }
+          <div class="answers">
+            <label
+              >Compliance check
+              @if (p.answerOptions?.length) {
+                <select
+                  [(ngModel)]="drafts[p.id].answer"
+                  (ngModelChange)="edit(p.id)"
+                  [disabled]="readonly || busy"
+                >
+                  <option value="">Select answer</option>
+                  @for (o of p.answerOptions; track o) {
+                    <option [value]="o">{{ o }}</option>
+                  }
+                </select>
+              } @else {
+                <textarea
+                  [(ngModel)]="drafts[p.id].answer"
+                  (ngModelChange)="edit(p.id)"
+                  [disabled]="readonly || busy"
+                  rows="3"
+                  maxlength="4000"
+                  placeholder="Record the observed result"
+                ></textarea>
+              }
+            </label>
+            <label
+              >Compliance status<select
+                [(ngModel)]="drafts[p.id].status"
+                (ngModelChange)="edit(p.id)"
+                [disabled]="readonly || busy"
+              >
+                <option value="">Select status</option>
+                <option value="COMPLIED">Complied</option>
+                <option value="NON_COMPLIED">Non-complied</option>
+                <option value="NOT_APPLICABLE">Not applicable</option></select
+              ><small
+                >Saved: {{ saved[p.id]?.status?.replaceAll('_', ' ') || 'PENDING' }}</small
+              ></label
+            >
+            <label
+              >Auditor remarks<textarea
+                [(ngModel)]="drafts[p.id].remarks"
+                (ngModelChange)="edit(p.id)"
+                [disabled]="readonly || busy"
+                rows="3"
+                maxlength="10000"
+                placeholder="Findings, reason or supporting detail"
+              ></textarea>
+            </label>
+            <div>
+              <label
+                >Auditor snapshot / evidence<input
+                  type="file"
+                  accept="image/png,image/jpeg,application/pdf"
+                  (change)="upload(p, $event)"
+                  [disabled]="readonly || busy" /></label
+              ><small>PNG, JPEG or PDF · up to 5 MB</small>
+              @if (evidence[p.id]) {
+                <button type="button" class="file-link" (click)="openEvidence(p)">
+                  {{ evidence[p.id] }}
+                </button>
+              }
+            </div>
+          </div>
+          <footer>
+            <span>{{
+              dirty.has(p.id) ? 'Unsaved changes' : saved[p.id] ? 'Saved' : 'Not yet saved'
+            }}</span
+            ><button
+              type="button"
+              class="primary"
+              (click)="save(p)"
+              [disabled]="
+                readonly ||
+                busy ||
+                !dirty.has(p.id) ||
+                !drafts[p.id].answer.trim() ||
+                !drafts[p.id].status ||
+                (drafts[p.id].status !== 'COMPLIED' && !drafts[p.id].remarks.trim())
+              "
+            >
+              Save point {{ p.serial }}
+            </button>
+          </footer>
+        </article>
+      } @empty {
+        <p class="notice">No points match these filters.</p>
+      }
+      <nav class="pagination" aria-label="Checklist pages">
+        <button type="button" [disabled]="page <= 1" (click)="page = page - 1">Previous</button
+        ><span>Page {{ page }} of {{ pages }} · {{ filtered.length }} points</span
+        ><button type="button" [disabled]="page >= pages" (click)="page = page + 1">Next</button>
+      </nav>
+      @if (!readonly) {
+        <section class="submission">
+          <p>
+            Save all {{ items.length }} points and finish the existing workspace checklist and document reviews before submitting.
+            Non-compliances will enter the correction workflow.
+          </p>
+          <button type="button" class="primary" [disabled]="!canSubmit" (click)="showSubmit = true">
+            Submit audit
+          </button>
+          @if (showSubmit) {
+            <div class="notice" role="region" aria-label="Confirm audit submission">
+              <h2>Submit this audit?</h2>
+              <p>
+                Submission locks the saved answers and evidence. This covers
+                {{ session.categories.length }} selected categories only.
+              </p>
+              <button type="button" (click)="showSubmit = false" [disabled]="busy">
+                Keep reviewing</button
+              ><button type="button" class="primary" (click)="submit()" [disabled]="!canSubmit">
+                Confirm submission
+              </button>
+            </div>
+          }
+        </section>
+      }
+    }
+  } @else if (!loading) {
+    <p class="notice">Choose a company, unit and assigned audit to begin.</p>
+  }
+</main>

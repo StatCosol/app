@@ -13,6 +13,14 @@ for (const role of ['client', 'crm', 'auditor', 'contractor', 'payroll', 'cco'])
     'notifications': ['Updates requiring your attention', 'Read workflow updates and open the related record for its current status and available actions.'],
   });
 }
+for (const role of ['client', 'contractor']) {
+  add(role, {
+    'audit-documents': ['Documents for online audits', 'Select an online or virtual audit, upload the documents requested for each checklist point and follow the auditor’s feedback when a replacement is needed.'],
+  });
+}
+add('auditor', {
+  'entry': ['Statutory audit checklist', 'Select the audit and checklist scope, record physical inspection findings or review online auditee documents, then save each conclusion before submitting the completed scope.'],
+});
 add('client', {
   'dashboard': ['Company compliance overview', 'Review the status of your subscribed services across branches, then open the relevant workspace for details and actions.'],
   'monthly-close': ['Review the month before closure', 'Check monthly readiness and outstanding items for the selected branch and period before completing the review.'],
