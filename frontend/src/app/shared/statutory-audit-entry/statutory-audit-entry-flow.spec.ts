@@ -28,7 +28,7 @@ describe('Audit entry browser flow', () => {
     const { c, injector } = setup(AuditorStatutoryEntryComponent);
     c.session = {};
     c.items = [{ id: 'point' }] as any;
-    c.drafts.point = { answer: 'Checked', status: 'COMPLIED', remarks: '', version: 0 };
+    c.drafts['point'] = { answer: 'Checked', status: 'COMPLIED', remarks: '', version: 0 };
     c.edit('point');
     expect(c.completed).toBe(0);
     expect(c.canSubmit).toBe(false);
@@ -36,11 +36,11 @@ describe('Audit entry browser flow', () => {
   });
   it('preserves edits when optimistic concurrency rejects a save', async () => {
     const { c, http, injector } = setup(AuditorStatutoryEntryComponent);
-    c.drafts.point = { answer: 'My finding', status: 'COMPLIED', remarks: '', version: 1 };
+    c.drafts['point'] = { answer: 'My finding', status: 'COMPLIED', remarks: '', version: 1 };
     c.edit('point');
     http.put.mockReturnValue(throwError(() => ({ error: { message: 'Reload before saving' } })));
     await c.save({ id: 'point', serial: 1 } as any);
-    expect(c.drafts.point.answer).toBe('My finding');
+    expect(c.drafts['point'].answer).toBe('My finding');
     expect(c.dirty.has('point')).toBe(true);
     expect(c.error).toBe('Reload before saving');
     expect(c.busy).toBe(false);
@@ -48,8 +48,8 @@ describe('Audit entry browser flow', () => {
   });
   it('marks saved conclusions stale after auditee uploads change without discarding drafts', async () => {
     const { c, http, injector } = setup(AuditorStatutoryEntryComponent);
-    c.saved.point = { answer: 'Original', status: 'COMPLIED', remarks: '', version: 1 };
-    c.drafts.point = { ...c.saved.point, answer: 'Unsaved follow-up' };
+    c.saved['point'] = { answer: 'Original', status: 'COMPLIED', remarks: '', version: 1 };
+    c.drafts['point'] = { ...c.saved['point'], answer: 'Unsaved follow-up' };
     http.get.mockReturnValue(
       of({
         documents: [{ item_id: 'point', id: 'new', review_status: 'PENDING' }],
@@ -59,9 +59,9 @@ describe('Audit entry browser flow', () => {
     );
     await c.refreshDocuments();
     expect(c.completed).toBe(0);
-    expect(c.drafts.point.answer).toBe('Unsaved follow-up');
+    expect(c.drafts['point'].answer).toBe('Unsaved follow-up');
     expect(c.dirty.has('point')).toBe(true);
-    expect(c.documents.point.id).toBe('new');
+    expect(c.documents['point'].id).toBe('new');
     injector.destroy();
   });
   it('sends the selected audit mode and category scope', async () => {
@@ -88,14 +88,14 @@ describe('Audit entry browser flow', () => {
   });
   it('requires resaving a conclusion after a document review', async () => {
     const { c, http, injector } = setup(AuditorStatutoryEntryComponent);
-    c.documents.point = { id: 'doc', review_version: 2 };
-    c.saved.point = {} as any;
-    c.reviewRemarks.point = 'Document checked';
+    c.documents['point'] = { id: 'doc', review_version: 2 };
+    c.saved['point'] = {} as any;
+    c.reviewRemarks['point'] = 'Document checked';
     http.put.mockReturnValue(of({ version: 3 }));
     await c.reviewDocument({ id: 'point' } as any, 'APPROVED');
-    expect(c.saved.point).toBeUndefined();
+    expect(c.saved['point']).toBeUndefined();
     expect(c.dirty.has('point')).toBe(true);
-    expect(c.documents.point.review_version).toBe(3);
+    expect(c.documents['point'].review_version).toBe(3);
     injector.destroy();
   });
   it('shows auditee feedback and upload locks on refresh', async () => {
@@ -113,7 +113,7 @@ describe('Audit entry browser flow', () => {
     await c.refresh();
     c.status = 'REJECTED';
     expect(c.filtered).toHaveLength(1);
-    expect(c.documents.point.review_remarks).toBe('Supply signed copy');
+    expect(c.documents['point'].review_remarks).toBe('Supply signed copy');
     expect(c.locked).toBe(true);
     injector.destroy();
   });
