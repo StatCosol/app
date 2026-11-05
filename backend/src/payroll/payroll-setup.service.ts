@@ -219,6 +219,7 @@ export class PayrollSetupService {
     copy('pfGrossThreshold');
     copy('esiWageCeiling');
     copy('payCycle');
+    copy('wageBasisDays');
     copy('effectiveFrom');
     copy('cycleStartDay');
     copy('payoutDay');
