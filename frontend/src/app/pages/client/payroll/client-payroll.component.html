@@ -3,7 +3,7 @@
     title="Client Payroll Monitoring"
     subtitle="Track payroll progress and download payslips, full and final statements, relieving letters, and registers.">
     <a [routerLink]="registersRoute" class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Registers Download</a>
-    <ui-button variant="secondary" (clicked)="loadInputs()" [disabled]="loading" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
+    <ui-button variant="secondary" (clicked)="refreshWorkspace()" [disabled]="loading || employeeRecordsLoading" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
   </ui-page-header>
 
   <section class="workspace-card mb-6">
@@ -192,6 +192,7 @@
                 <td>{{ row.completed }}</td>
                 <td>{{ row.lastPeriod }}</td>
                 <td>
+                  @if (row.latestInputId) {
                   <ui-button
                     size="sm"
                     variant="secondary"
@@ -199,6 +200,9 @@
                     (clicked)="openBranchLatest(row)" icon="eye" [iconOnly]="true" label="Open">
                     Open
                   </ui-button>
+                  } @else {
+                    <span class="muted">See employee records above</span>
+                  }
                 </td>
               </tr>
 }

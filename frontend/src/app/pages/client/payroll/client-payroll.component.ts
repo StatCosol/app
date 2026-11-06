@@ -255,6 +255,11 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  refreshWorkspace(): void {
+    this.loadInputs();
+    this.loadEmployeeRecords();
+  }
+
   loadInputs(): void {
     this.loading = true;
     forkJoin({
@@ -721,10 +726,12 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
   private buildBranchStatusRows(rows: PayrollInputItem[]): BranchStatusRow[] {
     const map = new Map<string, BranchStatusRow>();
     for (const row of rows) {
-      const key = this.toBranchLabel(row.branchId);
+      const key = !row.branchId && row.type === 'run'
+        ? 'Client-wide payroll'
+        : this.toBranchLabel(row.branchId);
       const existing = map.get(key) || {
         branchId: key,
-        branchName: this.toBranchLabel(row.branchId),
+        branchName: key,
         totalInputs: 0,
         pendingInputs: 0,
         approvalQueue: 0,
