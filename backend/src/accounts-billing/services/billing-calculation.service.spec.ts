@@ -111,7 +111,7 @@ describe('BillingCalculationService', () => {
       expect(t.roundOff).toBeCloseTo(-0.35, 2);
     });
 
-    it('CGST + SGST always equals the total GST (remainder on SGST)', () => {
+    it('keeps equal components and includes their rounding in total GST', () => {
       const oddGst = {
         amount: 333.34,
         discountAmount: 0,
@@ -120,8 +120,43 @@ describe('BillingCalculationService', () => {
         lineTotal: 393.35,
       };
       const t = svc.calculateInvoiceTotals([oddGst], 18, true);
-      expect(+(t.cgstAmount + t.sgstAmount).toFixed(2)).toBe(60.01);
-      expect(t.totalGst).toBe(60.01);
+      expect(+(t.cgstAmount + t.sgstAmount).toFixed(2)).toBe(60.02);
+      expect(t.totalGst).toBe(60.02);
     });
+  });
+  it('corrects ITC service tax without taxing the reimbursement or changing the payable', () => {
+    const items = [
+      svc.calculateItem({ quantity: 1, rate: 3374.8, gstRate: 0 }, true),
+      svc.calculateItem({ quantity: 1, rate: 202.5, gstRate: 18 }, true),
+    ];
+    expect(items[1]).toMatchObject({ gstAmount: 36.46, lineTotal: 238.96 });
+    expect(svc.calculateInvoiceTotals(items, 18, true)).toMatchObject({
+      subTotal: 3577.3,
+      cgstAmount: 18.23,
+      sgstAmount: 18.23,
+      totalGst: 36.46,
+      roundOff: 0.24,
+      grandTotal: 3614,
+    });
+  });
+  it('avoids double rounding and adds equal line components', () => {
+    const items = [202.5, 100.04, 100.06].map((rate) =>
+      svc.calculateItem({ quantity: 1, rate, gstRate: 18 }, true),
+    );
+    expect(items.map((item) => item.gstAmount)).toEqual([36.46, 18, 18.02]);
+    const totals = svc.calculateInvoiceTotals(items, 18, true);
+    expect(totals.cgstAmount).toBe(36.24);
+    expect(totals.sgstAmount).toBe(36.24);
+    expect(totals.totalGst).toBe(72.48);
+  });
+  it('preserves IGST on the same service charge', () => {
+    const item = svc.calculateItem(
+      { quantity: 1, rate: 202.5, gstRate: 18 },
+      false,
+    );
+    expect(item.gstAmount).toBe(36.45);
+    expect(svc.calculateInvoiceTotals([item], 18, false).igstAmount).toBe(
+      36.45,
+    );
   });
 });

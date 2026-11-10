@@ -17,7 +17,7 @@ interface ItemResult {
 
 @Injectable()
 export class BillingCalculationService {
-  calculateItem(item: ItemCalc): ItemResult {
+  calculateItem(item: ItemCalc, intraState = false): ItemResult {
     const values = [
       item.quantity,
       item.rate,
@@ -44,7 +44,12 @@ export class BillingCalculationService {
       throw new BadRequestException('Line discount cannot exceed its amount.');
     const taxableAmount = +(amount - discountAmount).toFixed(2);
     const gstRate = item.gstRate || 0;
-    const gstAmount = +((taxableAmount * gstRate) / 100).toFixed(2);
+    // Round each equal component from the base before combining taxes.
+    const taxablePaise = Math.round(taxableAmount * 100);
+    const rateHundredths = Math.round(gstRate * 100);
+    const gstAmount = intraState
+      ? (2 * Math.round((taxablePaise * rateHundredths) / 20000)) / 100
+      : +((taxableAmount * gstRate) / 100).toFixed(2);
     const lineTotal = +(taxableAmount + gstAmount).toFixed(2);
     return { amount, discountAmount, taxableAmount, gstAmount, lineTotal };
   }
@@ -65,7 +70,7 @@ export class BillingCalculationService {
     const taxableValue = +items
       .reduce((s, i) => s + i.taxableAmount, 0)
       .toFixed(2);
-    const totalGst = +items.reduce((s, i) => s + i.gstAmount, 0).toFixed(2);
+    let totalGst = +items.reduce((s, i) => s + i.gstAmount, 0).toFixed(2);
 
     let cgstRate = 0,
       cgstAmount = 0,
@@ -77,8 +82,14 @@ export class BillingCalculationService {
     if (intraState) {
       cgstRate = +(gstRate / 2).toFixed(2);
       sgstRate = +(gstRate / 2).toFixed(2);
-      cgstAmount = +(totalGst / 2).toFixed(2);
-      sgstAmount = +(totalGst - cgstAmount).toFixed(2);
+      cgstAmount =
+        items.reduce(
+          (paise, item) =>
+            paise + Math.round(Math.round(item.gstAmount * 100) / 2),
+          0,
+        ) / 100;
+      sgstAmount = cgstAmount;
+      totalGst = +(cgstAmount + sgstAmount).toFixed(2);
     } else {
       igstRate = +gstRate;
       igstAmount = +totalGst;

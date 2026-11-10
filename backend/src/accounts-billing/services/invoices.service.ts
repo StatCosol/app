@@ -118,12 +118,15 @@ export class InvoicesService {
           ...item,
           isReimbursement,
           gstRate: itemGstRate,
-          ...this.calcService.calculateItem({
-            quantity: item.quantity,
-            rate: item.rate,
-            discountAmount: item.discountAmount,
-            gstRate: itemGstRate,
-          }),
+          ...this.calcService.calculateItem(
+            {
+              quantity: item.quantity,
+              rate: item.rate,
+              discountAmount: item.discountAmount,
+              gstRate: itemGstRate,
+            },
+            intraState,
+          ),
         };
       });
 
@@ -574,12 +577,15 @@ export class InvoicesService {
             ...item,
             isReimbursement,
             gstRate: itemGstRate,
-            ...this.calcService.calculateItem({
-              quantity: item.quantity,
-              rate: item.rate,
-              discountAmount: item.discountAmount,
-              gstRate: itemGstRate,
-            }),
+            ...this.calcService.calculateItem(
+              {
+                quantity: item.quantity,
+                rate: item.rate,
+                discountAmount: item.discountAmount,
+                gstRate: itemGstRate,
+              },
+              intraState,
+            ),
           };
         });
 
@@ -609,6 +615,23 @@ export class InvoicesService {
         );
       }
 
+      if (!items && clientChanged) {
+        for (const item of invoice.items) {
+          const recalculated = this.calcService.calculateItem(
+            {
+              quantity: Number(item.quantity),
+              rate: Number(item.rate),
+              discountAmount: Number(item.discountAmount),
+              gstRate: item.isReimbursement ? 0 : Number(item.gstRate),
+            },
+            intraState,
+          );
+          for (const field of ['gstAmount', 'lineTotal'] as const) {
+            if (Number(item[field]) !== recalculated[field])
+              item[field] = recalculated[field];
+          }
+        }
+      }
       if (items || clientChanged) {
         const totals = this.calcService.calculateInvoiceTotals(
           // PostgreSQL numeric columns arrive as strings on retained items.
