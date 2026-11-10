@@ -6,7 +6,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AccountsBillingService } from '../services/accounts-billing.service';
-import { BillingClient, InvoiceItem, INVOICE_TYPES } from '../models/billing.models';
+import { BillingClient, Invoice, InvoiceItem, INVOICE_TYPES } from '../models/billing.models';
 
 // Mirrors the backend's EDITABLE_STATUSES guard (invoices.service.ts) —
 // once an invoice has a recorded payment or is cancelled its figures are
@@ -41,6 +41,9 @@ const EDITABLE_STATUSES = new Set([
 
       @if (loadError) {
         <div role="alert" class="text-red-800 p-3">{{ loadError }} <button type="button" (click)="loadInvoice(invoiceId)" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
+      }
+      @if (settingsError) {
+        <div role="alert" class="text-red-800 p-3">{{ settingsError }} <button type="button" (click)="loadSettings()" class="compact-action">Retry tax settings</button></div>
       }
       @if (clientsError) {
         <div role="alert" class="text-red-800 p-3">{{ clientsError }} <button type="button" (click)="loadClients()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></div>
@@ -204,6 +207,9 @@ export class BillingCreateInvoiceComponent implements OnInit {
   private readonly contextChanged = new Subject<void>();
   loadError = '';
   clientsError = '';
+  settingsError = '';
+  private supplierStateCode: string | null = null;
+  private originalInvoice: Invoice | null = null;
 
   invoiceId: string | null = null;
   isEditMode = false;
@@ -219,7 +225,29 @@ export class BillingCreateInvoiceComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadClients();
+    this.loadSettings();
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => this.loadInvoice(params.get('id')));
+  }
+
+  loadSettings(): void {
+    this.settingsError = '';
+    this.supplierStateCode = null;
+    this.svc.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: settings => { this.supplierStateCode = settings?.stateCode || '36'; },
+      error: () => { this.settingsError = 'Unable to load supplier tax settings. Retry before saving.'; },
+    });
+  }
+
+  // Match the backend: keep saved tax treatment when the client is unchanged.
+  get intraState(): boolean | null {
+    const original = this.originalInvoice;
+    const clientChanged = !!original && this.form.value.billingClientId !== original.billingClient?.id;
+    const savedRate = Number(original?.cgstRate || 0) + Number(original?.sgstRate || 0) + Number(original?.igstRate || 0);
+    if (original && !clientChanged && savedRate > 0) return Number(original.igstRate) === 0;
+    if (this.supplierStateCode === null || !this.selectedClient) return null;
+    const clientState = original && !clientChanged
+      ? original.stateCode ?? this.selectedClient.stateCode : this.selectedClient.stateCode;
+    return this.supplierStateCode === clientState;
   }
 
   loadClients(): void {
@@ -245,6 +273,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
     this.lockedStatus = null;
     this.selectedClient = null;
     this.originalInvoiceDate = null;
+    this.originalInvoice = null;
     this.financialYear = this.minInvoiceDate = this.maxInvoiceDate = '';
     this.loadingInvoice = !!id;
     const today = new Date();
@@ -285,6 +314,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
             remarks: inv.remarks || '',
           });
           this.selectedClient = inv.billingClient || null;
+          this.originalInvoice = inv;
           this.form.get('invoiceType')!.disable();
           this.financialYear = inv.financialYear;
           this.originalInvoiceDate = inv.invoiceDate;
@@ -368,7 +398,11 @@ export class BillingCreateInvoiceComponent implements OnInit {
     const amount = Number(((item.quantity || 0) * (item.rate || 0)).toFixed(2));
     const taxable = Number((amount - (item.discountAmount || 0)).toFixed(2));
     const gstRate = item.isReimbursement ? 0 : (item.gstRate || 0);
-    const gst = Number(((taxable * gstRate) / 100).toFixed(2));
+    const intraState = this.intraState;
+    if (gstRate > 0 && intraState === null) return '—';
+    const gst = intraState
+      ? (2 * Math.round((Math.round(taxable * 100) * Math.round(gstRate * 100)) / 20000)) / 100
+      : Number(((taxable * gstRate) / 100).toFixed(2));
     return (taxable + gst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
@@ -378,6 +412,10 @@ export class BillingCreateInvoiceComponent implements OnInit {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       this.saveError = 'Check the invoice date and required line-item values.';
+      return;
+    }
+    if (this.intraState === null) {
+      this.saveError = 'Select a client and wait for supplier tax settings before saving.';
       return;
     }
     this.saving = true;
