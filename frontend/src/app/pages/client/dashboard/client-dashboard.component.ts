@@ -25,8 +25,6 @@ import {
   LegitxQueueItem,
   LegitxToggle,
 } from './legitx-dashboard.dto';
-import { AiRiskApi, AiRiskBranchResponse } from '../../../core/api/ai-risk.api';
-import { AiRiskScoreComponent } from '../../../shared/ui/ai-risk-score/ai-risk-score.component';
 import { BranchAuditKpiComponent } from '../../../shared/ui/branch-audit-kpi/branch-audit-kpi.component';
 import { KpiTileComponent } from '../../../shared/ui';
 import {
@@ -55,7 +53,7 @@ type ChartKey =
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-client-dashboard',
-  imports: [LicenceAlertsComponent,IconComponent, CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, KpiTileComponent],
+  imports: [LicenceAlertsComponent,IconComponent, CommonModule, FormsModule, RouterModule, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, KpiTileComponent],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-dashboard.component.scss'],
 })
@@ -95,7 +93,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   // ── AI Risk Assessment state ──
   branchRiskLoading = false;
   branchRiskError = '';
-  branchRiskOverview: AiRiskBranchResponse[] = [];
+  branchRiskOverview: Array<{ branchId: string; branchName: string; riskScore: number; riskLevel: string; inspectionProbability: number; completionPercent: number; overdueSla: number; highCritical: number }> = [];
   auditKpiFrom = '';
   auditKpiTo = '';
 
@@ -145,7 +143,6 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   private charts: Partial<Record<ChartKey, Chart>> = {};
   private viewReady = false;
   private loadSub?: Subscription;
-  private riskSub?: Subscription;
   private readonly destroy$ = new Subject<void>();
 
   // Safe fallbacks so template accessors stay non-null/defined
@@ -242,7 +239,6 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   constructor(
     private legitx: LegitxDashboardService,
     private dashboard: DashboardService,
-    private aiRisk: AiRiskApi,
     private complianceDocs: BranchComplianceDocService,
     private clientBranches: ClientBranchesService,
     private returnsService: ReturnsService,
@@ -264,7 +260,6 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
 
   ngOnDestroy(): void {
     this.loadSub?.unsubscribe();
-    this.riskSub?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
     this.destroyCharts();
@@ -325,7 +320,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
         )
         : of([]),
       companySummary: hasEmployeeCompliance
-        ? this.clientBranches.getComplianceSummary(monthStr).pipe(
+        ? this.clientBranches.getComplianceSummary(monthStr, branchIdParam).pipe(
           catchError(() => this.widgetFailure(null)),
         )
         : of(null),
@@ -407,7 +402,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
 
   private updateFilteredContractors(): void {
     if (this.filters.branchId === 'ALL') {
-      this.filteredContractorList = this.contractors;
+      this.filteredContractorList = Array.from(new Map(this.contractors.map(c => [String(c.id), c])).values());
     } else {
       this.filteredContractorList = this.contractors.filter(
         (c) => String(c.branchId) === String(this.filters.branchId),
@@ -464,6 +459,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   riskBadgeClass(level: string): string {
     switch (level?.toUpperCase()) {
       case 'LOW':      return 'badge-low';
+      case 'MODERATE':
       case 'MEDIUM':   return 'badge-medium';
       case 'HIGH':     return 'badge-high';
       case 'CRITICAL': return 'badge-critical';
@@ -523,51 +519,18 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   private loadBranchRiskOverview(): void {
-    this.riskSub?.unsubscribe();
-    if (!this.hasEmployeeComplianceModule) {
-      this.branchRiskOverview = [];
-      this.branchRiskError = '';
-      return;
-    }
-    if (this.filters.branchId !== 'ALL') {
-      this.branchRiskOverview = [];
-      return;
-    }
-    if (!this.branches.length) {
-      this.branchRiskOverview = [];
-      return;
-    }
-    this.branchRiskLoading = true;
-    this.branchRiskError = '';
+    // Use exactly the same snapshot as the company summary and export pack.
+    // An older backend without snapshot rows is unavailable, never a zero-risk fallback.
+    this.branchRiskLoading = false;
+    this.branchRiskOverview = this.companySummary?.items ?? (this.companySummary?.details ? [this.companySummary.details] : []);
+    this.branchRiskError = this.companySummary && (Array.isArray(this.companySummary.items) || 'details' in this.companySummary)
+      ? '' : 'Branch risk details are unavailable. Refresh after the update completes.';
+  }
 
-    const calls = this.branches.map(b =>
-      this.aiRisk.getBranchRisk(String(b.id), this.filters.year, this.filters.month).pipe(
-        catchError(() => of(null as AiRiskBranchResponse | null)),
-      ),
-    );
-
-    this.riskSub = forkJoin(calls)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => { this.branchRiskLoading = false; this.cdr.markForCheck(); }),
-      )
-      .subscribe({
-        next: (results) => {
-          this.branchRiskOverview = results
-            .filter((r): r is AiRiskBranchResponse => r !== null)
-            .map(r => ({
-            ...r,
-            mcdPercent: r.mcdPercent ?? r.inputs?.mcdPercent ?? 0,
-            contractorUploadPercentage: r.contractorUploadPercentage ?? r.inputs?.contractorUploadPercentage ?? 0,
-            auditNcCount: r.auditNcCount ?? ((r.inputs?.auditCriticalNC ?? 0) + (r.inputs?.auditHighNC ?? 0) + (r.inputs?.auditMediumNC ?? 0)),
-          })).sort((a, b) => b.riskScore - a.riskScore);
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.branchRiskError = 'Unable to load branch risk overview.';
-          this.cdr.markForCheck();
-        },
-      });
+  contractorOptionLabel(contractor: { name: string; branchId?: string | number }): string {
+    if (this.filters.branchId === 'ALL') return contractor.name;
+    const branch = this.branches.find(b => String(b.id) === String(contractor.branchId));
+    return branch ? contractor.name + ' — ' + (branch.branchName || branch.name || 'Branch') : contractor.name;
   }
 
   private renderAllCharts(): void {

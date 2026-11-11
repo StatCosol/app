@@ -1,3 +1,4 @@
+import { actualAuditSql } from '../../common/actual-records';
 /**
  * CRM Dashboard SQL Queries
  * Raw SQL with USER SCOPING enforced via crm_clients CTE
@@ -277,7 +278,7 @@ JOIN clients c ON c.id = a.client_id
 JOIN crm_clients cc ON cc.client_id = c.id
 LEFT JOIN client_branches b ON b.id = a.branch_id
 LEFT JOIN users u ON u.id = a.assigned_auditor_id
-WHERE a.status IN ('PLANNED','IN_PROGRESS')
+WHERE ${actualAuditSql()} AND a.status IN ('PLANNED','IN_PROGRESS')
   AND a.due_date IS NOT NULL
   AND a.due_date >= CURRENT_DATE
   AND a.due_date <= CURRENT_DATE + ($2 || ' days')::interval

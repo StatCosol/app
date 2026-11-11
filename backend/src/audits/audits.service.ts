@@ -1,3 +1,4 @@
+import { assertContractorAuditScope } from './contractor-audit-scope';
 import { StatutoryAuditEntryService } from './statutory-audit-entry.service';
 import { fieldworkScore } from './audit-fieldwork-report';
 import { requestAuditAction } from './audit-action-approval';
@@ -176,6 +177,7 @@ export class AuditsService implements OnModuleInit {
 
     const frequency = this.normalizeAndValidateFrequency(dto.frequency);
     const auditType = this.normalizeAndValidateAuditType(dto.auditType);
+    assertContractorAuditScope(auditType, dto.branchId, dto.contractorUserId);
 
     if (!dto.periodYear || !dto.periodCode?.trim()) {
       throw new BadRequestException('periodYear and periodCode required');
@@ -656,6 +658,13 @@ export class AuditsService implements OnModuleInit {
       ['COMPLETED', 'CLOSED'].includes(audit.status)
     ) {
       return this.reopenAuditForReaudit(user, auditId, notes);
+    }
+    if (targetStatus === 'IN_PROGRESS') {
+      assertContractorAuditScope(
+        audit.auditType,
+        audit.branchId,
+        audit.contractorUserId,
+      );
     }
     const currentStatus = String(audit.status || '').toUpperCase();
     const allowed = AuditsService.ALLOWED_TRANSITIONS[currentStatus] ?? [];
