@@ -433,6 +433,7 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
   get filteredNavGroups(): SidebarGroup[] { return filterNavigation(this.navGroups, this.searchTerm); }
 
   private readonly destroy$ = new Subject<void>();
+  private manualGroupUrl: string | null = null;
 
   constructor(
     private router: Router,
@@ -466,6 +467,7 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
   }
 
   toggleGroup(group: SidebarGroup): void {
+    this.manualGroupUrl = this.router.url;
     const willExpand = !group.expanded;
     this.navGroups.forEach(g => g.expanded = false);
     group.expanded = willExpand;
@@ -493,6 +495,10 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
   }
 
   private syncExpandedWithRoute(url: string): void {
+    // A late completion for the page already displayed must not undo a click.
+    // A different destination still opens its own navigation section.
+    if (this.manualGroupUrl === url) return;
+    this.manualGroupUrl = null;
     const active = activeNavigationItem(this.navigationUrl(url), this.navGroups.flatMap(group => group.items));
     let matched = false;
     this.navGroups.forEach(g => {
