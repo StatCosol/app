@@ -77,6 +77,14 @@ export class PayrollReportsService {
     qb: { andWhere: (sql: string, params?: any) => any },
     scope: { clientId?: string; clientIds?: string[] },
   ): void {
+    // Operational exports must never treat an approved synthetic run as payable.
+    // Match explicit fixture markers, not ordinary words such as "test engineer".
+    const testMarker =
+      '^[[:space:]]*(SYNTHETIC TEST ONLY|TEST ONLY)([[:space:]:_-]|$)|^[[:space:]]*TEST[_-]';
+    qb.andWhere(
+      "NOT (COALESCE(r.title, '') ~* :payrollTestMarker OR COALESCE(r.approvalComments, '') ~* :payrollTestMarker)",
+      { payrollTestMarker: testMarker },
+    );
     if (scope.clientId) {
       qb.andWhere('re.clientId = :clientId', { clientId: scope.clientId });
       return;
