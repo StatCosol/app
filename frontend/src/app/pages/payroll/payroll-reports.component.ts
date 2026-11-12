@@ -27,7 +27,7 @@ interface ReportCard {
     <div class="page">
       <ui-page-header
         title="Payroll Reports"
-        description="Generate and download payroll reports for compliance and record-keeping.">
+        description="Download approved actual payroll reports. Runs explicitly marked as test data are excluded from these operational exports.">
       </ui-page-header>
 
       <div class="bg-white rounded-2xl border border-gray-100 shadow-card p-4 mb-6">
