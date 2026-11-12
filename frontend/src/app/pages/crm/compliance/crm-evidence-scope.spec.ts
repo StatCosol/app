@@ -22,4 +22,3 @@ describe('CRM evidence scope switching', () => {
     component.destroy$.next();
   });
 });
-
