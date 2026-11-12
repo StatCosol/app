@@ -1,3 +1,7 @@
+import {
+  PENDING_CONTRACTOR_REVIEWS_FROM,
+  PENDING_CONTRACTOR_REVIEWS_COUNT,
+} from './sql/pending-contractor-reviews.sql';
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { DbService } from '../common/db/db.service';
 import { normalizeDateFilters, normalizePaging } from '../common/utils/filters';
@@ -240,16 +244,9 @@ export class CrmDashboardService {
            b.branchname      AS "branchName",
            c.id              AS "clientId",
            c.client_name     AS "clientName"
-         FROM contractor_documents cd
-         INNER JOIN client_branches b ON b.id = cd.branch_id
-         INNER JOIN clients c ON c.id = b.clientid
-         INNER JOIN client_assignments_current cac
-           ON cac.client_id = c.id
-           AND cac.assigned_to_user_id = $1
-           AND cac.assignment_type = 'CRM'
-         WHERE cd.status IN ('UPLOADED', 'PENDING_REVIEW')
+         ${PENDING_CONTRACTOR_REVIEWS_FROM}
            AND ($2::uuid IS NULL OR c.id = $2)
-         ORDER BY cd.created_at DESC
+         ORDER BY cd.created_at DESC, cd.id DESC
          LIMIT $3 OFFSET $4`,
         [crmUserId, f.clientId, p.limit, p.offset],
       );
@@ -265,7 +262,16 @@ export class CrmDashboardService {
 
   /** 8 KPI cards for the redesigned CRM dashboard */
   async getKpis(crmUserId: string): Promise<any> {
-    return this.db.one(CRM_DASHBOARD_KPI_SQL, [crmUserId]);
+    const [kpis, reviews] = await Promise.all([
+      this.db.one<Record<string, unknown>>(CRM_DASHBOARD_KPI_SQL, [crmUserId]),
+      this.db.one<{ count: number }>(PENDING_CONTRACTOR_REVIEWS_COUNT, [
+        crmUserId,
+      ]),
+    ]);
+    return {
+      ...kpis,
+      contractor_pending_review_count: Number(reviews?.count || 0),
+    };
   }
 
   /** Priority Today — top urgent items across all clients */

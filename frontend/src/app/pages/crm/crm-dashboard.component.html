@@ -55,10 +55,16 @@
         <p>Click to drilldown</p>
       </article>
 
-      <article class="kpi-card click" (click)="openReviewQueue()">
-        <h4>Pending Reviews</h4>
+      <article class="kpi-card">
+        <h4>Contractor Reviews</h4>
+        <div>{{ kpis.contractorPendingReviewCount ?? 0 }}</div>
+        <p>All periods · pending contractor documents below</p>
+      </article>
+
+      <article class="kpi-card click" (click)="openComplianceTracker('MCD')">
+        <h4>MCD Reviews</h4>
         <div>{{ kpis.pendingReviewCount }}</div>
-        <p>Open branch-doc review queue</p>
+        <p>Current month · submitted MCD items</p>
       </article>
 
       <article class="kpi-card bad click" (click)="setDueTab('OVERDUE')">
@@ -202,8 +208,8 @@
 
       <article class="panel">
         <div class="section-head">
-          <h3>Pending Compliance Docs</h3>
-          <span>Requires reviewer action</span>
+          <h3>Pending Contractor Documents</h3>
+          <span>All periods · showing {{ pendingDocs.length }} of {{ kpis.contractorPendingReviewCount ?? 0 }}</span>
         </div>
         @if (!pendingDocs.length) {
 <ui-empty-state
