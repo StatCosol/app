@@ -12,9 +12,10 @@ const {
 } = require('../dist/src/common/actual-records');
 const db = new Client({
   host: '127.0.0.1',
-  port: 55439,
-  user: 'monthly_close_test',
-  database: 'postgres',
+  port: Number(process.env.AUTOMATION_TEST_PORT || 55439),
+  user: process.env.AUTOMATION_TEST_USER || 'monthly_close_test',
+  password: process.env.AUTOMATION_TEST_PASSWORD || undefined,
+  database: process.env.AUTOMATION_TEST_DATABASE || 'postgres',
 });
 const c = '11111111-1111-4111-8111-111111111111';
 const b = '22222222-2222-4222-8222-222222222222';

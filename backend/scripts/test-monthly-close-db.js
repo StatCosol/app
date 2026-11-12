@@ -18,7 +18,7 @@ async function main() {
       CREATE TEMP TABLE branch_contractor (client_id uuid, branch_id uuid, contractor_user_id uuid);
       CREATE TEMP TABLE contractor_required_documents (id uuid, client_id uuid, branch_id uuid, contractor_user_id uuid, doc_type text, is_required boolean, updated_at timestamptz DEFAULT now());
       CREATE TEMP TABLE users (id uuid, name text);
-      CREATE TEMP TABLE contractor_documents (id uuid, client_id uuid, branch_id uuid, contractor_user_id uuid, doc_type text, doc_month text, status text, file_path text, expiry_date date, created_at timestamptz);
+      CREATE TEMP TABLE contractor_documents (id uuid, client_id uuid, branch_id uuid, contractor_user_id uuid, doc_type text, doc_month text, status text, file_path text, expiry_date date, created_at timestamptz, file_name text, title text);
       CREATE TEMP TABLE compliance_return_master (return_code text PRIMARY KEY, return_name text);
       CREATE TEMP TABLE compliance_returns (id uuid, client_id uuid, branch_id uuid, return_type text, period_year int, period_month int, status text, due_date date, crm_owner text, ack_file_path text, filed_date date, is_deleted boolean DEFAULT false);
     `);
@@ -42,7 +42,7 @@ async function main() {
       await db.query('INSERT INTO contractor_required_documents VALUES (gen_random_uuid(),$1,NULL,$2,$3,true,now())',[c,v,type]);
     }
     await db.query('INSERT INTO contractor_required_documents VALUES (gen_random_uuid(),$1,$2,$3,\'NOT_REQUIRED\',false,now())',[c,b,v]);
-    await db.query(`INSERT INTO contractor_documents VALUES
+    await db.query(`INSERT INTO contractor_documents (id,client_id,branch_id,contractor_user_id,doc_type,doc_month,status,file_path,expiry_date,created_at) VALUES
       (gen_random_uuid(),$1,$2,$3,'WAGE','2026-09','APPROVED','older.pdf',NULL,'2026-09-01'),
       (gen_random_uuid(),$1,$2,$3,'WAGE','2026-09','PENDING_REVIEW','replacement.pdf',NULL,'2026-09-02'),
       (gen_random_uuid(),$1,$2,$3,'CHALLAN','2026-08','APPROVED','previous-month.pdf',NULL,'2026-09-01'),
@@ -70,6 +70,18 @@ async function main() {
     assert.equal(by.returns.outstanding,2);
     assert.ok(by.returns.issues.some(i => i.title === 'Annual return filing'));
     assert.ok(by.returns.issues.find(i => i.title === 'Missing receipt').reason.includes('acknowledgment'));
+    // Approved synthetic evidence must not fill a missing actual requirement or
+    // supersede the latest actual submission during correction/review transitions.
+    const actualDocuments = by.documents;
+    await db.query(`INSERT INTO contractor_documents
+      (id,client_id,branch_id,contractor_user_id,doc_type,doc_month,status,file_path,expiry_date,created_at,file_name,title)
+      VALUES (gen_random_uuid(),$1,$2,$3,'CHALLAN','2026-09','APPROVED','test-proof.pdf',NULL,'2026-09-30','TEST-ONLY-bank.pdf','Synthetic evidence'),
+             (gen_random_uuid(),$1,$2,$3,'WAGE','2026-09','APPROVED','test-wage.pdf',NULL,'2026-09-30','proof.pdf','SYNTHETIC TEST ONLY correction')`,[c,b,v]);
+    for (const status of ['PENDING_REVIEW','REJECTED','PENDING_REVIEW','APPROVED']) {
+      await db.query("UPDATE contractor_documents SET status=$1 WHERE file_name='TEST-ONLY-bank.pdf' OR title='SYNTHETIC TEST ONLY correction'",[status]);
+      const reviewed = await service.get(user,dto);
+      assert.deepEqual(reviewed.stages.find(s => s.area === 'documents'),actualDocuments);
+    }
     // A blank file reference never counts as evidence, even when approved.
     await db.query("UPDATE contractor_documents SET status='APPROVED',file_path='  ',expiry_date=NULL WHERE client_id=$1 AND doc_type='WAGE'",[c]);
     result = await service.get(user,dto);
@@ -93,7 +105,7 @@ async function main() {
     await db.query("INSERT INTO attendance_records VALUES ($1,$2,'2026-09-01',NULL)",[c,b]);
     await db.query("INSERT INTO branch_contractor VALUES ($1,$2,$3)",[c,b,v]);
     await db.query("INSERT INTO contractor_required_documents VALUES (gen_random_uuid(),$1,$2,$3,'WAGE',true,now())",[c,b,v]);
-    await db.query("INSERT INTO contractor_documents VALUES (gen_random_uuid(),$1,$2,$3,'WAGE','2026-09',NULL,'wage.pdf',NULL,now())",[c,b,v]);
+    await db.query("INSERT INTO contractor_documents (id,client_id,branch_id,contractor_user_id,doc_type,doc_month,status,file_path,expiry_date,created_at) VALUES (gen_random_uuid(),$1,$2,$3,'WAGE','2026-09',NULL,'wage.pdf',NULL,now())",[c,b,v]);
     await db.query("INSERT INTO compliance_returns (id,client_id,branch_id,return_type,period_year,period_month,status,due_date,ack_file_path,filed_date) VALUES (gen_random_uuid(),$1,$2,'Missing status',2026,9,NULL,'2026-09-15','ack.pdf','2026-09-14')",[c,b]);
     result = await service.get(user,dto);
     for (const area of ['attendance','documents','returns']) {

@@ -31,7 +31,7 @@ async function main(){
       CREATE UNLOGGED TABLE branch_contractor(client_id uuid,branch_id uuid,contractor_user_id uuid);
       CREATE UNLOGGED TABLE contractor_required_documents(id uuid,client_id uuid,branch_id uuid,contractor_user_id uuid,doc_type text,is_required boolean,updated_at timestamptz);
       CREATE UNLOGGED TABLE users(id uuid,name text);
-      CREATE UNLOGGED TABLE contractor_documents(id uuid,client_id uuid,branch_id uuid,contractor_user_id uuid,doc_type text,doc_month text,status text,file_path text,expiry_date date,created_at timestamptz);
+      CREATE UNLOGGED TABLE contractor_documents(id uuid,client_id uuid,branch_id uuid,contractor_user_id uuid,doc_type text,doc_month text,status text,file_path text,expiry_date date,created_at timestamptz, file_name text, title text);
       CREATE UNLOGGED TABLE compliance_returns(id uuid,client_id uuid,branch_id uuid,return_type text,period_year int,period_month int,status text,due_date date,crm_owner text,ack_file_path text,filed_date date,is_deleted boolean);
       CREATE INDEX att_client ON attendance_records(client_id);CREATE INDEX att_branch ON attendance_records(branch_id);CREATE INDEX att_date ON attendance_records(date);CREATE INDEX att_approval ON attendance_records(approval_status);
       CREATE INDEX cd_client ON contractor_documents(client_id);CREATE INDEX cd_branch ON contractor_documents(branch_id);CREATE INDEX cd_contractor ON contractor_documents(contractor_user_id);CREATE INDEX cd_month ON contractor_documents(doc_month);CREATE INDEX cd_period ON contractor_documents(contractor_user_id,client_id,doc_month);CREATE INDEX cd_created ON contractor_documents(created_at);
@@ -41,7 +41,7 @@ async function main(){
     await pool.query(`INSERT INTO branch_contractor SELECT $1::uuid,('00000000-0000-4000-8000-'||lpad((1001+(v-1)/20)::text,12,'0'))::uuid,('00000000-0000-4000-8000-'||lpad((100001+v)::text,12,'0'))::uuid FROM generate_series(1,$2::int*20)v`,[clientId,branches]);
     await pool.query(`INSERT INTO users SELECT contractor_user_id,'Synthetic contractor' FROM branch_contractor;
       INSERT INTO contractor_required_documents SELECT gen_random_uuid(),client_id,branch_id,contractor_user_id,'DOC_'||d,true,now() FROM branch_contractor CROSS JOIN generate_series(1,5)d;
-      INSERT INTO contractor_documents SELECT gen_random_uuid(),client_id,branch_id,contractor_user_id,'DOC_'||d,'2026-09',CASE WHEN d=1 AND v=3 THEN 'PENDING' ELSE 'APPROVED' END,'synthetic.pdf',NULL,'2026-09-01'::timestamptz+(v||' days')::interval FROM branch_contractor CROSS JOIN generate_series(1,5)d CROSS JOIN generate_series(1,3)v;
+      INSERT INTO contractor_documents (id,client_id,branch_id,contractor_user_id,doc_type,doc_month,status,file_path,expiry_date,created_at) SELECT gen_random_uuid(),client_id,branch_id,contractor_user_id,'DOC_'||d,'2026-09',CASE WHEN d=1 AND v=3 THEN 'PENDING' ELSE 'APPROVED' END,'synthetic.pdf',NULL,'2026-09-01'::timestamptz+(v||' days')::interval FROM branch_contractor CROSS JOIN generate_series(1,5)d CROSS JOIN generate_series(1,3)v;
       INSERT INTO payroll_runs SELECT gen_random_uuid(),client_id,branch_id,2026,9,'APPROVED',now() FROM branch_contractor GROUP BY client_id,branch_id;
       INSERT INTO compliance_returns SELECT gen_random_uuid(),client_id,branch_id,'Synthetic return',2026,9,'APPROVED','2026-09-15',NULL,'ack.pdf','2026-09-14',false FROM branch_contractor GROUP BY client_id,branch_id;
     `);
