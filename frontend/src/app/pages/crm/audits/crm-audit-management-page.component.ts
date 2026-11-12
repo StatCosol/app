@@ -1,4 +1,5 @@
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
+import { contractorScopeReadiness } from '../../../shared/audit-planning-readiness';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -345,6 +346,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     const closure = this.currentClosure;
     if (!audit) return [];
     return [
+      ...contractorScopeReadiness(audit),
       {
         label: 'Client scope linked',
         ok: !!audit.clientId,
@@ -968,6 +970,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   private isAuditReady(row: AuditRow): boolean {
     return !!(
+      contractorScopeReadiness(row).every(item => item.ok) &&
       row.clientId &&
       row.periodYear &&
       row.periodCode &&

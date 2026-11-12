@@ -31,6 +31,18 @@ export function actualContractorDocumentSql(alias = ''): string {
     )
     .join(' AND ');
 }
+/** Unit-document lists exclude only explicit fixture labels; detail access is unchanged. */
+export function actualUnitDocumentSql(alias = 'd'): string {
+  return ['file_name', 'remarks']
+    .map(
+      (name) =>
+        `COALESCE(${column(alias, name)}, '') !~* '^(TEST[ _-]ONLY|SYNTHETIC[ _-]TEST[ _-]ONLY)([ .:_-]|$)'`,
+    )
+    .join(' AND ');
+}
+export function actualAuditObservationSql(alias = 'o'): string {
+  return `COALESCE(${column(alias, 'observation')}, '') !~* '^(TEST[ _-]ONLY|SYNTHETIC[ _-]TEST[ _-]ONLY)([ .:_-]|$)' AND COALESCE(${column(alias, 'observation')}, '') !~* '^TEST-BRANCH-UI-[0-9]{8}.*Synthetic correction workflow check'`;
+}
 export function actualAuditSql(alias = 'a'): string {
   const codes = LEGACY_TEST_AUDIT_CODES.map((code) => "'" + code + "'").join(
     ',',

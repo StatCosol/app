@@ -4,6 +4,7 @@ const {PGlite} = require('./auditxpert-test-db.cjs');
 const {AuditAuditorDashboardService} = require('../dist/src/audits/audit-auditor-dashboard.service');
 const {CrmDashboardService} = require('../dist/src/crm/crm-dashboard.service');
 const {CRM_DASHBOARD_KPI_SQL} = require('../dist/src/crm/sql/crm-dashboard.sql');
+const {actualUnitDocumentSql, actualAuditObservationSql} = require('../dist/src/common/actual-records');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 (async()=>{
  const db=new PGlite();
@@ -46,6 +47,22 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
   assert.equal((await crm.getPendingDocuments(id(7),{limit:1})).length,1);
   assert.equal((await crm.getPendingDocuments(id(7),{clientId:id(2)})).length,0);
   assert.equal((await crm.getKpis(id(8))).contractor_pending_review_count,0);
+  await db.exec('CREATE TABLE fixture_unit_docs(id int, file_name text, remarks text); CREATE TABLE fixture_observations(id int, observation text);');
+  for (const row of [
+    [1,'Test certificate.pdf',null], [2,'latest.pdf','Discuss test results'],
+    [3,'TEST-ONLY-20261014-original-licence.pdf',null],
+    [4,'renewal.pdf','TEST ONLY synthetic renewal'],
+    [5,null,null],
+  ]) await db.query('INSERT INTO fixture_unit_docs VALUES($1,$2,$3)',row);
+  assert.deepEqual((await db.query(`SELECT id FROM fixture_unit_docs d WHERE ${actualUnitDocumentSql('d')} ORDER BY id`)).rows.map(r=>r.id),[1,2,5]);
+  for (const row of [
+    [1,'Test certificate is missing'],
+    [2,'TEST-BRANCH-UI-20261026 — Synthetic correction workflow check. Not an actual compliance finding.'],
+    [3,'SYNTHETIC TEST ONLY correction'], [4,null],
+  ]) await db.query('INSERT INTO fixture_observations VALUES($1,$2)',row);
+  assert.deepEqual((await db.query(`SELECT id FROM fixture_observations o WHERE ${actualAuditObservationSql('o')} ORDER BY id`)).rows.map(r=>r.id),[1,4]);
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM fixture_unit_docs')).rows[0].n,5);
+  console.log('PASS: unit-document and observation SQL exclude explicit fixtures, preserve ordinary test certificates/null metadata, and leave evidence rows intact.');
   console.log('PASS: all Auditor dashboard sources exclude fixtures, preserve real future audits and enforce ownership; CRM queue/count match across historical periods, pagination, duplicate assignments and test markers.');
  }finally{await db.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
