@@ -23,6 +23,15 @@ function column(alias: string, name: string): string {
     throw new Error('Invalid SQL alias');
   return alias ? alias + '.' + name : name;
 }
+export function isTestContractorDocument(
+  fileName: string | null | undefined,
+  title: string | null | undefined,
+): boolean {
+  return (
+    /^TEST([_-]| ONLY([ _-]|$))/i.test(fileName || '') ||
+    /^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)/i.test(title || '')
+  );
+}
 export function actualContractorDocumentSql(alias = ''): string {
   return ['file_name', 'title']
     .map(

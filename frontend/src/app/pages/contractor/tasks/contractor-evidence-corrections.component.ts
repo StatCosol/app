@@ -43,7 +43,7 @@ export class ContractorEvidenceCorrectionsComponent implements OnChanges,OnDestr
   this.selected=null;this.file=null;this.notes='';this.message='';this.load();
  }
  ngOnDestroy(){this.read?.unsubscribe();this.write?.unsubscribe();}
- get filtered(){const q=this.search.trim().toLowerCase();return this.docs.filter(d=>(/^TEST([ _-]|$)/i.test(d.fileName||'') === (this.recordScope==='TEST'))).filter(d=>!q || `${d.fileName} ${d.docType} ${d.reviewNotes||''}`.toLowerCase().includes(q));}
+ get filtered(){const q=this.search.trim().toLowerCase();return this.docs.filter(d=>((/^TEST([_-]| ONLY([ _-]|$))/i.test(d.fileName||'') || /^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)/i.test(d.title||'')) === (this.recordScope==='TEST'))).filter(d=>!q || `${d.fileName} ${d.docType} ${d.reviewNotes||''}`.toLowerCase().includes(q));}
  get canSubmit(){return !!this.selected && !!this.file && this.notes.trim().length>=10 && this.notes.trim().length<=2000 && !this.busy;}
  load(){this.read?.unsubscribe();this.loading=true;this.error='';this.read=this.api.getContractorDocuments({month:this.month,...(this.branchId?{branchId:this.branchId}:{})}).pipe(finalize(()=>{this.loading=false;this.cdr.markForCheck();})).subscribe({next:rows=>{this.docs=(Array.isArray(rows)?rows:rows?.data||[]).filter((d:any)=>/BANK|PAYMENT_PROOF|CONTRACTOR_BILL|INVOICE|CREDIT_NOTE|DEBIT_NOTE/i.test(String(d.docType).replace(/[^a-z0-9]+/gi,'_')));this.cdr.markForCheck();},error:e=>{this.docs=[];this.error=e?.error?.message||'Could not load financial evidence. Refresh and try again.';this.cdr.markForCheck();}});}
  select(doc:any){if(this.busy || doc.status!=='REJECTED')return;this.selected=doc;this.file=null;this.notes='';this.error='';this.message='';}

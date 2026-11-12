@@ -5,6 +5,14 @@ import { ContractorProfileApiService } from '../../../core/contractor-profile-ap
 const doc={id:'doc',docType:'BANK_PAYMENT_PROOF',fileName:'proof.xlsx',filePath:'old.xlsx',status:'REJECTED',reviewedAt:'2026-10-19T09:00:00Z',reviewNotes:'Correct reference'};
 function setup(){const api={getContractorDocuments:vi.fn(()=>of([doc])),resubmitEvidence:vi.fn(()=>of({status:'PENDING_REVIEW'}))};const c=new ContractorEvidenceCorrectionsComponent(api as any,{markForCheck:vi.fn()} as any);c.month='2026-05';c.branchId='branch';return {c,api};}
 describe('financial evidence corrections',()=>{
+ it('keeps title-labelled legacy fixtures in test scope and genuine test certificates in actual scope',()=>{
+  const {c}=setup();
+  const legacy={...doc,id:'legacy',title:'SYNTHETIC TEST ONLY correction'};
+  const certificate={...doc,id:'actual',fileName:'Test certificate.pdf'};
+  c.docs=[legacy,certificate];
+  expect(c.filtered.map(d=>d.id)).toEqual(['actual']);
+  c.recordScope='TEST';expect(c.filtered.map(d=>d.id)).toEqual(['legacy']);
+ });
  it.each(['success','failure'])('ignores an old resubmission %s after changing branch and month',outcome=>{
   const {c,api}=setup();const pending=new Subject<any>();
   api.resubmitEvidence.mockReturnValue(pending);

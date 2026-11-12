@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { CrmContractorDocumentsApi } from '../../../core/api/crm-contractor-documents.api';
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -39,6 +39,13 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
       <ui-client-context-strip [inline]="true"></ui-client-context-strip>
     </ui-page-header>
 
+    <label class="block text-sm mb-4">Evidence records
+      <select aria-label="Evidence records" [(ngModel)]="recordScope" (ngModelChange)="changeRecordScope()"
+        [disabled]="loading || processing.size > 0" class="border rounded-lg px-3 py-2 ml-2">
+        <option value="ACTUAL">Actual records</option><option value="TEST">Test records only</option>
+      </select>
+    </label>
+    @if (recordScope === 'TEST') { <p role="status">TEST DATA ONLY — synthetic evidence, excluded from actual totals.</p> }
     <!-- KPI Cards -->
     @if (kpis) {
 <div class="kpi-strip">
@@ -232,6 +239,9 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 })
 export class CrmDocumentsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private documentRead?: Subscription;
+  private documentKpiRead?: Subscription;
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
   documents: any[] = [];
   filtered: any[] = [];
   loading = true;
@@ -274,17 +284,24 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  changeRecordScope(): void {
+    this.reviewingDoc = null; this.documents = []; this.filtered = []; this.kpis = null;
+    this.loadKpis(); this.loadDocuments();
+  }
+
   private loadKpis(): void {
-    this.api.kpis().pipe(takeUntil(this.destroy$)).subscribe({
+    this.documentKpiRead?.unsubscribe();
+    this.documentKpiRead = this.api.kpis(this.recordScope).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => { this.kpis = data; this.cdr.detectChanges(); },
       error: () => {},
     });
   }
 
   private loadDocuments(): void {
+    this.documentRead?.unsubscribe();
     this.loading = true;
     const clientId = this.route.snapshot.paramMap.get('clientId') || '';
-    this.api.list({ clientId }).pipe(
+    this.documentRead = this.api.list({ clientId, recordScope: this.recordScope }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({

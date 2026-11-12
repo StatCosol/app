@@ -52,6 +52,15 @@
     </div>
 }
 
+    <label class="block text-sm mb-4">Contractor evidence records
+      <select aria-label="Contractor evidence records" [(ngModel)]="docFilters.recordScope"
+        [disabled]="docLoading || !!reviewingDocId" (ngModelChange)="onDocumentScopeChange()" class="border rounded-lg px-3 py-2 ml-2">
+        <option value="ACTUAL">Actual records</option><option value="TEST">Test records only</option>
+      </select>
+    </label>
+    @if (docFilters.recordScope === 'TEST') {
+      <p role="status" class="text-amber-800 mb-4">TEST DATA ONLY — contractor counts and review actions below apply to synthetic evidence.</p>
+    }
     <!-- KPI Chips -->
     @if (!routeClientId) {
     <div class="flex flex-wrap gap-3 mb-6">

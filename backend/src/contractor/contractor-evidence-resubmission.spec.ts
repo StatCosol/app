@@ -182,3 +182,22 @@ it('retains the explicit test classification during correction', async () => {
   );
   expect(docs.save).not.toHaveBeenCalled();
 });
+it('allows title-labelled legacy test evidence to be corrected while retaining test scope', async () => {
+  const { c } = setup({ ...original, title: 'SYNTHETIC TEST ONLY bank proof' });
+  await expect(
+    c.contractorReupload(user, 'doc', body, {
+      ...file,
+      originalname: 'TEST-ONLY-corrected.xlsx',
+    }),
+  ).resolves.toMatchObject({ status: 'PENDING_REVIEW' });
+});
+it('rejects stripping both filename and title test markers during correction', async () => {
+  const { c, docs } = setup({
+    ...original,
+    title: 'SYNTHETIC TEST ONLY bank proof',
+  });
+  await expect(
+    c.contractorReupload(user, 'doc', { ...body, title: 'Actual proof' }, file),
+  ).rejects.toThrow('Keep test evidence separate');
+  expect(docs.save).not.toHaveBeenCalled();
+});
