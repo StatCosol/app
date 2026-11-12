@@ -1,3 +1,4 @@
+import { actualAuditSql } from '../common/actual-records';
 import { AuditorSummaryQueryDto } from '../auditor/dto/auditor-dashboard-query.dto';
 import { normalizeDateFilters } from '../common/utils/filters';
 import {
@@ -154,7 +155,7 @@ export class AuditAuditorDashboardService {
          COUNT(*) FILTER (WHERE status = 'CORRECTION_PENDING')::int AS "correctionPending",
          COUNT(*) FILTER (WHERE status = 'CLOSED')::int AS "closed"
        FROM audits
-       WHERE assigned_auditor_id = $1 AND ($2::uuid IS NULL OR client_id = $2)
+       WHERE ${actualAuditSql('')} AND assigned_auditor_id = $1 AND ($2::uuid IS NULL OR client_id = $2)
          AND ($3::date IS NULL OR due_date >= $3)
          AND ($4::date IS NULL OR due_date <= $4)
          AND ($5::text IS NULL OR audit_type = $5) AND status != 'CANCELLED'`,
@@ -195,7 +196,7 @@ export class AuditAuditorDashboardService {
        JOIN clients c ON c.id = a.client_id
        LEFT JOIN client_branches cb ON cb.id = a.branch_id
        LEFT JOIN users cu ON cu.id = a.contractor_user_id
-       WHERE a.assigned_auditor_id = $1 AND ($2::uuid IS NULL OR a.client_id = $2)
+       WHERE ${actualAuditSql()} AND a.assigned_auditor_id = $1 AND ($2::uuid IS NULL OR a.client_id = $2)
          AND ($3::date IS NULL OR a.due_date >= $3)
          AND ($4::date IS NULL OR a.due_date <= $4)
          AND ($5::text IS NULL OR a.audit_type = $5)
@@ -227,7 +228,7 @@ export class AuditAuditorDashboardService {
        JOIN clients c ON c.id = a.client_id
        LEFT JOIN client_branches cb ON cb.id = a.branch_id
        LEFT JOIN users cu ON cu.id = a.contractor_user_id
-       WHERE a.assigned_auditor_id = $1 AND ($2::uuid IS NULL OR a.client_id = $2)
+       WHERE ${actualAuditSql()} AND a.assigned_auditor_id = $1 AND ($2::uuid IS NULL OR a.client_id = $2)
          AND ($3::date IS NULL OR a.due_date >= $3)
          AND ($4::date IS NULL OR a.due_date <= $4)
          AND ($5::text IS NULL OR a.audit_type = $5)
