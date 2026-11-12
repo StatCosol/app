@@ -7,25 +7,25 @@
 
   <!-- Filter Bar -->
   <div class="filter-bar">
-    <select id="cbdr-selected-frequency" name="selectedFrequency" class="filter-select" [(ngModel)]="selectedFrequency" (change)="load()">
+    <select aria-label="Frequency" id="cbdr-selected-frequency" name="selectedFrequency" class="filter-select" [(ngModel)]="selectedFrequency" (change)="load()">
       @for (f of frequencies; track f) {
 <option [ngValue]="f.value">{{ f.label }}</option>
 }
     </select>
 
-    <select id="cbdr-selected-month" name="selectedMonth" class="filter-select" [(ngModel)]="selectedMonth" (change)="load()">
+    <select aria-label="Month (monthly filings only)" [disabled]="selectedFrequency !== 'MONTHLY'" id="cbdr-selected-month" name="selectedMonth" class="filter-select" [(ngModel)]="selectedMonth" (change)="load()">
       @for (m of months; track m) {
 <option [ngValue]="m.value">{{ m.label }}</option>
 }
     </select>
 
-    <select id="cbdr-selected-year" name="selectedYear" class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
+    <select aria-label="Year" id="cbdr-selected-year" name="selectedYear" class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
       @for (y of years; track y) {
 <option [ngValue]="y">{{ y }}</option>
 }
     </select>
 
-    <select id="cbdr-selected-status" name="selectedStatus" class="filter-select" [(ngModel)]="selectedStatus" (change)="load()">
+    <select aria-label="Status" id="cbdr-selected-status" name="selectedStatus" class="filter-select" [(ngModel)]="selectedStatus" (change)="load()">
       @for (s of statuses; track s) {
 <option [ngValue]="s.value">{{ s.label }}</option>
 }

@@ -285,13 +285,14 @@ export async function generatePayslipPdfBuffer(
       const pfAmt = cv['PF_EMP'] ?? 0;
       const esiAmt = cv['ESI_EMP'] ?? 0;
       const ptAmt = cv['PT'] ?? 0;
+      const lwfAmt = cv['LWF_EMP'] ?? 0;
       const pfErFromEmpAmt = cv['PF_ER_FROM_EMP'] ?? 0;
       const otherDeductions = cv['OTHER_DEDUCTIONS'] ?? 0;
       const otherDeductionsLabel = input.header.otherDeductionsNote
         ? `Other Deductions (${input.header.otherDeductionsNote})`
         : 'Other Deductions';
       const totalDeduction =
-        pfAmt + esiAmt + ptAmt + pfErFromEmpAmt + otherDeductions;
+        pfAmt + esiAmt + ptAmt + lwfAmt + pfErFromEmpAmt + otherDeductions;
       const netPay = cv['NET_PAY'] ?? gross + otAmount - totalDeduction;
 
       // ── Draw Table ──
@@ -368,6 +369,11 @@ export async function generatePayslipPdfBuffer(
         tY,
       );
       tY += rowHeight;
+
+      if (lwfAmt > 0) {
+        drawRow('', '', 'LWF', formatCurrency(lwfAmt), tY);
+        tY += rowHeight;
+      }
 
       // Att. Bonus row — paired with PF Employer if applicable
       if (attBonus > 0 || pfErFromEmpAmt > 0) {
@@ -463,9 +469,10 @@ export async function generatePayslipPdfBuffer(
       // employee's salary, so we do NOT show it again as an employer contribution.
       const pfEr = cv['PF_ER'] ?? 0;
       const esiEr = cv['ESI_ER'] ?? 0;
+      const lwfEr = cv['LWF_ER'] ?? 0;
       const pfErFromEmp = cv['PF_ER_FROM_EMP'] ?? 0;
       const showPfEr = pfEr > 0 && pfErFromEmp === 0;
-      if (showPfEr || esiEr > 0) {
+      if (showPfEr || esiEr > 0 || lwfEr > 0) {
         doc
           .font('Helvetica-Bold')
           .fontSize(10)
@@ -484,6 +491,13 @@ export async function generatePayslipPdfBuffer(
             .text(`ESI Employer: ${formatCurrency(esiEr)}`, startX, doc.y);
           doc.moveDown(0.3);
         }
+      }
+
+      if (lwfEr > 0) {
+        doc
+          .fontSize(10)
+          .text(`LWF Employer: ${formatCurrency(lwfEr)}`, startX, doc.y);
+        doc.moveDown(0.3);
       }
 
       // ── Authorized Signatory ──
