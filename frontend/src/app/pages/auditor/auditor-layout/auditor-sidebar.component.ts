@@ -440,7 +440,9 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
     private sanitizer: DomSanitizer,
   ) {
     this.setNavData();
-    this.syncExpandedWithRoute(this.router.url);
+    // During route activation router.url can still be /login. Render the
+    // destination group immediately, avoiding a menu shift at NavigationEnd.
+    this.syncExpandedWithRoute(this.navigationUrl());
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
       takeUntil(this.destroy$),
@@ -457,7 +459,7 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['navGroupsInput'] || changes['collapsedLinksInput']) {
       this.setNavData();
-      this.syncExpandedWithRoute(this.router.url);
+      this.syncExpandedWithRoute(this.navigationUrl());
     }
   }
 
@@ -467,7 +469,7 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
   }
 
   toggleGroup(group: SidebarGroup): void {
-    this.manualGroupUrl = this.router.url;
+    this.manualGroupUrl = this.navigationUrl();
     const willExpand = !group.expanded;
     this.navGroups.forEach(g => g.expanded = false);
     group.expanded = willExpand;
@@ -484,8 +486,8 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
     }
   }
 
-  private navigationUrl(url = this.router.url): string {
-    return url;
+  private navigationUrl(url?: string): string {
+    return url ?? this.router.getCurrentNavigation()?.finalUrl?.toString() ?? this.router.url;
   }
   get visibleCollapsedLinks(): SidebarItem[] {
     return collapsedNavigationItems(this.navigationUrl(), this.collapsedLinks, this.navGroups.flatMap(group => group.items));
