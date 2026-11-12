@@ -170,7 +170,8 @@ interface ReportOption {
       }
 
       @if (report && !loading) {
-        <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <p class="text-sm text-slate-600">Taxable Value excludes lines marked as reimbursements. Reimbursements remain included in billed and outstanding amounts.</p>
+        <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           @for (card of summaryCards; track card.key) {
             <div class="bg-white rounded-xl border p-4 shadow-sm">
               <p class="text-xs text-slate-500">{{ card.label }}</p>
@@ -313,7 +314,6 @@ export class BillingGstReportComponent implements OnInit {
   get summaryCards(): Array<{ key: string; label: string; value: string }> {
     if (!this.report) return [];
     return Object.entries(this.report.summary)
-      .slice(0, 6)
       .map(([key, value]) => ({
         key,
         label: this.humanize(key),

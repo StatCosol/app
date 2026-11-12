@@ -7,6 +7,7 @@ export interface CrmKpis {
   assignedClientsCount: number;
   compliancePct: number;
   pendingReviewCount: number;
+  contractorPendingReviewCount?: number;
   reuploadRequiredCount: number;
   overdueCount: number;
   expiring30Count: number;

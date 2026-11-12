@@ -1,6 +1,6 @@
 <app-licence-alerts [branchId]="filters.branchId" />
 <div class="mx-4 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex flex-wrap items-center justify-between gap-3">
-  <div><strong class="text-emerald-950">What needs attention this month?</strong><p class="text-sm text-emerald-900">Review attendance, payroll approvals and missing evidence in one place.</p></div>
+  <div><strong class="text-emerald-950">What needs attention this month?</strong><p class="text-sm text-emerald-900">Review pending work and missing evidence for your subscribed services in one place.</p></div>
   <a routerLink="/client/monthly-close" class="compact-action font-semibold text-emerald-800 underline underline-offset-4" title="Open monthly close &rarr;" aria-label="Open monthly close &rarr;" data-action-label="Open monthly close &rarr;" data-action-icon="eye"><ui-icon name="eye" [size]="20" /></a>
 </div>
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -75,7 +75,7 @@
         <select id="cd-contractor-id" name="contractorId" class="filter-select" [(ngModel)]="filters.contractorId" (change)="onContractorChange()">
           <option value="ALL">All contractors</option>
           @for (c of filteredContractors(); track c) {
-<option [value]="c.id">{{ c.name }}</option>
+<option [value]="c.id">{{ contractorOptionLabel(c) }}</option>
 }
         </select>
       </label>
@@ -384,7 +384,7 @@
               </svg>
             </div>
             <div>
-              <h2 class="ai-risk-section__title">AI Risk Assessment</h2>
+              <h2 class="ai-risk-section__title">Compliance Risk Assessment</h2>
               <p class="ai-risk-section__sub">
                 {{ filters.branchId === 'ALL' ? 'Risk overview across all branches' : 'Branch-level compliance risk analysis' }}
                 &bull; {{ months[filters.month - 1]?.label }} {{ filters.year }}
@@ -397,11 +397,6 @@
         @if (selectedBranchId) {
 
           <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-4">
-            <app-ai-risk-score
-              [branchId]="selectedBranchId"
-              [year]="filters.year"
-              [month]="filters.month">
-            </app-ai-risk-score>
             <app-branch-audit-kpi
               [branchId]="selectedBranchId"
               [from]="auditKpiFrom"
@@ -411,8 +406,8 @@
 
 }
 
-        <!-- When ALL branches — show overview heatmap -->
-        @if (!selectedBranchId) {
+        <!-- Summary and detail share the same compliance risk snapshot. -->
+        @if (hasEmployeeComplianceModule) {
 
           @if (branchRiskLoading) {
 <div class="text-sm text-gray-400 py-6 text-center">
@@ -434,9 +429,9 @@
                     <th class="text-center">Risk Score</th>
                     <th class="text-center">Level</th>
                     <th class="text-center">Inspection Prob.</th>
-                    <th class="text-center">MCD %</th>
-                    <th class="text-center">Contractor Docs %</th>
-                    <th class="text-center">Audit NCs</th>
+                    <th class="text-center">Submission Completion</th>
+                    <th class="text-center">Overdue SLA Items</th>
+                    <th class="text-center">High/Critical Items</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -451,18 +446,18 @@
                     </td>
                     <td class="text-center text-gray-700">{{ b.inspectionProbability }}%</td>
                     <td class="text-center">
-                      <span [class]="b.mcdPercent! >= 80 ? 'text-green-600' : b.mcdPercent! >= 50 ? 'text-amber-600' : 'text-red-600'">
-                        {{ b.mcdPercent }}%
+                      <span [class]="b.completionPercent! >= 80 ? 'text-green-600' : b.completionPercent! >= 50 ? 'text-amber-600' : 'text-red-600'">
+                        {{ b.completionPercent }}%
                       </span>
                     </td>
                     <td class="text-center">
-                      <span [class]="b.contractorUploadPercentage! >= 80 ? 'text-green-600' : b.contractorUploadPercentage! >= 50 ? 'text-amber-600' : 'text-red-600'">
-                        {{ b.contractorUploadPercentage }}%
+                      <span [class]="b.overdueSla === 0 ? 'text-green-600' : 'text-red-600'">
+                        {{ b.overdueSla }}
                       </span>
                     </td>
                     <td class="text-center">
-                      <span [class]="b.auditNcCount! === 0 ? 'text-green-600' : b.auditNcCount! <= 2 ? 'text-amber-600' : 'text-red-600'">
-                        {{ b.auditNcCount }}
+                      <span [class]="b.highCritical! === 0 ? 'text-green-600' : b.highCritical! <= 2 ? 'text-amber-600' : 'text-red-600'">
+                        {{ b.highCritical }}
                       </span>
                     </td>
                   </tr>

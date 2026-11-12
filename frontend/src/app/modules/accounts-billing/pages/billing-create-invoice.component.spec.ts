@@ -23,6 +23,7 @@ async function setup(overrides: Partial<Invoice> = {}, edit = true) {
   const invoice = sample(overrides);
   const params = new BehaviorSubject(convertToParamMap(edit ? { id: 'sample' } : {}));
   const api = {
+    getSettings: vi.fn(() => of({ stateCode: '36' })),
     getInvoice: vi.fn(() => of(invoice)),
     getActiveClients: vi.fn(() => of([invoice.billingClient!])),
     updateInvoice: vi.fn(() => of(invoice)),
@@ -207,4 +208,49 @@ it.each([390, 1440])('keeps edit controls and long server errors within the %ipx
   const rect = host.querySelector('[role="alert"]')!.getBoundingClientRect();
   expect(rect.left).toBeGreaterThanOrEqual(0); expect(rect.right).toBeLessThanOrEqual(width);
   await page.screenshot({ element: host, path: `../../../../.vitest-attachments/billing-edit-${width}.png` });
+});
+
+it.each([true, false])('previews equal rounded components when editing=%s', async edit => {
+  const { create } = await setup({ cgstRate: 9, sgstRate: 9, igstRate: 0 }, edit);
+  const f = create(); const c = f.componentInstance;
+  if (!edit) { c.form.patchValue({ billingClientId: 'client' }); c.onClientChange(); }
+  c.itemsArray.at(0).patchValue({quantity: 1, rate: 202.50, gstRate: 18});
+  expect(c.calcLineTotal(0)).toBe('238.96');
+  c.itemsArray.at(0).patchValue({rate: 100.04}); expect(c.calcLineTotal(0)).toBe('118.04');
+  c.itemsArray.at(0).patchValue({rate: 100.06}); expect(c.calcLineTotal(0)).toBe('118.08');
+  c.itemsArray.at(0).patchValue({rate: 3374.80, isReimbursement: true});
+  expect(c.calcLineTotal(0)).toBe('3,374.80');
+});
+
+it('preserves saved IGST despite client master state and supplier setting changes', async () => {
+  const { create } = await setup({cgstRate: 0, sgstRate: 0, igstRate: 18});
+  const c = create().componentInstance;
+  c.itemsArray.at(0).patchValue({quantity: 1, rate: 202.50, gstRate: 18});
+  expect(c.calcLineTotal(0)).toBe('238.95');
+});
+
+it('uses current supplier state for new clients and restores saved tax treatment on return', async () => {
+  const { create, api } = await setup({cgstRate: 9, sgstRate: 9, igstRate: 0});
+  api.getSettings.mockReturnValue(of({stateCode: '29'}));
+  const c = create().componentInstance;
+  c.itemsArray.at(0).patchValue({quantity: 1, rate: 202.50, gstRate: 18});
+  expect(c.calcLineTotal(0)).toBe('238.96');
+  c.clients.push({id: 'other', stateCode: '36', defaultGstRate: 18} as any);
+  c.form.patchValue({billingClientId: 'other'}); c.onClientChange();
+  expect(c.calcLineTotal(0)).toBe('238.95');
+  c.form.patchValue({billingClientId: 'client'}); c.onClientChange();
+  c.itemsArray.at(0).patchValue({gstRate: 18});
+  expect(c.calcLineTotal(0)).toBe('238.96');
+});
+
+it('does not guess tax treatment while settings fail and recovers on retry', async () => {
+  const { create, api } = await setup({}, false);
+  api.getSettings.mockReturnValueOnce(throwError(() => new Error('offline')));
+  const c = create().componentInstance;
+  c.form.patchValue({billingClientId: 'client'}); c.onClientChange();
+  c.itemsArray.at(0).patchValue({serviceDescription: 'Test', quantity: 1, rate: 202.50, gstRate: 18});
+  expect(c.calcLineTotal(0)).toBe('—'); c.onSubmit();
+  expect(api.createInvoice).not.toHaveBeenCalled();
+  c.loadSettings(); expect(c.calcLineTotal(0)).toBe('238.96'); c.onSubmit();
+  expect(api.createInvoice).toHaveBeenCalledTimes(1);
 });

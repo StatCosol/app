@@ -1,3 +1,4 @@
+import { actualAuditSql } from '../../common/actual-records';
 /**
  * Auditor Dashboard SQL Queries
  * Raw SQL with USER SCOPING enforced via my_audits CTE
@@ -19,7 +20,7 @@ export const AUDITOR_SUMMARY_SQL = `
 WITH my_audits AS (
   SELECT a.*
   FROM audits a
-  WHERE a.assigned_auditor_id = $1::uuid
+  WHERE ${actualAuditSql()} AND a.assigned_auditor_id = $1::uuid
     AND ($2::uuid IS NULL OR a.client_id = $2)
     AND ($6::text IS NULL OR a.audit_type = $6)
     AND ($3::date IS NULL OR a.due_date >= $3)
@@ -57,7 +58,7 @@ export const AUDITOR_AUDITS_SQL = `
 WITH my_audits AS (
   SELECT a.*
   FROM audits a
-  WHERE a.assigned_auditor_id = $1
+  WHERE ${actualAuditSql()} AND a.assigned_auditor_id = $1
     AND ($2::uuid IS NULL OR a.client_id = $2)
     AND ($9::text IS NULL OR a.audit_type = $9)
     AND ($3::date IS NULL OR a.due_date >= $3)
@@ -104,7 +105,7 @@ export const AUDITOR_OBSERVATIONS_SQL = `
 WITH my_audits AS (
   SELECT a.id, a.contractor_user_id
   FROM audits a
-  WHERE a.assigned_auditor_id = $1::uuid
+  WHERE ${actualAuditSql()} AND a.assigned_auditor_id = $1::uuid
     AND ($2::uuid IS NULL OR a.client_id = $2)
     AND ($7::text IS NULL OR a.audit_type = $7)
     AND ($8::date IS NULL OR a.due_date >= $8)
@@ -158,7 +159,7 @@ FROM audits a
 LEFT JOIN clients c ON c.id = a.client_id
 LEFT JOIN client_branches b ON b.id = a.branch_id
 LEFT JOIN users cu ON cu.id = a.contractor_user_id
-WHERE a.assigned_auditor_id = $1
+WHERE ${actualAuditSql()} AND a.assigned_auditor_id = $1
   AND (
     ($2::text = 'PENDING_SUBMISSION' AND a.status = 'COMPLETED')
     OR ($2::text = 'SUBMITTED' AND a.status = 'SUBMITTED')

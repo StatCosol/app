@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -146,6 +147,7 @@ export class ContractorDashboardService {
         'expiredCount',
       )
       .where('d.client_id = :clientId', { clientId })
+      .andWhere(actualContractorDocumentSql('d'))
       .andWhere('d.contractor_user_id IN (:...contractorIds)', {
         contractorIds,
       })
@@ -205,6 +207,7 @@ export class ContractorDashboardService {
       )
       .addSelect('COUNT(DISTINCT d.doc_type)', 'uploadedDistinct')
       .where('d.client_id = :clientId', { clientId })
+      .andWhere(actualContractorDocumentSql('d'))
       .andWhere('d.contractor_user_id IN (:...contractorIds)', {
         contractorIds,
       })
@@ -583,6 +586,7 @@ export class ContractorDashboardService {
         'expiredCount',
       )
       .where('d.client_id = :clientId', { clientId })
+      .andWhere(actualContractorDocumentSql('d'))
       .andWhere('d.contractor_user_id = :contractorId', { contractorId })
       .andWhere('d.created_at BETWEEN :start AND :end', {
         start: rangeStart,

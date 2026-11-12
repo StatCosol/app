@@ -14,6 +14,7 @@ const uuid = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
         branch_id uuid, audit_type text, period_code text, due_date date,
         status text, score int, updated_at timestamp);
       ALTER TABLE audits ADD COLUMN audit_code text;
+      ALTER TABLE audits ADD COLUMN notes text;
       ALTER TABLE audits ADD COLUMN contractor_user_id uuid;
       CREATE TABLE users (id uuid,name text);
       CREATE TABLE clients (id uuid, client_name text);

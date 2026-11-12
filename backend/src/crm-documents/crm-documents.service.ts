@@ -13,6 +13,7 @@ import { CrmUnitDocumentEntity } from './entities/crm-unit-document.entity';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
 import { UploadCrmDocumentDto } from './dto/upload-crm-document.dto';
 import { uniqueUploadDiskName } from '../common/safe-upload';
+import { actualUnitDocumentSql } from '../common/actual-records';
 
 type UploadedFile = {
   originalname: string;
@@ -473,6 +474,7 @@ export class CrmDocumentsService {
     const qb = this.docRepo
       .createQueryBuilder('d')
       .where('d.deletedAt IS NULL')
+      .andWhere(actualUnitDocumentSql('d'))
       .andWhere('d.clientId IN (:...assignedIds)', { assignedIds });
 
     if (filters.clientId) {
@@ -612,6 +614,7 @@ export class CrmDocumentsService {
     const qb = this.docRepo
       .createQueryBuilder('d')
       .where('d.deletedAt IS NULL')
+      .andWhere(actualUnitDocumentSql('d'))
       .andWhere('d.clientId = :clientId', { clientId });
 
     if (filters.branchId) {
@@ -654,7 +657,8 @@ export class CrmDocumentsService {
 
     const qb = this.docRepo
       .createQueryBuilder('d')
-      .where('d.deletedAt IS NULL');
+      .where('d.deletedAt IS NULL')
+      .andWhere(actualUnitDocumentSql('d'));
 
     if (filters.scope === 'BRANCH') {
       qb.andWhere('d.branchId IN (:...branchIds)', { branchIds });

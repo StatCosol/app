@@ -190,7 +190,12 @@ export class BillingReportsService {
             sacHsn: item.sacCode || invoice.billingClient?.defaultSacCode || '',
             quantity: this.num(item.quantity),
             rate: this.num(item.rate),
-            taxableValue: this.num(item.taxableAmount),
+            taxableValue: item.isReimbursement
+              ? 0
+              : this.num(item.taxableAmount),
+            reimbursementAmount: item.isReimbursement
+              ? this.num(item.taxableAmount)
+              : 0,
             gstRate: this.num(item.gstRate),
             cgstAmount,
             sgstAmount,
@@ -218,6 +223,12 @@ export class BillingReportsService {
           this.col('quantity', 'Quantity', 'number', 12),
           this.col('rate', 'Rate', 'currency', 14),
           this.col('taxableValue', 'Taxable Value', 'currency', 16),
+          this.col(
+            'reimbursementAmount',
+            'Reimbursements (excluded from taxable value)',
+            'currency',
+            24,
+          ),
           this.col('gstRate', 'GST Rate', 'percent', 12),
           this.col('cgstAmount', 'CGST', 'currency', 14),
           this.col('sgstAmount', 'SGST', 'currency', 14),
@@ -247,8 +258,13 @@ export class BillingReportsService {
           overdueAmount: 0,
         };
         current['invoiceCount'] = this.num(current['invoiceCount']) + 1;
-        current['taxableValue'] =
-          this.num(current['taxableValue']) + this.num(invoice.taxableValue);
+        current['taxableValue'] = this.round(
+          this.num(current['taxableValue']) + this.reportTaxableValue(invoice),
+        );
+        current['reimbursementAmount'] = this.round(
+          this.num(current['reimbursementAmount']) +
+            this.reimbursementAmount(invoice),
+        );
         current['gstAmount'] =
           this.num(current['gstAmount']) +
           this.num(invoice.cgstAmount) +
@@ -283,6 +299,12 @@ export class BillingReportsService {
           this.col('gstin', 'GSTIN', 'text', 18),
           this.col('invoiceCount', 'Invoices', 'number', 12),
           this.col('taxableValue', 'Taxable Value', 'currency', 16),
+          this.col(
+            'reimbursementAmount',
+            'Reimbursements (excluded from taxable value)',
+            'currency',
+            24,
+          ),
           this.col('gstAmount', 'GST', 'currency', 14),
           this.col('billedAmount', 'Billed', 'currency', 16),
           this.col('receivedAmount', 'Received', 'currency', 16),
@@ -310,7 +332,8 @@ export class BillingReportsService {
           (i) => i.sacCode || invoice.billingClient?.defaultSacCode,
         ),
       ),
-      taxableValue: this.num(invoice.taxableValue),
+      taxableValue: this.reportTaxableValue(invoice),
+      reimbursementAmount: this.reimbursementAmount(invoice),
       gstAmount:
         this.num(invoice.cgstAmount) +
         this.num(invoice.sgstAmount) +
@@ -346,6 +369,12 @@ export class BillingReportsService {
         this.col('descriptions', 'Invoice Description', 'text', 42),
         this.col('sacHsn', 'SAC/HSN', 'text', 14),
         this.col('taxableValue', 'Taxable Value', 'currency', 16),
+        this.col(
+          'reimbursementAmount',
+          'Reimbursements (excluded from taxable value)',
+          'currency',
+          24,
+        ),
         this.col('gstAmount', 'GST', 'currency', 14),
         this.col('grandTotal', 'Invoice Total', 'currency', 16),
         this.col('amountReceived', 'Received', 'currency', 16),
@@ -531,12 +560,46 @@ export class BillingReportsService {
     };
   }
 
+  // Read historical line classifications instead of stale invoice totals that
+  // included pass-through reimbursements. Never infer classification from GST.
+  private reportTaxableValue(invoice: Invoice): number {
+    if (!invoice.items?.length) return this.num(invoice.taxableValue);
+    return this.round(
+      invoice.items.reduce(
+        (sum, item) =>
+          sum + (item.isReimbursement ? 0 : this.num(item.taxableAmount)),
+        0,
+      ),
+    );
+  }
+
+  private reimbursementAmount(invoice: Invoice): number {
+    return this.round(
+      (invoice.items || []).reduce(
+        (sum, item) =>
+          sum + (item.isReimbursement ? this.num(item.taxableAmount) : 0),
+        0,
+      ),
+    );
+  }
+
   private invoiceSummary(invoices: Invoice[]): Record<string, number> {
     return {
       invoiceCount: invoices.length,
       clientCount: new Set(invoices.map((invoice) => invoice.billingClientId))
         .size,
-      taxableValue: this.sum(invoices, 'taxableValue'),
+      taxableValue: this.round(
+        invoices.reduce(
+          (sum, invoice) => sum + this.reportTaxableValue(invoice),
+          0,
+        ),
+      ),
+      reimbursementAmount: this.round(
+        invoices.reduce(
+          (sum, invoice) => sum + this.reimbursementAmount(invoice),
+          0,
+        ),
+      ),
       gstAmount: invoices.reduce(
         (sum, invoice) =>
           sum +

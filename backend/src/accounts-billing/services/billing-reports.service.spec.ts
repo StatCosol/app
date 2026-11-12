@@ -228,4 +228,115 @@ describe('BillingReportsService', () => {
       data.getRow(3).getCell(headers.indexOf('Invoice Total')).formula,
     ).toContain('SUBTOTAL(109');
   });
+  it.each([
+    'GST_DETAIL',
+    'CLIENT_SUMMARY',
+    'INVOICE_REGISTER',
+    'OUTSTANDING',
+    'PAID',
+  ])(
+    'separates historical reimbursements in %s without changing tax or receivables',
+    async (reportType) => {
+      const { service, qb } = setup();
+      const mixed = {
+        ...invoice,
+        taxableValue: '3577.30',
+        cgstAmount: '18.23',
+        sgstAmount: '18.23',
+        grandTotal: '3614.00',
+        balanceOutstanding: '3614.00',
+        items: [
+          {
+            ...invoice.items[0],
+            taxableAmount: '3374.80',
+            gstRate: '0.00',
+            gstAmount: '0.00',
+            lineTotal: '3374.80',
+            isReimbursement: true,
+          },
+          {
+            ...invoice.items[0],
+            taxableAmount: '202.50',
+            gstRate: '18.00',
+            gstAmount: '36.46',
+            lineTotal: '238.96',
+            isReimbursement: false,
+          },
+        ],
+      };
+      qb.getMany.mockResolvedValue([mixed]);
+      const report = await service.getReport({ reportType });
+      expect(report.summary).toMatchObject({
+        taxableValue: 202.5,
+        reimbursementAmount: 3374.8,
+        gstAmount: 36.46,
+        billedAmount: 3614,
+        outstandingAmount: 3614,
+      });
+      expect(
+        report.rows.reduce((sum, row) => sum + Number(row.taxableValue), 0),
+      ).toBe(202.5);
+      expect(
+        report.rows.reduce(
+          (sum, row) => sum + Number(row.reimbursementAmount),
+          0,
+        ),
+      ).toBe(3374.8);
+      expect(mixed.taxableValue).toBe('3577.30');
+    },
+  );
+
+  it('does not infer reimbursement from zero GST or change invoices with no loaded lines', async () => {
+    const { service, qb } = setup();
+    qb.getMany.mockResolvedValue([
+      {
+        ...invoice,
+        items: [{ ...invoice.items[0], gstRate: 0, gstAmount: 0 }],
+      },
+      { ...invoice, id: 'legacy', taxableValue: '50.25', items: [] },
+    ]);
+    const report = await service.getReport({ reportType: 'CLIENT_SUMMARY' });
+    expect(report.summary).toMatchObject({
+      taxableValue: 1050.25,
+      reimbursementAmount: 0,
+    });
+  });
+
+  it('exports the corrected taxable amount and reimbursement separately', async () => {
+    const { service, qb } = setup();
+    qb.getMany.mockResolvedValue([
+      {
+        ...invoice,
+        items: [
+          {
+            ...invoice.items[0],
+            taxableAmount: '800.00',
+            isReimbursement: true,
+          },
+          {
+            ...invoice.items[0],
+            taxableAmount: '200.00',
+            isReimbursement: false,
+          },
+        ],
+      },
+    ]);
+    const exported = await service.exportReport({
+      reportType: 'CLIENT_SUMMARY',
+    });
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(exported.buffer as any);
+    const sheet = book.getWorksheet('Report Data')!;
+    const headers = sheet.getRow(1).values as string[];
+    expect(
+      sheet.getRow(2).getCell(headers.indexOf('Taxable Value')).value,
+    ).toBe(200);
+    expect(
+      sheet
+        .getRow(2)
+        .getCell(
+          headers.indexOf('Reimbursements (excluded from taxable value)'),
+        ).value,
+    ).toBe(800);
+  });
 });

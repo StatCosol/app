@@ -1,3 +1,7 @@
+import {
+  assertContractorAuditScope,
+  contractorScopeReadiness,
+} from './contractor-audit-scope';
 import { StatutoryAuditEntryService } from './statutory-audit-entry.service';
 import { fieldworkScore } from './audit-fieldwork-report';
 import { requestAuditAction } from './audit-action-approval';
@@ -176,6 +180,7 @@ export class AuditsService implements OnModuleInit {
 
     const frequency = this.normalizeAndValidateFrequency(dto.frequency);
     const auditType = this.normalizeAndValidateAuditType(dto.auditType);
+    assertContractorAuditScope(auditType, dto.branchId, dto.contractorUserId);
 
     if (!dto.periodYear || !dto.periodCode?.trim()) {
       throw new BadRequestException('periodYear and periodCode required');
@@ -524,6 +529,7 @@ export class AuditsService implements OnModuleInit {
       'CLOSED',
     ].includes(String(audit.status || '').toUpperCase());
     const checklist = [
+      ...contractorScopeReadiness(audit),
       {
         key: 'client_scope_linked',
         label: 'Client scope linked',
@@ -656,6 +662,13 @@ export class AuditsService implements OnModuleInit {
       ['COMPLETED', 'CLOSED'].includes(audit.status)
     ) {
       return this.reopenAuditForReaudit(user, auditId, notes);
+    }
+    if (targetStatus === 'IN_PROGRESS') {
+      assertContractorAuditScope(
+        audit.auditType,
+        audit.branchId,
+        audit.contractorUserId,
+      );
     }
     const currentStatus = String(audit.status || '').toUpperCase();
     const allowed = AuditsService.ALLOWED_TRANSITIONS[currentStatus] ?? [];
@@ -1348,6 +1361,11 @@ export class AuditsService implements OnModuleInit {
         throw new BadRequestException(
           'Only completed or closed audits can be reopened for re-audit',
         );
+      assertContractorAuditScope(
+        audit.audit_type,
+        audit.branch_id,
+        audit.contractor_user_id,
+      );
       const [report] = await manager.query(
         'SELECT * FROM audit_reports WHERE audit_id = $1 ORDER BY updated_at DESC, created_at DESC LIMIT 1 FOR UPDATE',
         [auditId],

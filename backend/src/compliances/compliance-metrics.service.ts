@@ -113,6 +113,7 @@ export interface BranchSummaryResult {
 }
 
 export interface CompanySummaryResult {
+  items?: RiskScoreRow[];
   month: string;
   totalBranches: number;
   avgInspectionProbability: number;
@@ -918,8 +919,8 @@ export class ComplianceMetricsService {
           rows.reduce((s, x) => s + x.inspectionProbability, 0) / rows.length,
         )
       : 0;
-    const high = rows.filter((x) => x.inspectionProbability >= 70).length;
-    const critical = rows.filter((x) => x.inspectionProbability >= 85).length;
+    const high = rows.filter((x) => x.riskLevel === 'HIGH').length;
+    const critical = rows.filter((x) => x.riskLevel === 'CRITICAL').length;
     const lowest = rows
       .slice()
       .sort((a, b) => a.completionPercent - b.completionPercent)
@@ -934,14 +935,15 @@ export class ComplianceMetricsService {
     return {
       month: params.month,
       totalBranches: rows.length,
+      items: rows,
       avgInspectionProbability: avgProb,
       avgCompletionPercent: avgCompletion,
       highRiskBranches: high,
       criticalBranches: critical,
       highlights: [
         `Average inspection probability across ${rows.length} branches: ${avgProb}%.`,
-        `${critical} branch(es) are in CRITICAL zone (≥85%).`,
-        `${high} branch(es) are in HIGH zone (≥70%).`,
+        `${critical} branch(es) have CRITICAL risk.`,
+        `${high} branch(es) have HIGH risk.`,
         `Average upload completion: ${avgCompletion}%.`,
         lowest.length
           ? `Lowest upload completion: ${lowest.map((x) => `${x.branchName} (${x.completionPercent}%)`).join(', ')}.`

@@ -289,4 +289,39 @@ describe('Invoice edit consistency', () => {
     await service.update(invoice.id, { remarks: 'Metadata only' }, 'actor');
     expect(invoice.financialYear).toBe('2025-26');
   });
+  it('persists equal tax components and consistent lines when the rejected service charge is resaved', async () => {
+    const { service, invoice } = setup();
+    await service.update(
+      invoice.id,
+      {
+        items: [
+          {
+            serviceDescription: 'Reimbursement',
+            quantity: 1,
+            rate: 3374.8,
+            gstRate: 0,
+            isReimbursement: true,
+          },
+          {
+            serviceDescription: 'Service charge',
+            quantity: 1,
+            rate: 202.5,
+            gstRate: 18,
+          },
+        ],
+      },
+      'actor',
+    );
+    expect(invoice).toMatchObject({
+      cgstAmount: 18.23,
+      sgstAmount: 18.23,
+      totalGst: 36.46,
+      grandTotal: 3614,
+      roundOff: 0.24,
+    });
+    expect(invoice.items[1]).toMatchObject({
+      gstAmount: 36.46,
+      lineTotal: 238.96,
+    });
+  });
 });
