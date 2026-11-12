@@ -119,7 +119,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
 
   // Filters
   selectedYear = new Date().getFullYear();
-  selectedMonth = new Date().getMonth() || 12;
+  selectedMonth = 0;
   selectedFrequency = '';
   selectedStatus = '';
 
@@ -182,6 +182,8 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    // A calendar month is meaningful only for monthly filings.
+    if (this.selectedFrequency !== 'MONTHLY') this.selectedMonth = 0;
     this.loading = true;
 
     this.complianceDoc.listCrmDocs({

@@ -23,6 +23,8 @@ import { DataTableComponent, PageHeaderComponent, TableCellDirective, TableColum
 export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private checklistRequest?: Subscription;
+  private contextRevision = 0;
+  private destroyed = false;
   confirming = false;
   submissionsRevision = 0;
   loading = false;
@@ -100,6 +102,7 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
     this.checklistRequest?.unsubscribe();
     this.destroy$.next(); this.destroy$.complete();
   }
@@ -127,7 +130,14 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
 
   refresh() { this.submissionsRevision++; this.loadAll(); }
 
-  onPeriodChange() { this.uploadReturnCode = ''; this.loadAll(); }
+  onPeriodChange() {
+    this.contextRevision++;
+    this.uploadReturnCode = '';
+    this.selectedFile = null;
+    this.uploadNotes = '';
+    if (this.fileInput) this.fileInput.value = '';
+    this.loadAll();
+  }
 
   openFile(row: any, download = false) {
     const doc = row.document;
@@ -173,6 +183,10 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const revision = this.contextRevision;
+    const context = JSON.stringify(this.periodQuery);
+    const sameContext = () => !this.destroyed && revision === this.contextRevision
+      && context === JSON.stringify(this.periodQuery);
     const fd = new FormData();
     fd.append('file', this.selectedFile);
     fd.append('branchId', this.branchId);
@@ -188,11 +202,12 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
     let ok = false;
     try { ok = await this.dialog.confirm('Upload Document', 'Upload document for ' + this.periodLabel + '?'); }
     finally { this.confirming = false; this.cdr.markForCheck(); }
-    if (!ok) return;
+    if (!ok || !sameContext()) return;
     this.uploading = true;
     this.docs.uploadDocument(fd).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.uploading = false; this.cdr.markForCheck();
+        if (!sameContext()) return;
         this.toast.success('Uploaded successfully.');
         this.submissionsRevision++;
         this.selectedFile = null;
@@ -202,6 +217,7 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.uploading = false; this.cdr.markForCheck();
+        if (!sameContext()) return;
         const message = err?.error?.message;
         this.toast.error(Array.isArray(message) ? message.join(' ') : (message || 'Upload failed. Please try again.'));
       },

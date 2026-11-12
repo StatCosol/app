@@ -530,6 +530,7 @@ export class PayslipGeneratorService {
     const pfAmt = valueMap.get('PF_EMP') ?? 0;
     const esiAmt = valueMap.get('ESI_EMP') ?? 0;
     const ptAmt = valueMap.get('PT') ?? 0;
+    const lwfAmt = valueMap.get('LWF_EMP') ?? 0;
     const pfErFromEmpAmt = valueMap.get('PF_ER_FROM_EMP') ?? 0;
     const tdsAmt = valueMap.get('TDS') ?? 0;
     const otherDeductions = valueMap.get('OTHER_DEDUCTIONS') ?? 0;
@@ -537,7 +538,7 @@ export class PayslipGeneratorService {
       ? `Other Deductions (${(runEmp as any).otherDeductionsNote})`
       : 'Other Deductions';
     const totalDeduction =
-      pfAmt + esiAmt + ptAmt + pfErFromEmpAmt + otherDeductions;
+      pfAmt + esiAmt + ptAmt + lwfAmt + pfErFromEmpAmt + otherDeductions;
 
     const netPay = Number(valueMap.get('NET_PAY') ?? runEmp.netPay ?? 0);
 
@@ -655,6 +656,11 @@ export class PayslipGeneratorService {
       );
       tY += rowHeight;
 
+      if (lwfAmt > 0) {
+        drawRow('', '', 'LWF', this.formatCurrency(lwfAmt), tY);
+        tY += rowHeight;
+      }
+
       // Att. Bonus row — paired with PF Employer if applicable
       if (attBonus > 0 || pfErFromEmpAmt > 0) {
         drawRow(
@@ -755,9 +761,10 @@ export class PayslipGeneratorService {
     // employee's salary, so we do NOT show it again as an employer contribution.
     const pfEr = valueMap.get('PF_ER') ?? 0;
     const esiEr = valueMap.get('ESI_ER') ?? 0;
+    const lwfEr = valueMap.get('LWF_ER') ?? 0;
     const showPfEr = pfEr > 0 && pfErFromEmpAmt === 0;
 
-    if (showPfEr || esiEr > 0) {
+    if (showPfEr || esiEr > 0 || lwfEr > 0) {
       doc
         .font('Helvetica-Bold')
         .fontSize(10)
@@ -780,6 +787,13 @@ export class PayslipGeneratorService {
           .text(`ESI Employer: ${this.formatCurrency(esiEr)}`, startX, doc.y);
         doc.moveDown(0.3);
       }
+    }
+
+    if (lwfEr > 0) {
+      doc
+        .fontSize(10)
+        .text(`LWF Employer: ${this.formatCurrency(lwfEr)}`, startX, doc.y);
+      doc.moveDown(0.3);
     }
 
     // ── Authorized Signatory ──

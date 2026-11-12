@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Subject, of } from 'rxjs';
 import { BranchComplianceDocsComponent } from '../../pages/branch/branch-compliance-docs/branch-compliance-docs.component';
 import { ComplianceDocumentRecordsComponent } from './compliance-document-records.component';
+import { CrmBranchDocsReviewComponent } from '../../pages/crm/branch-docs-review/crm-branch-docs-review.component';
 
 function setup() {
   const docs = { uploadDocument: vi.fn().mockReturnValue(of({})), getChecklist: vi.fn().mockReturnValue(of({ data: [] })) };
@@ -15,6 +16,18 @@ function setup() {
   return { c, docs, dialog, toast };
 }
 describe('document upload UI', () => {
+  it('only applies month filtering to monthly CRM review records', () => {
+    const api = { listCrmDocs: vi.fn().mockReturnValue(of({data:[]})), getCrmKpis: vi.fn().mockReturnValue(of({})) };
+    const c = new CrmBranchDocsReviewComponent(api as any, {} as any, {} as any, {detectChanges:vi.fn()} as any, {} as any);
+    expect(c.selectedMonth).toBe(0);
+    c.selectedFrequency = 'MONTHLY'; c.selectedMonth = 3; c.load();
+    expect(api.listCrmDocs).toHaveBeenLastCalledWith(expect.objectContaining({month:3}));
+    c.selectedFrequency = 'QUARTERLY'; c.load();
+    expect(c.selectedMonth).toBe(0);
+    expect(api.listCrmDocs).toHaveBeenLastCalledWith(expect.objectContaining({month:undefined}));
+    expect(api.getCrmKpis).toHaveBeenLastCalledWith(expect.objectContaining({month:undefined}));
+    c.ngOnDestroy();
+  });
   it.each([
     ['MONTHLY', 'periodMonth', '10'], ['QUARTERLY', 'periodQuarter', '4'], ['HALF_YEARLY', 'periodHalf', '2'], ['YEARLY', null, null],
   ])('sends the supported %s contract and no legacy metadata', async (frequency, periodKey, value) => {
@@ -42,12 +55,29 @@ describe('document upload UI', () => {
     expect(dialog.confirm).toHaveBeenCalledTimes(1); accept(true); await first;
     expect(docs.uploadDocument).toHaveBeenCalledTimes(1);
   });
-  it('preserves the period confirmed even if controls change before confirmation resolves', async () => {
+  it('does not submit after the period changes while confirmation is open', async () => {
     const { c, docs, dialog } = setup(); let accept!: (ok: boolean) => void;
     dialog.confirm.mockReturnValue(new Promise(resolve => accept = resolve));
     const pending = c.upload(); c.year = 2027; c.month = 1; accept(true); await pending;
-    const fd = docs.uploadDocument.mock.calls[0][0] as FormData;
-    expect(fd.get('periodYear')).toBe('2026'); expect(fd.get('periodMonth')).toBe('10');
+    expect(docs.uploadDocument).not.toHaveBeenCalled();
+  });
+  it('clears the file, notes and return when the period or branch changes', () => {
+    const { c } = setup();
+    c.uploadNotes = 'October evidence';
+    c.fileInput = { value: 'old.pdf' } as HTMLInputElement;
+    c.month = 11; c.onPeriodChange();
+    expect(c.selectedFile).toBeNull(); expect(c.uploadNotes).toBe('');
+    expect(c.uploadReturnCode).toBe(''); expect(c.fileInput.value).toBe('');
+  });
+  it('does not clear a new draft when a previous period upload finishes', async () => {
+    const { c, docs } = setup(); const pending = new Subject<any>();
+    docs.uploadDocument.mockReturnValue(pending); await c.upload();
+    c.month = 11; c.onPeriodChange();
+    const nextFile = new File(['new'], 'new.pdf');
+    c.selectedFile = nextFile; c.uploadNotes = 'New period';
+    docs.getChecklist.mockClear(); pending.next({});
+    expect(c.selectedFile).toBe(nextFile); expect(c.uploadNotes).toBe('New period');
+    expect(docs.getChecklist).not.toHaveBeenCalled(); expect(c.submissionsRevision).toBe(0);
   });
   it('shows the same submission source in the branch, CRM and client views', () => {
     const api = { listBranchDocs: vi.fn().mockReturnValue(of({data: [], total:0})), listCrmDocs: vi.fn().mockReturnValue(of({data: [], total:0})), listClientDocs: vi.fn().mockReturnValue(of({data: [], total:0})) };
