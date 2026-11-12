@@ -2,7 +2,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { catchError, finalize, of, Subject } from 'rxjs';
+import { catchError, finalize, of, Subject, Subscription } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { CrmClientsApi } from '../../../core/api/crm-clients.api';
@@ -13,6 +13,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { McdRowDto } from '../../../shared/models/compliance.models';
+
+const emptyDocumentKpis = () => ({ uploaded: 0, pending_review: 0, approved: 0, reupload_required: 0, expired: 0 });
 
 type TrackerTab = 'DOCS' | 'MCD' | 'EXPIRY' | 'AUDIT_CLOSURES' | 'TASKS';
 
@@ -25,6 +27,8 @@ type TrackerTab = 'DOCS' | 'MCD' | 'EXPIRY' | 'AUDIT_CLOSURES' | 'TASKS';
 })
 export class CrmComplianceComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private documentRead?: Subscription;
+  private documentKpiRead?: Subscription;
 
   activeTab: TrackerTab = 'DOCS';
 
@@ -44,14 +48,15 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   ];
 
   /* ═══════ Tab 1: Documents (Work Queue) ═══════ */
-  docKpis: any = { uploaded: 0, pending_review: 0, approved: 0, reupload_required: 0, expired: 0 };
+  docKpis = emptyDocumentKpis();
+  docKpiError = false;
   docs: any[] = [];
   complianceDocs: any[] = [];
   docLoading = false;
   complianceDocsLoading = false;
   docErrorMsg: string | null = null;
   docFilters: any = {
-    clientId: '', branchId: '', status: '', contractorId: '', expiringInDays: '',
+    recordScope: 'ACTUAL', clientId: '', branchId: '', status: '', contractorId: '', expiringInDays: '',
   };
   reviewingDocId: string | null = null;
   reviewingCompDocId: string | null = null;
@@ -352,11 +357,18 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   }
 
   /* ═══════ Tab 1: Documents ═══════ */
+  onDocumentScopeChange(): void {
+    this.docs = []; this.docKpis = emptyDocumentKpis(); this.docSearch = '';
+    this.loadDocKpis(); this.loadDocs();
+  }
+
   loadDocKpis(): void {
-    if (this.routeClientId) { this.docKpis = null; return; }
-    this.crmDocsApi.kpis().pipe(takeUntil(this.destroy$)).subscribe({
-      next: (data) => { this.docKpis = data; this.cdr.detectChanges(); },
-      error: () => { this.toast.error('Failed to load document KPIs.'); },
+    this.documentKpiRead?.unsubscribe();
+    this.docKpis = emptyDocumentKpis(); this.docKpiError = false;
+    if (this.routeClientId) return;
+    this.documentKpiRead = this.crmDocsApi.kpis(this.docFilters.recordScope).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (data) => { this.docKpis = { ...emptyDocumentKpis(), ...data }; this.docKpiError = !data; this.cdr.detectChanges(); },
+      error: () => { this.docKpis = emptyDocumentKpis(); this.docKpiError = true; this.toast.error('Failed to load document KPIs.'); this.cdr.detectChanges(); },
     });
   }
 
@@ -379,8 +391,9 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     return term ? this.docs.filter(d => [d.title, d.name, d.fileName, d.documentName, d.docName, d.contractorName, d.branchName, d.docType].some(value => String(value || '').toLowerCase().includes(term))) : this.docs;
   }
   loadDocs(): void {
+    this.documentRead?.unsubscribe();
     this.docLoading = true; this.docErrorMsg = null;
-    this.crmDocsApi.list({ ...this.docFilters, clientId: this.routeClientId || this.docFilters.clientId }).pipe(
+    this.documentRead = this.crmDocsApi.list({ ...this.docFilters, clientId: this.routeClientId || this.docFilters.clientId }).pipe(
       takeUntil(this.destroy$),
       catchError((err) => { this.docErrorMsg = err?.error?.message || 'Failed to load documents'; return of({ data: [] }); }),
       finalize(() => { this.docLoading = false; this.cdr.detectChanges(); }),

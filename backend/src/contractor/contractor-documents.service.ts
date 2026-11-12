@@ -1,3 +1,4 @@
+import { isTestContractorDocument } from '../common/actual-records';
 import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/payroll-document-reconciliation.service';
 import {
   BadRequestException,
@@ -448,8 +449,8 @@ export class ContractorDocumentsService {
           : '';
       if (financial) {
         if (
-          /^TEST([ _-]|$)/i.test(doc.fileName) !==
-          /^TEST([ _-]|$)/i.test(file.originalname)
+          isTestContractorDocument(doc.fileName, doc.title) !==
+          isTestContractorDocument(file.originalname, dto.title ?? doc.title)
         )
           throw new BadRequestException(
             'Keep test evidence separate: retain the TEST filename prefix for test corrections',

@@ -7,8 +7,8 @@ export class CrmContractorDocumentsApi {
   constructor(private http: HttpClient) {}
 
   /** Work-queue KPI chip counts */
-  kpis(): Observable<any> {
-    return this.http.get('/api/v1/crm/contractor-documents/kpis');
+  kpis(recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL'): Observable<any> {
+    return this.http.get('/api/v1/crm/contractor-documents/kpis', { params: { recordScope } });
   }
 
   list(params: any): Observable<any> {

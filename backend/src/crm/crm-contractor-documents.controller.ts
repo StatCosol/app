@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import {
   BadRequestException,
   Controller,
@@ -36,7 +37,11 @@ export class CrmContractorDocumentsController {
    */
   @ApiOperation({ summary: 'Kpis' })
   @Get('kpis')
-  async kpis(@CurrentUser() user: ReqUser) {
+  async kpis(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string> = {},
+  ) {
+    const recordSql = this.recordScopeSql(query.recordScope);
     const crmUserId = user.id;
     const rows = await this.db.many(
       `WITH crm_clients AS (
@@ -53,7 +58,8 @@ export class CrmContractorDocumentsController {
          COUNT(*) FILTER (WHERE cd.status = 'EXPIRED'
            OR (cd.expiry_date IS NOT NULL AND cd.expiry_date < CURRENT_DATE)) AS expired
        FROM contractor_documents cd
-       JOIN crm_clients cc ON cc.client_id = cd.client_id`,
+       JOIN crm_clients cc ON cc.client_id = cd.client_id
+       WHERE ${recordSql}`,
       [crmUserId],
     );
     return (
@@ -86,6 +92,7 @@ export class CrmContractorDocumentsController {
     @CurrentUser() user: ReqUser,
     @Query() query: Record<string, string>,
   ) {
+    const recordSql = this.recordScopeSql(query.recordScope);
     const crmUserId = user.id;
     const clientId = query.clientId || null;
     const branchId = query.branchId || null;
@@ -125,7 +132,7 @@ export class CrmContractorDocumentsController {
          ON cac.client_id = c.id
          AND cac.assigned_to_user_id = $1
          AND cac.assignment_type = 'CRM'
-       WHERE ($2::uuid IS NULL OR c.id = $2)
+       WHERE ${recordSql} AND ($2::uuid IS NULL OR c.id = $2)
          AND ($3::uuid IS NULL OR b.id = $3)
          AND ($4::uuid IS NULL OR cd.contractor_user_id = $4)
          AND ($5::text IS NULL OR cd.status = $5::text)
@@ -157,6 +164,13 @@ export class CrmContractorDocumentsController {
         };
       }),
     };
+  }
+
+  private recordScopeSql(scope?: string): string {
+    if (scope && scope !== 'ACTUAL' && scope !== 'TEST')
+      throw new BadRequestException('Invalid record scope');
+    const actual = actualContractorDocumentSql('cd');
+    return scope === 'TEST' ? `NOT (${actual})` : actual;
   }
 
   private fileDownloadUrl(filePath: string | null | undefined): string | null {
