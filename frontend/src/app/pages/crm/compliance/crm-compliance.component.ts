@@ -14,6 +14,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import { McdRowDto } from '../../../shared/models/compliance.models';
 
+const emptyDocumentKpis = () => ({ uploaded: 0, pending_review: 0, approved: 0, reupload_required: 0, expired: 0 });
+
 type TrackerTab = 'DOCS' | 'MCD' | 'EXPIRY' | 'AUDIT_CLOSURES' | 'TASKS';
 
 @Component({
@@ -46,7 +48,8 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   ];
 
   /* ═══════ Tab 1: Documents (Work Queue) ═══════ */
-  docKpis: any = { uploaded: 0, pending_review: 0, approved: 0, reupload_required: 0, expired: 0 };
+  docKpis = emptyDocumentKpis();
+  docKpiError = false;
   docs: any[] = [];
   complianceDocs: any[] = [];
   docLoading = false;
@@ -355,16 +358,17 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
 
   /* ═══════ Tab 1: Documents ═══════ */
   onDocumentScopeChange(): void {
-    this.docs = []; this.docKpis = null; this.docSearch = '';
+    this.docs = []; this.docKpis = emptyDocumentKpis(); this.docSearch = '';
     this.loadDocKpis(); this.loadDocs();
   }
 
   loadDocKpis(): void {
-    if (this.routeClientId) { this.docKpis = null; return; }
     this.documentKpiRead?.unsubscribe();
+    this.docKpis = emptyDocumentKpis(); this.docKpiError = false;
+    if (this.routeClientId) return;
     this.documentKpiRead = this.crmDocsApi.kpis(this.docFilters.recordScope).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (data) => { this.docKpis = data; this.cdr.detectChanges(); },
-      error: () => { this.toast.error('Failed to load document KPIs.'); },
+      next: (data) => { this.docKpis = { ...emptyDocumentKpis(), ...data }; this.docKpiError = !data; this.cdr.detectChanges(); },
+      error: () => { this.docKpis = emptyDocumentKpis(); this.docKpiError = true; this.toast.error('Failed to load document KPIs.'); this.cdr.detectChanges(); },
     });
   }
 

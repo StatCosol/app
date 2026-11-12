@@ -61,6 +61,9 @@
     @if (docFilters.recordScope === 'TEST') {
       <p role="status" class="text-amber-800 mb-4">TEST DATA ONLY — contractor counts and review actions below apply to synthetic evidence.</p>
     }
+    @if (docKpiError && !routeClientId) {
+      <p role="alert" class="text-red-700 mb-4">Document counts are unavailable. Reopen Documents to retry.</p>
+    }
     <!-- KPI Chips -->
     @if (!routeClientId) {
     <div class="flex flex-wrap gap-3 mb-6">
