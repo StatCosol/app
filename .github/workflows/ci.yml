@@ -96,6 +96,7 @@ jobs:
           node scripts/validate-notice-checklist-options.cjs
           node scripts/validate-endpoint-role-options.cjs
           node -r ts-node/register scripts/test-monthly-close-db.js
+          node scripts/test-contractor-evidence-isolation.cjs
           node scripts/test-payroll-reconciliation-db.js
           node scripts/validate-nomination-repair.cjs
           node scripts/validate-clra-scope.cjs

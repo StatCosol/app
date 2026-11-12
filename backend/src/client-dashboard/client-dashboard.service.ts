@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import {
   BadRequestException,
   ForbiddenException,
@@ -357,6 +358,7 @@ export class ClientDashboardService {
         'uploaded',
       )
       .where('d.client_id = :clientId', { clientId: scope.clientId })
+      .andWhere(actualContractorDocumentSql('d'))
       .andWhere('d.contractor_user_id IN (:...contractorIds)', {
         contractorIds,
       })

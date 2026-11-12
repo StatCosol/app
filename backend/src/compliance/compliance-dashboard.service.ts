@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -260,7 +261,7 @@ export class ComplianceDashboardService {
          SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_docs,
          SUM(CASE WHEN status IN ('UPLOADED','PENDING_REVIEW') THEN 1 ELSE 0 END) AS pending_review_docs
        FROM contractor_documents
-       WHERE contractor_user_id = $1`,
+       WHERE ${actualContractorDocumentSql()} AND contractor_user_id = $1`,
       [user.userId],
     );
     const rejectedDocs = Number(docCountRows?.[0]?.rejected_docs ?? 0);

@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -594,7 +595,7 @@ export class ComplianceCronService {
          JOIN users u ON u.id = cd.contractor_user_id
          LEFT JOIN clients c ON c.id = a.client_id
          LEFT JOIN users au ON au.id = a.assigned_auditor_id AND au.deleted_at IS NULL
-         WHERE cd.status = 'REJECTED'
+         WHERE ${actualContractorDocumentSql('cd')} AND cd.status = 'REJECTED'
            AND a.status IN ('PLANNED', 'IN_PROGRESS')
          GROUP BY cd.contractor_user_id, u.name, u.email, a.audit_code, a.id, c.client_name, au.email`,
       );

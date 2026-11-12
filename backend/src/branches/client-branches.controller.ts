@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import {
   Body,
   Controller,
@@ -366,7 +367,7 @@ export class ClientBranchesController {
            SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_count,
            SUM(CASE WHEN status = 'EXPIRED' THEN 1 ELSE 0 END) AS expired_count
          FROM contractor_documents
-         WHERE client_id = $1
+         WHERE ${actualContractorDocumentSql()} AND client_id = $1
            AND contractor_user_id = ANY($2)
            AND (branch_id IS NULL OR branch_id = $3)
            AND created_at >= $4 AND created_at < $5
