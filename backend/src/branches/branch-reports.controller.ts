@@ -1,4 +1,8 @@
 import {
+  actualAuditSql,
+  actualAuditObservationSql,
+} from '../common/actual-records';
+import {
   BadRequestException,
   Controller,
   ForbiddenException,
@@ -235,6 +239,8 @@ export class BranchReportsController {
        JOIN audits a ON a.id = o.audit_id
        LEFT JOIN client_branches b ON b.id = a.branch_id
        WHERE a.client_id = $1 ${where}
+         AND ${actualAuditSql('a')}
+         AND ${actualAuditObservationSql('o')}
        ORDER BY
          CASE o.risk
            WHEN 'CRITICAL' THEN 0

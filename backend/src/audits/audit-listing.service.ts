@@ -1,4 +1,5 @@
 import { applyClientBranchScope } from '../common/portal-client-scope';
+import { contractorScopeReadiness } from './contractor-audit-scope';
 import {
   BadRequestException,
   ForbiddenException,
@@ -234,6 +235,7 @@ export class AuditListingService {
       'CLOSED',
     ].includes(String(audit.status || '').toUpperCase());
     const checklist = [
+      ...contractorScopeReadiness(audit),
       {
         key: 'client_scope_linked',
         label: 'Client scope linked',

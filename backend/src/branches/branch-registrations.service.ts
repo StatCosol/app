@@ -1,5 +1,9 @@
 import { isFactoryLicence } from './licence-alerts.policy';
 import {
+  actualAuditSql,
+  actualAuditObservationSql,
+} from '../common/actual-records';
+import {
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -422,6 +426,8 @@ export class BranchRegistrationsService {
       LEFT JOIN users u ON u.id = a.assigned_auditor_id
       WHERE a.branch_id = $1
         AND a.client_id = $2
+        AND ${actualAuditSql('a')}
+        AND ${actualAuditObservationSql('ao')}
       ORDER BY
         CASE WHEN ao.status NOT IN ('CLOSED','RESOLVED') THEN 0 ELSE 1 END,
         CASE

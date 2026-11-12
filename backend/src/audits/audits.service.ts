@@ -1,4 +1,7 @@
-import { assertContractorAuditScope } from './contractor-audit-scope';
+import {
+  assertContractorAuditScope,
+  contractorScopeReadiness,
+} from './contractor-audit-scope';
 import { StatutoryAuditEntryService } from './statutory-audit-entry.service';
 import { fieldworkScore } from './audit-fieldwork-report';
 import { requestAuditAction } from './audit-action-approval';
@@ -526,6 +529,7 @@ export class AuditsService implements OnModuleInit {
       'CLOSED',
     ].includes(String(audit.status || '').toUpperCase());
     const checklist = [
+      ...contractorScopeReadiness(audit),
       {
         key: 'client_scope_linked',
         label: 'Client scope linked',
