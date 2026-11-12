@@ -37,6 +37,31 @@ describe('LegitX and BranchDesk payroll downloads', () => {
     const link = [...fixture.nativeElement.querySelectorAll('a')].find((a: any) => a.textContent.includes('Registers Download')) as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe(portal + '/registers');
   });
+  it('refreshes newly published employee records as well as the summary', () => {
+    const { fixture, component, payroll } = setup('/branch/payroll');
+    payroll.listEmployeeRecords.mockReturnValueOnce(of({ records: [], bulkPayslipAvailable: false }));
+    component.loadEmployeeRecords();
+    fixture.detectChanges();
+    expect(component.employeeRecords).toEqual([]);
+    const button = fixture.nativeElement.querySelector('button[aria-label="Refresh"]') as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    button.click();
+    fixture.detectChanges();
+    expect(component.employeeRecords).toEqual([row]);
+    expect(payroll.listEmployeeRecords).toHaveBeenLastCalledWith({
+      periodYear: 2026, periodMonth: 9, branchId: 'branch-a', search: undefined,
+    });
+  });
+  it('labels client-wide runs without offering an unusable input action', () => {
+    const { fixture, component, payroll } = setup('/branch/payroll');
+    component.filters.branchId = '';
+    payroll.listRuns.mockReturnValueOnce(of([{ id: 'run-a', periodYear: 2026, periodMonth: 9, status: 'APPROVED', branchId: null }] as any));
+    component.loadInputs();
+    fixture.detectChanges();
+    expect(component.branchStatusRows[0].branchName).toBe('Client-wide payroll');
+    expect(component.branchStatusRows[0].latestInputId).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('See employee records above');
+  });
   it('shows bulk download without opening an employee and preserves the displayed month and branch', () => {
     const { fixture, component, payroll, files } = setup();
     expect(component.selectedEmployeeRecord).toBeNull();
