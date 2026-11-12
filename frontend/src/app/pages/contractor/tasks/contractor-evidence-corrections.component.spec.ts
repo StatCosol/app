@@ -1,10 +1,26 @@
-import { of,throwError } from 'rxjs';
+import { of,throwError,Subject } from 'rxjs';
 import { vi } from 'vitest';
 import { ContractorEvidenceCorrectionsComponent } from './contractor-evidence-corrections.component';
 import { ContractorProfileApiService } from '../../../core/contractor-profile-api.service';
 const doc={id:'doc',docType:'BANK_PAYMENT_PROOF',fileName:'proof.xlsx',filePath:'old.xlsx',status:'REJECTED',reviewedAt:'2026-10-19T09:00:00Z',reviewNotes:'Correct reference'};
 function setup(){const api={getContractorDocuments:vi.fn(()=>of([doc])),resubmitEvidence:vi.fn(()=>of({status:'PENDING_REVIEW'}))};const c=new ContractorEvidenceCorrectionsComponent(api as any,{markForCheck:vi.fn()} as any);c.month='2026-05';c.branchId='branch';return {c,api};}
 describe('financial evidence corrections',()=>{
+ it.each(['success','failure'])('ignores an old resubmission %s after changing branch and month',outcome=>{
+  const {c,api}=setup();const pending=new Subject<any>();
+  api.resubmitEvidence.mockReturnValue(pending);
+  const corrected=vi.spyOn(c.corrected,'emit');
+  c.select(doc);c.file=new File(['fixture'],'TEST-correction.xlsx');c.notes='TEST ONLY original correction';c.submit();
+  c.branchId='other-test-branch';c.month='2026-06';c.ngOnChanges();
+  expect(c.busy).toBe(false);
+  const nextDoc={...doc,id:'other-test-doc'};c.select(nextDoc);c.notes='TEST ONLY new draft';
+  const reads=api.getContractorDocuments.mock.calls.length;
+  if(outcome==='success')pending.next({status:'PENDING_REVIEW'});
+  else pending.error({status:409,error:{message:'Old evidence changed'}});
+  expect(c.selected).toBe(nextDoc);expect(c.notes).toBe('TEST ONLY new draft');
+  expect(c.message).toBe('');expect(c.error).toBe('');
+  expect(api.getContractorDocuments).toHaveBeenCalledTimes(reads);expect(corrected).not.toHaveBeenCalled();
+  c.ngOnDestroy();
+ });
  it('scopes the queue by wage month and branch and resets a correction when context changes',()=>{const {c,api}=setup();c.ngOnChanges();expect(api.getContractorDocuments).toHaveBeenCalledWith({month:'2026-05',branchId:'branch'});c.select(doc);c.notes='Old correction';c.ngOnChanges();expect(c.selected).toBeNull();expect(c.notes).toBe('');});
  it('requires a file and meaningful summary, and resubmits the explicitly selected document',()=>{const {c,api}=setup();c.select(doc);expect(c.canSubmit).toBe(false);c.file=new File(['test'],'corrected.xlsx');c.notes='SYNTHETIC corrected reference';expect(c.canSubmit).toBe(true);c.submit();expect(api.resubmitEvidence).toHaveBeenCalledWith(doc,expect.any(File),'SYNTHETIC corrected reference');expect(c.message).toContain('Awaiting fresh CRM review');expect(c.selected).toBeNull();});
  it('does not offer correction on approved or pending evidence',()=>{const {c}=setup();c.select({...doc,status:'APPROVED'});expect(c.selected).toBeNull();c.select({...doc,status:'PENDING_REVIEW'});expect(c.selected).toBeNull();});
