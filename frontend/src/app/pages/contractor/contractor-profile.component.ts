@@ -59,6 +59,7 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
   profile: any = null;
   branches: any[] = [];
   documents: any[] = [];
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
   statutoryRows: StatutoryRow[] = [];
 
   loading = true;
@@ -125,7 +126,9 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
             title: row?.title || row?.fileName || '-',
             updatedAt: row?.updatedAt || row?.createdAt || row?.created_at || null,
           }));
-          this.statutoryRows = this.buildStatutoryRows(this.documents);
+          this.statutoryRows = this.buildStatutoryRows(
+            this.documents.filter((doc) => !this.isTestDocument(doc)),
+          );
           this.error = null;
         },
         error: (err: any) => {
@@ -277,8 +280,16 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
 
   get topRecentDocuments(): any[] {
     return [...this.documents]
+      .filter((doc) => this.isTestDocument(doc) === (this.recordScope === 'TEST'))
       .sort((a, b) => this.dateValue(b.updatedAt) - this.dateValue(a.updatedAt))
       .slice(0, 10);
+  }
+
+  private isTestDocument(doc: any): boolean {
+    // Match the explicit fixture markers used by the evidence correction view.
+    // Ordinary certificates containing the word "test" remain actual records.
+    return /^TEST([_-]| ONLY([ _-]|$))/i.test(doc?.fileName || '') ||
+      /^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)/i.test(doc?.title || '');
   }
 
   isExpiringSoon(dateStr: string): boolean {

@@ -155,6 +155,14 @@
 
     <div class="workspace-card">
       <h3 class="workspace-title">Recent Documents</h3>
+      <label class="block text-sm mb-3" for="profile-document-scope">Document records</label>
+      <select id="profile-document-scope" class="border rounded p-2 mb-3" [(ngModel)]="recordScope">
+        <option value="ACTUAL">Actual records</option>
+        <option value="TEST">Test records only</option>
+      </select>
+      @if (recordScope === 'TEST') {
+        <p role="status" class="text-amber-800 mb-3">TEST DATA ONLY — excluded from profile completeness and statutory identity.</p>
+      }
       <ui-data-table [columns]="docColumns" [data]="topRecentDocuments" emptyMessage="No contractor documents found">
         <ng-template uiTableCell="title" let-row>
           <div class="font-medium text-gray-900">{{ row.title }}</div>
