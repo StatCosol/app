@@ -1,3 +1,4 @@
+import { actualAuditSql } from '../common/actual-records';
 import {
   Injectable,
   Logger,
@@ -793,7 +794,7 @@ export class LegitxDashboardService {
          COUNT(*) FILTER (WHERE status IN ('PLANNED', 'IN_PROGRESS'))::int AS pending,
          COUNT(*) FILTER (WHERE status NOT IN ('COMPLETED', 'CANCELLED') AND due_date IS NOT NULL AND due_date < NOW())::int AS overdue
        FROM audits a
-       ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}`,
+       WHERE ${actualAuditSql()} ${conditions.length ? `AND ${conditions.join(' AND ')}` : ''}`,
       params,
       { completed: 0, pending: 0, overdue: 0 },
     );

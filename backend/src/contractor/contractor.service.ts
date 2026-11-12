@@ -1,3 +1,7 @@
+import {
+  actualContractorDocumentSql,
+  actualAuditSql,
+} from '../common/actual-records';
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, FindOptionsWhere } from 'typeorm';
@@ -199,7 +203,7 @@ export class ContractorService {
               SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS "rejectedCount",
               SUM(CASE WHEN status = 'EXPIRED' THEN 1 ELSE 0 END) AS "expiredCount"
        FROM contractor_documents
-       WHERE client_id = $1 AND contractor_user_id = $2
+       WHERE ${actualContractorDocumentSql()} AND client_id = $1 AND contractor_user_id = $2
          AND branch_id = ANY($3)
          AND created_at >= $4 AND created_at < $5`,
       [clientId, userId, branchIds, monthStart, monthEnd],
@@ -224,7 +228,7 @@ export class ContractorService {
                        ELSE 0 END) AS "riskPoints"
        FROM audit_observations ao
        JOIN audits a ON a.id = ao.audit_id
-       WHERE a.client_id = $1
+       WHERE ${actualAuditSql()} AND a.client_id = $1
          AND a.contractor_user_id = $2
          AND ao.created_at >= $3
          AND ao.created_at < $4`,
@@ -238,7 +242,7 @@ export class ContractorService {
          SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS "rejectedDocs",
          SUM(CASE WHEN status IN ('UPLOADED','PENDING_REVIEW') THEN 1 ELSE 0 END) AS "pendingReviewDocs"
        FROM contractor_documents
-       WHERE contractor_user_id = $1`,
+       WHERE ${actualContractorDocumentSql()} AND contractor_user_id = $1`,
       [userId],
     );
     const rejectedDocs = Number(allTimeDocRow?.rejectedDocs ?? 0);

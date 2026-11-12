@@ -28,11 +28,12 @@ async function main(){
   const dashboard = new LegitxDashboardService(adapter);
   const scope={month:9,year:2026,clientId:id(10),allowedBranchIds:resolved.allowedBranchIds};
   assert.equal((await dashboard.getBranchKpi(scope)).total,2);
-  await db.query('CREATE TABLE audits(client_id uuid,branch_id uuid,status text,due_date date,period_year int,period_code varchar(20))');
-  await db.query("INSERT INTO audits VALUES($1,$2,'COMPLETED',NULL,2026,'2026-09'),($1,$3,'PLANNED','2020-01-01',2026,'2026-09'),($1,$2,'COMPLETED',NULL,2025,'2025-09'),($4,$5,'COMPLETED',NULL,2026,'2026-09')",[id(10),id(1),id(2),id(20),id(3)]);
+  await db.query('CREATE TABLE audits(client_id uuid,branch_id uuid,status text,due_date date,period_year int,period_code varchar(20),notes text,audit_code text)');
+  await db.query("INSERT INTO audits(client_id,branch_id,status,due_date,period_year,period_code) VALUES($1,$2,'COMPLETED',NULL,2026,'2026-09'),($1,$3,'PLANNED','2020-01-01',2026,'2026-09'),($1,$2,'COMPLETED',NULL,2025,'2025-09'),($4,$5,'COMPLETED',NULL,2026,'2026-09')",[id(10),id(1),id(2),id(20),id(3)]);
+  await db.query("INSERT INTO audits(client_id,branch_id,status,period_year,period_code,notes) VALUES($1,$2,'COMPLETED',2026,'2026-09','TEST ONLY synthetic dashboard fixture')",[id(10),id(1)]);
   const audit=await dashboard.getAuditKpis(scope);
   assert.equal(audit.completed,1);assert.equal(audit.pending,1);assert.equal(audit.overdue,1);assert.equal(audit.overallAuditScore,50);
-  await db.query("INSERT INTO audits VALUES($1,$2,'COMPLETED',NULL,2026,'2026-Q3'),($1,$2,'COMPLETED',NULL,2026,'2026-H2'),($1,$2,'COMPLETED',NULL,2026,'2026'),($1,$2,'COMPLETED',NULL,2026,'2026-Q4'),($1,$2,'COMPLETED',NULL,2026,'2026-H1'),($1,$2,'COMPLETED',NULL,2026,'2026-08')",[id(10),id(1)]);
+  await db.query("INSERT INTO audits(client_id,branch_id,status,due_date,period_year,period_code) VALUES($1,$2,'COMPLETED',NULL,2026,'2026-Q3'),($1,$2,'COMPLETED',NULL,2026,'2026-H2'),($1,$2,'COMPLETED',NULL,2026,'2026'),($1,$2,'COMPLETED',NULL,2026,'2026-Q4'),($1,$2,'COMPLETED',NULL,2026,'2026-H1'),($1,$2,'COMPLETED',NULL,2026,'2026-08')",[id(10),id(1)]);
   assert.equal((await dashboard.getAuditKpis(scope)).completed,4);
   const { AuditEntity } = require('../dist/src/audits/entities/audit.entity');
   const auditColumns = require('typeorm').getMetadataArgsStorage().columns.filter(c => c.target === AuditEntity).map(c=>c.options.name || c.propertyName);

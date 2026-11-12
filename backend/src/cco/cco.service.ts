@@ -56,6 +56,7 @@ export class CcoService {
          u.name,
          u.is_active        AS "isActive",
          u.email,
+         u.last_login_at AS "lastLogin",
          COALESCE(cc.client_count, 0)::int AS "clientCount",
          COALESCE(ov.overdue_count, 0)::int AS "overdueCount"
        FROM users u
@@ -86,7 +87,7 @@ export class CcoService {
       status: r.isActive ? 'ACTIVE' : 'INACTIVE',
       clientCount: r.clientCount,
       overdueCount: r.overdueCount,
-      lastLogin: '',
+      lastLogin: r.lastLogin ?? null,
     }));
   }
 
