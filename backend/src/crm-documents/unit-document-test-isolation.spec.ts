@@ -7,6 +7,8 @@ describe('unit-document operational lists', () => {
     (match) => new RegExp(match[1], 'i'),
   );
   it.each([
+    'TEST-ONLY.pdf',
+    'TEST ONLY: synthetic document',
     'TEST-ONLY-20261014-original-licence.pdf',
     'test_only_branch.pdf',
     'TEST ONLY 20261014 - Upload and renewal verification',
