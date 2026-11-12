@@ -35,7 +35,13 @@ export class ContractorEvidenceCorrectionsComponent implements OnChanges,OnDestr
  docs:any[]=[];selected:any=null;file:File|null=null;notes='';search='';busy=false;loading=false;error='';message='';private read?:Subscription;private write?:Subscription;
  constructor(private api:ContractorProfileApiService,private cdr:ChangeDetectorRef){}
  showType(type:string){this.search=type;this.selected=null;this.cdr.markForCheck();}
- ngOnChanges(){this.selected=null;this.file=null;this.notes='';this.message='';this.load();}
+ ngOnChanges(){
+  // A submitted upload may still finish on the server. Its response must not
+  // clear a draft, display a result or refresh the parent in a different scope.
+  this.write?.unsubscribe();
+  this.write=undefined;
+  this.selected=null;this.file=null;this.notes='';this.message='';this.load();
+ }
  ngOnDestroy(){this.read?.unsubscribe();this.write?.unsubscribe();}
  get filtered(){const q=this.search.trim().toLowerCase();return this.docs.filter(d=>(/^TEST([ _-]|$)/i.test(d.fileName||'') === (this.recordScope==='TEST'))).filter(d=>!q || `${d.fileName} ${d.docType} ${d.reviewNotes||''}`.toLowerCase().includes(q));}
  get canSubmit(){return !!this.selected && !!this.file && this.notes.trim().length>=10 && this.notes.trim().length<=2000 && !this.busy;}
