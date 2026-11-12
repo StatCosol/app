@@ -1357,6 +1357,11 @@ export class AuditsService implements OnModuleInit {
         throw new BadRequestException(
           'Only completed or closed audits can be reopened for re-audit',
         );
+      assertContractorAuditScope(
+        audit.audit_type,
+        audit.branch_id,
+        audit.contractor_user_id,
+      );
       const [report] = await manager.query(
         'SELECT * FROM audit_reports WHERE audit_id = $1 ORDER BY updated_at DESC, created_at DESC LIMIT 1 FOR UPDATE',
         [auditId],
