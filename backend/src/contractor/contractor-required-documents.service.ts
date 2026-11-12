@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
@@ -292,7 +293,7 @@ export class ContractorRequiredDocumentsService {
       ? await this.repo.manager.query(
           `SELECT doc_type, id, file_name, status, created_at, branch_id, review_notes
            FROM contractor_documents
-           WHERE contractor_user_id = $1 AND client_id = $2
+           WHERE ${actualContractorDocumentSql()} AND contractor_user_id = $1 AND client_id = $2
              AND (
                doc_month = $3
                OR (doc_month IS NULL AND created_at >= $4 AND created_at < $5)
@@ -319,7 +320,7 @@ export class ContractorRequiredDocumentsService {
       : await this.repo.manager.query(
           `SELECT doc_type, id, file_name, status, created_at, branch_id, review_notes
            FROM contractor_documents
-           WHERE contractor_user_id = $1 AND client_id = $2
+           WHERE ${actualContractorDocumentSql()} AND contractor_user_id = $1 AND client_id = $2
              AND created_at >= $3 AND created_at < $4
              ${branchId ? 'AND branch_id = $5' : ''}
            ORDER BY created_at DESC`,

@@ -1,4 +1,7 @@
-import { actualAuditSql } from '../common/actual-records';
+import {
+  actualAuditSql,
+  actualContractorDocumentSql,
+} from '../common/actual-records';
 import {
   Injectable,
   Logger,
@@ -404,7 +407,7 @@ export class LegitxDashboardService {
 
   private async getContractorDocsBuckets(scope: LegitxDashboardScope) {
     const params: unknown[] = [];
-    const conditions: string[] = [];
+    const conditions: string[] = [actualContractorDocumentSql()];
 
     if (scope.clientId) {
       params.push(scope.clientId);

@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import {
   actualAuditSql,
   actualAuditObservationSql,
@@ -536,7 +537,7 @@ export class BranchReportsController {
          FROM contractor_documents cd
          JOIN users u ON u.id = cd.contractor_user_id
          LEFT JOIN client_branches b ON b.id = cd.branch_id
-         WHERE cd.client_id = $1
+         WHERE ${actualContractorDocumentSql('cd')} AND cd.client_id = $1
            AND cd.doc_month = $2
            ${branchFilter}
          GROUP BY u.name, u.email, b.branchname

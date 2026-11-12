@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import {
   Injectable,
   Logger,
@@ -538,7 +539,7 @@ export class LegitxComplianceStatusService {
            COUNT(*) FILTER (WHERE cd.status = 'REJECTED')::int AS rejected_docs,
            COUNT(*) FILTER (WHERE cd.status = 'EXPIRED')::int AS expired_docs
          FROM contractor_documents cd
-         WHERE cd.contractor_user_id = bc.contractor_user_id
+         WHERE ${actualContractorDocumentSql('cd')} AND cd.contractor_user_id = bc.contractor_user_id
            AND cd.branch_id = bc.branch_id
        ) ds ON true
        ${whereClause}

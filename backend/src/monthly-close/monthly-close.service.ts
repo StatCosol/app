@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AccessScopeService, ReqUser } from '../access/access-scope.service';
@@ -226,7 +227,7 @@ export class MonthlyCloseService {
       FROM requirements r
       LEFT JOIN LATERAL (
         SELECT cd.id, cd.status, cd.file_path, cd.expiry_date FROM contractor_documents cd
-        WHERE cd.client_id = $1 AND cd.branch_id = $2 AND cd.contractor_user_id = r.contractor_user_id
+        WHERE ${actualContractorDocumentSql('cd')} AND cd.client_id = $1 AND cd.branch_id = $2 AND cd.contractor_user_id = r.contractor_user_id
           AND cd.doc_type = r.doc_type AND cd.doc_month = to_char($3::date, 'YYYY-MM')
         ORDER BY cd.created_at DESC, cd.id DESC LIMIT 1
       ) d ON true WHERE r.is_required = true

@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../../common/actual-records';
 import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -24,7 +25,7 @@ export class ExpiryEngineService {
       JOIN clients c ON c.id=cd.client_id
       JOIN client_branches b ON b.id=cd.branch_id AND b.clientid=cd.client_id
       JOIN users u ON u.id=cd.contractor_user_id
-      WHERE cd.expiry_date BETWEEN $1::date AND $1::date + $2::int
+      WHERE ${actualContractorDocumentSql('cd')} AND cd.expiry_date BETWEEN $1::date AND $1::date + $2::int
         AND cd.status NOT IN ('EXPIRED','CANCELLED') AND c.is_deleted=false
         AND b.isactive=true AND u.is_active=true AND u.deleted_at IS NULL`,
       [operationalDate(), scope.options?.documentDays ?? 30],

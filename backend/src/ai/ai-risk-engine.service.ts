@@ -1,3 +1,4 @@
+import { actualContractorDocumentSql } from '../common/actual-records';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -219,7 +220,7 @@ export class AiRiskEngineService {
         `SELECT COUNT(DISTINCT cd.contractor_user_id)::int as expired_count
        FROM contractor_documents cd
        INNER JOIN client_branches b ON b.id = cd.branch_id AND b.clientid = $1 AND b.isactive = TRUE AND b.isdeleted = FALSE
-       WHERE cd.expiry_date IS NOT NULL AND cd.expiry_date < NOW()
+       WHERE ${actualContractorDocumentSql('cd')} AND cd.expiry_date IS NOT NULL AND cd.expiry_date < NOW()
          AND cd.status NOT IN ('REPLACED', 'ARCHIVED')`,
         [clientId],
       )
@@ -232,7 +233,7 @@ export class AiRiskEngineService {
          COUNT(*)::int AS total_required,
          COUNT(*) FILTER (WHERE cd.id IS NOT NULL AND cd.status IN ('UPLOADED','APPROVED','PENDING_REVIEW'))::int AS uploaded
        FROM contractor_required_documents crd
-       LEFT JOIN contractor_documents cd ON cd.doc_type = crd.doc_type
+       LEFT JOIN contractor_documents cd ON ${actualContractorDocumentSql('cd')} AND cd.doc_type = crd.doc_type
          AND cd.branch_id = crd.branch_id
        INNER JOIN client_branches b ON b.id = crd.branch_id AND b.clientid = $1 AND b.isactive = TRUE AND b.isdeleted = FALSE
        WHERE crd.is_required = TRUE`,
@@ -929,7 +930,7 @@ export class AiRiskEngineService {
       upl AS (
         SELECT DISTINCT cd.doc_type
         FROM contractor_documents cd
-        WHERE cd.branch_id = $1
+        WHERE ${actualContractorDocumentSql('cd')} AND cd.branch_id = $1
           AND cd.doc_month = $2
           AND cd.status IN ('UPLOADED','PENDING_REVIEW','APPROVED')
       )
