@@ -27,6 +27,7 @@ import { PayrollInputStatusHistoryEntity } from './entities/payroll-input-status
 import { PayrollTemplate } from './entities/payroll-template.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { PayrollClientScopeService } from './payroll-client-scope.service';
+import { excludeTestPayrollRecords } from './payroll-operational-records';
 
 @Injectable()
 export class PayrollInputService {
@@ -255,6 +256,7 @@ export class PayrollInputService {
       .createQueryBuilder('p')
       .where('p.client_id = :cid', { cid: user.clientId })
       .orderBy('p.created_at', 'DESC');
+    excludeTestPayrollRecords(qb, ['p.title', 'p.notes']);
     // Branch users only see inputs for their own branch(es)
     if (user.userType === 'BRANCH' && user.branchIds?.length) {
       qb.andWhere('p.branch_id IN (:...ubids)', { ubids: user.branchIds });
