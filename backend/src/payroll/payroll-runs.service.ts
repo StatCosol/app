@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { payrollCategory } from './payroll-category';
+import { excludeTestPayrollRecords } from './payroll-operational-records';
 import { ReqUser } from '../access/access-scope.service';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
@@ -80,6 +81,7 @@ export class PayrollRunsService {
       .createQueryBuilder('r')
       .where('r.client_id = :cid', { cid: user.clientId })
       .orderBy('r.created_at', 'DESC');
+    excludeTestPayrollRecords(qb, ['r.title', 'r.approvalComments']);
 
     if (user.userType === 'BRANCH' && user.branchIds?.length) {
       qb.andWhere('(r.branch_id IN (:...ubids) OR r.branch_id IS NULL)', {

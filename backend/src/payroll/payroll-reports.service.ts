@@ -9,6 +9,7 @@ import { PayrollClientAssignmentEntity } from './entities/payroll-client-assignm
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { ReqUser } from '../access/access-scope.service';
+import { excludeTestPayrollRecords } from './payroll-operational-records';
 
 /** Run statuses considered safe to include in compliance reports. */
 const REPORTABLE_RUN_STATUSES = ['APPROVED'];
@@ -79,12 +80,7 @@ export class PayrollReportsService {
   ): void {
     // Operational exports must never treat an approved synthetic run as payable.
     // Match explicit fixture markers, not ordinary words such as "test engineer".
-    const testMarker =
-      '^[[:space:]]*(SYNTHETIC TEST ONLY|TEST ONLY)([[:space:]:_-]|$)|^[[:space:]]*TEST[_-]';
-    qb.andWhere(
-      "NOT (COALESCE(r.title, '') ~* :payrollTestMarker OR COALESCE(r.approvalComments, '') ~* :payrollTestMarker)",
-      { payrollTestMarker: testMarker },
-    );
+    excludeTestPayrollRecords(qb, ['r.title', 'r.approvalComments']);
     if (scope.clientId) {
       qb.andWhere('re.clientId = :clientId', { clientId: scope.clientId });
       return;
