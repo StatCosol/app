@@ -97,7 +97,6 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   auditClosures: any[] = [];
   auditClosuresLoading = false;
   auditClosuresClientId = '';
-  closingObsId: string | null = null;
 
   /* ═══════ Safe row helpers (camelCase / snake_case) ═══════ */
   private pick<T = any>(row: any, ...keys: string[]): T | undefined {
@@ -650,19 +649,6 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res: any) => { this.auditClosures = res?.data || res || []; },
         error: () => { this.auditClosures = []; this.toast.error('Failed to load audit closures. Please try again.'); },
-      });
-  }
-
-  async closeObservation(auditId: string): Promise<void> {
-    const result = await this.dialog.prompt('Close Observation', 'Closure notes (optional):', { placeholder: 'Notes' });
-    if (!result.confirmed || this.reviewingDocId) return;
-    const notes = result.value || '';
-    this.closingObsId = auditId;
-    this.complianceApi.crmCloseAuditObservation(auditId, { notes })
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.closingObsId = null; this.cdr.detectChanges(); }))
-      .subscribe({
-        next: () => { this.toast.success('Observation closed successfully.'); this.loadAuditClosures(); },
-        error: (e) => { this.toast.error(e?.error?.message || 'Failed to close observation. Please try again.'); },
       });
   }
 

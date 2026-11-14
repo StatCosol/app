@@ -72,6 +72,10 @@ jobs:
         env:
           HELPDESK_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
         run: node scripts/verify-helpdesk-test-isolation.cjs
+      - name: CRM audit closure isolation regressions
+        env:
+          AUDIT_CLOSURES_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
+        run: node scripts/verify-crm-audit-closures.cjs
       - name: Automation PostgreSQL regressions
         env:
           AUTOMATION_TEST_PORT: 5432

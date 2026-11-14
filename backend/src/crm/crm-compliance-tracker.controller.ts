@@ -23,6 +23,10 @@ import { ReqUser } from '../access/access-scope.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+import {
+  actualAuditObservationSql,
+  actualAuditSql,
+} from '../common/actual-records';
 
 const mcdEvidenceUploadOptions = makeSafeUploadOptions({
   memory: true,
@@ -823,7 +827,9 @@ export class CrmComplianceTrackerController {
        LEFT JOIN client_branches b ON b.id = a.branch_id
        LEFT JOIN users u ON u.id = a.contractor_user_id
        LEFT JOIN audit_observations ao ON ao.audit_id = a.id
+         AND ${actualAuditObservationSql('ao')}
        WHERE a.status NOT IN ('CANCELLED')
+         AND ${actualAuditSql('a')}
          AND ($2::uuid IS NULL OR c.id = $2)
        GROUP BY a.id, a.audit_code, a.audit_type, c.client_name, b.branchname, u.name
        HAVING COUNT(ao.id) > 0
