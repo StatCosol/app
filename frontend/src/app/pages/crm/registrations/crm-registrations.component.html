@@ -9,7 +9,11 @@
   </div>
 
   <div class="toolbar aligned-filter-controls">
-    <select id="cr-selected-branch-id" name="selectedBranchId" [(ngModel)]="selectedBranchId" (change)="load()">
+    <select id="cr-record-scope" aria-label="Registration records" name="recordScope" [(ngModel)]="recordScope" (change)="load()" [disabled]="saving || !!deletingId">
+      <option value="ACTUAL">Actual registrations</option>
+      <option value="TEST">Test evidence only</option>
+    </select>
+    <select id="cr-selected-branch-id" aria-label="Branch" name="selectedBranchId" [(ngModel)]="selectedBranchId" (change)="load()" [disabled]="saving || !!deletingId">
       @for (b of branches; track b) {
 <option [value]="b.id">{{ b.name }}</option>
 }
@@ -24,15 +28,21 @@
       <option value="EXPIRED">Expired</option>
     </select>
 
-    <button type="button" class="compact-action btn" (click)="openCreate()" [disabled]="!selectedBranchId" title="Add" aria-label="Add" data-action-label="Add" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
+    @if (recordScope === 'ACTUAL') {
+    <button type="button" class="compact-action btn" (click)="openCreate()" [disabled]="!selectedBranchId || loading" title="Add" aria-label="Add" data-action-label="Add" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
+    }
   </div>
+  <p class="sub" role="status">{{ recordScope === 'TEST' ? 'Test evidence only — these counts are excluded from operational dashboards, expiry tracking and reminders. Documents are available for review.' : 'Actual registrations only — test evidence is excluded from these counts.' }}</p>
+  @if (loadError) {
+    <div role="alert" class="note">{{ loadError }} <button type="button" class="btn secondary" (click)="load()" [disabled]="!selectedBranchId">Retry</button></div>
+  }
 
   @if (loading) {
 <div class="muted py-3">Loading…</div>
 }
 
   <!-- Summary cards -->
-  @if (!loading) {
+  @if (!loading && !loadError) {
 <div class="strip">
     <div class="card">
       <div class="value text-emerald-600">{{ active }}</div>
@@ -54,7 +64,7 @@
 }
 
   <!-- Table -->
-  @if (!loading) {
+  @if (!loading && !loadError) {
 <div class="tableWrap">
     <table>
       <thead>
@@ -146,6 +156,9 @@
 
           <!-- Actions column -->
           <td class="actions-cell">
+            @if (recordScope === 'TEST') {
+              <span class="muted">Test evidence — view only</span>
+            } @else {
             <div class="inline-flex gap-1.5 items-center">
               <button type="button" class="compact-action btn secondary sm" (click)="openEdit(r)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
 
@@ -163,6 +176,7 @@
                 {{ deletingId === r.id ? '…' : 'Delete' }}
               </span></button>
             </div>
+            }
           </td>
         </tr>
 }
@@ -261,8 +275,8 @@
     </div>
 
     <div class="note">
-      Expiry status is calculated automatically: <b>Expiring Soon</b> means within 30 days, <b>Expired</b> if past expiry date.
-      When you extend the expiry date, the system automatically marks it as renewed.
+      Expiry status is calculated automatically: <b>Expiring Soon</b> means within 60 days, <b>Expired</b> if past expiry date.
+      Upload the renewal certificate using Renewal after updating the expiry date.
     </div>
   </div>
 }

@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { SlaComplianceResolverService } from '../compliances/sla-compliance-resolver.service';
@@ -115,6 +116,7 @@ export class CalendarService {
       FROM branch_registrations r
       WHERE r.client_id = $1
         AND r.status <> 'DELETED'
+        AND ${actualRegistrationSql('r')}
         AND r.expiry_date IS NOT NULL
         AND r.expiry_date BETWEEN $2 AND $3
     `;

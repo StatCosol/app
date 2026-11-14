@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import { actualContractorDocumentSql } from '../common/actual-records';
 import {
   Injectable,
@@ -847,6 +848,7 @@ export class LegitxComplianceStatusService {
   private async getRegistrationExpiries(p: StatusQueryParams) {
     const conditions = [
       'br.expiry_date IS NOT NULL',
+      actualRegistrationSql('br'),
       'cb.isdeleted = false',
       `br.expiry_date::date BETWEEN
          (make_date($1, $2, 1) - INTERVAL '30 days')::date
@@ -894,6 +896,7 @@ export class LegitxComplianceStatusService {
   ): Promise<number> {
     const conditions = [
       'br.expiry_date IS NOT NULL',
+      actualRegistrationSql('br'),
       'br.expiry_date::date < CURRENT_DATE',
       'cb.isdeleted = false',
       `br.expiry_date::date BETWEEN

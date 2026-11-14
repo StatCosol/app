@@ -461,7 +461,7 @@ const cfg = {
       [b1, b2, company],
     );
     await ds.query(
-      'CREATE TABLE branch_registrations(id uuid,type text,registration_number text,authority text,expiry_date date,branch_id uuid,client_id uuid,status text)',
+      'CREATE TABLE branch_registrations(id uuid,type text,registration_number text,authority text,expiry_date date,branch_id uuid,client_id uuid,status text,remarks text)',
     );
     for (const [branch, client, date, status] of [
       [b1, company, '2026-09-30', 'ACTIVE'],

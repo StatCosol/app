@@ -99,9 +99,9 @@ export class ClientBranchesService {
   /* ── CRM Registration CRUD ────────────── */
 
   /** CRM: List registrations for a branch+client */
-  crmListRegistrations(branchId: string, clientId: string): Observable<any[]> {
+  crmListRegistrations(branchId: string, clientId: string, recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL'): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/api/v1/crm/branch-registrations`, {
-      params: new HttpParams().set('branchId', branchId).set('clientId', clientId),
+      params: new HttpParams().set('branchId', branchId).set('clientId', clientId).set('recordScope', recordScope),
     });
   }
 

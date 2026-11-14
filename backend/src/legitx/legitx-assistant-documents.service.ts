@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import {
   ForbiddenException,
   Injectable,
@@ -335,6 +336,7 @@ export class LegitxAssistantDocumentsService {
           `SELECT r.id, r.branch_id, r.type, r.status, r.issued_date, r.renewed_on
            FROM branch_registrations r JOIN client_branches b ON b.id = r.branch_id AND b.clientid = r.client_id AND b.isdeleted = false
            WHERE r.client_id = $1 AND ($2::uuid IS NULL OR r.branch_id = $2)
+             AND ${actualRegistrationSql('r')}
              AND upper(r.type) IN ('SHOPS', 'SHOP', 'SHOPS_ESTABLISHMENT', 'SHOPS_ESTABLISHMENTS', 'SHOPS AND ESTABLISHMENT', 'SHOPS & ESTABLISHMENT')
              AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
              AND CASE WHEN $3 = 'RENEWAL' THEN r.renewal_document_url IS NOT NULL AND r.renewal_document_url <> ''

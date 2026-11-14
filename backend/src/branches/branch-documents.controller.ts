@@ -320,7 +320,11 @@ export class CrmBranchRegistrationsController {
     @CurrentUser() user: ReqUser,
     @Query('branchId') branchId?: string,
     @Query('clientId') clientId?: string,
+    @Query('recordScope') recordScope: string = 'ACTUAL',
   ) {
+    if (recordScope !== 'ACTUAL' && recordScope !== 'TEST') {
+      throw new BadRequestException('recordScope must be ACTUAL or TEST');
+    }
     if (!branchId || !clientId) {
       throw new BadRequestException('branchId and clientId are required');
     }
@@ -331,7 +335,7 @@ export class CrmBranchRegistrationsController {
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
-    return this.regSvc.listByBranch(branchId, clientId);
+    return this.regSvc.listByBranch(branchId, clientId, recordScope);
   }
 
   /** POST /api/v1/crm/branch-registrations */

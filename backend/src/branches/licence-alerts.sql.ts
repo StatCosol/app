@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import { COUNTED_DECISIONS } from '../mobile-attendance/punch/punch-direction.service';
 
 export const LICENCE_REGISTRATIONS_SQL = `
@@ -9,6 +10,7 @@ export const LICENCE_REGISTRATIONS_SQL = `
  JOIN client_branches b ON b.id=r.branch_id AND b.clientid=r.client_id
  JOIN clients c ON c.id=r.client_id
  WHERE COALESCE(r.status,'ACTIVE') <> 'DELETED'
+   AND ${actualRegistrationSql('r')}
    AND b.isdeleted=false AND b.isactive=true AND c.is_deleted=false AND c.is_active=true
    AND ($1::uuid[] IS NULL OR r.branch_id=ANY($1::uuid[]))
  ORDER BY b.branchname, r.type, r.id`;

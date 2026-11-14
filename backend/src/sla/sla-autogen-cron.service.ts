@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
@@ -73,7 +74,7 @@ export class SlaAutogenCronService {
       await this.ds.query(
         `SELECT id, type, expiry_date
        FROM branch_registrations
-       WHERE client_id = $1 AND branch_id = $2
+       WHERE ${actualRegistrationSql()} AND client_id = $1 AND branch_id = $2
          AND status <> 'DELETED'
          AND expiry_date IS NOT NULL`,
         [clientId, branchId],

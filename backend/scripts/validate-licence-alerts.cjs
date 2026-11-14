@@ -30,6 +30,7 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
    CREATE TEMP TABLE client_assignments_current(client_id uuid,assignment_type text,assigned_to_user_id uuid);`);
   const migration=fs.readFileSync(path.join(__dirname,'../migrations/20261011_licence_manpower_renewal_alerts.sql'),'utf8');
   await db.query(migration);await db.query(migration);
+  await db.query('ALTER TABLE branch_registrations ADD COLUMN remarks text');
   const client=id(1),branch=id(2),otherClient=id(3),otherBranch=id(4),reg=id(5),today=operationalDate(),expiry=addCalendarDays(today,60);
   await db.query(`INSERT INTO clients VALUES($1,'Test client',false,true),($2,'Other client',false,true)`,[client,otherClient]);
   await db.query(`INSERT INTO client_branches VALUES($3,$1,'Factory A',false,true),($4,$2,'Other factory',false,true)`,[client,otherClient,branch,otherBranch]);

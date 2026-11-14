@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import {
   Controller,
   Get,
@@ -131,7 +132,7 @@ export class CeoController {
       .query(
         `SELECT COUNT(*)::int AS n
          FROM branch_registrations
-         WHERE expiry_date IS NOT NULL
+         WHERE ${actualRegistrationSql()} AND expiry_date IS NOT NULL
            AND expiry_date <= CURRENT_DATE + INTERVAL '90 days'
            AND expiry_date >= CURRENT_DATE
            AND status != 'EXPIRED'`,
@@ -338,7 +339,7 @@ export class CeoController {
            FROM branch_registrations br
            LEFT JOIN clients c ON c.id = br.client_id
            LEFT JOIN client_branches b ON b.id = br.branch_id
-           WHERE br.expiry_date IS NOT NULL
+           WHERE ${actualRegistrationSql('br')} AND br.expiry_date IS NOT NULL
              AND br.expiry_date <= CURRENT_DATE + INTERVAL '180 days'
            ORDER BY br.expiry_date ASC
            LIMIT 200`,
