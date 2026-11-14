@@ -33,6 +33,8 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private listRequest?: Subscription;
   private focusedId = '';
+  private editorVersion = 0;
+  private listVersion = 0;
   loadError = '';
 
   readonly auditOptionLabel = auditOptionLabel;
@@ -194,6 +196,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   }
 
   selectObservation(row: any): void {
+    this.editorVersion++;
     this.selected = row;
     this.verificationNotes = '';
     this.branchResponseDraft = row?.elaboration || '';
@@ -202,12 +205,19 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
 
   saveCapaDetails(): void {
     if (!this.selected || this.busy || this.loading || this.statusKey(this.selected.status) === 'CLOSED') return;
+    const target = { ...this.selected };
+    const auditId = this.filterAuditId;
+    const listVersion = this.listVersion;
+    const editorVersion = this.editorVersion;
+    const responseDraft = this.branchResponseDraft;
+    const capaDraft = this.capaDraft;
+    const payload = {
+      elaboration: responseDraft.trim() || null,
+      recommendation: capaDraft.trim() || null,
+    };
     this.busy = true;
     this.observationsApi
-      .update(this.selected.id, {
-        elaboration: this.branchResponseDraft.trim() || null,
-        recommendation: this.capaDraft.trim() || null,
-      })
+      .update(target.id, payload)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -216,9 +226,21 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: () => {
+        next: (response) => {
           this.toast.success('CAPA details saved');
-          this.refreshSelected();
+          if (this.filterAuditId !== auditId || this.listVersion !== listVersion) return;
+          // The update returns the saved observation. Merge its data without
+          // reloading and resetting an unrelated or subsequently edited draft.
+          const saved = { ...target, ...payload, ...(response?.id === target.id ? response : {}) };
+          this.observations = this.observations.map(row => row.id === target.id ? saved : row);
+          if (this.selected?.id === target.id) {
+            this.selected = saved;
+            if (this.editorVersion === editorVersion) {
+              if (this.branchResponseDraft === responseDraft) this.branchResponseDraft = saved.elaboration || '';
+              if (this.capaDraft === capaDraft) this.capaDraft = saved.recommendation || '';
+            }
+          }
+          this.cdr.markForCheck();
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to save CAPA details'),
       });
@@ -414,6 +436,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   }
 
   loadObservations(afterLoad?: () => void): void {
+    this.listVersion++;
     this.listRequest?.unsubscribe();
     const retainId = this.focusedId || this.selected?.id;
     this.selected = null;

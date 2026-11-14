@@ -8,6 +8,7 @@
   </ui-page-header>
 
   <!-- KPI Cards -->
+  @if (kpiError) { <p role="alert">{{ kpiError }} <button type="button" class="btn btn-secondary" (click)="loadAll()">Retry totals</button></p> }
   @if (kpis) {
 <section class="kpi-grid">
     <div class="kpi-card">
@@ -144,7 +145,8 @@
 <ui-loading-spinner text="Loading notices..."></ui-loading-spinner>
 }
 
-  @if (!loading && !filtered.length) {
+  @if (listError) { <p role="alert">{{ listError }} <button type="button" class="btn btn-secondary" (click)="loadAll()">Retry notices</button></p> }
+  @if (!loading && !listError && !filtered.length) {
 <ui-empty-state
     title="No notices found"
     description="No notices match current filters. Create a new notice or adjust filters.">
@@ -172,7 +174,7 @@
           <tbody>
             @for (n of filtered; track trackById($index, n)) {
 <tr
-                [class.active]="selected?.id === n.id"
+                [class.active]="requestedNotice?.id === n.id"
                 [class.overdue]="isOverdue(n)"
                 (click)="selectNotice(n)"
                 class="cursor-pointer">
@@ -204,6 +206,13 @@
     </div>
 
     <!-- Detail Panel -->
+    @if (requestedNotice && (detailLoading || detailError)) {
+      <section class="detail-panel">
+        <header class="detail-head"><h3>{{ requestedNotice.noticeCode }}</h3><button type="button" class="close-btn" (click)="closeDetail()" aria-label="Close">Close</button></header>
+        @if (detailLoading) { <p role="status" class="detail-body">Loading notice details...</p> }
+        @if (detailError) { <p role="alert" class="detail-body">{{ detailError }} <button type="button" class="btn btn-secondary" (click)="retryDetail()">Retry details</button></p> }
+      </section>
+    }
     @if (selected) {
 <div class="detail-panel">
       <header class="detail-head">

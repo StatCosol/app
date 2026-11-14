@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, finalize, takeUntil, timeout } from 'rxjs';
+import { Subject, Subscription, finalize, takeUntil, timeout } from 'rxjs';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../../shared/ui/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
@@ -15,6 +15,7 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
     <div class="max-w-[1400px] mx-auto p-4">
       <ui-page-header title="Notices & Inspections" subtitle="Notices and inspection orders for your branch"></ui-page-header>
 
+      @if (kpiError) { <p role="alert">{{ kpiError }} <button type="button" (click)="loadKpis()">Retry totals</button></p> }
       @if (kpis) {
 <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div class="border rounded-lg p-3 bg-white"><span class="block text-xl font-bold">{{ kpis.total }}</span><span class="text-xs text-gray-500">Total</span></div>
@@ -37,7 +38,8 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
       @if (loading) {
 <ui-loading-spinner text="Loading notices..."></ui-loading-spinner>
 }
-      @if (!loading && !notices.length) {
+      @if (listError) { <p role="alert">{{ listError }} <button type="button" (click)="load()">Retry notices</button></p> }
+      @if (!loading && !listError && !notices.length) {
 <ui-empty-state title="No notices" description="No notices found for your branch."></ui-empty-state>
 }
 
@@ -47,7 +49,7 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
 <div
              class="border rounded-lg p-4 bg-white hover:shadow-sm cursor-pointer"
              [class.border-red-300]="isOverdue(n)"
-             (click)="selected = selected?.id === n.id ? null : n; selected && loadDetail(n.id)">
+             (click)="toggleNotice(n)">
           <div class="flex items-center justify-between mb-1">
             <span class="font-mono text-xs text-gray-500">{{ n.noticeCode }}</span>
             <span class="text-xs px-2 py-0.5 rounded" [ngClass]="statusColor(n.status)">{{ n.status }}</span>
@@ -61,7 +63,9 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
             <span class="px-1.5 py-0.5 rounded border text-xs" [ngClass]="severityColor(n.severity)">{{ n.severity }}</span>
           </div>
 
-          @if (selected?.id === n.id && detail) {
+          @if (selected?.id === n.id && detailLoading) { <p role="status">Loading notice details...</p> }
+          @if (selected?.id === n.id && detailError) { <p role="alert">{{ detailError }} <button type="button" (click)="$event.stopPropagation(); loadDetail(n.id)">Retry details</button></p> }
+          @if (selected?.id === n.id && detail?.id === n.id && detail) {
 <div class="mt-3 pt-3 border-t">
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div><span class="text-gray-400">Reference</span><br/>{{ detail.referenceNo || '—' }}</div>
@@ -93,6 +97,15 @@ import { NoticesService, Notice, NoticeKpis } from '../../../core/notices.servic
 })
 export class BranchNoticesComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private listRequest?: Subscription;
+  private detailRequest?: Subscription;
+  private listVersion = 0;
+  private detailVersion = 0;
+  private kpiRequest?: Subscription;
+  kpiError = '';
+  listError = '';
+  detailError = '';
+  detailLoading = false;
   loading = false;
   notices: Notice[] = [];
   kpis: NoticeKpis | null = null;
@@ -103,20 +116,77 @@ export class BranchNoticesComponent implements OnInit, OnDestroy {
   statuses = ['RECEIVED', 'UNDER_REVIEW', 'ACTION_REQUIRED', 'RESPONSE_DRAFTED', 'RESPONSE_SUBMITTED', 'CLOSED', 'ESCALATED'];
 
   constructor(private api: NoticesService, private cdr: ChangeDetectorRef) {}
-  ngOnInit() { this.load(); this.api.branchKpis().pipe(takeUntil(this.destroy$)).subscribe({ next: k => { this.kpis = k; this.cdr.detectChanges(); } }); }
+  ngOnInit() { this.load(); this.loadKpis(); }
+  loadKpis() {
+    this.kpiRequest?.unsubscribe();
+    this.kpis = null;
+    this.kpiError = '';
+    this.kpiRequest = this.api.branchKpis().pipe(takeUntil(this.destroy$), timeout(15000)).subscribe({
+      next: k => { this.kpis = k; this.cdr.markForCheck(); },
+      error: () => { this.kpiError = 'Notice totals are unavailable. Retry to refresh them.'; this.cdr.markForCheck(); },
+    });
+  }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   load() {
+    const version = ++this.listVersion;
+    this.listRequest?.unsubscribe();
+    this.closeDetail();
+    this.notices = [];
+    this.listError = '';
     this.loading = true;
     const f: any = {};
     if (this.search) f.search = this.search;
     if (this.statusFilter) f.status = this.statusFilter;
-    this.api.branchList(f).pipe(takeUntil(this.destroy$), timeout(15000), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
-      .subscribe({ next: d => { this.notices = d; this.cdr.detectChanges(); } });
+    this.listRequest = this.api.branchList(f).pipe(takeUntil(this.destroy$), timeout(15000), finalize(() => { if (version === this.listVersion) { this.loading = false; this.cdr.markForCheck(); } }))
+      .subscribe({
+        next: d => { if (version === this.listVersion) { this.notices = d || []; this.cdr.markForCheck(); } },
+        error: () => { if (version === this.listVersion) { this.listError = 'Notices could not be loaded. Retry to refresh this list.'; this.cdr.markForCheck(); } },
+      });
   }
 
   loadDetail(id: string) {
-    this.api.branchGetOne(id).pipe(takeUntil(this.destroy$)).subscribe({ next: d => { this.detail = d; this.cdr.detectChanges(); } });
+    if (this.selected?.id !== id) return;
+    const version = ++this.detailVersion;
+    this.detailRequest?.unsubscribe();
+    this.detail = null;
+    this.detailError = '';
+    this.detailLoading = true;
+    this.detailRequest = this.api.branchGetOne(id).pipe(
+      takeUntil(this.destroy$), timeout(15000),
+      finalize(() => { if (version === this.detailVersion) { this.detailLoading = false; this.cdr.markForCheck(); } }),
+    ).subscribe({
+      next: d => {
+        if (version !== this.detailVersion || this.selected?.id !== id) return;
+        if (d?.id === id) this.detail = d;
+        else this.detailError = 'Notice details could not be loaded. Retry to refresh this notice.';
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (version !== this.detailVersion || this.selected?.id !== id) return;
+        this.detailError = 'Notice details could not be loaded. Retry to refresh this notice.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  toggleNotice(notice: Notice) {
+    if (this.selected?.id === notice.id) { this.closeDetail(); return; }
+    this.selected = notice;
+    this.loadDetail(notice.id);
+  }
+
+  retryDetail() {
+    if (this.selected) this.loadDetail(this.selected.id);
+  }
+
+  closeDetail() {
+    this.detailVersion++;
+    this.detailRequest?.unsubscribe();
+    this.selected = null;
+    this.detail = null;
+    this.detailLoading = false;
+    this.detailError = '';
   }
 
   severityColor(s: string) {

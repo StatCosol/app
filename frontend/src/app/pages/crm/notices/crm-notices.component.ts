@@ -2,7 +2,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, of, finalize, catchError, takeUntil, timeout } from 'rxjs';
+import { Subject, Subscription, of, finalize, catchError, takeUntil, timeout } from 'rxjs';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../../shared/ui/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
@@ -28,6 +28,16 @@ import { CrmClientsApi } from '../../../core/api/crm-clients.api';
 })
 export class CrmNoticesComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private listRequest?: Subscription;
+  private kpiRequest?: Subscription;
+  private detailRequest?: Subscription;
+  private listVersion = 0;
+  private detailVersion = 0;
+  requestedNotice: Notice | null = null;
+  detailLoading = false;
+  detailError = '';
+  listError = '';
+  kpiError = '';
 
   loading = false;
   saving = false;
@@ -78,7 +88,16 @@ export class CrmNoticesComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadAll() {
+  loadAll(preserveDetail = false) {
+    const version = ++this.listVersion;
+    this.listRequest?.unsubscribe();
+    this.kpiRequest?.unsubscribe();
+    if (!preserveDetail) this.closeDetail();
+    this.notices = [];
+    this.filtered = [];
+    this.kpis = null;
+    this.listError = '';
+    this.kpiError = '';
     this.loading = true;
     const filters: any = {};
     if (this.clientFilter) filters.clientId = this.clientFilter;
@@ -87,23 +106,25 @@ export class CrmNoticesComponent implements OnInit, OnDestroy {
     if (this.typeFilter) filters.noticeType = this.typeFilter;
     if (this.search) filters.search = this.search;
 
-    this.noticesApi.crmList(filters).pipe(
+    this.listRequest = this.noticesApi.crmList(filters).pipe(
       takeUntil(this.destroy$),
       timeout(15000),
-      catchError(() => of([] as Notice[])),
-      finalize(() => this.loading = false),
+      finalize(() => { if (version === this.listVersion) this.loading = false; }),
     ).subscribe({
       next: (data) => {
-        this.notices = data;
-        this.filtered = data;
+        if (version !== this.listVersion) return;
+        this.notices = data || [];
+        this.filtered = data || [];
+        if (this.requestedNotice && !this.filtered.some(row => row.id === this.requestedNotice?.id)) this.closeDetail();
       },
+      error: () => { if (version === this.listVersion) this.listError = 'Notices could not be loaded. Retry to refresh this list.'; },
     });
 
-    this.noticesApi.crmKpis(this.clientFilter || undefined).pipe(
+    this.kpiRequest = this.noticesApi.crmKpis(this.clientFilter || undefined).pipe(
       takeUntil(this.destroy$),
-      catchError(() => of(null)),
     ).subscribe({
-      next: (k) => { if (k) this.kpis = k; },
+      next: (k) => { if (version === this.listVersion) this.kpis = k; },
+      error: () => { if (version === this.listVersion) this.kpiError = 'Notice totals are unavailable. Retry to refresh them.'; },
     });
   }
 
@@ -112,13 +133,36 @@ export class CrmNoticesComponent implements OnInit, OnDestroy {
   }
 
   selectNotice(n: Notice) {
-    this.noticesApi.crmGetOne(n.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (detail) => this.selected = detail,
+    const version = ++this.detailVersion;
+    this.detailRequest?.unsubscribe();
+    this.requestedNotice = n;
+    this.selected = null;
+    this.detailError = '';
+    this.detailLoading = true;
+    this.detailRequest = this.noticesApi.crmGetOne(n.id).pipe(
+      takeUntil(this.destroy$), timeout(15000),
+      finalize(() => { if (version === this.detailVersion) this.detailLoading = false; }),
+    ).subscribe({
+      next: detail => {
+        if (version !== this.detailVersion || this.requestedNotice?.id !== n.id) return;
+        if (detail?.id === n.id) this.selected = detail;
+        else this.detailError = 'Notice details could not be loaded. Retry to refresh this notice.';
+      },
+      error: () => { if (version === this.detailVersion) this.detailError = 'Notice details could not be loaded. Retry to refresh this notice.'; },
     });
   }
 
   closeDetail() {
+    this.detailVersion++;
+    this.detailRequest?.unsubscribe();
+    this.requestedNotice = null;
     this.selected = null;
+    this.detailLoading = false;
+    this.detailError = '';
+  }
+
+  retryDetail() {
+    if (this.requestedNotice) this.selectNotice(this.requestedNotice);
   }
 
   toggleCreate() {
@@ -155,12 +199,16 @@ export class CrmNoticesComponent implements OnInit, OnDestroy {
   }
 
   updateStatus(notice: Notice, newStatus: string, remarks?: string) {
+    const scopeVersion = this.listVersion;
+    const selectionVersion = this.detailVersion;
     this.noticesApi.crmUpdate(notice.id, { status: newStatus, remarks }).pipe(
       takeUntil(this.destroy$),
     ).subscribe({
       next: () => {
-        this.loadAll();
-        if (this.selected?.id === notice.id) this.selectNotice(notice);
+        if (scopeVersion !== this.listVersion) return;
+        const refreshSelection = this.requestedNotice?.id === notice.id && selectionVersion === this.detailVersion;
+        this.loadAll(true);
+        if (refreshSelection) this.selectNotice(notice);
       },
     });
   }
