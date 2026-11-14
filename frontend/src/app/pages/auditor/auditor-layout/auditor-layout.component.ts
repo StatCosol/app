@@ -1,6 +1,6 @@
 import { PortalPagePurposeComponent } from '../../../shared/navigation/portal-page-purpose.component';
 import { WorkspaceToolsComponent } from '../../../shared/components/workspace-tools/workspace-tools.component';
-import { Component , ChangeDetectionStrategy} from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 
 import { RouterOutlet } from '@angular/router';
 import { AuditorSidebarComponent } from './auditor-sidebar.component';
@@ -35,7 +35,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
               <div class="flex items-center gap-5">
                 <button
         class="portal-nav-toggle"
-        (click)="sidebarCollapsed = false; mobileOpen = true" aria-label="Open navigation" [attr.aria-expanded]="mobileOpen"
+        (click)="sidebarCollapsed.set(false); mobileOpen.set(true)" aria-label="Open navigation" [attr.aria-expanded]="mobileOpen()"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
@@ -108,8 +108,9 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
   `]
 })
 export class AuditorLayoutComponent {
-  sidebarCollapsed = false;
-  mobileOpen = false;
+  // Notify rendering directly, including the first event after login.
+  readonly sidebarCollapsed = signal(false);
+  readonly mobileOpen = signal(false);
   userName = 'Auditor User';
   clientLogoUrl = '';
 

@@ -2,7 +2,7 @@ import { activeNavigationItem, collapsedNavigationItems } from '../../../shared/
 import { ResponsiveNavigationDirective } from '../../../shared/directives/responsive-navigation.directive';
 import { FormsModule } from '@angular/forms';
 import { filterNavigation } from '../../../shared/navigation/navigation-filter';
-import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
@@ -428,7 +428,9 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
   @Input() collapsedLinksInput?: SidebarItem[];
 
   collapsedLinks: SidebarItem[] = [];
-  navGroups: SidebarGroup[] = [];
+  private readonly groups = signal<SidebarGroup[]>([]);
+  get navGroups(): SidebarGroup[] { return this.groups(); }
+  set navGroups(value: SidebarGroup[]) { this.groups.set(value); }
   searchTerm = '';
   get filteredNavGroups(): SidebarGroup[] { return filterNavigation(this.navGroups, this.searchTerm); }
 
@@ -473,6 +475,8 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
     const willExpand = !group.expanded;
     this.navGroups.forEach(g => g.expanded = false);
     group.expanded = willExpand;
+    // Publish the changed group state; do not wait for another browser event.
+    this.navGroups = [...this.navGroups];
   }
 
   onNavClick(): void {
@@ -511,6 +515,7 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
     if (!matched) {
       this.navGroups.forEach(g => g.expanded = false);
     }
+    this.navGroups = [...this.navGroups];
   }
 
   private setNavData(): void {

@@ -51,6 +51,7 @@ describe('ClientPayrollDocumentsService downloads', () => {
     documents?: any[];
     settings?: Record<string, unknown>;
     fileExists?: (filePath: string) => boolean;
+    runRows?: any[];
   }) {
     const settingsRepo = {
       findOne: jest.fn(async () => ({
@@ -61,9 +62,19 @@ describe('ClientPayrollDocumentsService downloads', () => {
       })),
     };
     const runRepo = { findOne: jest.fn(async () => state.run ?? null) };
+    const query: any = { getRawMany: jest.fn(async () => state.runRows || []) };
+    for (const method of [
+      'innerJoin',
+      'select',
+      'addSelect',
+      'where',
+      'andWhere',
+    ]) {
+      query[method] = jest.fn(() => query);
+    }
     const runEmployeeRepo = {
       findOne: jest.fn(async () => state.employee ?? null),
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn(() => query),
     };
     const payslipArchiveRepo = {
       findOne: jest.fn(async () => state.archive ?? null),
@@ -152,6 +163,127 @@ describe('ClientPayrollDocumentsService downloads', () => {
       ...overrides,
     };
   }
+
+  it.each(['MASTER', 'BRANCH'])(
+    'hides marked payslips from %s lists and ZIPs while keeping actual payroll',
+    async (userType) => {
+      const row = {
+        employeeId: 'emp-a',
+        employeeCode: 'A1',
+        employeeName: 'Actual worker',
+        branchId: branchA,
+        runStatus: 'APPROVED',
+      };
+      const service = serviceWith(
+        ready({
+          archive: { filePath, fileName: 'actual.pdf' },
+          runRows: [
+            { ...row, runId: 'run-1', runTitle: 'December payroll' },
+            { ...row, runId: 'test-title', runTitle: 'TEST_REGULAR_20261016' },
+            {
+              ...row,
+              runId: 'test-comment',
+              runTitle: 'December payroll',
+              runApprovalComments: 'SYNTHETIC TEST ONLY: isolated verification',
+            },
+          ],
+        }),
+      );
+      jest.spyOn(service as any, 'loadArchives').mockResolvedValue([
+        {
+          runId: 'run-1',
+          employeeCode: 'A1',
+          fileName: 'actual.pdf',
+          filePath,
+        },
+        {
+          runId: 'test-title',
+          employeeCode: 'A1',
+          fileName: 'test-title.pdf',
+          filePath,
+        },
+        {
+          runId: 'test-comment',
+          employeeCode: 'A1',
+          fileName: 'test-comment.pdf',
+          filePath,
+        },
+      ]);
+      jest.spyOn(service as any, 'loadFnfCases').mockResolvedValue([]);
+      jest.spyOn(service as any, 'loadFnfDocuments').mockResolvedValue([]);
+      jest.spyOn(service as any, 'loadEmployees').mockResolvedValue([]);
+      const q = { periodYear: 2025, periodMonth: 12 };
+      const listed = await service.listEmployeeRecords(user({ userType }), q);
+      expect(listed.records.map((record) => record.runId)).toEqual(['run-1']);
+      expect(listed.bulkPayslipAvailable).toBe(true);
+      const response = Object.assign(new PassThrough(), {
+        setHeader: jest.fn(),
+      });
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      const ended = new Promise<void>((resolve, reject) => {
+        response.on('end', resolve);
+        response.on('error', reject);
+      });
+      await service.streamPayslipPack(user({ userType }), q, response as any);
+      await ended;
+      const zip = await require('unzipper').Open.buffer(Buffer.concat(chunks));
+      expect(zip.files.map((file: any) => file.path)).toEqual(['actual.pdf']);
+    },
+  );
+
+  it.each(['MASTER', 'BRANCH'])(
+    'rejects saved test payslip URLs for %s',
+    async (userType) => {
+      for (const marker of [
+        { title: 'TEST_ONLY_RUN' },
+        { approvalComments: ' test only: payroll check' },
+      ]) {
+        const state = ready();
+        state.run = { ...state.run, ...marker };
+        const service = serviceWith(state);
+        await expect(
+          service.downloadPayslip(user({ userType }), 'run-1', 'A1'),
+        ).rejects.toBeInstanceOf(NotFoundException);
+        await expect(
+          service.downloadStipendReceipt(user({ userType }), 'run-1', 'A1'),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      }
+    },
+  );
+
+  it('offers no payslip pack for a period containing only synthetic runs', async () => {
+    const service = serviceWith({
+      runRows: [
+        {
+          runId: 'test-run',
+          runTitle: 'TEST_REGULAR_20261016',
+          runStatus: 'APPROVED',
+          employeeId: 'test-employee',
+          employeeCode: 'TEST1',
+          branchId: branchA,
+        },
+      ],
+    });
+    jest.spyOn(service as any, 'loadArchives').mockResolvedValue([
+      {
+        runId: 'test-run',
+        employeeCode: 'TEST1',
+        fileName: 'synthetic.pdf',
+        filePath,
+      },
+    ]);
+    jest.spyOn(service as any, 'loadFnfCases').mockResolvedValue([]);
+    jest.spyOn(service as any, 'loadFnfDocuments').mockResolvedValue([]);
+    jest.spyOn(service as any, 'loadEmployees').mockResolvedValue([]);
+    const query = { periodYear: 2025, periodMonth: 12 };
+    await expect(
+      service.listEmployeeRecords(user(), query),
+    ).resolves.toMatchObject({ records: [], bulkPayslipAvailable: false });
+    await expect(
+      service.streamPayslipPack(user(), query, {} as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
 
   it('generates a stipend receipt from approved published intern payroll', async () => {
     const state = ready();
