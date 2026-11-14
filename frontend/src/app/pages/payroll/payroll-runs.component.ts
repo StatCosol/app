@@ -232,6 +232,12 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   // Inline per-employee edit
   editingEmpCode: string | null = null;
+  private editingRunId: string | null = null;
+  private workspaceRunId: string | null = null;
+  private leaveValidationRunId: string | null = null;
+  private otValidationRunId: string | null = null;
+  private leaveRequestVersion = 0;
+  private otRequestVersion = 0;
   // Inline per-employee calculation check
   checkingEmpCode: string | null = null;
   editEmpForm: {
@@ -716,11 +722,12 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.warning(`Import blocked: ${guard}`);
       return;
     }
+    const runId = this.selectedRun.id;
     this.importBusy = true;
     const fd = new FormData();
     fd.append('file', this.importFile);
     this.http
-      .post(`/api/v1/payroll/runs/${this.selectedRun.id}/upload-attendance`, fd)
+      .post(`/api/v1/payroll/runs/${runId}/upload-attendance`, fd)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -730,22 +737,22 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
+          this.refreshAfterInputChange(runId);
           if (this.selectedRun) {
             this.addRunEvent(
-              this.selectedRun.id,
+              runId,
               'IMPORT',
               'Attendance uploaded',
               'Attendance data imported',
             );
           }
-          this.toast.success('Attendance uploaded successfully.');
-          this.importFile = null;
-          this.loadRuns();
-          if (this.selectedRun) {
-            this.loadRunEmployees(this.selectedRun.id, false);
-          }
+          this.toast.success('Attendance uploaded. Process the full run before submitting.');
+          if (this.selectedRun?.id === runId) this.importFile = null;
         },
-        error: (err) => this.toast.error(err?.error?.message || 'Could not upload import file.'),
+        error: (err) => {
+          this.refreshAfterInputChange(runId);
+          this.toast.error(err?.error?.message || 'Could not upload import file.');
+        },
       });
   }
 
@@ -783,6 +790,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   // ── Leave Validation (Attendance vs ESS-approved) ──────────────────
   loadLeaveValidation(): void {
     if (!this.selectedRun?.id) return;
+    const runId = this.selectedRun.id;
+    const version = ++this.leaveRequestVersion;
+    const isCurrent = () => this.selectedRun?.id === runId && this.leaveRequestVersion === version;
     this.leaveValidationLoading = true;
     this.leaveValidationError = null;
     this.http
@@ -791,10 +801,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         periodYear: number;
         periodMonth: number;
         rows: PayrollRunsComponent['leaveValidationRows'];
-      }>(`/api/v1/payroll/runs/${this.selectedRun.id}/leave-validation`)
+      }>(`/api/v1/payroll/runs/${runId}/leave-validation`)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!isCurrent()) return;
           this.leaveValidationLoading = false;
           this.leaveValidationLoaded = true;
           this.cdr.markForCheck();
@@ -802,6 +813,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (resp) => {
+          if (!isCurrent()) return;
+          this.leaveValidationRunId = runId;
           this.leaveValidationRows = (resp?.rows || []).map((r) => ({
             ...r,
             resolveSource: 'ESS' as const,
@@ -810,6 +823,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           }));
         },
         error: (err) => {
+          if (!isCurrent()) return;
           this.leaveValidationError = err?.error?.message || 'Could not load leave validation.';
           this.leaveValidationRows = [];
         },
@@ -819,6 +833,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   resolveLeaveValidationRow(empCode: string): void {
     if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun?.id) return;
+    if (this.leaveValidationRunId !== this.selectedRun.id) return;
+    const runId = this.selectedRun.id;
     const row = this.leaveValidationRows.find((r) => r.empCode === empCode);
     if (!row) return;
     const source = row.resolveSource || 'ESS';
@@ -826,7 +842,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.resolvingLeaveEmpCode = empCode;
     this.http
       .post<{ empCode: string; updated: number; source: 'ESS' | 'SHEET' }>(
-        `/api/v1/payroll/runs/${this.selectedRun.id}/leave-validation/${encodeURIComponent(empCode)}/resolve`,
+        `/api/v1/payroll/runs/${runId}/leave-validation/${encodeURIComponent(empCode)}/resolve`,
         { source },
       )
       .pipe(
@@ -839,6 +855,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (resp) => {
+          this.refreshAfterInputChange(runId);
           row.resolved = true;
           row.resolvedSource = resp?.source || source;
           // Reflect the new authoritative value in the row so the user can
@@ -848,11 +865,13 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             row.diff = 0;
           }
           this.toast.success(
-            `Resolved leave for ${empCode} (${row.resolvedSource}). Reprocess the run to refresh payslips.`,
+            `Resolved leave for ${empCode} (${row.resolvedSource}). Process the full run before submitting.`,
           );
         },
-        error: (err) =>
-          this.toast.error(err?.error?.message || 'Could not resolve leave mismatch.'),
+        error: (err) => {
+          this.refreshAfterInputChange(runId);
+          this.toast.error(err?.error?.message || 'Could not resolve leave mismatch.');
+        },
       });
   }
 
@@ -872,16 +891,20 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   // ── OT Validation (Attendance sheet vs branch/client + ESS daily) ─────
   loadOtValidation(): void {
     if (!this.selectedRun?.id) return;
+    const runId = this.selectedRun.id;
+    const version = ++this.otRequestVersion;
+    const isCurrent = () => this.selectedRun?.id === runId && this.otRequestVersion === version;
     this.otValidationLoading = true;
     this.otValidationError = null;
     this.http
       .get<{
         runId: string;
         rows: PayrollRunsComponent['otValidationRows'];
-      }>(`/api/v1/payroll/runs/${this.selectedRun.id}/ot-validation`)
+      }>(`/api/v1/payroll/runs/${runId}/ot-validation`)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!isCurrent()) return;
           this.otValidationLoading = false;
           this.otValidationLoaded = true;
           this.cdr.markForCheck();
@@ -889,6 +912,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (resp) => {
+          if (!isCurrent()) return;
+          this.otValidationRunId = runId;
           this.otValidationRows = (resp?.rows || []).map((r) => ({
             ...r,
             resolveSource: 'BRANCH',
@@ -897,6 +922,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           }));
         },
         error: (err) => {
+          if (!isCurrent()) return;
           this.otValidationError = err?.error?.message || 'Could not load OT validation.';
           this.otValidationRows = [];
         },
@@ -906,6 +932,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   resolveOtValidationRow(empCode: string): void {
     if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun?.id) return;
+    if (this.otValidationRunId !== this.selectedRun.id) return;
+    const runId = this.selectedRun.id;
     const row = this.otValidationRows.find((r) => r.empCode === empCode);
     if (!row) return;
     const source = row.resolveSource || 'BRANCH';
@@ -913,7 +941,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.resolvingOtEmpCode = empCode;
     this.http
       .post<{ empCode: string; otHours: number; source: string }>(
-        `/api/v1/payroll/runs/${this.selectedRun.id}/ot-validation/${encodeURIComponent(empCode)}/resolve`,
+        `/api/v1/payroll/runs/${runId}/ot-validation/${encodeURIComponent(empCode)}/resolve`,
         { source },
       )
       .pipe(
@@ -926,6 +954,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (resp) => {
+          this.refreshAfterInputChange(runId);
           row.resolved = true;
           row.resolvedSource = source;
           row.resolvedOtHours = resp?.otHours;
@@ -934,16 +963,13 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           row.attendanceSheetOt = resp?.otHours ?? row.attendanceSheetOt;
           row.maxDiff = 0;
           this.toast.success(
-            `OT for ${empCode} set to ${resp.otHours} hr (${source}). Recomputed.`,
+            `OT for ${empCode} set to ${resp.otHours} hr (${source}). Process the full run before submitting.`,
           );
-          // Backend auto-reprocesses this employee on resolve, so reload the
-          // Preview Employees grid (and component values) so the new
-          // OT_AMOUNT / ESI / Net Pay are visible without a page refresh.
-          if (this.selectedRun) {
-            this.loadRunWorkspaceData(this.selectedRun.id, true);
-          }
         },
-        error: (err) => this.toast.error(err?.error?.message || 'Could not resolve OT mismatch.'),
+        error: (err) => {
+          this.refreshAfterInputChange(runId);
+          this.toast.error(err?.error?.message || 'Could not resolve OT mismatch.');
+        },
       });
   }
 
@@ -955,6 +981,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   async resolveAllLeaveValidation(): Promise<void> {
     if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun?.id || this.bulkResolvingLeave) return;
+    if (this.leaveValidationRunId !== this.selectedRun.id) return;
     const runId = this.selectedRun.id;
     const source = this.bulkLeaveSource;
     const targets = this.filteredLeaveValidationRows.filter(
@@ -995,9 +1022,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       }
     }
     this.bulkResolvingLeave = false;
+    this.refreshAfterInputChange(runId);
     if (fail === 0) {
       this.toast.success(
-        `Resolved ${ok} leave mismatch(es) using ${source}. Reprocess the run to refresh payslips.`,
+        `Resolved ${ok} leave mismatch(es) using ${source}. Process the full run before submitting.`,
       );
     } else {
       this.toast.error(`Resolved ${ok}, failed ${fail}. See network log for details.`);
@@ -1013,6 +1041,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   async resolveAllOtValidation(): Promise<void> {
     if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun?.id || this.bulkResolvingOt) return;
+    if (this.otValidationRunId !== this.selectedRun.id) return;
     const runId = this.selectedRun.id;
     const source = this.bulkOtSource;
     const targets = this.filteredOtValidationRows.filter(
@@ -1052,13 +1081,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       }
     }
     this.bulkResolvingOt = false;
+    this.refreshAfterInputChange(runId);
     if (fail === 0) {
-      this.toast.success(`Resolved ${ok} OT mismatch(es) using ${source}. Recomputed.`);
+      this.toast.success(`Resolved ${ok} OT mismatch(es) using ${source}. Process the full run before submitting.`);
     } else {
       this.toast.error(`Resolved ${ok}, failed ${fail}. See network log for details.`);
-    }
-    if (this.selectedRun) {
-      this.loadRunWorkspaceData(this.selectedRun.id, true);
     }
   }
 
@@ -1518,19 +1545,26 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  private employeeRequestVersion = 0;
+  private approvalRequestVersions = new Map<string, number>();
+
   private loadRunEmployees(runId: string, toastOnError: boolean): void {
+    const requestVersion = ++this.employeeRequestVersion;
+    const isCurrent = () => requestVersion === this.employeeRequestVersion && this.selectedRun?.id === runId;
     this.loadingRunDetail = true;
     this.http
       .get<any>(`/api/v1/payroll/runs/${runId}/employees`)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!isCurrent()) return;
           this.loadingRunDetail = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (res) => {
+          if (!isCurrent()) return;
           const compArr = Array.isArray(res?.components) ? res.components : [];
           this.payheetComponents = compArr
             .map((c: any) => ({
@@ -1565,8 +1599,13 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             otherDeductionsNote: row?.otherDeductionsNote ?? row?.other_deductions_note ?? null,
             components: (row?.components || {}) as Record<string, number>,
           }));
+          for (const run of [...this.runs, ...this.filteredRuns, this.selectedRun]) {
+            if (run?.id === runId) run.employeeCount = this.runEmployees.length;
+          }
+          this._guardCache.clear();
         },
         error: () => {
+          if (!isCurrent()) return;
           this.runEmployees = [];
           this.payheetComponents = [];
           if (toastOnError) {
@@ -1577,23 +1616,61 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   private loadRunWorkspaceData(runId: string, toastOnError: boolean): void {
+    if (this.workspaceRunId !== runId) {
+      this.workspaceRunId = runId;
+      this.editingEmpCode = null;
+      this.editingRunId = null;
+      this.leaveValidationRows = [];
+      this.otValidationRows = [];
+      this.leaveValidationRunId = null;
+      this.otValidationRunId = null;
+      this.leaveValidationLoaded = false;
+      this.otValidationLoaded = false;
+      this.leaveValidationLoading = false;
+      this.otValidationLoading = false;
+      this.leaveRequestVersion++;
+      this.otRequestVersion++;
+      this.runEmployees = [];
+      this.payheetComponents = [];
+    }
     this.loadRunEmployees(runId, toastOnError);
     this.loadApprovalStatus(runId, false);
   }
 
+  private syncRunStatus(runId: string, status: string): void {
+    for (const run of [...this.runs, ...this.filteredRuns, this.selectedRun]) {
+      if (run?.id === runId) run.status = String(status).toUpperCase();
+    }
+    this._guardCache.clear();
+    this.cdr.markForCheck();
+  }
+
+  private refreshAfterInputChange(runId: string): void {
+    // Partial recalculation leaves previously processed totals in Draft.
+    const run = this.selectedRun?.id === runId ? this.selectedRun : this.runs.find(row => row.id === runId);
+    if (run?.status.toUpperCase() === 'PROCESSED') this.syncRunStatus(runId, 'DRAFT');
+    if (this.selectedRun?.id === runId) this.loadRunWorkspaceData(runId, true);
+    else this.loadApprovalStatus(runId, false);
+  }
+
   private loadApprovalStatus(runId: string, toastOnError: boolean): void {
-    this.loadingApprovalStatus = true;
+    const version = (this.approvalRequestVersions.get(runId) || 0) + 1;
+    this.approvalRequestVersions.set(runId, version);
+    const isCurrent = () => this.approvalRequestVersions.get(runId) === version;
+    if (this.selectedRun?.id === runId) this.loadingApprovalStatus = true;
     this.http
       .get<any>(`/api/v1/payroll/runs/${runId}/approval-status`)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!isCurrent() || this.selectedRun?.id !== runId) return;
           this.loadingApprovalStatus = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (res) => {
+          if (!isCurrent()) return;
           const row = res?.data || res || {};
           this.runApprovalStatusByRunId[runId] = {
             status: row?.status || null,
@@ -1606,9 +1683,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             rejectedAt: row?.rejectedAt || row?.rejected_at || null,
             rejectionReason: row?.rejectionReason || row?.rejection_reason || null,
           };
+          if (row?.status) this.syncRunStatus(runId, row.status);
           this._guardCache.clear();
         },
         error: () => {
+          if (!isCurrent()) return;
           delete this.runApprovalStatusByRunId[runId];
           this._guardCache.clear();
           if (toastOnError) {
@@ -1891,17 +1970,18 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   async uploadAddEmpFile(): Promise<void> {
     if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun || !this.addEmpParsedCodes.length) return;
+    const runId = this.selectedRun.id;
     const codes = this.addEmpParsedCodes;
     const ok = await this.dialog.confirm(
       'Add Employees From File',
       `Add ${codes.length} employee(s) from file to this payroll run and compute their payroll?`,
       { confirmText: 'Add' },
     );
-    if (!ok) return;
+    if (!ok || this.selectedRun?.id !== runId || !this.canChangePayrollInputs()) return;
 
     this.addEmpUploadBusy = true;
     this.http
-      .post<any>(`/api/v1/payroll/runs/${this.selectedRun.id}/add-employees`, {
+      .post<any>(`/api/v1/payroll/runs/${runId}/add-employees`, {
         employeeCodes: codes,
       })
       .pipe(
@@ -1913,21 +1993,21 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (res) => {
+          this.refreshAfterInputChange(runId);
           const added = res?.added?.length || 0;
           const skipped = res?.skipped?.length || 0;
           this.toast.success(
-            `${added} employee(s) added from file${skipped ? `, ${skipped} skipped` : ''}.`,
+            `${added} employee(s) added from file${skipped ? `, ${skipped} skipped` : ''}. Process the full run before submitting.`,
           );
+          if (this.selectedRun?.id !== runId) return;
           this.addEmpFile = null;
           this.addEmpParsedCodes = [];
           this.showAddEmployeePanel = false;
           this.addEmpSelected.clear();
           this.addEmpSearch = '';
-          if (this.selectedRun) {
-            this.loadRunWorkspaceData(this.selectedRun.id, true);
-          }
         },
         error: (err) => {
+          this.refreshAfterInputChange(runId);
           this.toast.error(err?.error?.message || 'Failed to add employees from file.');
         },
       });
@@ -1936,17 +2016,18 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   async confirmAddEmployees(): Promise<void> {
     if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun || !this.addEmpSelected.size) return;
+    const runId = this.selectedRun.id;
     const codes = Array.from(this.addEmpSelected);
     const ok = await this.dialog.confirm(
       'Add Employees',
       `Add ${codes.length} employee(s) to this payroll run and compute their payroll?`,
       { confirmText: 'Add' },
     );
-    if (!ok) return;
+    if (!ok || this.selectedRun?.id !== runId || !this.canChangePayrollInputs()) return;
 
     this.addEmpBusy = true;
     this.http
-      .post<any>(`/api/v1/payroll/runs/${this.selectedRun.id}/add-employees`, {
+      .post<any>(`/api/v1/payroll/runs/${runId}/add-employees`, {
         employeeCodes: codes,
       })
       .pipe(
@@ -1958,17 +2039,17 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (res) => {
+          this.refreshAfterInputChange(runId);
           const added = res?.added?.length || 0;
           const skipped = res?.skipped?.length || 0;
-          this.toast.success(`${added} employee(s) added${skipped ? `, ${skipped} skipped` : ''}.`);
+          this.toast.success(`${added} employee(s) added${skipped ? `, ${skipped} skipped` : ''}. Process the full run before submitting.`);
+          if (this.selectedRun?.id !== runId) return;
           this.showAddEmployeePanel = false;
           this.addEmpSelected.clear();
           this.addEmpSearch = '';
-          if (this.selectedRun) {
-            this.loadRunWorkspaceData(this.selectedRun.id, true);
-          }
         },
         error: (err) => {
+          this.refreshAfterInputChange(runId);
           this.toast.error(err?.error?.message || 'Failed to add employees.');
         },
       });
@@ -1977,6 +2058,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   // ── Inline per-employee edit ────────────────────────────────────
   startEditEmployee(row: RunEmployeeRow): void {
     if (!this.canChangePayrollInputs()) return;
+    this.editingRunId = this.selectedRun!.id;
     this.editingEmpCode = row.empCode;
     this.editEmpForm = {
       workingDays: Number(row.daysPresent || 0),
@@ -1992,6 +2074,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   cancelEditEmployee(): void {
     this.editingEmpCode = null;
+    this.editingRunId = null;
   }
 
   // ── Inline per-employee calculation check ───────────────────────
@@ -2133,6 +2216,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   saveEmployeeEdit(row: RunEmployeeRow): void {
     if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun || this.editEmpBusy) return;
+    if (this.editingRunId !== this.selectedRun.id || this.editingEmpCode !== row.empCode) return;
+    const runId = this.selectedRun.id;
     const f = this.editEmpForm;
     if (f.payableDays > f.workingDays) {
       this.toast.warning('Payable days cannot exceed working days.');
@@ -2141,7 +2226,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.editEmpBusy = true;
     this.http
       .post<any>(
-        `/api/v1/payroll/runs/${this.selectedRun.id}/employees/${encodeURIComponent(row.empCode)}/edit-inputs`,
+        `/api/v1/payroll/runs/${runId}/employees/${encodeURIComponent(row.empCode)}/edit-inputs`,
         {
           // workingDays from the form represents this employee's payable
           // working days for the month; the engine derives LOP from
@@ -2167,13 +2252,12 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success(`${row.empCode} updated and reprocessed.`);
-          this.editingEmpCode = null;
-          if (this.selectedRun) {
-            this.loadRunWorkspaceData(this.selectedRun.id, true);
-          }
+          this.refreshAfterInputChange(runId);
+          this.toast.success(`${row.empCode} inputs saved. Process the full run before submitting.`);
+          if (this.selectedRun?.id === runId) this.editingEmpCode = null;
         },
         error: (err) => {
+          this.refreshAfterInputChange(runId);
           this.toast.error(err?.error?.message || 'Failed to update employee.');
         },
       });
