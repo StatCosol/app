@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { actualRegistrationSql } from '../common/actual-records';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import { AccessScopeService, ReqUser } from '../access/access-scope.service';
@@ -147,6 +148,7 @@ export class LicenceAlertsService {
       `INSERT INTO registration_alerts(registration_id,client_id,branch_id,alert_type,priority,title,message,module,event_key)
        SELECT $1,$2,$3,$4,$5,$6,$7,'REGISTRATION',$8
        FROM branch_registrations r WHERE r.id=$1 AND r.client_id=$2 AND r.branch_id=$3
+         AND ${actualRegistrationSql('r')}
          AND COALESCE(r.status,'ACTIVE') <> 'DELETED' AND r.type=$9
          AND r.expiry_date IS NOT DISTINCT FROM $10::date
          AND r.licensed_worker_limit IS NOT DISTINCT FROM $11::int

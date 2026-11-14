@@ -4,6 +4,7 @@ const { randomUUID } = require('node:crypto');
 const { Client } = require('pg');
 require('ts-node/register/transpile-only');
 const { BranchRegistrationsService } = require('../src/branches/branch-registrations.service');
+const { ComplianceMetricsService } = require('../src/compliances/compliance-metrics.service');
 const { CalendarService } = require('../src/calendar/calendar.service');
 const { RenewalFilingEngineService } = require('../src/automation/services/renewal-filing-engine.service');
 const { LICENCE_REGISTRATIONS_SQL } = require('../src/branches/licence-alerts.sql');
@@ -49,6 +50,14 @@ async function main() {
     const snapshot = async () => (await db.query("SELECT json_build_object('registrations',(SELECT json_agg(r ORDER BY id) FROM branch_registrations r),'alerts',(SELECT json_agg(a ORDER BY id) FROM registration_alerts a)) AS data")).rows[0].data;
     const before = await snapshot();
     const ds = {query:async(sql,params)=>(await db.query(sql,params)).rows};
+    const metrics = new ComplianceMetricsService({}, {}, {}, ds, ds, {}, {});
+    assert.equal(await metrics.hasExpiringRegistration(client, branch),true);
+    assert.equal(await metrics.hasExpiringRegistration(otherClient, branch),false);
+    // Isolate the risk signal in a rolled-back savepoint with only test expiries.
+    await db.query('SAVEPOINT metric_fixtures');
+    await db.query("UPDATE branch_registrations SET expiry_date=NULL WHERE id=ANY($1::uuid[])",[fixtures.filter(r=>['soon','expired'].includes(r.label)).map(r=>r.id)]);
+    assert.equal(await metrics.hasExpiringRegistration(client, branch),false,'Test and deleted expiries must not affect the risk score');
+    await db.query('ROLLBACK TO SAVEPOINT metric_fixtures');
     const branches = {findOne:async({where}) => {
       const r = (await db.query('SELECT clientid AS "clientId" FROM client_branches WHERE id=$1 AND isdeleted=false',[where.id])).rows[0];
       return r || null;

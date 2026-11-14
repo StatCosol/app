@@ -1,11 +1,11 @@
 import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
+import { actualRegistrationSql } from '../common/actual-records';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
   DataSource,
   In,
   LessThan,
-  LessThanOrEqual,
   FindOptionsWhere,
 } from 'typeorm';
 import { BranchEntity } from '../branches/entities/branch.entity';
@@ -562,14 +562,17 @@ export class ComplianceMetricsService {
     const next30 = new Date();
     next30.setDate(next30.getDate() + 30);
 
-    const cnt = await this.regRepo.count({
-      where: {
-        clientId,
-        branchId,
-        expiryDate: LessThanOrEqual(next30),
-      },
-    });
-    return cnt > 0;
+    const [row] = await this.regRepo.query(
+      `SELECT EXISTS (
+        SELECT 1 FROM branch_registrations r
+        WHERE r.client_id = $1 AND r.branch_id = $2
+          AND r.expiry_date <= $3
+          AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
+          AND ${actualRegistrationSql('r')}
+      ) AS "hasExpiring"`,
+      [clientId, branchId, next30],
+    );
+    return row?.hasExpiring === true;
   }
 
   private riskLevel(score: number): string {
