@@ -8,9 +8,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { ClraListState } from '../../../shared/utils/clra-list-state';
-import { finalize } from 'rxjs/operators';
+import { finalize, takeUntil } from 'rxjs/operators';
 import {
   ClraApiService,
   ClraAssignment,
@@ -189,6 +189,8 @@ export class ContractorClraWorkspaceComponent implements OnInit, OnDestroy {
   get assignments(): ClraAssignment[] { return this.assignmentsState.rows; }
   get workers(): ClraWorker[] { return this.workersState.rows; }
   private profileRequest?: Subscription;
+  private readonly destroy$ = new Subject<void>();
+  private workerEditorVersion = 0;
   selectedAssignment: ClraAssignment | null = null;
   showWorkerForm = false;
   workerForm: CreateWorkerPayload & { id?: string } = { contractorId: '', workerCode: '', fullName: '' };
@@ -215,6 +217,7 @@ export class ContractorClraWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   openWorkerForm(row?: ClraWorker): void {
+    this.workerEditorVersion++;
     if (row) {
       this.workerForm = {
         id: row.id,
@@ -238,6 +241,7 @@ export class ContractorClraWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   closeWorkerForm(): void {
+    this.workerEditorVersion++;
     this.showWorkerForm = false;
     this.cdr.markForCheck();
   }
@@ -250,14 +254,22 @@ export class ContractorClraWorkspaceComponent implements OnInit, OnDestroy {
     }
     this.saving = true;
     this.cdr.markForCheck();
+    const editorVersion = this.workerEditorVersion;
+    const submittedForm = JSON.stringify(this.workerForm);
     const { id, contractorId: _c, ...body } = this.workerForm;
     const req = id
       ? this.clra.updateMyWorker(id, body)
       : this.clra.createMyWorker(body);
-    req.pipe(finalize(() => { this.saving = false; this.cdr.markForCheck(); })).subscribe({
-      next: () => {
+    req.pipe(takeUntil(this.destroy$), finalize(() => { this.saving = false; this.cdr.markForCheck(); })).subscribe({
+      next: (saved) => {
         this.toast.success('Saved', 'Worker saved.');
-        this.closeWorkerForm();
+        if (this.workerEditorVersion === editorVersion) {
+          const unchanged = JSON.stringify(this.workerForm) === submittedForm;
+          // Preserve later edits to this newly created worker as an update,
+          // rather than creating it again when the remaining draft is saved.
+          if (!id && saved?.id) this.workerForm.id = saved.id;
+          if (unchanged) this.closeWorkerForm();
+        }
         this.loadWorkers();
       },
       error: (err) => this.toast.error('Save failed', err?.error?.message || 'Could not save worker.'),
@@ -265,6 +277,8 @@ export class ContractorClraWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.profileRequest?.unsubscribe();
     this.assignmentsState.reset();
     this.workersState.reset();

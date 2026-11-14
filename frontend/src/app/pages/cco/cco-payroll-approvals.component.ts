@@ -42,6 +42,10 @@ type PayrollRunRow = {
 })
 export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private queueVersion = 0;
+  private detailVersion = 0;
+  private readonly completedRunStatuses = new Map<string, string>();
+  private readonly completedStructureStatuses = new Map<string, StructureApprovalStatus>();
   private readonly base = `${environment.apiBaseUrl}/api/v1/payroll/engine`;
   private readonly payrollBase = `${environment.apiBaseUrl}/api/v1/payroll`;
 
@@ -74,6 +78,8 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.queueVersion++;
+    this.detailVersion++;
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -101,15 +107,22 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   }
 
   loadRuns(): void {
+    const version = ++this.queueVersion;
+    this.clearCompletedStatuses();
+    const status = this.runStatusFilter;
+    const current = () => version === this.queueVersion && this.mode === 'RUNS' && status === this.runStatusFilter;
+    this.clearSelection();
+    this.runs = [];
     this.runsLoading = true;
-    this.selectedRun = null;
+    this.loading = false;
     this.http
       .get<PayrollRunRow[]>(`${this.payrollBase}/runs`, {
-        params: { status: this.runStatusFilter },
+        params: { status },
       })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!current()) return;
           this.runsLoading = false;
           this.loading = false;
           this.cdr.markForCheck();
@@ -117,9 +130,11 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (rows) => {
-          this.runs = rows || [];
+          if (!current()) return;
+          this.runs = this.reconcileRunRows(rows || []);
         },
         error: (e) => {
+          if (!current()) return;
           this.toast.error(e?.error?.message || 'Failed to load payroll run approvals');
           this.runs = [];
         },
@@ -127,25 +142,33 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    const version = ++this.queueVersion;
+    this.clearCompletedStatuses();
+    const status = this.statusFilter;
+    const current = () => version === this.queueVersion && this.mode === 'STRUCTURES' && status === this.statusFilter;
+    this.clearSelection();
+    this.structures = [];
+    this.runsLoading = false;
     this.loading = true;
-    this.selected = null;
-    this.selectedItems = [];
     this.http
       .get<QueueRow[]>(`${this.base}/structures/approval-queue`, {
-        params: { status: this.statusFilter },
+        params: { status },
       })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!current()) return;
           this.loading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (rows) => {
-          this.structures = rows || [];
+          if (!current()) return;
+          this.structures = this.reconcileStructureRows(rows || []);
         },
         error: (e) => {
+          if (!current()) return;
           this.toast.error(e?.error?.message || 'Failed to load approval queue');
           this.structures = [];
         },
@@ -153,6 +176,9 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   }
 
   selectRow(row: QueueRow): void {
+    const version = ++this.detailVersion;
+    const queueVersion = this.queueVersion;
+    const current = () => version === this.detailVersion && queueVersion === this.queueVersion && this.mode === 'STRUCTURES' && this.selected?.id === row.id;
     this.selected = row;
     this.selectedItems = [];
     this.itemsLoading = true;
@@ -161,26 +187,81 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!current()) return;
           this.itemsLoading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (items) => {
+          if (!current()) return;
           this.selectedItems = items || [];
         },
         error: () => {
+          if (!current()) return;
           this.selectedItems = [];
         },
       });
   }
 
   selectRun(row: PayrollRunRow): void {
+    this.detailVersion++;
     this.selectedRun = row;
+  }
+
+  private clearSelection(): void {
+    this.detailVersion++;
+    this.selected = null;
+    this.selectedRun = null;
+    this.selectedItems = [];
+    this.itemsLoading = false;
+  }
+
+  private actionContextIsCurrent(): () => boolean {
+    const mode = this.mode;
+    const queueVersion = this.queueVersion;
+    const detailVersion = this.detailVersion;
+    const status = mode === 'RUNS' ? this.runStatusFilter : this.statusFilter;
+    return () => mode === this.mode && queueVersion === this.queueVersion && detailVersion === this.detailVersion &&
+      status === (mode === 'RUNS' ? this.runStatusFilter : this.statusFilter);
+  }
+
+  private clearCompletedStatuses(): void {
+    this.completedRunStatuses.clear();
+    this.completedStructureStatuses.clear();
+  }
+
+  private reconcileRunRows(rows: PayrollRunRow[]): PayrollRunRow[] {
+    return rows.map(row => this.completedRunStatuses.has(row.id)
+      ? { ...row, status: this.completedRunStatuses.get(row.id)! } : row)
+      .filter(row => !this.completedRunStatuses.has(row.id) || row.status === this.runStatusFilter);
+  }
+
+  private reconcileStructureRows(rows: QueueRow[]): QueueRow[] {
+    return rows.map(row => this.completedStructureStatuses.has(row.id)
+      ? { ...row, approvalStatus: this.completedStructureStatuses.get(row.id)! } : row)
+      .filter(row => !this.completedStructureStatuses.has(row.id) || row.approvalStatus === this.statusFilter);
+  }
+
+  private completeRunReview(id: string, status: 'APPROVED' | 'REJECTED'): void {
+    if (this.mode !== 'RUNS') return;
+    // Retain this completion for an already-pending read in the same queue.
+    // A subsequent fresh load starts a new snapshot and clears the overlay.
+    this.completedRunStatuses.set(id, status);
+    this.runs = this.reconcileRunRows(this.runs);
+    if (this.selectedRun?.id === id) this.selectedRun = { ...this.selectedRun, status };
+  }
+
+  private completeStructureReview(id: string, status: 'APPROVED' | 'REJECTED'): void {
+    if (this.mode !== 'STRUCTURES') return;
+    this.completedStructureStatuses.set(id, status);
+    this.structures = this.reconcileStructureRows(this.structures);
+    if (this.selected?.id === id) this.selected = { ...this.selected, approvalStatus: status };
   }
 
   async approveRun(row: PayrollRunRow): Promise<void> {
     if (row.status !== 'SUBMITTED') return;
+    const current = this.actionContextIsCurrent();
     const result = await this.dialog.prompt(
       'Approve Payroll Run',
       `Approve ${this.periodLabel(row)} payroll run for ${this.runClientLabel(row)}? Comments are optional.`,
@@ -196,7 +277,8 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Payroll run approved');
-          this.loadRuns();
+          this.completeRunReview(row.id, 'APPROVED');
+          if (current()) this.loadRuns();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Run approval failed'),
       });
@@ -204,6 +286,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   async rejectRun(row: PayrollRunRow): Promise<void> {
     if (row.status !== 'SUBMITTED') return;
+    const current = this.actionContextIsCurrent();
     const result = await this.dialog.prompt(
       'Reject Payroll Run',
       `Reason for rejecting ${this.periodLabel(row)} payroll run for ${this.runClientLabel(row)}:`,
@@ -222,7 +305,8 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Payroll run rejected');
-          this.loadRuns();
+          this.completeRunReview(row.id, 'REJECTED');
+          if (current()) this.loadRuns();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Run rejection failed'),
       });
@@ -230,6 +314,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   async approve(row: QueueRow): Promise<void> {
     if (row.approvalStatus !== 'PENDING') return;
+    const current = this.actionContextIsCurrent();
     const ok = await this.dialog.confirm(
       'Approve Structure',
       `Approve "${row.name}" for ${this.clientLabel(row)}?`,
@@ -242,7 +327,8 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Structure approved');
-          this.load();
+          this.completeStructureReview(row.id, 'APPROVED');
+          if (current()) this.load();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Approve failed'),
       });
@@ -250,6 +336,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   async reject(row: QueueRow): Promise<void> {
     if (row.approvalStatus !== 'PENDING') return;
+    const current = this.actionContextIsCurrent();
     const result = await this.dialog.prompt(
       'Reject Structure',
       'Reason for rejection (required):',
@@ -268,7 +355,8 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Structure rejected');
-          this.load();
+          this.completeStructureReview(row.id, 'REJECTED');
+          if (current()) this.load();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Reject failed'),
       });
