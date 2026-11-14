@@ -43,6 +43,15 @@ describe.each([390,768,1440])('Full and final case drafts at %ipx',width=>{
   expect(c.selectedCase?.id).toBe('TEST-A');expect((dom.querySelector('#pf-pending-salary') as HTMLInputElement).value).toBe('888');
   expect(details).toHaveLength(3);expect((dom.querySelector('[title="Approve"]') as HTMLButtonElement).disabled).toBe(false);
   expect(input.getBoundingClientRect().right).toBeLessThanOrEqual(width+1);
+  // A successful save can finish before its follow-up detail read. The
+  // settlement control must remain blocked even if the queue is visible.
+  c.selectedCase!.status='APPROVED';const secondSave=new Subject<any>();api.saveFnfBreakup.mockReturnValue(secondSave);await render();
+  Array.from(dom.querySelectorAll('button')).find(button=>button.textContent?.includes('Save Breakup'))!.click();await render();
+  secondSave.next({settlementAmount:888});secondSave.complete();await render();
+  const settleButton=()=>Array.from(dom.querySelectorAll('button')).find(button=>button.textContent?.includes('Mark Settled'))!;
+  expect(c.breakupSaveBusy).toBe(false);expect(settleButton().disabled).toBe(true);
+  details.at(-1)!.response.next({...row('TEST-A',888),status:'APPROVED'});details.at(-1)!.response.complete();await render();
+  expect(settleButton().disabled).toBe(false);expect(c.settlementAmountInput).toBe(888);
  });
 });
 

@@ -82,6 +82,8 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   private modalVersion = 0;
   private employeeRequestVersion = 0;
   private readonly mutationVersions = new Map<string, number>();
+  private readonly pendingSettlementRefresh = new Map<string, number>();
+  private settlementRefreshVersion = 0;
   private savedDraft: CaseDraft | null = null;
   private createdModalIdentity = '';
 
@@ -434,6 +436,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
 
   selectCase(row: PayrollFnfItem): void {
     this.closeDetail();
+    const settlementRefresh = this.pendingSettlementRefresh.get(row.id);
     this.selectedCaseId = row.id;
     const selection = this.selectionVersion;
     const request = ++this.detailRequestVersion;
@@ -456,6 +459,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
           if (!current()) return;
           this.selectedCase = detail;
           this.seedLocalInputsFromDetail(detail);
+          this.completeSettlementRefresh(row.id, settlementRefresh);
           this.loadFnfDocuments(detail.id);
         },
         error: (err) => { if (current()) this.toast.error(err?.error?.message || 'Failed to load F&F case detail'); },
@@ -544,6 +548,9 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Breakup saved');
+          // Settlement must wait for a detail read started after this save.
+          // A queue response alone cannot confirm the new settlement total.
+          this.pendingSettlementRefresh.set(context.id, ++this.settlementRefreshVersion);
           this.reloadAfterAction(context);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Save failed'),
@@ -851,6 +858,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     this.loadCases(true);
     if (this.selectedCaseId !== context.id || this.mutationVersions.get(context.id) !== context.mutation) return;
     const selection = this.selectionVersion;
+    const settlementRefresh = this.pendingSettlementRefresh.get(context.id);
     const baseline = selection === context.selection ? context.draft : this.savedDraft || this.captureDraft();
     const request = ++this.detailRequestVersion;
     const current = () => sameScope() && selection === this.selectionVersion && request === this.detailRequestVersion &&
@@ -863,6 +871,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
         const draft = this.captureDraft();
         this.selectedCase = detail;
         this.seedLocalInputsFromDetail(detail);
+        this.completeSettlementRefresh(context.id, settlementRefresh);
         // Only untouched fields may hydrate from the completed action.
         for (const key of Object.keys(draft.inputs) as Array<keyof SettlementBreakup>) {
           if (draft.inputs[key] !== baseline.inputs[key]) this.settlementInputs[key] = draft.inputs[key];
@@ -874,8 +883,14 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
         if (this.fnfDocuments.length === 0 && !this.fnfDocsLoading) this.loadFnfDocuments(context.id);
         this.cdr.markForCheck();
       },
-      error: () => { if (current()) this.toast.error('Saved changes could not be refreshed. Reopen this case to review them.'); },
+      error: () => { if (current()) this.toast.error('Saved changes could not be refreshed. Select this case again to review them.'); },
     });
+  }
+
+  private completeSettlementRefresh(caseId: string, version: number | undefined): void {
+    if (version !== undefined && this.pendingSettlementRefresh.get(caseId) === version) {
+      this.pendingSettlementRefresh.delete(caseId);
+    }
   }
 
   private loadClientsAndCases(): void {
@@ -1040,6 +1055,9 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
 
   private actionGuardReason(action: LifecycleAction): string | null {
     if (!this.selectedCase) return 'Select a case first.';
+    if (action === 'SETTLED' && this.pendingSettlementRefresh.has(this.selectedCase.id)) {
+      return 'The saved settlement total must be refreshed before settling. Select this case again if the refresh fails.';
+    }
     const blockedByLifecycle = this.transitionBlockedByLifecycle(action);
     if (blockedByLifecycle) return blockedByLifecycle;
 

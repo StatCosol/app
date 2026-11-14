@@ -144,6 +144,27 @@ describe.each(['saveBreakup','approveCase','moveToUnderReview'] as const)('Full 
 });
 
 describe('Full and final create modal and pending writes',()=>{
+ it('blocks settlement until the saved breakup total is reconciled even when the queue finishes first',()=>{
+  const t=setup();t.select('TEST-A');t.c.selectedCase!.status='APPROVED';t.c.settlementInputs.pendingSalary=200;t.c.saveBreakup();
+  t.action.next({settlementAmount:200});t.action.complete();t.lists.at(-1)!.next({data:[{...row('TEST-A',200),status:'APPROVED'}],total:1});t.lists.at(-1)!.complete();
+  expect(t.c.breakupSaveBusy).toBe(false);expect(t.c.canSettle).toBe(false);t.c.settleCase();expect(t.api.settleFullAndFinal).not.toHaveBeenCalled();
+  t.details.at(-1)!.response.next({...row('TEST-A',200),status:'APPROVED'});t.details.at(-1)!.response.complete();
+  expect(t.c.canSettle).toBe(true);expect(t.c.settlementAmountInput).toBe(200);t.c.settleCase();
+  expect(t.api.settleFullAndFinal.mock.calls[0][1]).toBe(200);expect(t.api.settleFullAndFinal.mock.calls[0][2].pendingSalary).toBe(200);t.c.ngOnDestroy();
+ });
+ it('keeps settlement blocked after reconciliation fails until a fresh case read succeeds',()=>{
+  const t=setup();t.select('TEST-A');t.c.selectedCase!.status='APPROVED';t.c.settlementInputs.pendingSalary=200;t.c.saveBreakup();
+  t.action.next({settlementAmount:200});t.action.complete();t.details.at(-1)!.response.error(new Error('Synthetic refresh failure'));
+  expect(t.c.canSettle).toBe(false);t.c.settleCase();expect(t.api.settleFullAndFinal).not.toHaveBeenCalled();
+  t.c.selectCase(row('TEST-A'));t.details.at(-1)!.response.next({...row('TEST-A',200),status:'APPROVED'});t.details.at(-1)!.response.complete();
+  expect(t.c.canSettle).toBe(true);expect(t.c.settlementAmountInput).toBe(200);t.c.ngOnDestroy();
+ });
+ it('does not let a pre-save case read clear the settlement refresh requirement after changing scope',()=>{
+  const t=setup();t.select('TEST-A');t.c.selectedCase!.status='APPROVED';t.c.settlementInputs.pendingSalary=200;t.c.saveBreakup();
+  t.c.lifecycleFilter='APPROVED';t.c.onFilterChange();t.c.selectCase(row('TEST-A'));const old=t.details.at(-1)!;
+  t.action.next({settlementAmount:200});t.action.complete();old.response.next({...row('TEST-A',100),status:'APPROVED'});old.response.complete();
+  expect(t.c.canSettle).toBe(false);t.c.settleCase();expect(t.api.settleFullAndFinal).not.toHaveBeenCalled();t.c.ngOnDestroy();
+ });
  it('preserves a newer modal when an earlier create finishes',()=>{
   const t=setup();t.c.openCreateModal();Object.assign(t.c.createModel,{clientId:'TEST-CLIENT',employeeId:'TEST-A',separationDate:'2025-12-31'});t.c.createCase();
   t.c.closeCreateModal();t.c.openCreateModal();Object.assign(t.c.createModel,{clientId:'TEST-CLIENT',employeeId:'TEST-B',separationDate:'2025-12-31',remarks:'UNSAVED B'});
