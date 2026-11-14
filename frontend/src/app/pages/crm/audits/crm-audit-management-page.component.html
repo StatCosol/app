@@ -13,7 +13,7 @@
       Operational workspace for audit scheduling, tracking, and closure.
     </div>
     <div class="flex items-center gap-2">
-      <ui-button variant="secondary" size="sm" (clicked)="refreshWorkspace(selectedAudit?.id || null)" icon="refresh" [iconOnly]="true" label="Refresh">
+      <ui-button variant="secondary" size="sm" (clicked)="refreshWorkspace(selectedAudit?.id || null)" [disabled]="loading || listBusy" icon="refresh" [iconOnly]="true" label="Refresh">
         Refresh
       </ui-button>
       <ui-button variant="secondary" size="sm" (clicked)="autoGenerateSchedules()" [disabled]="autoGenerating || recordScope === 'TEST'">
