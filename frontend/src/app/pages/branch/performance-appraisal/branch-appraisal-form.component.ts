@@ -3,7 +3,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRe
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subject, EMPTY, combineLatest } from 'rxjs';
+import { Subject, EMPTY, combineLatest, Observable } from 'rxjs';
 import { takeUntil, finalize, switchMap, startWith, catchError } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/appraisal.models';
@@ -72,7 +72,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td class="text-center text-gray-500">{{ item.selfRating ?? '—' }}</td>
                 <td class="text-center">
                   @if (canManagerReview) {
-<input type="number" min="0" max="5" step="0.25"
+<input [disabled]="submitting" type="number" min="0" max="5" step="0.25"
                     [(ngModel)]="item.managerRating" [name]="'mr_' + item.id"
                     class="w-16 text-center border rounded px-1 py-0.5 text-sm" />
 }
@@ -82,7 +82,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 </td>
                 <td class="text-center">
                   @if (canBranchReview) {
-<input type="number" min="0" max="5" step="0.25"
+<input [disabled]="submitting" type="number" min="0" max="5" step="0.25"
                     [(ngModel)]="item.branchRating" [name]="'br_' + item.id"
                     class="w-16 text-center border rounded px-1 py-0.5 text-sm" />
 }
@@ -93,13 +93,17 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td class="text-center font-semibold">{{ item.finalRating ?? '—' }}</td>
                 <td class="text-center text-brand-600 font-medium">{{ item.weightedScore ?? '—' }}</td>
                 <td>
-                  @if (canManagerReview || canBranchReview) {
-<input type="text"
+                  @if (canManagerReview) {
+<input [disabled]="submitting" type="text"
                     [(ngModel)]="item.managerRemarks" [name]="'rmk_' + item.id"
                     placeholder="Remarks..." class="w-32 border rounded px-1 py-0.5 text-xs" />
 }
+                  @if (canBranchReview) {
+<input [disabled]="submitting" type="text" [(ngModel)]="item.branchRemarks" [name]="'branch_rmk_' + item.id"
+                    placeholder="Branch remarks..." class="w-32 border rounded px-1 py-0.5 text-xs" />
+}
                   @if (!canManagerReview && !canBranchReview) {
-<span class="text-xs text-gray-500">{{ item.managerRemarks || '—' }}</span>
+<span class="text-xs text-gray-500">{{ item.branchRemarks || item.managerRemarks || '—' }}</span>
 }
                 </td>
               </tr>
@@ -123,7 +127,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label class="text-xs font-medium text-gray-600 block mb-1" for="rec">Recommendation</label>
-            <select id="rec" name="recommendation" [(ngModel)]="recommendation" class="filter-select">
+            <select [disabled]="submitting" id="rec" name="recommendation" [(ngModel)]="recommendation" class="filter-select">
               <option value="">Select...</option>
               <option value="CONFIRM">Confirm</option>
               <option value="INCREMENT">Increment</option>
@@ -135,16 +139,16 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
           <div>
             <label class="text-xs font-medium text-gray-600 block mb-1" for="inc-pct">Increment %</label>
-            <input id="inc-pct" name="incrementPercent" type="number" min="0" max="100" step="0.5" [(ngModel)]="incrementPercent" class="search-input" />
+            <input [disabled]="submitting" id="inc-pct" name="incrementPercent" type="number" min="0" max="100" step="0.5" [(ngModel)]="incrementPercent" class="search-input" />
           </div>
           <div>
             <label class="text-xs font-medium text-gray-600 block mb-1" for="new-ctc">New CTC</label>
-            <input id="new-ctc" name="newCtc" type="number" min="0" [(ngModel)]="newCtc" class="search-input" />
+            <input [disabled]="submitting" id="new-ctc" name="newCtc" type="number" min="0" [(ngModel)]="newCtc" class="search-input" />
           </div>
         </div>
         <div class="mt-4">
           <label class="text-xs font-medium text-gray-600 block mb-1" for="remarks">Remarks</label>
-          <textarea id="remarks" name="remarks" [(ngModel)]="remarks" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Final remarks..."></textarea>
+          <textarea [disabled]="submitting" id="remarks" name="remarks" [(ngModel)]="remarks" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Final remarks..."></textarea>
         </div>
       </div>
 }
@@ -152,10 +156,12 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <!-- Actions -->
       @if (canManagerReview || canBranchReview) {
 <div class="flex flex-wrap items-center gap-3 mt-6">
-        <button (click)="submitReview()" [disabled]="submitting" class="compact-action btn-primary" title="Submit Branch Review" aria-label="Submit Branch Review" data-action-label="Submit Branch Review" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
+        <button (click)="submitReview()" [disabled]="submitting" class="compact-action btn-primary" [title]="canManagerReview ? 'Submit Manager Review' : 'Submit Branch Review'" [attr.aria-label]="canManagerReview ? 'Submit Manager Review' : 'Submit Branch Review'" [attr.data-action-label]="canManagerReview ? 'Submit Manager Review' : 'Submit Branch Review'" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
           {{ submitting ? 'Submitting...' : (canManagerReview ? 'Submit Manager Review' : 'Submit Branch Review') }}
         </span></button>
+        @if (canSendBack) {
         <button (click)="sendBack()" [disabled]="submitting" class="compact-action btn-secondary text-red-600" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+        }
       </div>
 }
 
@@ -193,7 +199,14 @@ export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
   loading = true;
   error = '';
   private reload$ = new Subject<void>();
-  submitting = false;
+  private contextVersion = 0;
+  private currentId: string | null = null;
+  private destroyed = false;
+  private pendingActions = new Map<string, symbol>();
+
+  get submitting(): boolean {
+    return !!this.currentId && this.pendingActions.has(this.currentId);
+  }
   appraisal: EmployeeAppraisal | null = null;
   items: EmployeeAppraisalItem[] = [];
   recommendation = '';
@@ -202,10 +215,15 @@ export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
   remarks = '';
 
   get canManagerReview() {
-    return this.appraisal && ['INITIATED', 'SELF_SUBMITTED', 'SENT_BACK'].includes(this.appraisal.status);
+    return this.appraisal && !this.appraisal.lockedAt && ['INITIATED', 'SELF_SUBMITTED', 'SENT_BACK'].includes(this.appraisal.status);
   }
   get canBranchReview() {
-    return this.appraisal && ['MANAGER_REVIEWED', 'SENT_BACK'].includes(this.appraisal.status);
+    return this.appraisal && !this.appraisal.lockedAt && this.appraisal.status === 'MANAGER_REVIEWED';
+  }
+
+
+  get canSendBack() {
+    return this.appraisal && !this.appraisal.lockedAt && ['SELF_SUBMITTED', 'MANAGER_REVIEWED'].includes(this.appraisal.status);
   }
 
   constructor(
@@ -218,11 +236,18 @@ export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
   ngOnInit() {
     combineLatest([this.route.paramMap, this.reload$.pipe(startWith(undefined))]).pipe(
       switchMap(([p]) => {
+        ++this.contextVersion;
+        this.recommendation = '';
+        this.incrementPercent = null;
+        this.newCtc = null;
+        this.remarks = '';
         this.loading = true;
         this.error = '';
         this.appraisal = null;
         this.items = [];
         const id = p.get('id');
+        this.currentId = id;
+        this.cdr.markForCheck();
         if (!id) {
           this.loading = false;
           this.error = 'Appraisal not found.';
@@ -234,7 +259,7 @@ export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
             this.error = 'Unable to load this appraisal. Check your access or try again.';
             return EMPTY;
           }),
-          finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
+          finalize(() => { if (!this.destroyed) { this.loading = false; this.cdr.markForCheck(); } }),
         );
       }),
       takeUntil(this.destroy$),
@@ -249,47 +274,64 @@ export class BranchAppraisalFormComponent implements OnInit, OnDestroy {
     });
   }
 
-  retry(): void { this.reload$.next(); }
+  retry(): void { if (!this.submitting && !this.destroyed) this.reload$.next(); }
 
   submitReview() {
-    if (!this.appraisal || this.submitting) return;
-    this.error = '';
-    this.submitting = true;
+    if ((!this.canManagerReview && !this.canBranchReview) || this.submitting) return;
+    const manager = !!this.canManagerReview;
     const payload = {
       items: this.items.map(i => ({
         itemId: i.id,
         itemName: i.itemName,
-        rating: this.canManagerReview ? i.managerRating : i.branchRating,
-        remarks: i.managerRemarks,
+        rating: manager ? i.managerRating : i.branchRating,
+        remarks: manager ? i.managerRemarks : i.branchRemarks,
       })),
       recommendation: this.recommendation || undefined,
       recommendedIncrementPercent: this.incrementPercent ?? undefined,
       recommendedNewCtc: this.newCtc ?? undefined,
       remarks: this.remarks || undefined,
     };
-
-    const obs = this.canManagerReview
-      ? this.svc.managerReview(this.appraisal.id, payload)
-      : this.svc.branchReview(this.appraisal.id, payload);
-
-    obs.pipe(takeUntil(this.destroy$), finalize(() => { this.submitting = false; this.cdr.markForCheck(); }))
-      .subscribe({ next: a => {
-        this.appraisal = a;
-        this.items = a.items ?? [];
-      }, error: () => { this.error = 'Unable to save the review. Please try again.'; } });
+    const request = manager
+      ? this.svc.managerReview(this.appraisal!.id, payload)
+      : this.svc.branchReview(this.appraisal!.id, payload);
+    this.runAction(request, a => { this.appraisal = a; this.items = a.items ?? []; });
   }
 
   sendBack() {
-    if (!this.appraisal || this.submitting) return;
+    if (!this.canSendBack || this.submitting) return;
     if (!this.remarks.trim()) { this.error = 'Enter remarks before sending the appraisal back.'; return; }
-    this.error = '';
-    this.submitting = true;
-    this.svc.sendBack(this.appraisal.id, this.remarks).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.submitting = false; this.cdr.markForCheck(); }),
-    ).subscribe({ next: () => this.router.navigate(['/branch/appraisals']),
-      error: () => { this.error = 'Unable to save the decision. Please try again.'; } });
+    this.runAction(this.svc.sendBack(this.appraisal!.id, this.remarks), () => { void this.router.navigate(['/branch/appraisals']); });
   }
 
-  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+  private runAction<T>(request: Observable<T>, onSuccess: (result: T) => void): void {
+    if (!this.appraisal || this.destroyed || this.submitting) return;
+    const id = this.appraisal.id, version = this.contextVersion, token = Symbol();
+    this.pendingActions.set(id, token);
+    this.error = '';
+    const finish = () => {
+      if (this.pendingActions.get(id) === token) this.pendingActions.delete(id);
+      if (!this.destroyed) this.cdr.markForCheck();
+    };
+    request.pipe(takeUntil(this.destroy$), finalize(finish)).subscribe({
+      next: result => {
+        if (this.destroyed || this.currentId !== id) return;
+        if (version !== this.contextVersion) {
+          // A return to the same appraisal may have read it before this save completed.
+          // Reload its authoritative state rather than applying an older view's response.
+          this.reload$.next();
+        } else {
+          onSuccess(result);
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (!this.destroyed && this.currentId === id) {
+          this.error = 'Unable to save the review. Please try again.';
+          this.cdr.markForCheck();
+        }
+      },
+    });
+  }
+
+  ngOnDestroy() { this.destroyed = true; this.destroy$.next(); this.destroy$.complete(); this.pendingActions.clear(); }
 }
