@@ -44,6 +44,8 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private queueVersion = 0;
   private detailVersion = 0;
+  private readonly completedRunStatuses = new Map<string, string>();
+  private readonly completedStructureStatuses = new Map<string, StructureApprovalStatus>();
   private readonly base = `${environment.apiBaseUrl}/api/v1/payroll/engine`;
   private readonly payrollBase = `${environment.apiBaseUrl}/api/v1/payroll`;
 
@@ -106,6 +108,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   loadRuns(): void {
     const version = ++this.queueVersion;
+    this.clearCompletedStatuses();
     const status = this.runStatusFilter;
     const current = () => version === this.queueVersion && this.mode === 'RUNS' && status === this.runStatusFilter;
     this.clearSelection();
@@ -128,7 +131,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           if (!current()) return;
-          this.runs = rows || [];
+          this.runs = this.reconcileRunRows(rows || []);
         },
         error: (e) => {
           if (!current()) return;
@@ -140,6 +143,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   load(): void {
     const version = ++this.queueVersion;
+    this.clearCompletedStatuses();
     const status = this.statusFilter;
     const current = () => version === this.queueVersion && this.mode === 'STRUCTURES' && status === this.statusFilter;
     this.clearSelection();
@@ -161,7 +165,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           if (!current()) return;
-          this.structures = rows || [];
+          this.structures = this.reconcileStructureRows(rows || []);
         },
         error: (e) => {
           if (!current()) return;
@@ -222,6 +226,39 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       status === (mode === 'RUNS' ? this.runStatusFilter : this.statusFilter);
   }
 
+  private clearCompletedStatuses(): void {
+    this.completedRunStatuses.clear();
+    this.completedStructureStatuses.clear();
+  }
+
+  private reconcileRunRows(rows: PayrollRunRow[]): PayrollRunRow[] {
+    return rows.map(row => this.completedRunStatuses.has(row.id)
+      ? { ...row, status: this.completedRunStatuses.get(row.id)! } : row)
+      .filter(row => !this.completedRunStatuses.has(row.id) || row.status === this.runStatusFilter);
+  }
+
+  private reconcileStructureRows(rows: QueueRow[]): QueueRow[] {
+    return rows.map(row => this.completedStructureStatuses.has(row.id)
+      ? { ...row, approvalStatus: this.completedStructureStatuses.get(row.id)! } : row)
+      .filter(row => !this.completedStructureStatuses.has(row.id) || row.approvalStatus === this.statusFilter);
+  }
+
+  private completeRunReview(id: string, status: 'APPROVED' | 'REJECTED'): void {
+    if (this.mode !== 'RUNS') return;
+    // Retain this completion for an already-pending read in the same queue.
+    // A subsequent fresh load starts a new snapshot and clears the overlay.
+    this.completedRunStatuses.set(id, status);
+    this.runs = this.reconcileRunRows(this.runs);
+    if (this.selectedRun?.id === id) this.selectedRun = { ...this.selectedRun, status };
+  }
+
+  private completeStructureReview(id: string, status: 'APPROVED' | 'REJECTED'): void {
+    if (this.mode !== 'STRUCTURES') return;
+    this.completedStructureStatuses.set(id, status);
+    this.structures = this.reconcileStructureRows(this.structures);
+    if (this.selected?.id === id) this.selected = { ...this.selected, approvalStatus: status };
+  }
+
   async approveRun(row: PayrollRunRow): Promise<void> {
     if (row.status !== 'SUBMITTED') return;
     const current = this.actionContextIsCurrent();
@@ -240,6 +277,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Payroll run approved');
+          this.completeRunReview(row.id, 'APPROVED');
           if (current()) this.loadRuns();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Run approval failed'),
@@ -267,6 +305,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Payroll run rejected');
+          this.completeRunReview(row.id, 'REJECTED');
           if (current()) this.loadRuns();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Run rejection failed'),
@@ -288,6 +327,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Structure approved');
+          this.completeStructureReview(row.id, 'APPROVED');
           if (current()) this.load();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Approve failed'),
@@ -315,6 +355,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Structure rejected');
+          this.completeStructureReview(row.id, 'REJECTED');
           if (current()) this.load();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Reject failed'),

@@ -74,3 +74,42 @@ it('does not refresh an unrelated mode after a run approval finishes',async()=>{
   const t=await setup();const a=run('A');await t.vm.approveRun(a);t.vm.setMode('STRUCTURES');
   const before=t.requests.length;t.action.next({});t.action.complete();expect(t.requests).toHaveLength(before);expect(t.vm.mode).toBe('STRUCTURES');
 });
+
+describe.each([
+  {method:'approveRun',mode:'RUNS',nextStatus:'APPROVED'},
+  {method:'rejectRun',mode:'RUNS',nextStatus:'REJECTED'},
+  {method:'approve',mode:'STRUCTURES',nextStatus:'APPROVED'},
+  {method:'reject',mode:'STRUCTURES',nextStatus:'REJECTED'},
+] as const)('completed $method reconciliation',({method,mode,nextStatus})=>{
+  it.each(['B','A-again'])('removes the acted-on pending row while preserving newer %s detail',async selection=>{
+    const t=await setup();const isRun=mode==='RUNS';const a=isRun?run('A'):structure('A'),b=isRun?run('B'):structure('B');
+    if(!isRun)t.vm.setMode('STRUCTURES');
+    const request=t.requests.at(-1)!;request.response.next([a,b]);request.response.complete();
+    if(isRun)t.vm.selectRun(a);else t.vm.selectRow(a);
+    await (t.vm[method] as (row:any)=>Promise<void>)(a);
+    if(isRun)t.vm.selectRun(b);else t.vm.selectRow(b);
+    const chosen=selection==='B'?b:a;
+    if(selection==='A-again'){if(isRun)t.vm.selectRun(a);else t.vm.selectRow(a);}
+    if(!isRun){t.items.at(-1)!.response.next([{id:'current-detail'}]);t.items.at(-1)!.response.complete();}
+    const before=t.requests.length;t.action.next({});t.action.complete();await t.render();
+    expect((isRun?t.vm.runs:t.vm.structures).map(r=>r.id)).toEqual(['B']);
+    expect((isRun?t.vm.selectedRun:t.vm.selected)?.id).toBe(chosen.id);
+    if(selection==='A-again')expect(isRun?t.vm.selectedRun?.status:t.vm.selected?.approvalStatus).toBe(nextStatus);
+    if(!isRun)expect(t.vm.selectedItems.map(i=>i.id)).toEqual(['current-detail']);
+    expect(t.requests).toHaveLength(before);
+  });
+  it('does not reintroduce the completed pending row from a list request already in flight',async()=>{
+    const t=await setup();const isRun=mode==='RUNS';const a=isRun?run('A'):structure('A'),b=isRun?run('B'):structure('B');
+    if(!isRun)t.vm.setMode('STRUCTURES');
+    t.requests.at(-1)!.response.next([a,b]);t.requests.at(-1)!.response.complete();
+    await (t.vm[method] as (row:any)=>Promise<void>)(a);
+    if(isRun)t.vm.loadRuns();else t.vm.load();
+    const pending=t.requests.at(-1)!;t.action.next({});t.action.complete();
+    pending.response.next([a,b]);pending.response.complete();
+    expect((isRun?t.vm.runs:t.vm.structures).map(r=>r.id)).toEqual(['B']);
+    // A fresh, post-completion request is authoritative; no permanent status cache.
+    if(isRun)t.vm.loadRuns();else t.vm.load();
+    t.requests.at(-1)!.response.next([a,b]);t.requests.at(-1)!.response.complete();
+    expect((isRun?t.vm.runs:t.vm.structures).map(r=>r.id)).toEqual(['A','B']);
+  });
+});
