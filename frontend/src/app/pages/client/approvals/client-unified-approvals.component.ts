@@ -89,13 +89,13 @@ interface UnifiedApprovalItem {
       <section class="workspace-card mb-4">
         <div class="tabs">
           <button [class.active]="activeTab === 'ALL'" (click)="setTab('ALL')">
-            All ({{ allCount }})
+            All ({{ loading ? 'Loading' : loadErrors.length ? 'Unavailable' : allCount }})
           </button>
           <button [class.active]="activeTab === 'LEAVE'" (click)="setTab('LEAVE')">
-            Leave ({{ leaveCount }})
+            Leave ({{ loading ? 'Loading' : loadErrors.length ? 'Unavailable' : leaveCount }})
           </button>
           <button [class.active]="activeTab === 'NOMINATION'" (click)="setTab('NOMINATION')">
-            Nomination ({{ nominationCount }})
+            Nomination ({{ loading ? 'Loading' : loadErrors.length ? 'Unavailable' : nominationCount }})
           </button>
         </div>
         <div class="filter-row aligned-filter-controls">
@@ -140,15 +140,15 @@ interface UnifiedApprovalItem {
         <div class="ageing-cards">
           <div class="age-card">
             <div class="k">0-3d</div>
-            <div class="v">{{ ageingCount0to3 }}</div>
+            <div class="v">{{ loading ? 'Loading' : loadErrors.length ? 'Unavailable' : ageingCount0to3 }}</div>
           </div>
           <div class="age-card">
             <div class="k">4-7d</div>
-            <div class="v">{{ ageingCount4to7 }}</div>
+            <div class="v">{{ loading ? 'Loading' : loadErrors.length ? 'Unavailable' : ageingCount4to7 }}</div>
           </div>
           <div class="age-card danger">
             <div class="k">8+d</div>
-            <div class="v">{{ ageingCount8Plus }}</div>
+            <div class="v">{{ loading ? 'Loading' : loadErrors.length ? 'Unavailable' : ageingCount8Plus }}</div>
           </div>
         </div>
       </section>
@@ -162,12 +162,13 @@ interface UnifiedApprovalItem {
         <article class="workspace-card">
           <div class="section-head">
             <h3>Approval Queue</h3>
-            <span class="muted">{{ filteredQueue.length }} item(s)</span>
+            <span class="muted">{{ filteredQueue.length }} {{ loadErrors.length ? 'loaded item(s); totals unavailable' : 'item(s)' }}</span>
           </div>
 
           @if (loadErrors.length) {
 <div class="text-sm text-red-600 mb-3" role="alert">
             @for (e of loadErrors; track e) { <div>{{ e }}</div> }
+            <button type="button" class="standard-action" (click)="load()">Retry</button>
           </div>
 }
           @if (!filteredQueue.length && !loadErrors.length) {
@@ -413,6 +414,9 @@ interface UnifiedApprovalItem {
 })
 export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private destroyed = false;
+  private loadVersion = 0;
+  private readonly completedAtLoad = new Map<string, number>();
 
   loading = false;
   actionBusy = false;
@@ -457,11 +461,16 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   load(): void {
+    if (this.destroyed) return;
+    const version = ++this.loadVersion;
+    const current = () => !this.destroyed && version === this.loadVersion;
+    const errors: string[] = [];
     this.loading = true;
     this.loadErrors = [];
     const branchId = this.branchFilter.trim() || undefined;
@@ -470,7 +479,7 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
         .listPendingLeaves(branchId)
         .pipe(
           catchError((e) => {
-            this.loadErrors.push('Could not load leave approvals: ' + describeApiError(e, 'Please try again.'));
+            errors.push('Could not load leave approvals: ' + describeApiError(e, 'Please try again.'));
             return of([] as PendingLeave[]);
           }),
         ),
@@ -478,7 +487,7 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
         .listPendingNominations(branchId)
         .pipe(
           catchError((e) => {
-            this.loadErrors.push('Could not load nomination approvals: ' + describeApiError(e, 'Please try again.'));
+            errors.push('Could not load nomination approvals: ' + describeApiError(e, 'Please try again.'));
             return of([] as PendingNomination[]);
           }),
         ),
@@ -486,16 +495,19 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!current()) return;
           this.loading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: ({ leaves, nominations }) => {
+          if (!current()) return;
+          this.loadErrors = errors;
           this.queue = [
             ...leaves.map((lv) => this.mapLeave(lv)),
             ...nominations.map((nom) => this.mapNomination(nom)),
-          ];
+          ].filter(item => (this.completedAtLoad.get(this.itemKey(item)) ?? -1) < version);
 
           this.allCount = this.queue.length;
           this.leaveCount = this.queue.filter((x) => x.type === 'LEAVE').length;
@@ -517,6 +529,7 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
           }
         },
         error: () => {
+          if (!current()) return;
           this.toast.error('Could not load approvals queue.');
           this.queue = [];
           this.filteredQueue = [];
@@ -558,7 +571,7 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
     this.ageingFilter = 'ALL';
     this.sortOrder = 'AGE_DESC';
     this.branchFilter = '';
-    this.applyFilters();
+    this.load();
   }
 
   select(item: UnifiedApprovalItem): void {
@@ -570,26 +583,28 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
   }
 
   approveSelected(): void {
-    if (!this.selected || this.actionBusy) return;
+    if (!this.canDecideSelected()) return;
+    const item = this.selected!;
+    const notes = this.decisionNotes;
     this.decisionType = 'APPROVE';
-    this.buildTimeline(this.selected);
+    this.buildTimeline(item);
     this.actionBusy = true;
     const req =
-      this.selected.type === 'LEAVE'
-        ? this.approvalsApi.approveLeave(this.selected.id)
-        : this.approvalsApi.approveNomination(this.selected.id);
+      item.type === 'LEAVE'
+        ? this.approvalsApi.approveLeave(item.id)
+        : this.approvalsApi.approveNomination(item.id);
 
     req.pipe(
       takeUntil(this.destroy$),
       finalize(() => {
         this.actionBusy = false;
-        this.cdr.markForCheck();
+        if (!this.destroyed) this.cdr.markForCheck();
       }),
     ).subscribe({
       next: () => {
-        this.toast.success(`${this.selected?.type} request approved.`);
-        this.pushAudit('APPROVED');
-        this.load();
+        this.toast.success(`${item.type} request approved.`);
+        this.pushAudit('APPROVED', item, notes);
+        this.completeDecision(item);
       },
       error: () => {
         this.toast.error('Could not approve this request.');
@@ -598,31 +613,33 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
   }
 
   rejectSelected(): void {
-    if (!this.selected || this.actionBusy) return;
+    if (!this.canDecideSelected()) return;
+    this.decisionType = 'REJECT';
+    this.buildTimeline(this.selected!);
     if (!this.rejectionReason.trim()) {
       this.toast.info('Enter rejection reason before rejecting.');
       return;
     }
-    this.decisionType = 'REJECT';
-    this.buildTimeline(this.selected);
     this.actionBusy = true;
     const reason = this.rejectionReason.trim();
+    const item = this.selected!;
+    const notes = this.decisionNotes;
     const req =
-      this.selected.type === 'LEAVE'
-        ? this.approvalsApi.rejectLeave(this.selected.id, reason)
-        : this.approvalsApi.rejectNomination(this.selected.id, reason);
+      item.type === 'LEAVE'
+        ? this.approvalsApi.rejectLeave(item.id, reason)
+        : this.approvalsApi.rejectNomination(item.id, reason);
 
     req.pipe(
       takeUntil(this.destroy$),
       finalize(() => {
         this.actionBusy = false;
-        this.cdr.markForCheck();
+        if (!this.destroyed) this.cdr.markForCheck();
       }),
     ).subscribe({
       next: () => {
-        this.toast.success(`${this.selected?.type} request rejected.`);
-        this.pushAudit('REJECTED');
-        this.load();
+        this.toast.success(`${item.type} request rejected.`);
+        this.pushAudit('REJECTED', item, notes, reason);
+        this.completeDecision(item);
       },
       error: () => {
         this.toast.error('Could not reject this request.');
@@ -785,17 +802,42 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
     return ta - tb;
   }
 
-  private pushAudit(action: 'APPROVED' | 'REJECTED'): void {
-    if (!this.selected) return;
+  private canDecideSelected(): boolean {
+    return !this.destroyed && !this.loading && !this.actionBusy && !!this.selected
+      && this.filteredQueue.some(item => this.itemKey(item) === this.itemKey(this.selected!));
+  }
+
+  private itemKey(item: UnifiedApprovalItem): string { return `${item.type}:${item.id}`; }
+
+  private completeDecision(item: UnifiedApprovalItem): void {
+    const key = this.itemKey(item);
+    // Only an older read is stale; a fresh read may contain a resubmission.
+    this.completedAtLoad.set(key, this.loadVersion);
+    this.queue = this.queue.filter(row => this.itemKey(row) !== key);
+    this.allCount = this.queue.length;
+    this.leaveCount = this.queue.filter(row => row.type === 'LEAVE').length;
+    this.nominationCount = this.queue.filter(row => row.type === 'NOMINATION').length;
+    this.applyFilters();
+    if (this.selected && this.itemKey(this.selected) === key) {
+      this.selected = null;
+      this.timelineEvents = [];
+      this.decisionType = '';
+      this.decisionNotes = '';
+      this.rejectionReason = '';
+      if (this.filteredQueue.length) this.select(this.filteredQueue[0]);
+    }
+  }
+
+  private pushAudit(action: 'APPROVED' | 'REJECTED', item: UnifiedApprovalItem, notes: string, reason?: string): void {
     this.auditTrail.unshift({
-      id: this.selected.id,
-      type: this.selected.type,
+      id: item.id,
+      type: item.type,
       action,
       actor: 'You',
       at: new Date().toISOString(),
-      note: this.decisionNotes || undefined,
-      reason: action === 'REJECTED' ? this.rejectionReason || undefined : undefined,
-      summary: this.selected.summary,
+      note: notes || undefined,
+      reason,
+      summary: item.summary,
     });
   }
 

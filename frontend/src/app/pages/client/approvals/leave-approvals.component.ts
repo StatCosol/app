@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { BranchApprovalsApiService, PendingLeave } from './branch-approvals-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { describeApiError } from '../../../shared/utils/api-error.util';
 import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
@@ -24,7 +25,13 @@ import { PageHeaderComponent } from '../../../shared/ui';
 <div class="text-gray-500 text-sm">Loading pending leave applications...</div>
 }
 
-      @if (!loading && !leaves.length) {
+      @if (!loading && loadError) {
+        <div role="alert" class="text-sm text-red-600">
+          Could not load leave approvals: {{ loadError }}
+          <button type="button" class="standard-action btn-secondary" (click)="load()">Retry</button>
+        </div>
+      }
+      @if (!loading && !loadError && !leaves.length) {
 <div
            class="bg-white border rounded-xl p-8 text-center text-gray-500">
         No pending leave applications to review.
@@ -72,7 +79,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
                   <label class="text-xs font-medium text-gray-600" for="la-reject-reason">Reason for rejection:</label>
                   <div class="flex gap-2 mt-1 items-start">
                     <textarea autocomplete="off" id="la-reject-reason" name="rejectReason" [(ngModel)]="rejectReason" rows="2" class="field-input flex-1"></textarea>
-                    <button (click)="confirmReject()" class="standard-action btn-reject" [disabled]="!rejectReason.trim()">
+                    <button (click)="confirmReject()" class="standard-action btn-reject" [disabled]="!rejectReason.trim() || processing.has(rejectId)">
                       Confirm
                     </button>
                     <button (click)="rejectId = ''" class="standard-action btn-secondary">Cancel</button>
@@ -167,10 +174,14 @@ import { PageHeaderComponent } from '../../../shared/ui';
 export class LeaveApprovalsComponent implements OnInit, OnDestroy {
   leaves: PendingLeave[] = [];
   loading = true;
+  loadError = '';
   processing = new Set<string>();
   rejectId = '';
   rejectReason = '';
   private readonly destroy$ = new Subject<void>();
+  private destroyed = false;
+  private loadVersion = 0;
+  private readonly completedAtLoad = new Map<string, number>();
 
   constructor(private api: BranchApprovalsApiService, private cdr: ChangeDetectorRef, private toast: ToastService) {}
 
@@ -179,54 +190,74 @@ export class LeaveApprovalsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   load(): void {
+    if (this.destroyed) return;
+    const version = ++this.loadVersion;
+    const current = () => !this.destroyed && version === this.loadVersion;
     this.loading = true;
+    this.loadError = '';
     this.api.listPendingLeaves()
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+        finalize(() => { if (current()) { this.loading = false; this.cdr.detectChanges(); } }),
       )
       .subscribe({
-        next: (list) => { this.loading = false; this.leaves = list; },
-        error: () => { this.loading = false; this.leaves = []; },
+        next: (list) => { if (current()) this.leaves = list.filter(row => (this.completedAtLoad.get(row.id) ?? -1) < version); },
+        error: (e) => { if (current()) { this.leaves = []; this.loadError = describeApiError(e, 'Please try again.'); } },
       });
   }
 
   approve(lv: PendingLeave): void {
-    if (this.processing.has(lv.id)) return; // prevent double-click
+    if (!this.canDecide(lv.id)) return;
     this.processing.add(lv.id);
     this.api.approveLeave(lv.id)
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => { this.processing.delete(lv.id); this.cdr.detectChanges(); }),
+        finalize(() => { this.processing.delete(lv.id); if (!this.destroyed) this.cdr.detectChanges(); }),
       )
       .subscribe({
-        next: () => { this.processing.delete(lv.id); this.load(); },
+        next: () => this.completeDecision(lv.id),
         error: () => { this.processing.delete(lv.id); this.toast.error('Failed to approve leave application.'); },
       });
   }
 
   startReject(lv: PendingLeave): void {
+    if (!this.canDecide(lv.id)) return;
     this.rejectId = lv.id;
     this.rejectReason = '';
   }
 
   confirmReject(): void {
-    if (this.processing.has(this.rejectId)) return; // prevent double-click
-    this.processing.add(this.rejectId);
     const id = this.rejectId;
-    this.api.rejectLeave(id, this.rejectReason.trim())
+    const reason = this.rejectReason.trim();
+    if (!reason || !this.canDecide(id)) return;
+    this.processing.add(id);
+    this.api.rejectLeave(id, reason)
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => { this.processing.delete(id); this.rejectId = ''; this.cdr.detectChanges(); }),
+        finalize(() => { this.processing.delete(id); if (!this.destroyed) this.cdr.detectChanges(); }),
       )
       .subscribe({
-        next: () => { this.processing.delete(this.rejectId); this.rejectId = ''; this.load(); },
-        error: () => { this.processing.delete(this.rejectId); this.rejectId = ''; this.toast.error('Failed to reject leave application.'); },
+        next: () => this.completeDecision(id),
+        error: () => { this.toast.error('Failed to reject leave application.'); },
       });
+  }
+
+  private canDecide(id: string): boolean {
+    return !this.destroyed && !this.loading && !this.loadError && !this.processing.has(id)
+      && this.leaves.some(row => row.id === id);
+  }
+
+  private completeDecision(id: string): void {
+    // Suppress only reads already pending when the decision completed.
+    // A fresh server read may legitimately return a corrected resubmission.
+    this.completedAtLoad.set(id, this.loadVersion);
+    this.leaves = this.leaves.filter(row => row.id !== id);
+    if (this.rejectId === id) { this.rejectId = ''; this.rejectReason = ''; }
   }
 }
