@@ -1,4 +1,4 @@
-import { Subscription } from 'rxjs';
+import { finalize, Subscription, take } from 'rxjs';
 import { IconComponent } from '../../../ui/icon/icon.component';
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef, ViewChild } from '@angular/core';
 
@@ -50,9 +50,12 @@ export class ThreadLayoutComponent {
   listError = '';
   threadError = '';
   replyError = '';
+  statusError = '';
+  statusUpdating = false;
   private listRequest?: Subscription;
   private threadRequest?: Subscription;
   private replyRequest?: Subscription;
+  private statusRequest?: Subscription;
 
   loadingList = false;
   loadingThread = false;
@@ -67,7 +70,7 @@ export class ThreadLayoutComponent {
     this.loadList();
   }
 
-  ngOnDestroy(): void { this.listRequest?.unsubscribe(); this.threadRequest?.unsubscribe(); this.replyRequest?.unsubscribe(); }
+  ngOnDestroy(): void { this.listRequest?.unsubscribe(); this.threadRequest?.unsubscribe(); this.replyRequest?.unsubscribe(); this.statusRequest?.unsubscribe(); }
 
   get inboxItems(): ThreadInboxItem[] {
     return (this.page?.items || []).map((item) => ({
@@ -181,7 +184,7 @@ export class ThreadLayoutComponent {
   }
 
   sendReply(payload: { message: string; files: File[] }): void {
-    if (!this.selected || !this.isOpen || this.loadingThread || this.sending) return;
+    if (!this.selected || !this.isOpen || this.loadingThread || this.sending || this.statusUpdating) return;
     const threadId = this.selected.id;
     this.replyError = '';
     this.sending = true;
@@ -205,31 +208,39 @@ export class ThreadLayoutComponent {
   }
 
   closeThread(): void {
-    if (!this.api.close || !this.selected) return;
-    this.api.close(this.selected.id).subscribe({
-      next: () => {
-        this.selectThread({ id: this.selected!.id } as ThreadListItem);
-        this.loadList();
-      },
-    });
+    if (this.canClose && this.isOpen) this.changeStatus('close');
   }
 
   resolveThread(): void {
-    if (!this.api.resolve || !this.selected) return;
-    this.api.resolve(this.selected.id).subscribe({
-      next: () => {
-        this.selectThread({ id: this.selected!.id } as ThreadListItem);
-        this.loadList();
-      },
-    });
+    if (this.canResolve && this.isOpen) this.changeStatus('resolve');
   }
 
   reopenThread(): void {
-    if (!this.api.reopen || !this.selected) return;
-    this.api.reopen(this.selected.id).subscribe({
+    if (this.canReopen && this.isClosed) this.changeStatus('reopen');
+  }
+
+  private changeStatus(action: 'close' | 'resolve' | 'reopen'): void {
+    const operation = this.api[action];
+    if (!operation || !this.selected || this.loadingThread || this.sending || this.statusUpdating) return;
+    const { id, subject } = this.selected;
+    this.statusError = '';
+    this.statusUpdating = true;
+    this.cdr.markForCheck();
+    this.statusRequest = operation.call(this.api, id).pipe(
+      take(1),
+      finalize(() => {
+        this.statusUpdating = false;
+        this.cdr.markForCheck();
+      }),
+    ).subscribe({
       next: () => {
-        this.selectThread({ id: this.selected!.id } as ThreadListItem);
+        // A delayed response belongs to its original thread, even after navigation.
+        if (this.selectedId === id) this.selectThread({ id } as ThreadListItem);
         this.loadList();
+      },
+      error: () => {
+        this.statusError = `Could not confirm ${action} for “${subject || 'Untitled thread'}”. Your draft is retained. Check the thread and try again.`;
+        this.cdr.markForCheck();
       },
     });
   }

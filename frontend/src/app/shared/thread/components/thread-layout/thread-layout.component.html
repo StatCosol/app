@@ -1,4 +1,6 @@
 ﻿<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  @if (statusError) { <p class="lg:col-span-3 p-4 rounded-lg border border-red-200 bg-red-50 text-red-800 break-words" role="alert">{{ statusError }}</p> }
+  @if (statusUpdating) { <p class="lg:col-span-3 p-4" role="status">Updating thread status…</p> }
   <div class="lg:col-span-1" [class.hidden]="showDetail" [class.lg:block]="showDetail">
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
       <div class="p-4 border-b border-gray-200">
@@ -38,7 +40,7 @@
     </div>
   </div>
 
-  <div class="lg:col-span-2" [class.hidden]="!showDetail && !selected" [class.lg:block]="true">
+  <div class="lg:col-span-2" [class.hidden]="!showDetail" [class.lg:block]="true">
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
       <button class="standard-action lg:hidden flex items-center gap-2 px-4 py-3 text-sm text-brand-800 hover:bg-gray-50 w-full border-b border-gray-200"
         (click)="backToList()">
@@ -89,16 +91,19 @@
               @if (canResolve && !!api.resolve && isOpen) {
 <button
                 class="compact-action px-3 py-1.5 text-sm font-medium rounded-lg border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                [disabled]="statusUpdating || sending"
                 (click)="resolveThread()" title="Resolve" aria-label="Resolve" data-action-label="Resolve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
               @if (canClose && !!api.close && isOpen) {
 <button
                 class="standard-action px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                [disabled]="statusUpdating || sending"
                 (click)="closeThread()">Close</button>
 }
               @if (canReopen && !!api.reopen && isClosed) {
 <button
                 class="compact-action px-3 py-1.5 text-sm font-medium rounded-lg border border-brand-300 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
+                [disabled]="statusUpdating || sending"
                 (click)="reopenThread()" title="Reopen" aria-label="Reopen" data-action-label="Reopen" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
 }
             </div>
@@ -124,7 +129,7 @@
 
       @if (replyError) { <p class="p-4" role="alert">{{ replyError }}</p> }
       <app-composer [clearOnSend]="false"
-        [disabled]="loadingThread || !selected || selected.status === 'CLOSED' || selected.status === 'RESOLVED'"
+        [disabled]="statusUpdating || loadingThread || !selected || selected.status === 'CLOSED' || selected.status === 'RESOLVED'"
         [sending]="sending"
         (send)="sendReply($event)">
       </app-composer>
