@@ -338,7 +338,11 @@ export class AuditListingService {
       .leftJoinAndSelect('a.contractorUser', 'contractor')
       .where('a.assignedAuditorId = :uid', { uid: user.userId })
       .andWhere('COALESCE(client.is_deleted, false) = false')
-      .andWhere(recordScope === 'TEST' ? `NOT ${actualAuditSql('a')}` : actualAuditSql('a'));
+      .andWhere(
+        recordScope === 'TEST'
+          ? `NOT ${actualAuditSql('a')}`
+          : actualAuditSql('a'),
+      );
 
     if (q.frequency) {
       qb.andWhere('a.frequency = :freq', { freq: q.frequency });
