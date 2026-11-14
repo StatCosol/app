@@ -25,6 +25,7 @@ import { HelpdeskTicketEntity } from './entities/helpdesk-ticket.entity';
 import { HelpdeskMessageEntity } from './entities/helpdesk-message.entity';
 import { HelpdeskMessageFileEntity } from './entities/helpdesk-message-file.entity';
 import { ReqUser } from '../access/access-scope.service';
+import { actualAuditRequestSql } from './actual-audit-request';
 
 export class CreateTicketDto {
   @IsString() @MinLength(1) @MaxLength(40) category: string;
@@ -462,7 +463,8 @@ export class HelpdeskService {
     if (clientIds.length === 0) return [];
     const qb = this.ticketRepo
       .createQueryBuilder('t')
-      .where('t.client_id IN (:...ids)', { ids: clientIds });
+      .where('t.client_id IN (:...ids)', { ids: clientIds })
+      .andWhere(actualAuditRequestSql());
     if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
     if (q?.clientId) qb.andWhere('t.client_id = :c', { c: q.clientId });
     if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
