@@ -36,6 +36,7 @@ import { PayrollPayslipArchiveEntity } from './entities/payroll-payslip-archive.
 import { PayrollRunEmployeeEntity } from './entities/payroll-run-employee.entity';
 import { PayrollRunEntity } from './entities/payroll-run.entity';
 import { PayrollFnfService } from './payroll-fnf.service';
+import { isTestPayrollRecord } from './payroll-operational-records';
 
 export interface ClientPayrollRecordQuery {
   periodYear?: string | number;
@@ -141,6 +142,7 @@ export class ClientPayrollDocumentsService {
     if (
       !run ||
       run.clientId !== clientId ||
+      isTestPayrollRecord(run.title, run.approvalComments) ||
       !isApprovedPayrollRun(run.status)
     ) {
       throw new NotFoundException('Payslip is not available');
@@ -433,22 +435,34 @@ export class ClientPayrollDocumentsService {
       .addSelect('e.branch_id', 'branchId')
       .addSelect('e.run_id', 'runId')
       .addSelect('r.status', 'runStatus')
+      .addSelect('r.title', 'runTitle')
+      .addSelect('r.approval_comments', 'runApprovalComments')
       .addSelect('r.payroll_category', 'payrollCategory')
       .addSelect('r.branch_id', 'runBranchId')
       .where('e.client_id = :clientId', { clientId })
       .andWhere('r.period_year = :periodYear', { periodYear })
       .andWhere('r.period_month = :periodMonth', { periodMonth })
       .getRawMany<Record<string, unknown>>();
-    return rows.map((row) => ({
-      employeeId: text(row, 'employeeId'),
-      employeeCode: text(row, 'employeeCode') || '',
-      employeeName: text(row, 'employeeName') || '',
-      branchId: text(row, 'branchId'),
-      runId: text(row, 'runId') || '',
-      runStatus: text(row, 'runStatus'),
-      payrollCategory: text(row, 'payrollCategory'),
-      runBranchId: text(row, 'runBranchId'),
-    }));
+    // Filter before assembling records or choosing a published archive. This
+    // also excludes synthetic runs from the month ZIP, without deleting files.
+    return rows
+      .filter(
+        (row) =>
+          !isTestPayrollRecord(
+            text(row, 'runTitle'),
+            text(row, 'runApprovalComments'),
+          ),
+      )
+      .map((row) => ({
+        employeeId: text(row, 'employeeId'),
+        employeeCode: text(row, 'employeeCode') || '',
+        employeeName: text(row, 'employeeName') || '',
+        branchId: text(row, 'branchId'),
+        runId: text(row, 'runId') || '',
+        runStatus: text(row, 'runStatus'),
+        payrollCategory: text(row, 'payrollCategory'),
+        runBranchId: text(row, 'runBranchId'),
+      }));
   }
 
   private async loadArchives(
