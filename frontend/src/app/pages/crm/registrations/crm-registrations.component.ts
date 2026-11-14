@@ -75,6 +75,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private listChanged$ = new Subject<void>();
   private clientChanged$ = new Subject<void>();
+  private listContext = '';
   recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
   loadError = '';
   documentPreview: AuditFilePreview | null = null;
@@ -174,7 +175,11 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
 
   load(): void {
     this.listChanged$.next();
-    this.clearResults();
+    const context = JSON.stringify([this.clientId, this.selectedBranchId, this.recordScope]);
+    // A background upload reloads the same list; only scope changes close editors.
+    const scopeChanged = context !== this.listContext;
+    this.listContext = context;
+    this.clearResults(scopeChanged);
     this.loading = false;
     if (!this.selectedBranchId || !this.clientId) {
       this.rows = [];
@@ -201,13 +206,15 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private clearResults(): void {
+  private clearResults(closeEditor = true): void {
     this.rows = [];
     this.filtered = [];
     this.computeCounts();
     this.loadError = '';
-    this.documentPreview = null;
-    this.closeForm();
+    if (closeEditor) {
+      this.documentPreview = null;
+      this.closeForm();
+    }
   }
 
   applyFilters(): void {

@@ -18,12 +18,13 @@ afterEach(() => TestBed.resetTestingModule());
 async function setup() {
   const params = new BehaviorSubject(convertToParamMap({clientId:'client-a'}));
   const requests: Subject<any[]>[] = [];
+  const upload = new Subject<any>();
   const list = vi.fn(() => {const request = new Subject<any[]>(); requests.push(request); return request;});
   const branches = vi.fn(() => of([{id:'branch-a',name:'BRM fixture'},{id:'branch-b',name:'Second fixture'}]));
   const fetch = vi.fn().mockReturnValue(of({blob:new Blob(['Synthetic evidence'],{type:'text/plain'}),objectUrl:'',fileName:'test.txt',mimeType:'text/plain',revoke:vi.fn()}));
   await TestBed.configureTestingModule({imports:[CrmRegistrationsComponent],providers:[
     {provide:ActivatedRoute,useValue:{paramMap:params}},
-    {provide:ClientBranchesService,useValue:{crmListRegistrations:list}},
+    {provide:ClientBranchesService,useValue:{crmListRegistrations:list,uploadRegistrationFile:()=>upload}},
     {provide:CrmClientsApi,useValue:{getBranchesForClient:branches}},
     {provide:ToastService,useValue:{}},{provide:ConfirmDialogService,useValue:{}},
     {provide:ProtectedFileService,useValue:{fetch}},
@@ -35,7 +36,7 @@ async function setup() {
     const el = fixture.nativeElement.querySelector(id) as HTMLSelectElement;
     el.value = value;el.dispatchEvent(new Event('change'));await render();
   };
-  return {fixture,vm:fixture.componentInstance,requests,list,params,branches,fetch,render,select};
+  return {fixture,vm:fixture.componentInstance,requests,list,params,branches,fetch,render,select,upload};
 }
 
 describe.each([390,768,1440])('registration scope at %ipx',width => {
@@ -99,5 +100,26 @@ describe.each([390,768,1440])('registration scope at %ipx',width => {
     t.requests[2].next([actual]);await t.render();expect(t.vm.rows).toEqual([actual]);
     t.params.next(convertToParamMap({}));await t.render();
     expect(t.vm.rows).toEqual([]);expect(t.vm.selectedBranchId).toBe('');
+  });
+  it.each(['add','edit'])('preserves an unsaved %s form when an earlier inline upload completes',async mode=>{
+    const t=await setup();
+    t.requests[0].next([actual]);await t.render();
+    const inlineFile = new File(['Synthetic renewal'], 'test-renewal.txt');
+    t.vm.uploadFile({target:{files:[inlineFile],value:'selected'}},actual,'renewal');
+    if(mode==='add') t.vm.openCreate(); else t.vm.openEdit(actual);
+    t.vm.form.type='Trade License';
+    t.vm.form.registrationNumber='UNSAVED-FIXTURE';
+    t.vm.form.expiryDate='2030-12-31';
+    const selectedFile=new File(['Unsaved synthetic evidence'],'test-unsaved.txt');
+    t.vm.documentFile=selectedFile;
+    const before={...t.vm.form};
+    await t.render();
+    t.upload.next({});await t.render();
+    expect(t.vm.showForm).toBe(true);
+    expect(t.vm.editingId).toBe(mode==='add'?null:actual.id);
+    expect(t.vm.form).toEqual(before);expect(t.vm.documentFile).toBe(selectedFile);
+    t.requests[1].next([actual]);await t.render();
+    expect(t.vm.showForm).toBe(true);expect(t.vm.form).toEqual(before);
+    expect(t.vm.documentFile).toBe(selectedFile);
   });
 });
