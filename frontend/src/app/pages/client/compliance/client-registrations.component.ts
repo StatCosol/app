@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { AuthService } from '../../../core/auth.service';
@@ -29,6 +29,8 @@ export class ClientRegistrationsComponent implements OnInit, OnDestroy {
   loading = true;
   error: string | null = null;
   private readonly destroy$ = new Subject<void>();
+  private registrationsRequest?: Subscription;
+  private requestVersion = 0;
 
   constructor(
     private branchSvc: ClientBranchesService,
@@ -68,13 +70,21 @@ export class ClientRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   load() {
-    if (!this.selectedBranchId) return;
-
-    this.loading = true;
+    this.registrationsRequest?.unsubscribe();
+    const version = ++this.requestVersion;
+    const branchId = this.selectedBranchId;
+    const isCurrent = () => version === this.requestVersion && branchId === this.selectedBranchId;
+    this.registrations = [];
+    this.filtered = [];
+    this.computeCounts();
+    this.error = null;
+    this.loading = !!branchId;
     this.cdr.markForCheck();
+    if (!branchId) return;
 
-    this.branchSvc.listRegistrations(this.selectedBranchId).pipe(takeUntil(this.destroy$)).subscribe({
+    this.registrationsRequest = this.branchSvc.listRegistrations(branchId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (rows) => {
+        if (!isCurrent()) return;
         this.registrations = rows || [];
         this.computeCounts();
         this.applyFilter();
@@ -83,8 +93,10 @@ export class ClientRegistrationsComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       },
       error: () => {
+        if (!isCurrent()) return;
         this.registrations = [];
         this.filtered = [];
+        this.computeCounts();
         this.loading = false;
         this.error = 'Failed to load registrations. Please try again.';
         this.cdr.markForCheck();

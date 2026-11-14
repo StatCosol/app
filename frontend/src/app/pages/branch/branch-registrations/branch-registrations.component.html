@@ -14,6 +14,7 @@
     </select>
   }
   @if (loadError) { <p role="alert">{{loadError}} <button type="button" (click)="loadWorkspace()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></p> }
+  @if (requestLoadError) { <p role="alert">{{requestLoadError}} <button type="button" (click)="loadWorkspace()" class="btn btn-secondary">Retry request history</button></p> }
   <section class="summary-grid">
     <article class="summary-card">
       <span class="label">Total</span>
@@ -37,17 +38,17 @@
     </article>
     <article class="summary-card">
       <span class="label">Open Requests</span>
-      <strong>{{ openRequestCount }}</strong>
+      <strong>{{ requestLoadError ? 'Unavailable' : openRequestCount }}</strong>
       <span class="sub">With CRM/Admin</span>
     </article>
     <article class="summary-card">
       <span class="label">Amendment Requests</span>
-      <strong>{{ amendmentRequestCount }}</strong>
+      <strong>{{ requestLoadError ? 'Unavailable' : amendmentRequestCount }}</strong>
       <span class="sub">Change history</span>
     </article>
     <article class="summary-card">
       <span class="label">Closure Requests</span>
-      <strong>{{ closureRequestCount }}</strong>
+      <strong>{{ requestLoadError ? 'Unavailable' : closureRequestCount }}</strong>
       <span class="sub">Closure tracking</span>
     </article>
     <article class="summary-card summary-card--warn">
@@ -291,7 +292,7 @@
       <article class="card">
         <div class="section-head">
           <h2>Request History</h2>
-          <span>{{ visibleSelectedRequests.length }} linked requests</span>
+          <span>{{ requestLoadError ? 'Unavailable' : visibleSelectedRequests.length + ' linked requests' }}</span>
         </div>
         <div class="status-tabs status-tabs--compact">
           @for (tab of requestActionTabs; track tab) {
@@ -324,7 +325,7 @@
         </div>
 } @else {
 
-          <div class="empty-mini">No requests linked to this registration.</div>
+          <div class="empty-mini">{{ requestLoadError ? 'Request history unavailable. Retry to refresh.' : 'No requests linked to this registration.' }}</div>
         
 }
         
@@ -333,7 +334,7 @@
       <article class="card">
         <div class="section-head">
           <h2>Amendment History</h2>
-          <span>{{ selectedAmendmentRequests.length }} entries</span>
+          <span>{{ requestLoadError ? 'Unavailable' : selectedAmendmentRequests.length + ' entries' }}</span>
         </div>
         @if (selectedAmendmentRequests.length) {
 <div class="request-list">
@@ -353,7 +354,7 @@
         </div>
 } @else {
 
-          <div class="empty-mini">No amendment history for this registration.</div>
+          <div class="empty-mini">{{ requestLoadError ? 'Amendment history unavailable. Retry to refresh.' : 'No amendment history for this registration.' }}</div>
         
 }
         
@@ -362,7 +363,7 @@
       <article class="card">
         <div class="section-head">
           <h2>Closure Tracking</h2>
-          <span>{{ selectedClosureRequests.length }} requests</span>
+          <span>{{ requestLoadError ? 'Unavailable' : selectedClosureRequests.length + ' requests' }}</span>
         </div>
         @if (latestClosureRequest; as latest) {
 <div class="closure-summary">
@@ -399,7 +400,7 @@
         </div>
 } @else {
 
-          <div class="empty-mini">No closure requests for this registration.</div>
+          <div class="empty-mini">{{ requestLoadError ? 'Closure history unavailable. Retry to refresh.' : 'No closure requests for this registration.' }}</div>
         
 }
         

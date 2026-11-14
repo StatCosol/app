@@ -105,7 +105,10 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   branchId = '';
   branchOptions: Array<{id:string; name:string}> = [];
   loadError = '';
+  requestLoadError = '';
   private workspaceRequest?: import('rxjs').Subscription;
+  private requestsRequest?: import('rxjs').Subscription;
+  private requestVersion = 0;
 
   registrations: RegistrationRow[] = [];
   filteredRegistrations: RegistrationRow[] = [];
@@ -619,6 +622,9 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
 
   loadWorkspace(): void {
     this.workspaceRequest?.unsubscribe();
+    this.requestsRequest?.unsubscribe();
+    this.requestVersion++;
+    this.requestLoadError = '';
     this.loadError = "";
     if (!this.branchId) {
       this.loading = false;
@@ -663,14 +669,27 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   private loadRequests(preferredRegistrationId: string | null): void {
-    if (!this.branchId) return;
-    this.helpdeskService
-      .listTickets({ branchId: this.branchId, category: 'COMPLIANCE' })
+    this.requestsRequest?.unsubscribe();
+    const version = ++this.requestVersion;
+    const branchId = this.branchId;
+    this.requestLoadError = '';
+    if (!branchId) return;
+    this.requestsRequest = this.helpdeskService
+      .listTickets({ branchId, category: 'COMPLIANCE' })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (tickets) => {
+          if (version !== this.requestVersion || branchId !== this.branchId) return;
           this.requests = this.extractRegistrationRequests(tickets || []);
           this.hydrateSelection(preferredRegistrationId || this.selectedRegistration?.id || null);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          if (version !== this.requestVersion || branchId !== this.branchId) return;
+          this.requests = [];
+          this.selectedRequests = [];
+          this.hydrateSelection(preferredRegistrationId || this.selectedRegistration?.id || null);
+          this.requestLoadError = 'Registration request history could not be refreshed. Retry before relying on request counts or history.';
           this.cdr.markForCheck();
         },
       });
