@@ -4,6 +4,7 @@ const { randomUUID } = require('node:crypto');
 const { Client } = require('pg');
 require('ts-node/register/transpile-only');
 const { CrmComplianceTrackerController } = require('../src/crm/crm-compliance-tracker.controller');
+const { actualAuditSql } = require('../src/common/actual-records');
 
 async function main() {
   const url = process.env.AUDIT_CLOSURES_TEST_URL;
@@ -48,6 +49,13 @@ async function main() {
     await add('test-observations-only', 'SYNTHETIC TEST ONLY hidden', 'CRITICAL', 'OPEN');
     const snapshot = async () => (await db.query(`SELECT json_build_object('audits',(SELECT json_agg(a ORDER BY id) FROM audits a),'observations',(SELECT json_agg(o ORDER BY id) FROM audit_observations o)) AS data`)).rows[0].data;
     const before = await snapshot();
+    // The CRM queue applies this same predicate before count/pagination. Future
+    // periods and identical codes outside the verified fixture branch remain real.
+    const queue = async test => (await db.query(`SELECT id FROM audits a WHERE client_id = $1 AND ${test ? 'NOT ' : ''}${actualAuditSql('a')} ORDER BY id`, [client])).rows.map(r => r.id);
+    const testIds = audits.filter(a => ['test-audit', 'legacy'].includes(a.label)).map(a => a.id).sort();
+    const actualIds = audits.filter(a => !['test-audit', 'legacy', 'unassigned'].includes(a.label)).map(a => a.id).sort();
+    assert.deepEqual(await queue(true), testIds);
+    assert.deepEqual(await queue(false), actualIds);
     const controller = new CrmComplianceTrackerController({ many: async (sql, params) => (await db.query(sql, params)).rows }, {});
     const list = async (who, filter = {}) => (await controller.auditClosures({ id: who }, filter)).data;
     const rows = await list(crm);
@@ -59,7 +67,7 @@ async function main() {
     assert.deepEqual(await list(randomUUID()), []);
     assert.deepEqual((await list(otherCrm)).map(r => r.auditId), [audits.find(a => a.label === 'unassigned').id]);
     assert.deepEqual(await snapshot(), before, 'List queries must preserve all historical records');
-    console.log('PASS: CRM closure fixture exclusions, mixed observation counts/percentage, client/role isolation, cancelled/empty audits and unchanged history.');
+    console.log('PASS: CRM actual/test queue separation, closure fixture exclusions, mixed observation counts/percentage, client/role isolation, cancelled/empty audits and unchanged history.');
   } finally {
     await db.query('ROLLBACK');
     await db.end();
