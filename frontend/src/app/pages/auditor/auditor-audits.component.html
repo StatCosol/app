@@ -6,12 +6,22 @@
     <ui-button variant="primary" [routerLink]="['/auditor/conduct-audit']" icon="eye" [iconOnly]="false" label="Select Audit Scope">Select Audit Scope</ui-button>
   </ui-page-header>
 
+  <div class="card mb-6">
+    <label for="auditor-record-scope" class="block text-sm font-medium text-gray-700 mb-2">Records</label>
+    <select id="auditor-record-scope" class="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2" [(ngModel)]="recordScope" (ngModelChange)="onRecordScopeChange()">
+      <option value="ACTUAL">Actual records</option>
+      <option value="TEST">Test records only</option>
+    </select>
+    @if (recordScope === 'TEST') {
+      <p class="mt-3 text-sm text-amber-800" role="status">Test evidence only. Counts and audits in this view are separate from actual client work.</p>
+    }
+  </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
     <div class="card">
       <div class="text-xs uppercase tracking-wide text-gray-500">Total Assigned</div>
       <div class="mt-2 text-2xl font-semibold text-gray-900">{{ totalAssignedCount }}</div>
-      <div class="mt-1 text-sm text-gray-500">All audits currently in your queue</div>
+      <div class="mt-1 text-sm text-gray-500">{{ recordScope === 'TEST' ? 'Test audits only' : 'Actual audits only' }}</div>
     </div>
 
     <div class="card">

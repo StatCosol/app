@@ -19,14 +19,18 @@ async function setup() {
   const params = new BehaviorSubject(convertToParamMap({clientId:'client-a'}));
   const requests: Subject<any[]>[] = [];
   const upload = new Subject<any>();
+  const saved = new Subject<any>();
+  const create = vi.fn(() => saved);
+  const update = vi.fn(() => saved);
+  const uploadFile = vi.fn(() => upload);
   const list = vi.fn(() => {const request = new Subject<any[]>(); requests.push(request); return request;});
   const branches = vi.fn(() => of([{id:'branch-a',name:'BRM fixture'},{id:'branch-b',name:'Second fixture'}]));
   const fetch = vi.fn().mockReturnValue(of({blob:new Blob(['Synthetic evidence'],{type:'text/plain'}),objectUrl:'',fileName:'test.txt',mimeType:'text/plain',revoke:vi.fn()}));
   await TestBed.configureTestingModule({imports:[CrmRegistrationsComponent],providers:[
     {provide:ActivatedRoute,useValue:{paramMap:params}},
-    {provide:ClientBranchesService,useValue:{crmListRegistrations:list,uploadRegistrationFile:()=>upload}},
+    {provide:ClientBranchesService,useValue:{crmListRegistrations:list,uploadRegistrationFile:uploadFile,createRegistration:create,updateRegistration:update}},
     {provide:CrmClientsApi,useValue:{getBranchesForClient:branches}},
-    {provide:ToastService,useValue:{}},{provide:ConfirmDialogService,useValue:{}},
+    {provide:ToastService,useValue:{error:vi.fn()}},{provide:ConfirmDialogService,useValue:{}},
     {provide:ProtectedFileService,useValue:{fetch}},
   ]}).overrideComponent(CrmRegistrationsComponent,{remove:{imports:[ClientContextStripComponent]},add:{schemas:[NO_ERRORS_SCHEMA]}}).compileComponents();
   const fixture = TestBed.createComponent(CrmRegistrationsComponent);
@@ -36,7 +40,7 @@ async function setup() {
     const el = fixture.nativeElement.querySelector(id) as HTMLSelectElement;
     el.value = value;el.dispatchEvent(new Event('change'));await render();
   };
-  return {fixture,vm:fixture.componentInstance,requests,list,params,branches,fetch,render,select,upload};
+  return {fixture,vm:fixture.componentInstance,requests,list,params,branches,fetch,render,select,upload,saved,create,update,uploadFile};
 }
 
 describe.each([390,768,1440])('registration scope at %ipx',width => {
@@ -100,6 +104,76 @@ describe.each([390,768,1440])('registration scope at %ipx',width => {
     t.requests[2].next([actual]);await t.render();expect(t.vm.rows).toEqual([actual]);
     t.params.next(convertToParamMap({}));await t.render();
     expect(t.vm.rows).toEqual([]);expect(t.vm.selectedBranchId).toBe('');
+  });
+it('keeps a pending save bound to its original file and registration while a different editor is open',async()=>{
+    const t=await setup();t.requests[0].next([actual]);await t.render();
+    t.vm.openEdit(actual);
+    const originalFile=new File(['Synthetic original'],'TEST-original.txt');t.vm.documentFile=originalFile;
+    t.vm.save();t.vm.save();expect(t.update).toHaveBeenCalledTimes(1);
+    const nextRow={...actual,id:'other-registration',registrationNumber:'OTHER'};
+    t.vm.openEdit(nextRow);
+    const newFile=new File(['Unsaved synthetic draft'],'TEST-new-draft.txt');t.vm.documentFile=newFile;
+    t.vm.form.registrationNumber='UNSAVED-DRAFT';
+    t.saved.next({id:actual.id});await t.render();
+    expect(t.uploadFile).toHaveBeenCalledWith(actual.id,'client-a',expect.any(FormData),'document');
+    expect((t.uploadFile.mock.calls[0] as any[])[2].get('file')).toBe(originalFile);
+    t.upload.next({});await t.render();
+    expect(t.vm.showForm).toBe(true);expect(t.vm.editingId).toBe(nextRow.id);
+    expect(t.vm.documentFile).toBe(newFile);expect(t.vm.form.registrationNumber).toBe('UNSAVED-DRAFT');
+    t.requests[1].next([actual,nextRow]);await t.render();
+    expect(t.vm.showForm).toBe(true);expect(t.vm.documentFile).toBe(newFile);
+  });
+
+  it('preserves changes typed into the same editor after Save was clicked',async()=>{
+    const t=await setup();t.requests[0].next([actual]);await t.render();
+    t.vm.openEdit(actual);t.vm.save();t.vm.form.registrationNumber='UNSAVED-SECOND-CHANGE';
+    t.saved.next({id:actual.id});await t.render();
+    expect(t.vm.showForm).toBe(true);expect(t.vm.form.registrationNumber).toBe('UNSAVED-SECOND-CHANGE');
+    expect(t.vm.editingId).toBe(actual.id);expect(t.vm.saving).toBe(false);
+    t.requests[1].next([actual]);await t.render();
+    expect(t.vm.form.registrationNumber).toBe('UNSAVED-SECOND-CHANGE');
+  });
+
+it('keeps edited text but does not upload the already saved attachment again on the next save',async()=>{
+    const t=await setup();t.requests[0].next([actual]);await t.render();
+    t.vm.openEdit(actual);t.vm.documentFile=new File(['Synthetic original'],'TEST-uploaded.txt');
+    t.vm.save();t.vm.form.registrationNumber='UNSAVED-TEXT';
+    t.saved.next({id:actual.id});t.saved.complete();
+    t.upload.next({documentUrl:'/uploads/TEST-uploaded.txt'});t.upload.complete();await t.render();
+    expect(t.vm.showForm).toBe(true);expect(t.vm.form.registrationNumber).toBe('UNSAVED-TEXT');
+    expect(t.vm.documentFile).toBeNull();expect(t.vm.existingDocumentUrl).toBe('/uploads/TEST-uploaded.txt');
+    t.requests[1].next([actual]);await t.render();
+    t.update.mockImplementation(()=>of({id:actual.id}) as any);t.vm.save();await t.render();
+    expect(t.update).toHaveBeenCalledTimes(2);expect(t.uploadFile).toHaveBeenCalledTimes(1);
+    t.requests[2].next([actual]);await t.render();
+    expect(t.vm.showForm).toBe(false);
+  });
+  it('keeps the saved create ID and file after attachment failure so retry does not create a duplicate',async()=>{
+    const t=await setup();t.requests[0].next([actual]);await t.render();
+    t.vm.openCreate();t.vm.form.type='Trade License';
+    const file=new File(['Synthetic file'],'TEST-upload-retry.txt');t.vm.documentFile=file;
+    t.vm.save();t.saved.next({id:'created-registration'});
+    t.upload.error(new Error('Synthetic upload failure'));await t.render();
+    expect(t.vm.showForm).toBe(true);expect(t.vm.editingId).toBe('created-registration');
+    expect(t.vm.documentFile).toBe(file);expect(t.vm.saving).toBe(false);
+    t.requests[1].next([actual]);await t.render();
+    t.vm.save();expect(t.create).toHaveBeenCalledTimes(1);
+    expect(t.update).toHaveBeenCalledWith('created-registration','client-a',expect.objectContaining({type:'Trade License'}));
+  });
+
+  it('finishes an old-client save without uploading a new-client draft or clearing its editor',async()=>{
+    const t=await setup();t.requests[0].next([actual]);await t.render();
+    t.vm.openEdit(actual);const file=new File(['Original client evidence'],'TEST-client-a.txt');t.vm.documentFile=file;t.vm.save();
+    t.params.next(convertToParamMap({clientId:'client-b'}));await t.render();
+    t.requests[1].next([]);await t.render();t.vm.openCreate();t.vm.form.type='Trade License';t.vm.form.registrationNumber='CLIENT-B-DRAFT';
+    const pendingFile=new File(['Client B draft'],'TEST-client-b.txt');t.vm.documentFile=pendingFile;
+    t.saved.next({id:actual.id});await t.render();
+    expect(t.uploadFile).toHaveBeenCalledWith(actual.id,'client-a',expect.any(FormData),'document');
+    expect((t.uploadFile.mock.calls[0] as any[])[2].get('file')).toBe(file);
+    t.upload.next({});await t.render();
+    expect(t.vm.clientId).toBe('client-b');expect(t.vm.showForm).toBe(true);
+    expect(t.vm.form.registrationNumber).toBe('CLIENT-B-DRAFT');expect(t.vm.documentFile).toBe(pendingFile);
+    expect(t.requests).toHaveLength(2);
   });
   it.each(['add','edit'])('preserves an unsaved %s form when an earlier inline upload completes',async mode=>{
     const t=await setup();

@@ -141,10 +141,10 @@ export class AuditsService {
   }
 
   // Auditor: list assigned audits with optional filters
-  auditorListAllAudits(): Observable<any[]> {
-    return this.auditorListAudits({ page: 1, pageSize: 250 }).pipe(
+  auditorListAllAudits(recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL'): Observable<any[]> {
+    return this.auditorListAudits({ page: 1, pageSize: 250, recordScope }).pipe(
       expand((res: any) => !Array.isArray(res) && res.page * res.pageSize < res.total
-        ? this.auditorListAudits({ page: res.page + 1, pageSize: 250 }) : EMPTY),
+        ? this.auditorListAudits({ page: res.page + 1, pageSize: 250, recordScope }) : EMPTY),
       reduce((rows: any[], res: any) => rows.concat(Array.isArray(res) ? res : res?.data || res?.items || []), []),
     );
   }

@@ -310,6 +310,7 @@ export class AuditListingService {
   async listForAuditor(
     user: ReqUser,
     q: {
+      recordScope?: 'ACTUAL' | 'TEST';
       page?: number | string;
       pageSize?: number | string;
       frequency?: string;
@@ -322,6 +323,11 @@ export class AuditListingService {
   ) {
     this.assertAuditor(user);
 
+    const recordScope = q?.recordScope || 'ACTUAL';
+    if (!['ACTUAL', 'TEST'].includes(recordScope)) {
+      throw new BadRequestException('Invalid audit record scope');
+    }
+
     const page = Math.max(1, Number(q?.page) || 1);
     const pageSize = Math.min(250, Math.max(1, Number(q?.pageSize) || 25));
 
@@ -331,7 +337,8 @@ export class AuditListingService {
       .leftJoinAndSelect('a.branch', 'branch')
       .leftJoinAndSelect('a.contractorUser', 'contractor')
       .where('a.assignedAuditorId = :uid', { uid: user.userId })
-      .andWhere('COALESCE(client.is_deleted, false) = false');
+      .andWhere('COALESCE(client.is_deleted, false) = false')
+      .andWhere(recordScope === 'TEST' ? `NOT ${actualAuditSql('a')}` : actualAuditSql('a'));
 
     if (q.frequency) {
       qb.andWhere('a.frequency = :freq', { freq: q.frequency });
