@@ -68,6 +68,10 @@ jobs:
         env:
           AUDIT_ENTRY_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
         run: node scripts/verify-statutory-audit-entry-postgres.cjs
+      - name: Helpdesk test-data isolation regressions
+        env:
+          HELPDESK_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
+        run: node scripts/verify-helpdesk-test-isolation.cjs
       - name: Automation PostgreSQL regressions
         env:
           AUTOMATION_TEST_PORT: 5432
