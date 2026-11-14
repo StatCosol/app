@@ -153,10 +153,10 @@
           </label>
 
           <div class="action-row">
-            <button type="button" class="btn btn-ghost" [disabled]="actionBusy || !canMoveToUnderReview" (click)="moveToUnderReview()">Under Review</button>
-            <button type="button" class="compact-action btn btn-secondary" [disabled]="actionBusy || !canApprove" (click)="approveCase()" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
-            <button type="button" class="btn btn-primary" [disabled]="actionBusy || !canMarkDocsIssued" (click)="markDocumentsIssued()">Docs Issued</button>
-            <button type="button" class="compact-action btn btn-success" [disabled]="actionBusy || !canComplete" (click)="closeCaseAsCompleted()" title="Complete" aria-label="Complete" data-action-label="Complete" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+            <button type="button" class="btn btn-ghost" [disabled]="actionBusy || breakupSaveBusy || !canMoveToUnderReview" (click)="moveToUnderReview()">Under Review</button>
+            <button type="button" class="compact-action btn btn-secondary" [disabled]="actionBusy || breakupSaveBusy || !canApprove" (click)="approveCase()" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+            <button type="button" class="btn btn-primary" [disabled]="actionBusy || breakupSaveBusy || !canMarkDocsIssued" (click)="markDocumentsIssued()">Docs Issued</button>
+            <button type="button" class="compact-action btn btn-success" [disabled]="actionBusy || breakupSaveBusy || !canComplete" (click)="closeCaseAsCompleted()" title="Complete" aria-label="Complete" data-action-label="Complete" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
           </div>
         </div>
 
@@ -230,7 +230,7 @@
           <button type="button" class="standard-action btn btn-secondary" [disabled]="breakupSaveBusy || actionBusy" (click)="saveBreakup()">
             {{ breakupSaveBusy ? 'Saving…' : 'Save Breakup' }}
           </button>
-          <button type="button" class="btn btn-success" [disabled]="actionBusy || !canSettle" (click)="settleCase()">Mark Settled</button>
+          <button type="button" class="btn btn-success" [disabled]="actionBusy || breakupSaveBusy || !canSettle" (click)="settleCase()">Mark Settled</button>
           <span class="minor">Current saved: {{ inr(detail.settlementAmount) }}</span>
         </div>
       </article>

@@ -14,6 +14,7 @@ export default defineConfig({
       'src/app/pages/registration-scope-refresh.spec.ts',
       'src/app/pages/notice-selection.spec.ts',
       'src/app/pages/workflow-editor-drafts.spec.ts',
+      'src/app/pages/payroll/payroll-fnf-scope.spec.ts',
       'src/app/pages/crm/compliance/crm-reupload-backlog.component.spec.ts',
       'src/app/pages/branch/branch-reports/branch-reports.component.spec.ts',
       // Billing component TestBed specs run through ng test, not the Node runner.
