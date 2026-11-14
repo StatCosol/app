@@ -21,7 +21,9 @@ async function setup(query:Record<string,string>={}) {
     {provide:AuditsService,useValue:{auditorListAllAudits:list}},{provide:ToastService,useValue:{error}},
   ]}).compileComponents();
   const fixture=TestBed.createComponent(AuditorAuditsComponent);
-  const render=async()=>{fixture.changeDetectorRef.markForCheck();fixture.detectChanges();await fixture.whenStable();fixture.detectChanges();};
+  // The intentional in-flight Subject keeps the component's timeout timer live.
+  // Flush ngModel microtasks without waiting for that request to time out.
+  const render=async()=>{fixture.changeDetectorRef.markForCheck();fixture.detectChanges();await Promise.resolve();fixture.detectChanges();};
   await render();
   const scope=async(value:string)=>{const select=fixture.nativeElement.querySelector('#auditor-record-scope') as HTMLSelectElement;select.value=value;select.dispatchEvent(new Event('change'));await render();};
   return {fixture,vm:fixture.componentInstance,requests,list,error,render,scope};
