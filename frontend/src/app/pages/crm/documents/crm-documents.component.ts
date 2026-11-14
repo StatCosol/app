@@ -51,7 +51,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 <div class="kpi-strip">
       <div class="kpi-card">
         <span class="kpi-value">{{ kpis.total || 0 }}</span>
-        <span class="kpi-label">Total Documents</span>
+        <span class="kpi-label">Loaded Documents</span>
       </div>
       <div class="kpi-card kpi-pending">
         <span class="kpi-value">{{ kpis.pending || 0 }}</span>
@@ -129,15 +129,15 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
                         (click)="openDocument(doc)"
                         class="compact-action btn-sm btn-outline" title="Download" aria-label="Download" data-action-label="Download" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
 }
-                @if ((doc.status || 'PENDING') === 'PENDING') {
+                @if (isPendingReview(doc.status)) {
 <button
                         (click)="review(doc, 'APPROVED')" class="compact-action btn-sm btn-approve"
-                        [disabled]="processing.has(doc.id)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                        [disabled]="processing.size > 0" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
-                @if ((doc.status || 'PENDING') === 'PENDING') {
+                @if (isPendingReview(doc.status)) {
 <button
                         (click)="review(doc, 'REJECTED')" class="compact-action btn-sm btn-reject"
-                        [disabled]="processing.has(doc.id)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+                        [disabled]="processing.size > 0" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
 }
               </div>
             </td>
@@ -158,7 +158,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 <div class="mb-3">
           <label class="text-sm font-medium text-gray-700" for="cd-review-notes">Reason for rejection</label>
           <textarea autocomplete="off" id="cd-review-notes" name="reviewNotes" [(ngModel)]="reviewNotes" rows="3" class="field-input mt-1"
-                    placeholder="Provide feedback..."></textarea>
+                    [disabled]="processing.size > 0" placeholder="Provide feedback..."></textarea>
         </div>
 }
         <div class="modal-actions">
@@ -166,8 +166,8 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
           <button (click)="confirmReview()" class="standard-action btn-sm"
                   [class.btn-approve]="reviewAction === 'APPROVED'"
                   [class.btn-reject]="reviewAction === 'REJECTED'"
-                  [disabled]="reviewAction === 'REJECTED' && !reviewNotes.trim()">
-            Confirm
+                  [disabled]="processing.size > 0 || (reviewAction === 'REJECTED' && !reviewNotes.trim())">
+            {{ processing.size > 0 ? 'Submitting…' : 'Confirm' }}
           </button>
         </div>
       </div>
@@ -240,7 +240,6 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 export class CrmDocumentsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private documentRead?: Subscription;
-  private documentKpiRead?: Subscription;
   recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
   documents: any[] = [];
   filtered: any[] = [];
@@ -275,7 +274,6 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.loadKpis();
     this.loadDocuments();
   }
 
@@ -286,15 +284,7 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
 
   changeRecordScope(): void {
     this.reviewingDoc = null; this.documents = []; this.filtered = []; this.kpis = null;
-    this.loadKpis(); this.loadDocuments();
-  }
-
-  private loadKpis(): void {
-    this.documentKpiRead?.unsubscribe();
-    this.documentKpiRead = this.api.kpis(this.recordScope).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (data) => { this.kpis = data; this.cdr.detectChanges(); },
-      error: () => {},
-    });
+    this.loadDocuments();
   }
 
   private loadDocuments(): void {
@@ -310,16 +300,23 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
         this.documents = Array.isArray(data)
           ? data
           : (data as any)?.data || (data as any)?.items || [];
+        this.kpis = {
+          total: this.documents.length,
+          pending: this.documents.filter(d => this.isPendingReview(d.status)).length,
+          approved: this.documents.filter(d => d.status === 'APPROVED').length,
+          rejected: this.documents.filter(d => d.status === 'REJECTED').length,
+        };
         this.applyFilters();
       },
-      error: () => { this.loading = false; this.documents = []; this.filtered = []; },
+      error: () => { this.loading = false; this.documents = []; this.filtered = []; this.kpis = null; },
     });
   }
 
   applyFilters(): void {
     let result = [...this.documents];
     if (this.filterStatus) {
-      result = result.filter(d => (d.status || 'PENDING') === this.filterStatus);
+      result = result.filter(d => this.filterStatus === 'PENDING'
+        ? this.isPendingReview(d.status) : d.status === this.filterStatus);
     }
     if (this.searchTerm.trim()) {
       const term = this.searchTerm.toLowerCase();
@@ -331,7 +328,12 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
     this.filtered = result;
   }
 
+  isPendingReview(status: string): boolean {
+    return ['UPLOADED', 'PENDING_REVIEW', 'PENDING'].includes(status);
+  }
+
   review(doc: any, action: string): void {
+    if (this.processing.size) return;
     this.reviewingDoc = doc;
     this.reviewAction = action;
     this.reviewNotes = '';
@@ -340,17 +342,23 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
   confirmReview(): void {
     if (!this.reviewingDoc) return;
     const id = this.reviewingDoc.id;
+    if (this.processing.has(id)) return;
+    const submittedDoc = this.reviewingDoc;
+    const submittedNotes = this.reviewNotes;
     this.processing.add(id);
-    this.api.review(id, { status: this.reviewAction, reviewNotes: this.reviewNotes.trim() || undefined })
+    this.api.review(id, { status: this.reviewAction, reviewNotes: this.reviewNotes.trim() || undefined,
+      expectedFilePath: this.reviewingDoc.filePath, expectedStatus: this.reviewingDoc.status,
+      expectedReviewedAt: this.reviewingDoc.reviewedAt ?? null })
       .pipe(takeUntil(this.destroy$), finalize(() => { this.processing.delete(id); this.cdr.detectChanges(); }))
       .subscribe({
         next: () => {
           this.processing.delete(id);
-          this.reviewingDoc = null;
-          this.loadKpis();
+          if (this.reviewingDoc === submittedDoc && this.reviewNotes === submittedNotes) {
+            this.reviewingDoc = null;
+          }
           this.loadDocuments();
         },
-        error: () => { this.processing.delete(id); this.toast.error('Review failed. Please try again.'); },
+        error: (e) => { this.processing.delete(id); this.toast.error(e?.error?.message || 'Review failed. Please try again.'); },
       });
   }
 

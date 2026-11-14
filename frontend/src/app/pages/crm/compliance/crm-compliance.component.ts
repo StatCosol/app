@@ -401,13 +401,15 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
 
   async reviewDoc(doc: any, status: string): Promise<void> {
     if (this.reviewingDocId) return;
+    const scopeAtPrompt = JSON.stringify([this.routeClientId, this.docFilters]);
     const label = status === 'REJECTED' ? 'Rejection reason (required):' : 'Review notes (optional):';
     const result = await this.dialog.prompt(status === 'REJECTED' ? 'Reject Document' : 'Review Document', label, { placeholder: 'Notes' });
-    if (!result.confirmed || this.reviewingDocId) return;
+    if (!result.confirmed || this.reviewingDocId ||
+        scopeAtPrompt !== JSON.stringify([this.routeClientId, this.docFilters])) return;
     const notes = result.value || '';
     if (status === 'REJECTED' && !notes.trim()) return;
     this.reviewingDocId = doc.id;
-    this.crmDocsApi.review(doc.id, { status, reviewNotes: notes }).pipe(
+    this.crmDocsApi.review(doc.id, { status, reviewNotes: notes, expectedFilePath: doc.filePath, expectedStatus: doc.status, expectedReviewedAt: doc.reviewedAt ?? null }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.reviewingDocId = null; this.cdr.detectChanges(); }),
     ).subscribe({

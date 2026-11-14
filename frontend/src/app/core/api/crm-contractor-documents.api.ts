@@ -21,7 +21,7 @@ export class CrmContractorDocumentsApi {
     return this.http.get('/api/v1/crm/contractor-documents', { params: p });
   }
 
-  review(id: string, payload: { status: string; reviewNotes?: string }): Observable<any> {
+  review(id: string, payload: { status: string; reviewNotes?: string; expectedFilePath: string; expectedStatus: string; expectedReviewedAt: string | null }): Observable<any> {
     return this.http.post(`/api/v1/crm/contractor-documents/${id}/review`, payload);
   }
 }
