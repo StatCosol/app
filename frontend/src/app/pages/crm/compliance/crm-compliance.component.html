@@ -898,6 +898,11 @@
   <!-- ══════════════ Tab 4: Audit Closures ══════════════ -->
   @if (activeTab==='AUDIT_CLOSURES') {
 <div>
+    <p class="mb-4 text-sm text-gray-600">
+      Closure summary for actual audit observations. Each row represents an audit, not an individual observation.
+      <a routerLink="/crm/audits" class="font-semibold text-brand-800 underline">Open Audits &amp; Reports</a>
+      to review audit details and progress.
+    </p>
     <!-- Audit Closures Filter -->
     <div class="card mb-6">
       <div class="flex flex-wrap gap-3 items-end aligned-filter-controls">
@@ -938,7 +943,6 @@
             <th class="p-2 text-left">Total</th>
             <th class="p-2 text-left">Closed</th>
             <th class="p-2 text-left">Closure %</th>
-            <th class="p-2 text-left">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -967,23 +971,11 @@
               </div>
 }
             </td>
-            <td class="p-2">
-              <button type="button" class="px-2 py-1 text-xs border rounded"
-                [disabled]="closingObsId === getAuditId(row)"
-                (click)="closeObservation(getAuditId(row))">
-                @if (closingObsId === getAuditId(row)) {
-<span>Closing...</span>
-}
-                @if (closingObsId !== getAuditId(row)) {
-<span>Close</span>
-}
-              </button>
-            </td>
           </tr>
 }
           @if (!auditClosures.length) {
 <tr>
-            <td colspan="10" class="p-4 text-center text-gray-500">No audit closures found.</td>
+            <td colspan="9" class="p-4 text-center text-gray-500">No audit closures found.</td>
           </tr>
 }
         </tbody>
