@@ -72,6 +72,8 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
   ];
 
   loading = false;
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
+  private loadVersion = 0;
 
   filters = {
     clientId: '',
@@ -129,17 +131,23 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    const version = ++this.loadVersion;
+    const scope = this.recordScope;
+    const isCurrent = () => version === this.loadVersion && scope === this.recordScope;
+    this.audits = [];
+    this.recomputeViewModel();
     this.loading = true;
     this.cdr.markForCheck();
     this.auditsService
-      .auditorListAllAudits()
+      .auditorListAllAudits(scope)
       .pipe(
         timeout(15000),
         takeUntil(this.destroy$),
-        finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
+        finalize(() => { if (isCurrent()) { this.loading = false; this.cdr.markForCheck(); } }),
       )
       .subscribe({
         next: (res) => {
+          if (!isCurrent()) return;
           const data = res;
           this.audits = data.map((audit: any) => ({
             id: String(audit.id),
@@ -163,10 +171,16 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
         error: () => {
+          if (!isCurrent()) return;
           this.toast.error('Failed to load scheduled audits');
           // loading reset by finalize
         },
       });
+  }
+
+  onRecordScopeChange(): void {
+    this.clear();
+    this.load();
   }
 
   onClientChange(): void {
@@ -222,7 +236,9 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
 
   get activeFilterSummary(): string {
     if (!this.hasActiveFilters) {
-      return 'Showing every audit assigned to you.';
+      return this.recordScope === 'TEST'
+        ? 'Showing test audits assigned to you. These do not contribute to actual workload counts.'
+        : 'Showing actual audits assigned to you. Test evidence is kept separately.';
     }
 
     const parts: string[] = [];
@@ -360,6 +376,7 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
 
   private applyFiltersFromQueryParams(): void {
     const params = this.route.snapshot.queryParamMap;
+    this.recordScope = params.get('recordScope') === 'TEST' ? 'TEST' : 'ACTUAL';
     const clientId = params.get('clientId') || '';
     const auditType = params.get('auditType') || '';
     const status = this.statusKey(params.get('status'));

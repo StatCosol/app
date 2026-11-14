@@ -430,6 +430,7 @@ export class AuditsService implements OnModuleInit {
   async listForAuditor(
     user: ReqUser,
     q: {
+      recordScope?: 'ACTUAL' | 'TEST';
       page?: number | string;
       pageSize?: number | string;
       frequency?: string;

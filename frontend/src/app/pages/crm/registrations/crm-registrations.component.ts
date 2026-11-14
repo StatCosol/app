@@ -126,6 +126,8 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   ];
 
   saving = false;
+  private saveInFlight = false;
+  private editorVersion = 0;
   deletingId: string | null = null;
   documentFile: File | null = null;
   existingDocumentUrl: string | null = null;
@@ -239,6 +241,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
 
   openCreate(): void {
     if (!this.selectedBranchId || this.recordScope === 'TEST') return;
+    this.editorVersion++;
     this.editingId = null;
     this.showForm = true;
     this.form = this.emptyForm();
@@ -250,6 +253,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
 
   openEdit(row: any): void {
     if (this.recordScope === 'TEST') return;
+    this.editorVersion++;
     this.editingId = row.id;
     this.showForm = true;
     this.form = {
@@ -267,16 +271,16 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   closeForm(): void {
+    this.editorVersion++;
     this.showForm = false;
     this.editingId = null;
-    this.saving = false;
     this.documentFile = null;
     this.existingDocumentUrl = null;
     this.cdr.markForCheck();
   }
 
   save(): void {
-    if (this.recordScope === 'TEST') return;
+    if (this.recordScope === 'TEST' || this.saveInFlight) return;
     if (!this.form.branchId || !this.form.type?.trim()) {
       this.toast.error('Branch and Registration/License Type are required.');
       return;
@@ -296,52 +300,63 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
       this.toast.error('Licensed worker limit must be a positive whole number.');
       return;
     }
+    const clientId = this.clientId;
+    const branchId = this.selectedBranchId;
+    const editingId = this.editingId;
+    const documentFile = this.documentFile;
+    const editorVersion = this.editorVersion;
+    const formSnapshot = JSON.stringify(this.form);
+    const sameScope = () => this.clientId === clientId && this.selectedBranchId === branchId && this.recordScope === 'ACTUAL';
+    const sameEditor = () => sameScope() && this.editorVersion === editorVersion;
+    const finish = (savedId: string | undefined, uploadFailed = false, documentUrl?: string) => {
+      this.saving = false;
+      this.saveInFlight = false;
+      if (sameEditor()) {
+        // A create already saved its metadata, even if its attachment failed or
+        // the user edited the draft during the request. Retry as an update.
+        if (savedId) this.editingId = savedId;
+        const unchanged = JSON.stringify(this.form) === formSnapshot && this.documentFile === documentFile;
+        if (!uploadFailed && documentFile) {
+          if (documentUrl) this.existingDocumentUrl = documentUrl;
+          if (this.documentFile === documentFile) this.documentFile = null;
+        }
+        if (!uploadFailed && unchanged) this.closeForm();
+      }
+      if (sameScope()) {
+        if (uploadFailed) this.toast.error('Saved but document upload failed. Retry the attachment.');
+        this.load();
+      }
+      this.cdr.markForCheck();
+    };
     this.saving = true;
+    this.saveInFlight = true;
     this.cdr.markForCheck();
 
-    const req$ = this.editingId
-      ? this.branchSvc.updateRegistration(this.editingId, this.clientId, payload)
-      : this.branchSvc.createRegistration(this.clientId, payload);
+    const req$ = editingId
+      ? this.branchSvc.updateRegistration(editingId, clientId, payload)
+      : this.branchSvc.createRegistration(clientId, payload);
 
     req$.pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
-        const savedId = this.editingId || res?.id;
-        if (this.documentFile && savedId) {
+        const savedId = editingId || res?.id;
+        if (documentFile && savedId) {
           const fd = new FormData();
-          fd.append('file', this.documentFile);
-          this.branchSvc.uploadRegistrationFile(savedId, this.clientId, fd, 'document')
+          fd.append('file', documentFile);
+          this.branchSvc.uploadRegistrationFile(savedId, clientId, fd, 'document')
             .pipe(takeUntil(this.destroy$))
             .subscribe({
-              next: () => {
-                this.saving = false;
-                this.showForm = false;
-                this.editingId = null;
-                this.documentFile = null;
-                this.existingDocumentUrl = null;
-                this.load();
-              },
-              error: () => {
-                this.saving = false;
-                this.cdr.markForCheck();
-                this.toast.error('Saved but document upload failed');
-                this.showForm = false;
-                this.editingId = null;
-                this.load();
-              },
+              next: (uploaded: any) => finish(savedId, false, uploaded?.documentUrl),
+              error: () => finish(savedId, true),
             });
         } else {
-          this.saving = false;
-          this.showForm = false;
-          this.editingId = null;
-          this.documentFile = null;
-          this.existingDocumentUrl = null;
-          this.load();
+          finish(savedId);
         }
       },
       error: (e) => {
         this.saving = false;
+        this.saveInFlight = false;
         this.cdr.markForCheck();
-        this.toast.error(e?.error?.message || 'Save failed');
+        if (sameScope()) this.toast.error(e?.error?.message || 'Save failed');
       },
     });
   }
