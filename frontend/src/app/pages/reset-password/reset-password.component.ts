@@ -1,4 +1,3 @@
-import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -11,7 +10,7 @@ type Step = 'reset' | 'done' | 'invalid';
 
 @Component({
   standalone: true,
-  imports: [IconComponent, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   templateUrl: './reset-password.component.html',
   styleUrls: ['./reset-password.component.scss'],
 })
