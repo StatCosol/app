@@ -401,6 +401,7 @@ export class AuditsService implements OnModuleInit {
       year?: number | string;
       clientId?: string;
       auditType?: string;
+      recordScope?: 'ACTUAL' | 'TEST';
     },
   ) {
     return this.listingService.listForCrm(user, q);

@@ -13,16 +13,33 @@
       Operational workspace for audit scheduling, tracking, and closure.
     </div>
     <div class="flex items-center gap-2">
-      <ui-button variant="secondary" size="sm" (clicked)="refreshWorkspace(selectedAudit?.id || null)" icon="refresh" [iconOnly]="true" label="Refresh">
+      <ui-button variant="secondary" size="sm" (clicked)="refreshWorkspace(selectedAudit?.id || null)" [disabled]="loading || listBusy" icon="refresh" [iconOnly]="true" label="Refresh">
         Refresh
       </ui-button>
-      <ui-button variant="secondary" size="sm" (clicked)="autoGenerateSchedules()" [disabled]="autoGenerating">
+      <ui-button variant="secondary" size="sm" (clicked)="autoGenerateSchedules()" [disabled]="autoGenerating || recordScope === 'TEST'">
         {{ autoGenerating ? 'Generating…' : '⚡ Auto-Generate' }}
       </ui-button>
-      <ui-button variant="primary" size="sm" (clicked)="openScheduleModal()">
+      <ui-button variant="primary" size="sm" (clicked)="openScheduleModal()" [disabled]="recordScope === 'TEST'">
         + Schedule Audit
       </ui-button>
     </div>
+  </div>
+
+  <div class="card mb-5 flex flex-wrap items-end gap-3" aria-label="Audit record scope">
+    <div>
+      <label class="filter-label" for="camp-record-scope">Records</label>
+      <select id="camp-record-scope" class="filter-input" [(ngModel)]="recordScope" (ngModelChange)="changeRecordScope()" [disabled]="loading || actionBusy || governanceBusy || scheduleSaving || autoGenerating">
+        <option value="ACTUAL">Actual audits</option>
+        <option value="TEST">Test audits only</option>
+      </select>
+    </div>
+    <p class="text-sm text-gray-600" role="status">
+      @if (recordScope === 'TEST') {
+        Test audits only. Queue, totals and calendar show test records; actual closure totals are not included. Scheduling is available in Actual audits.
+      } @else {
+        Actual audits only. Labelled and verified legacy test audits are excluded from the queue, totals and calendar.
+      }
+    </p>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-6 gap-3 mb-5">
@@ -58,11 +75,13 @@
       <div class="stat-value">{{ readyCount }}</div>
       <div class="stat-sub">Auditor + due date + period in place</div>
     </div>
+    @if (recordScope === 'ACTUAL') {
     <div class="card stat-card">
       <div class="stat-label">Open CAPA</div>
       <div class="stat-value text-amber-600">{{ capaOpenCount }}</div>
       <div class="stat-sub">Critical + major + minor pending</div>
     </div>
+    }
   </div>
 
   <div class="card mb-5">
@@ -121,16 +140,16 @@
     </div>
   </div>
 
-  @if (loading) {
+  @if (loading || listBusy) {
 <ui-loading-spinner></ui-loading-spinner>
 }
 
-  @if (!loading && !filteredAudits.length) {
+  @if (!loading && !listBusy && !filteredAudits.length) {
 <ui-empty-state
    
     icon="clipboard-check"
     title="No audits found"
-    description="Adjust filters or schedule a new audit."
+    [description]="recordScope === 'TEST' ? 'No test audits match these filters.' : 'Adjust filters or schedule a new audit.'"
   ></ui-empty-state>
 }
 

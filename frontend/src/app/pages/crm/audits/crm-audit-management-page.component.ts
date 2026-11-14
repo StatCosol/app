@@ -147,6 +147,8 @@ interface ScheduleModel {
 })
 export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private readonly workspaceReload$ = new Subject<void>();
+  private readonly detailReload$ = new Subject<void>();
   private readonly baseUrl = environment.apiBaseUrl;
 
   loading = true;
@@ -173,6 +175,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   clientFilter = '';
   yearFilter = '';
   typeFilter = '';
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
 
   showScheduleModal = false;
   scheduleSaving = false;
@@ -260,6 +263,8 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.workspaceReload$.complete();
+    this.detailReload$.complete();
   }
 
   get totalCount(): number {
@@ -419,7 +424,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   applyFilters(): void {
     const q = this.search.trim().toLowerCase();
-    const year = this.yearFilter.trim();
+    const year = String(this.yearFilter ?? '').trim();
     this.filteredAudits = this.audits
       .filter((row) => {
         if (this.statusFilter && row.status !== this.statusFilter) return false;
@@ -455,6 +460,25 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     this.yearFilter = '';
     this.typeFilter = '';
     this.applyFilters();
+  }
+
+  changeRecordScope(): void {
+    this.refreshWorkspace(null);
+  }
+
+  private resetAuditView(): void {
+    this.detailReload$.next();
+    this.audits = [];
+    this.filteredAudits = [];
+    this.calendarRows = [];
+    this.closuresByAuditId = {};
+    this.selectedAudit = null;
+    this.selectedDetail = null;
+    this.latestReadiness = null;
+    this.latestReportStatus = null;
+    this.actionRequests = [];
+    this.reportPreview = null;
+    this.detailBusy = false;
   }
 
   selectAudit(row: AuditRow): void {
@@ -742,6 +766,8 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   retryLoad(): void { this.loadInitialData(); }
 
   private loadInitialData(): void {
+    this.workspaceReload$.next();
+    this.resetAuditView();
     this.loading = true;
     this.loadError = '';
     forkJoin({
@@ -749,11 +775,12 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       auditors: this.http
         .get<AuditorOption[]>(`${this.baseUrl}/api/v1/crm/users/auditors`),
       audits: this.auditsService
-        .crmAllAudits(),
-      closures: this.trackerApi.getAuditClosures(),
+        .crmAllAudits(this.recordScope),
+      closures: this.recordScope === 'ACTUAL' ? this.trackerApi.getAuditClosures() : of({ data: [] }),
     })
       .pipe(
         takeUntil(this.destroy$),
+        takeUntil(this.workspaceReload$),
         finalize(() => {
           this.loading = false;
           this.cdr.markForCheck();
@@ -772,13 +799,16 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   refreshWorkspace(preferredAuditId: string | null): void {
+    this.workspaceReload$.next();
+    this.resetAuditView();
     this.listBusy = true;
     forkJoin({
-      audits: this.auditsService.crmAllAudits(),
-      closures: this.trackerApi.getAuditClosures(),
+      audits: this.auditsService.crmAllAudits(this.recordScope),
+      closures: this.recordScope === 'ACTUAL' ? this.trackerApi.getAuditClosures() : of({ data: [] }),
     })
       .pipe(
         takeUntil(this.destroy$),
+        takeUntil(this.workspaceReload$),
         finalize(() => {
           this.listBusy = false;
           this.cdr.markForCheck();
@@ -820,11 +850,17 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   private loadAuditDetail(auditId: string): void {
+    this.detailReload$.next();
+    this.selectedDetail = null;
+    this.latestReadiness = null;
+    this.latestReportStatus = null;
+    this.actionRequests = [];
     this.detailBusy = true;
     this.auditsService
       .crmGetAudit(auditId)
       .pipe(
         takeUntil(this.destroy$),
+        takeUntil(this.detailReload$),
         finalize(() => {
           this.detailBusy = false;
           this.cdr.markForCheck();
@@ -832,10 +868,12 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (row) => {
+          if (this.selectedAudit?.id !== auditId) return;
           this.selectedDetail = (row || null) as AuditRow | null;
           this.loadAuditInsights(auditId);
         },
         error: () => {
+          if (this.selectedAudit?.id !== auditId) return;
           this.selectedDetail = this.selectedAudit;
           this.loadAuditInsights(auditId);
         },
@@ -853,7 +891,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
         .crmGetReportStatus(auditId)
         .pipe(catchError(() => of(null))),
     })
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), takeUntil(this.detailReload$))
       .subscribe(({ readiness, reportStatus, actionRequests }) => {
         if (this.currentAudit?.id !== auditId) return;
         this.actionRequests = actionRequests;

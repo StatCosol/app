@@ -1,4 +1,5 @@
 import { applyClientBranchScope } from '../common/portal-client-scope';
+import { actualAuditSql } from '../common/actual-records';
 import { contractorScopeReadiness } from './contractor-audit-scope';
 import {
   BadRequestException,
@@ -64,9 +65,14 @@ export class AuditListingService {
       year?: number | string;
       clientId?: string;
       auditType?: string;
+      recordScope?: 'ACTUAL' | 'TEST';
     },
   ) {
     this.assertCrm(user);
+    const recordScope = q?.recordScope || 'ACTUAL';
+    if (!['ACTUAL', 'TEST'].includes(recordScope)) {
+      throw new BadRequestException('Invalid audit record scope');
+    }
 
     // Get all clients assigned to this CRM
     const assignedClientIds =
@@ -88,6 +94,13 @@ export class AuditListingService {
       .leftJoinAndSelect('a.contractorUser', 'contractor')
       .leftJoinAndSelect('a.assignedAuditor', 'auditor')
       .where('a.clientId IN (:...clientIds)', { clientIds });
+
+    // Filter before pagination/counting; never rewrite or remove fixture history.
+    qb.andWhere(
+      recordScope === 'TEST'
+        ? `NOT ${actualAuditSql('a')}`
+        : actualAuditSql('a'),
+    );
 
     if (q.status) {
       qb.andWhere('a.status = :st', { st: q.status });

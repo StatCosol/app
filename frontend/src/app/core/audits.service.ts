@@ -50,8 +50,8 @@ export class AuditsService {
   }
 
   // CRM: list audits for assigned clients
-  crmAllAudits(): Observable<any> {
-    return loadAllPages<any>(page => this.crmListAudits({ page, pageSize: 250 })).pipe(map(data => ({ data })));
+  crmAllAudits(recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL'): Observable<any> {
+    return loadAllPages<any>(page => this.crmListAudits({ page, pageSize: 250, recordScope })).pipe(map(data => ({ data })));
   }
 
   auditorClientOptions(): Observable<any[]> {
