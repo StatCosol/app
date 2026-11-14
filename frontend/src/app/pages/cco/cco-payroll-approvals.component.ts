@@ -54,6 +54,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   acting = false;
   mode: ApprovalMode = 'RUNS';
   statusFilter: StatusFilter = 'PENDING';
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
   statusOptions: StatusFilter[] = ['PENDING', 'APPROVED', 'REJECTED', 'DRAFT'];
   runStatusFilter: RunStatusFilter = 'SUBMITTED';
   runStatusOptions: RunStatusFilter[] = ['SUBMITTED', 'APPROVED', 'REJECTED', 'PROCESSED'];
@@ -145,14 +146,15 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
     const version = ++this.queueVersion;
     this.clearCompletedStatuses();
     const status = this.statusFilter;
-    const current = () => version === this.queueVersion && this.mode === 'STRUCTURES' && status === this.statusFilter;
+    const recordScope = this.recordScope;
+    const current = () => version === this.queueVersion && this.mode === 'STRUCTURES' && status === this.statusFilter && recordScope === this.recordScope;
     this.clearSelection();
     this.structures = [];
     this.runsLoading = false;
     this.loading = true;
     this.http
       .get<QueueRow[]>(`${this.base}/structures/approval-queue`, {
-        params: { status },
+        params: { status, recordScope },
       })
       .pipe(
         takeUntil(this.destroy$),
@@ -222,8 +224,10 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
     const queueVersion = this.queueVersion;
     const detailVersion = this.detailVersion;
     const status = mode === 'RUNS' ? this.runStatusFilter : this.statusFilter;
+    const recordScope = this.recordScope;
     return () => mode === this.mode && queueVersion === this.queueVersion && detailVersion === this.detailVersion &&
-      status === (mode === 'RUNS' ? this.runStatusFilter : this.statusFilter);
+      status === (mode === 'RUNS' ? this.runStatusFilter : this.statusFilter) &&
+      (mode === 'RUNS' || recordScope === this.recordScope);
   }
 
   private clearCompletedStatuses(): void {
@@ -315,6 +319,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   async approve(row: QueueRow): Promise<void> {
     if (row.approvalStatus !== 'PENDING') return;
     const current = this.actionContextIsCurrent();
+    const recordScope = this.recordScope;
     const ok = await this.dialog.confirm(
       'Approve Structure',
       `Approve "${row.name}" for ${this.clientLabel(row)}?`,
@@ -327,7 +332,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Structure approved');
-          this.completeStructureReview(row.id, 'APPROVED');
+          if (recordScope === this.recordScope) this.completeStructureReview(row.id, 'APPROVED');
           if (current()) this.load();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Approve failed'),
@@ -337,6 +342,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   async reject(row: QueueRow): Promise<void> {
     if (row.approvalStatus !== 'PENDING') return;
     const current = this.actionContextIsCurrent();
+    const recordScope = this.recordScope;
     const result = await this.dialog.prompt(
       'Reject Structure',
       'Reason for rejection (required):',
@@ -355,7 +361,7 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Structure rejected');
-          this.completeStructureReview(row.id, 'REJECTED');
+          if (recordScope === this.recordScope) this.completeStructureReview(row.id, 'REJECTED');
           if (current()) this.load();
         },
         error: (e) => this.toast.error(e?.error?.message || 'Reject failed'),

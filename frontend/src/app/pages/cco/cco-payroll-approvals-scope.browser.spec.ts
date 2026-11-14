@@ -12,6 +12,56 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
 
 const structure = (id: string) => ({id, name:`Synthetic ${id}`, clientName:'Test fixture', approvalStatus:'PENDING', scopeType:'CLIENT'} as any);
 const run = (id: string) => ({id, clientName:'Test fixture', status:'SUBMITTED', periodYear:2025,periodMonth:12,employeeCount:1} as any);
+
+describe.each([390,768,1440])('CCO salary structure record scope at %ipx',width=>{
+  beforeEach(async()=>page.viewport(width,900));
+  it('defaults to Actual and clears counts and details before loading Test structures',async()=>{
+    const t=await setup();t.vm.setMode('STRUCTURES');
+    expect(t.requests[1].options.params).toEqual({status:'PENDING',recordScope:'ACTUAL'});
+    t.requests[1].response.next([structure('actual-A')]);t.requests[1].response.complete();t.vm.selectRow(structure('actual-A'));await t.render();
+    const selector=t.fixture.nativeElement.querySelector('[aria-label="Salary structure records"]') as HTMLSelectElement;
+    expect(selector.value).toBe('ACTUAL');selector.value='TEST';selector.dispatchEvent(new Event('change'));await t.render();
+    expect(t.requests.at(-1)!.options.params).toEqual({status:'PENDING',recordScope:'TEST'});
+    expect(t.vm.structures).toEqual([]);expect(t.vm.selected).toBeNull();expect(t.vm.selectedItems).toEqual([]);
+    t.items[0].response.next([{id:'stale-actual-item'}]);t.items[0].response.complete();
+    t.requests.at(-1)!.response.next([structure('test-A'),structure('test-B')]);t.requests.at(-1)!.response.complete();await t.render();
+    expect(t.fixture.nativeElement.querySelector('.summary-value').textContent.trim()).toBe('2');
+    expect(t.fixture.nativeElement.querySelector('[role="status"]').textContent).toContain('Test structures only');
+    expect(t.vm.selectedItems).toEqual([]);
+    expect(selector.getBoundingClientRect().right).toBeLessThanOrEqual(width+1);
+    const queueSelector=t.fixture.nativeElement.querySelector('.head-controls select') as HTMLSelectElement;
+    queueSelector.value='RUNS';queueSelector.dispatchEvent(new Event('change'));await t.render();
+    expect(t.fixture.nativeElement.querySelector('[aria-label="Salary structure records"]')).toBeNull();
+    expect(t.requests.at(-1)!.options.params).toEqual({status:'SUBMITTED'});
+  });
+});
+
+it('ignores a delayed Test queue error after returning to Actual records',async()=>{
+  const t=await setup();t.vm.setMode('STRUCTURES');(t.vm as any).recordScope='TEST';t.vm.load();const old=t.requests.at(-1)!;
+  (t.vm as any).recordScope='ACTUAL';t.vm.load();const current=t.requests.at(-1)!;
+  expect(current.options.params.recordScope).toBe('ACTUAL');old.response.error(new Error('Synthetic stale test failure'));
+  expect(t.vm.loading).toBe(true);expect(t.error).not.toHaveBeenCalled();
+  current.response.next([structure('actual-A')]);current.response.complete();expect(t.vm.structures.map(row=>row.id)).toEqual(['actual-A']);
+});
+
+it('keeps Actual counts when an earlier Test queue succeeds late',async()=>{
+  const t=await setup();t.vm.recordScope='TEST';t.vm.setMode('STRUCTURES');const old=t.requests.at(-1)!;
+  t.vm.recordScope='ACTUAL';t.vm.load();const current=t.requests.at(-1)!;
+  current.response.next([structure('actual-A')]);current.response.complete();
+  old.response.next([structure('test-A'),structure('test-B')]);old.response.complete();await t.render();
+  expect(t.vm.structures.map(row=>row.id)).toEqual(['actual-A']);
+  expect(t.fixture.nativeElement.querySelector('.summary-value').textContent.trim()).toBe('1');
+});
+
+it.each(['approve','reject'] as const)('preserves the Actual queue and detail when a Test structure %s finishes late',async method=>{
+  const t=await setup();(t.vm as any).recordScope='TEST';t.vm.setMode('STRUCTURES');const a=structure('test-A');
+  t.requests.at(-1)!.response.next([a]);t.requests.at(-1)!.response.complete();t.vm.selectRow(a);await t.vm[method](a);
+  (t.vm as any).recordScope='ACTUAL';t.vm.load();expect(t.requests.at(-1)!.options.params.recordScope).toBe('ACTUAL');
+  const b=structure('actual-B');t.requests.at(-1)!.response.next([b]);t.requests.at(-1)!.response.complete();t.vm.selectRow(b);
+  t.items.at(-1)!.response.next([{id:'actual-detail'}]);t.items.at(-1)!.response.complete();const before=t.requests.length;
+  t.action.next({});t.action.complete();expect(t.requests).toHaveLength(before);expect(t.vm.selected?.id).toBe(b.id);
+  expect(t.vm.structures.map(row=>row.id)).toEqual([b.id]);expect(t.vm.selectedItems.map(row=>row.id)).toEqual(['actual-detail']);
+});
 afterEach(()=>TestBed.resetTestingModule());
 async function setup() {
   const requests: {url:string,options:any,response:Subject<any>}[]=[];

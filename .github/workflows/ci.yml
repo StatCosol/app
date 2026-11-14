@@ -84,6 +84,10 @@ jobs:
         env:
           CONTRACTOR_REVIEW_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
         run: node scripts/verify-contractor-review-postgres.cjs
+      - name: Salary structure test-data isolation regressions
+        env:
+          STRUCTURE_ISOLATION_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
+        run: node scripts/verify-structure-test-isolation.cjs
       - name: Automation PostgreSQL regressions
         env:
           AUTOMATION_TEST_PORT: 5432
