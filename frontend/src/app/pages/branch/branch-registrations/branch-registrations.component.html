@@ -14,7 +14,7 @@
     </select>
   }
   @if (loadError) { <p role="alert">{{loadError}} <button type="button" (click)="loadWorkspace()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></p> }
-  @if (requestLoadError) { <p role="alert">{{requestLoadError}} <button type="button" (click)="loadWorkspace()" class="btn btn-secondary">Retry request history</button></p> }
+  @if (requestLoadError) { <p role="alert">{{requestLoadError}} <button type="button" (click)="retryRequestHistory()" [disabled]="requestHistoryLoading || loading" class="btn btn-secondary">{{ requestHistoryLoading ? 'Refreshing request history...' : 'Retry request history' }}</button></p> }
   <section class="summary-grid">
     <article class="summary-card">
       <span class="label">Total</span>
@@ -200,7 +200,7 @@
           <button type="button" class="compact-action btn btn-secondary" (click)="openRequestModal('RENEW')" title="Request Renewal" aria-label="Request Renewal" data-action-label="Request Renewal" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
           <button type="button" class="compact-action btn btn-secondary" (click)="openRequestModal('AMEND')" title="Request Amendment" aria-label="Request Amendment" data-action-label="Request Amendment" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
           <button type="button" class="compact-action btn btn-secondary" (click)="openRequestModal('CLOSE')" title="Request Closure" aria-label="Request Closure" data-action-label="Request Closure" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
-          <button type="button" class="compact-action btn btn-ghost" (click)="exportSelectedSummary()" title="Export Summary" aria-label="Export Summary" data-action-label="Export Summary" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+          <button type="button" class="compact-action btn btn-ghost" (click)="exportSelectedSummary()" [disabled]="!!requestLoadError || requestHistoryLoading" [title]="requestLoadError || requestHistoryLoading ? 'Refresh request history before exporting' : 'Export Summary'" aria-label="Export Summary" data-action-label="Export Summary" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
         </div>
 
         <div class="file-row">

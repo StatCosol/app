@@ -20,8 +20,9 @@ function branchFixture() {
     listTickets: vi.fn().mockReturnValueOnce(refresh).mockImplementation(() => of([])),
   };
   const api = { listRegistrations: vi.fn(() => of([])), getRegistrationAlerts: vi.fn(() => of([])) };
-  const c = new BranchRegistrationsComponent({} as any, api as any, helpdesk as any, { success() {}, error() {} } as any, { markForCheck() {} } as any, {} as any);
-  return { c, refresh, helpdesk };
+  const toast = { success: vi.fn(), error: vi.fn() };
+  const c = new BranchRegistrationsComponent({} as any, api as any, helpdesk as any, toast as any, { markForCheck() {} } as any, {} as any);
+  return { c, refresh, helpdesk, api, toast };
 }
 
 describe('Client registration branch refresh', () => {
@@ -64,6 +65,35 @@ describe('Client registration branch refresh', () => {
 });
 
 describe('Branch registration request refresh', () => {
+  it('blocks summary export during a pending refresh and after failure', () => {
+    const { c, refresh, toast } = branchFixture();
+    const reg = registration('TEST-REG') as any;
+    c.branchId = 'A'; c.registrations = [reg]; c.filteredRegistrations = [reg]; c.selectedRegistration = reg;
+    const createUrl = vi.spyOn(URL, 'createObjectURL');
+    (c as any).loadRequests(reg.id);
+    expect(c.requestHistoryLoading).toBe(true);
+    c.exportSelectedSummary();
+    refresh.error(new Error('Synthetic history failure'));
+    expect(c.requestHistoryLoading).toBe(false);
+    c.exportSelectedSummary();
+    expect(toast.error).toHaveBeenCalledTimes(2);
+    expect(createUrl).not.toHaveBeenCalled();
+    createUrl.mockRestore(); c.ngOnDestroy();
+  });
+  it('retains history errors while a scoped retry is pending and ignores its old result after branch switching', () => {
+    const { c, refresh, helpdesk, api } = branchFixture();
+    c.branchId = 'A'; c.loading = false;
+    (c as any).loadRequests(null); refresh.error(new Error('Synthetic history failure'));
+    const retry = new Subject<any[]>(); helpdesk.listTickets.mockReturnValueOnce(retry);
+    c.retryRequestHistory(); c.retryRequestHistory();
+    expect(helpdesk.listTickets).toHaveBeenCalledTimes(2);
+    expect(api.listRegistrations).not.toHaveBeenCalled();
+    expect(c.requestLoadError).toContain('could not be refreshed');
+    expect(c.requestHistoryLoading).toBe(true);
+    c.branchId = 'B'; c.changeBranch(); retry.next([ticket('OLD-A')]);
+    expect(c.requestHistoryLoading).toBe(false);
+    expect(c.requestLoadError).toBe(''); expect(c.requests).toEqual([]); c.ngOnDestroy();
+  });
   it('reports unavailable request history after a current refresh error while retaining registrations', () => {
     const { c, refresh } = branchFixture();
     const reg = registration('TEST-REG') as any;

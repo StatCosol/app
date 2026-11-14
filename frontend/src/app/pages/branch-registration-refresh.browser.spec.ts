@@ -14,18 +14,24 @@ describe.each([390, 768, 1440])('Branch registration request refresh at %ipx', w
   beforeEach(async () => page.viewport(width, 900));
   it('shows unavailable request counts after a failed refresh and restores them after retry', async () => {
     const pending = new Subject<any[]>();
+    const failedRetry = new Subject<any[]>();
+    const successfulRetry = new Subject<any[]>();
     const listTickets = vi.fn()
       .mockReturnValueOnce(of([{ id: 'TEST-TICKET', subCategory: 'REGISTRATION_APPLY', status: 'OPEN' }]))
       .mockReturnValueOnce(pending)
+      .mockReturnValueOnce(failedRetry)
+      .mockReturnValueOnce(successfulRetry)
       .mockReturnValue(of([]));
+    const listRegistrations = vi.fn(() => of([{ id: 'TEST-REG', type: 'TEST ONLY', computedStatus: 'ACTIVE' }]));
+    const getRegistrationAlerts = vi.fn(() => of([{ id: 'TEST-ALERT', registrationId: 'TEST-REG', title: 'Synthetic alert' }]));
     await TestBed.configureTestingModule({
       imports: [BranchRegistrationsComponent],
       providers: [
         { provide: AuthService, useValue: { getBranchIds: () => ['TEST-BRANCH'] } },
         { provide: ClientBranchesService, useValue: {
           list: () => of([{ id: 'TEST-BRANCH', name: 'Synthetic branch' }]),
-          listRegistrations: () => of([{ id: 'TEST-REG', type: 'TEST ONLY', computedStatus: 'ACTIVE' }]),
-          getRegistrationAlerts: () => of([]),
+          listRegistrations,
+          getRegistrationAlerts,
         } },
         { provide: HelpdeskService, useValue: { listTickets } },
         { provide: ToastService, useValue: { error: vi.fn(), success: vi.fn() } },
@@ -50,12 +56,40 @@ describe.each([390, 768, 1440])('Branch registration request refresh at %ipx', w
     }
     expect(c.registrations[0].id).toBe('TEST-REG');
     expect(root.textContent).toContain('Request history unavailable');
+    const exportButton = () => root.querySelector<HTMLButtonElement>('button[aria-label="Export Summary"]')!;
+    expect(exportButton().disabled).toBe(true);
+    const createUrl = vi.spyOn(URL, 'createObjectURL');
+    c.exportSelectedSummary();
+    expect(createUrl).not.toHaveBeenCalled();
     const retry = [...root.querySelectorAll('button')].find(button => button.textContent?.includes('Retry request history'))!;
     retry.click(); await render();
+    expect(listRegistrations).toHaveBeenCalledTimes(1);
+    expect(getRegistrationAlerts).toHaveBeenCalledTimes(1);
+    expect(root.textContent).toContain('Unavailable');
+    expect(exportButton().disabled).toBe(true);
+    c.exportSelectedSummary();
+    expect(createUrl).not.toHaveBeenCalled();
+    failedRetry.error(new Error('Synthetic repeated history failure')); await render();
+    expect(c.registrations[0].id).toBe('TEST-REG');
+    expect(c.selectedRegistration?.id).toBe('TEST-REG');
+    expect(c.alerts[0].id).toBe('TEST-ALERT');
+    expect(c.loadError).toBe('');
+    expect(root.textContent).toContain('Unavailable');
+    [...root.querySelectorAll('button')].find(button => button.textContent?.includes('Retry request history'))!.click();
+    await render();
+    successfulRetry.next([]); successfulRetry.complete(); await render();
     expect(root.querySelector('[role="alert"]')).toBeNull();
     expect(c.requestLoadError).toBe('');
     expect(c.openRequestCount).toBe(0);
     expect(c.registrations[0].id).toBe('TEST-REG');
     expect(root.textContent).not.toContain('Unavailable');
+    expect(exportButton().disabled).toBe(false);
+    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    c.exportSelectedSummary();
+    expect(download).toHaveBeenCalledTimes(1);
+    const csv = await (createUrl.mock.calls[0][0] as Blob).text();
+    expect(csv).toContain('"Open Requests","0"');
+    expect(csv).toContain('"Linked Alerts","1"');
+    download.mockRestore(); createUrl.mockRestore();
   });
 });

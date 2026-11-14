@@ -106,6 +106,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   branchOptions: Array<{id:string; name:string}> = [];
   loadError = '';
   requestLoadError = '';
+  requestHistoryLoading = false;
   private workspaceRequest?: import('rxjs').Subscription;
   private requestsRequest?: import('rxjs').Subscription;
   private requestVersion = 0;
@@ -470,6 +471,10 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   exportSelectedSummary(): void {
     const reg = this.selectedRegistration;
     if (!reg) return;
+    if (this.requestLoadError || this.requestHistoryLoading) {
+      this.toast.error('Refresh request history successfully before exporting this summary.');
+      return;
+    }
 
     const rows: Array<[string, string]> = [
       ['Registration Type', reg.type || '-'],
@@ -624,6 +629,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
     this.workspaceRequest?.unsubscribe();
     this.requestsRequest?.unsubscribe();
     this.requestVersion++;
+    this.requestHistoryLoading = false;
     this.requestLoadError = '';
     this.loadError = "";
     if (!this.branchId) {
@@ -668,18 +674,32 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
       });
   }
 
+  retryRequestHistory(): void {
+    if (this.requestHistoryLoading || this.loading) return;
+    this.loadRequests(this.selectedRegistration?.id || null);
+  }
+
   private loadRequests(preferredRegistrationId: string | null): void {
     this.requestsRequest?.unsubscribe();
     const version = ++this.requestVersion;
     const branchId = this.branchId;
-    this.requestLoadError = '';
     if (!branchId) return;
+    // Keep a failed history read unavailable until a scoped retry succeeds.
+    this.requestHistoryLoading = true;
     this.requestsRequest = this.helpdeskService
       .listTickets({ branchId, category: 'COMPLIANCE' })
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          if (version !== this.requestVersion || branchId !== this.branchId) return;
+          this.requestHistoryLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
         next: (tickets) => {
           if (version !== this.requestVersion || branchId !== this.branchId) return;
+          this.requestLoadError = '';
           this.requests = this.extractRegistrationRequests(tickets || []);
           this.hydrateSelection(preferredRegistrationId || this.selectedRegistration?.id || null);
           this.cdr.markForCheck();
