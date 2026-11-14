@@ -40,7 +40,7 @@ async function main(){
   assert.equal(await directions.resolveNextPunchDirection(c,'CONTRACTOR',employee,time),'OUT','Contractor direction must remain separate from employee punches');
   const repo=db.getRepository(PayrollRunEntity);
   const access={assertClientAllowed:async(_user,client)=>assert.equal(client,c)};
-  const service=new PayrollApprovalService(repo,{leaveValidation:async()=>({rows:[]}),otValidation:async()=>({rows:[]})},access);
+  const service=new PayrollApprovalService(repo,{leaveValidation:async()=>({rows:[]}),otValidation:async()=>({rows:[]})},access,db);
   const user={id:checker,userId:checker,roleCode:'CCO'};
   const run=await repo.save({clientId:c,branchId:null,periodYear:2026,periodMonth:9,status:'PROCESSED',title:'Original'});
   await service.submitForApproval(run.id,maker,user);
