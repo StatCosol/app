@@ -33,6 +33,36 @@ describe('PayrollRunsComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
+  it.each(['SUBMITTED', 'APPROVED', 'LOCKED', 'FINALIZED', 'UNKNOWN'])(
+    'blocks rerun and input edits while status is %s', async (status) => {
+      const component = TestBed.createComponent(PayrollRunsComponent).componentInstance;
+      const run = { id: 'locked', status, employeeCount: 1 } as any;
+      component.selectedRun = run;
+      expect(component.canChangePayrollInputs()).toBe(false);
+      expect(component.actionGuardReason(run, 'RERUN')).toBeTruthy();
+      expect(component.actionGuardReason(run, 'IMPORT')).toBeTruthy();
+      component.startEditEmployee({ empCode: 'E001' } as any);
+      component.saveEmployeeEdit({ empCode: 'E001' } as any);
+      component.resolveLeaveValidationRow('E001');
+      component.resolveOtValidationRow('E001');
+      await component.resolveAllLeaveValidation();
+      await component.resolveAllOtValidation();
+      component.toggleAddEmployeePanel();
+      await component.confirmAddEmployees();
+      await component.uploadAddEmpFile();
+      expect(component.editingEmpCode).toBeNull();
+      expect(component.showAddEmployeePanel).toBe(false);
+      controller.expectNone(request => request.method !== 'GET');
+    },
+  );
+
+  it.each(['DRAFT', 'PROCESSED', 'REJECTED', 'IN_PROGRESS'])('keeps %s inputs editable', status => {
+    const component = TestBed.createComponent(PayrollRunsComponent).componentInstance;
+    component.selectedRun = { id: 'editable', status, employeeCount: 1 } as any;
+    expect(component.canChangePayrollInputs()).toBe(true);
+    expect(component.actionGuardReason(component.selectedRun!, 'IMPORT')).toBeNull();
+  });
+
   it('reruns a processed payroll and reports calculation errors instead of success', async () => {
     const component = TestBed.createComponent(PayrollRunsComponent).componentInstance;
     const run = { id: '1', status: 'PROCESSED', employeeCount: 28 } as any;

@@ -18,7 +18,11 @@ import {
   internProrationFactor,
 } from '../payroll-category';
 import { StructureResolverService } from './structure-resolver.service';
-import { withPayrollPeriodLock } from './payroll-period-lock';
+import {
+  withPayrollPeriodLock,
+  withPayrollRunLock,
+} from './payroll-period-lock';
+import { assertPayrollRunEditable } from '../payroll-run-state';
 import { RulesetResolverService } from './ruleset-resolver.service';
 import { RoundingService } from './rounding.service';
 import { WageBaseService } from './wage-base.service';
@@ -92,8 +96,8 @@ export class PayrollEngineService {
   ) {}
 
   async processWithEngine(runId: string): Promise<ProcessResult> {
-    return this.withInternPeriodLock(runId, () =>
-      this.processRunWithEngine(runId),
+    return withPayrollRunLock(this.ds, runId, () =>
+      this.withInternPeriodLock(runId, () => this.processRunWithEngine(runId)),
     );
   }
 
@@ -118,23 +122,7 @@ export class PayrollEngineService {
     if (!run) {
       throw new BadRequestException(`Payroll run ${runId} not found`);
     }
-    // If the run was already APPROVED, re-processing invalidates the prior
-    // approval. Auto-clear approval metadata so the run goes back through the
-    // approval flow with the freshly computed values.
-    const wasApproved = String(run.status || '').toUpperCase() === 'APPROVED';
-    if (wasApproved) {
-      this.logger.warn(
-        `Run ${runId} was APPROVED; re-processing will clear approval metadata.`,
-      );
-      run.submittedByUserId = null;
-      run.submittedAt = null;
-      run.approvedByUserId = null;
-      run.approvedAt = null;
-      run.approvalComments = null;
-      run.rejectedByUserId = null;
-      run.rejectedAt = null;
-      run.rejectionReason = null;
-    }
+    assertPayrollRunEditable(run);
     if (!run.periodMonth || run.periodMonth < 1 || run.periodMonth > 12) {
       throw new BadRequestException(
         `Run ${runId} has invalid periodMonth=${run.periodMonth}. Expected 1-12.`,
@@ -254,15 +242,17 @@ export class PayrollEngineService {
   }
 
   /**
-   * Process specific employees in an existing run without changing run status.
-   * Used for late-adding employees to an already-approved run.
+   * Recalculate selected employees in an editable run. Failures make the run
+   * a draft again; a successful subset cannot promote an incomplete draft.
    */
   async processSpecificEmployees(
     runId: string,
     employeeCodes: string[],
   ): Promise<ProcessResult> {
-    return this.withInternPeriodLock(runId, () =>
-      this.processRunEmployees(runId, employeeCodes),
+    return withPayrollRunLock(this.ds, runId, () =>
+      this.withInternPeriodLock(runId, () =>
+        this.processRunEmployees(runId, employeeCodes),
+      ),
     );
   }
 
@@ -272,6 +262,7 @@ export class PayrollEngineService {
   ): Promise<ProcessResult> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException(`Payroll run ${runId} not found`);
+    assertPayrollRunEditable(run);
     if (!run.periodMonth || run.periodMonth < 1 || run.periodMonth > 12) {
       throw new BadRequestException(
         `Run ${runId} has invalid periodMonth=${run.periodMonth}. Expected 1-12.`,
@@ -358,7 +349,12 @@ export class PayrollEngineService {
       }
     }
 
-    // Do NOT change run status
+    // A partial recalculation may already have replaced employee values before
+    // failing. Keep that run out of the approval queue until fully recalculated.
+    if (errors.length && run.status === 'PROCESSED') {
+      run.status = 'DRAFT';
+      await this.runRepo.save(run);
+    }
     return { processed, status: run.status, errors };
   }
 

@@ -11,7 +11,6 @@ import {
   UploadedFile,
   BadRequestException,
   ForbiddenException,
-  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -26,6 +25,8 @@ import { Roles } from '../auth/roles.decorator';
 import { PayrollProcessingService } from './payroll-processing.service';
 import { assertSafeFileOnDisk } from '../common/safe-upload';
 import { PayrollEngineService } from './engine/payroll-engine.service';
+import { PayrollRunWriteLockInterceptor } from './payroll-run-write-lock.interceptor';
+import { assertPayrollRunEditable } from './payroll-run-state';
 import { PfEcrGenerator } from './generators/pf-ecr.generator';
 import { EsiGenerator } from './generators/esi.generator';
 import { RegisterGenerator } from './generators/register.generator';
@@ -77,6 +78,7 @@ const breakupUploadOptions = {
 @ApiBearerAuth('JWT')
 @Controller({ path: 'payroll/runs', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(PayrollRunWriteLockInterceptor)
 @Roles('PAYROLL', 'ADMIN')
 export class PayrollProcessingController {
   private readonly logger = new Logger(PayrollProcessingController.name);
@@ -107,6 +109,31 @@ export class PayrollProcessingController {
     return run;
   }
 
+  private async loadEditableRun(
+    runId: string,
+    user?: ReqUser,
+    invalidateCalculatedInputs = false,
+  ): Promise<PayrollRunEntity> {
+    const run = user
+      ? await this.loadRunForUser(runId, user)
+      : await this.ds
+          .getRepository(PayrollRunEntity)
+          .findOne({ where: { id: runId } });
+    if (!run) throw new BadRequestException('Payroll run not found');
+    assertPayrollRunEditable(run);
+    // Inputs can fail validation or calculation after some rows have changed.
+    // Withdraw calculation readiness before writing, while the run lock is held.
+    if (invalidateCalculatedInputs && run.status === 'PROCESSED') {
+      const result = await this.ds
+        .getRepository(PayrollRunEntity)
+        .update({ id: runId, status: 'PROCESSED' }, { status: 'DRAFT' });
+      if (!result.affected)
+        throw new BadRequestException('Run state changed. Refresh and retry.');
+      run.status = 'DRAFT';
+    }
+    return run;
+  }
+
   // Upload breakup Excel
   @ApiOperation({ summary: 'Upload Breakup' })
   @Post(':runId/upload-breakup')
@@ -118,7 +145,7 @@ export class PayrollProcessingController {
   ) {
     if (!file) throw new BadRequestException('File is required');
     assertSafeFileOnDisk(file);
-    await this.loadRunForUser(runId, user);
+    await this.loadEditableRun(runId, user, true);
     return this.processingSvc.uploadBreakup(runId, file);
   }
 
@@ -133,7 +160,7 @@ export class PayrollProcessingController {
   ) {
     if (!file) throw new BadRequestException('File is required');
     assertSafeFileOnDisk(file);
-    await this.loadRunForUser(runId, user);
+    await this.loadEditableRun(runId, user, true);
     return this.processingSvc.uploadAttendance(runId, file);
   }
 
@@ -157,7 +184,7 @@ export class PayrollProcessingController {
     @Body() body: { source?: 'ESS' | 'SHEET' } = {},
     @CurrentUser() user?: ReqUser,
   ) {
-    if (user) await this.loadRunForUser(runId, user);
+    await this.loadEditableRun(runId, user, true);
     const source =
       body?.source && ['ESS', 'SHEET'].includes(body.source)
         ? body.source
@@ -185,7 +212,7 @@ export class PayrollProcessingController {
     @Body() body: { source?: 'BRANCH' | 'ESS' | 'SHEET' },
     @CurrentUser() user?: ReqUser,
   ) {
-    if (user) await this.loadRunForUser(runId, user);
+    await this.loadEditableRun(runId, user, true);
     const source =
       body?.source && ['BRANCH', 'ESS', 'SHEET'].includes(body.source)
         ? body.source
@@ -234,12 +261,7 @@ export class PayrollProcessingController {
     @Param('runId') runId: string,
     @CurrentUser() user: ReqUser,
   ) {
-    const run = await this.loadRunForUser(runId, user);
-    if (run.status === 'APPROVED') {
-      throw new ConflictException(
-        'Approved runs are locked. Roll back to DRAFT before reprocessing.',
-      );
-    }
+    await this.loadEditableRun(runId, user);
     return this.engineSvc.processWithEngine(runId);
   }
 
@@ -256,12 +278,7 @@ export class PayrollProcessingController {
     if (!Array.isArray(codes) || !codes.length) {
       throw new BadRequestException('employeeCodes array is required');
     }
-    const run = await this.loadRunForUser(runId, user);
-    if (run.status === 'APPROVED') {
-      throw new ConflictException(
-        'Approved runs are locked. Roll back to DRAFT before reprocessing employees.',
-      );
-    }
+    await this.loadEditableRun(runId, user);
     const result = await this.engineSvc.processSpecificEmployees(runId, codes);
     return { runId, ...result };
   }
@@ -283,12 +300,7 @@ export class PayrollProcessingController {
     const runEmpRepo = this.ds.getRepository(PayrollRunEmployeeEntity);
     const empRepo = this.ds.getRepository(EmployeeEntity);
 
-    const run = await this.loadRunForUser(runId, user);
-
-    if (run.status === 'APPROVED')
-      throw new ConflictException(
-        'Approved runs are locked. Roll back before adding employees.',
-      );
+    const run = await this.loadEditableRun(runId, user, true);
     const added: string[] = [];
     const skipped: string[] = [];
 
@@ -368,17 +380,7 @@ export class PayrollProcessingController {
   ) {
     if (!empCode) throw new BadRequestException('empCode is required');
 
-    const run = user
-      ? await this.loadRunForUser(runId, user)
-      : await this.ds
-          .getRepository(PayrollRunEntity)
-          .findOne({ where: { id: runId } });
-    if (!run) throw new BadRequestException('Payroll run not found');
-    if (run.status === 'APPROVED') {
-      throw new BadRequestException(
-        'Approved runs are locked. Roll back before editing.',
-      );
-    }
+    await this.loadEditableRun(runId, user, true);
 
     // Locate the run-employee row
     const empRow = await this.ds.query(
@@ -827,12 +829,7 @@ END $$;
       }>;
     },
   ) {
-    const run = await this.loadRunForUser(runId, user);
-    if (run.status === 'APPROVED') {
-      throw new ConflictException(
-        'Approved runs are locked. Roll back to DRAFT before patching attendance.',
-      );
-    }
+    await this.loadEditableRun(runId, user, true);
     const { totalPayable, data } = body;
     let patched = 0;
     const notFound: string[] = [];

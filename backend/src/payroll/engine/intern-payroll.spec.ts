@@ -205,14 +205,15 @@ describe('Intern payroll through the payroll engine', () => {
 
   it('keeps the period locked through the final run status save', async () => {
     const { svc, qr } = fixture(13);
-    let locked = false;
-    qr.query.mockImplementation(async (sql: string) => {
+    const locked = new Set<string>();
+    qr.query.mockImplementation(async (sql: string, params: string[]) => {
+      const key = params[0];
       if (sql.includes('pg_try_advisory_lock')) {
-        if (locked) return [{ acquired: false }];
-        locked = true;
+        if (locked.has(key)) return [{ acquired: false }];
+        locked.add(key);
         return [{ acquired: true }];
       }
-      locked = false;
+      locked.delete(key);
       return [];
     });
     let finishSave!: () => void;
@@ -228,13 +229,13 @@ describe('Intern payroll through the payroll engine', () => {
     });
     const first = svc.processWithEngine('run');
     await saving;
-    expect(locked).toBe(true);
+    expect(locked.has('intern-payroll:client:2026:4')).toBe(true);
     await expect(svc.processSpecificEmployees('run', ['I001'])).rejects.toThrow(
-      'Another intern payroll run',
+      'Another payroll operation',
     );
     finishSave();
     await first;
-    expect(locked).toBe(false);
+    expect(locked.size).toBe(0);
   });
 
   it('does not turn a zero-day attendance summary into a full stipend', async () => {

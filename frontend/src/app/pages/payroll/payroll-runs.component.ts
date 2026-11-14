@@ -817,6 +817,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   resolveLeaveValidationRow(empCode: string): void {
+    if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun?.id) return;
     const row = this.leaveValidationRows.find((r) => r.empCode === empCode);
     if (!row) return;
@@ -903,6 +904,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   resolveOtValidationRow(empCode: string): void {
+    if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun?.id) return;
     const row = this.otValidationRows.find((r) => r.empCode === empCode);
     if (!row) return;
@@ -951,6 +953,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
    * days to the ESS-approved value via the existing per-employee endpoint.
    */
   async resolveAllLeaveValidation(): Promise<void> {
+    if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun?.id || this.bulkResolvingLeave) return;
     const runId = this.selectedRun.id;
     const source = this.bulkLeaveSource;
@@ -1008,6 +1011,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
    * Employees grid is reloaded once at the end.
    */
   async resolveAllOtValidation(): Promise<void> {
+    if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun?.id || this.bulkResolvingOt) return;
     const runId = this.selectedRun.id;
     const source = this.bulkOtSource;
@@ -1377,6 +1381,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     return this.actionAllowed(run, 'PROCESS');
   }
 
+  canChangePayrollInputs(run: PayrollRunItem | null = this.selectedRun): boolean {
+    return !!run && ['DRAFT', 'PROCESSED', 'REJECTED', 'IN_PROGRESS'].includes(this.statusKey(run));
+  }
+
   canSubmit(run: PayrollRunItem | null): boolean {
     return this.actionAllowed(run, 'SUBMIT');
   }
@@ -1445,7 +1453,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     }
 
     if (action === 'IMPORT') {
-      return null;
+      return this.canChangePayrollInputs(run) ? null : 'Run is locked. CCO must reject a submitted run, or an approved run must be rolled back, before changing inputs.';
     }
 
     if (action === 'PROCESS') {
@@ -1481,16 +1489,13 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
     if (action === 'RERUN') {
       if (status === 'APPROVED') return 'Published run cannot be rerun.';
-      // Allow rerun for any non-approved state. After PROCESSED users may add
-      // employees / fix masters and rerun to recompute. SUBMITTED runs can also
-      // be rerun (which moves them back to PROCESSED).
+      if (status === 'SUBMITTED') return 'Awaiting CCO review. CCO must reject this run before recalculation.';
       if (
         !(
           status === 'DRAFT' ||
           status === 'REJECTED' ||
           status === 'IN_PROGRESS' ||
-          status === 'PROCESSED' ||
-          status === 'SUBMITTED'
+          status === 'PROCESSED'
         )
       ) {
         return 'This run cannot be rerun in its current state.';
@@ -1791,6 +1796,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   toggleAddEmployeePanel(): void {
+    if (!this.canChangePayrollInputs()) return;
     this.showAddEmployeePanel = !this.showAddEmployeePanel;
     if (this.showAddEmployeePanel && this.selectedRun) {
       this.loadAvailableEmployees();
@@ -1883,6 +1889,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   async uploadAddEmpFile(): Promise<void> {
+    if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun || !this.addEmpParsedCodes.length) return;
     const codes = this.addEmpParsedCodes;
     const ok = await this.dialog.confirm(
@@ -1927,6 +1934,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   async confirmAddEmployees(): Promise<void> {
+    if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun || !this.addEmpSelected.size) return;
     const codes = Array.from(this.addEmpSelected);
     const ok = await this.dialog.confirm(
@@ -1968,6 +1976,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   // ── Inline per-employee edit ────────────────────────────────────
   startEditEmployee(row: RunEmployeeRow): void {
+    if (!this.canChangePayrollInputs()) return;
     this.editingEmpCode = row.empCode;
     this.editEmpForm = {
       workingDays: Number(row.daysPresent || 0),
@@ -2122,6 +2131,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   saveEmployeeEdit(row: RunEmployeeRow): void {
+    if (!this.canChangePayrollInputs()) return;
     if (!this.selectedRun || this.editEmpBusy) return;
     const f = this.editEmpForm;
     if (f.payableDays > f.workingDays) {

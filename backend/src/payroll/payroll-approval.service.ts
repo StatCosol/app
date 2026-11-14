@@ -5,7 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { withPayrollRunLock } from './engine/payroll-period-lock';
 import { PayrollRunEntity } from './entities/payroll-run.entity';
 import { PayrollProcessingService } from './payroll-processing.service';
 import { AccessScopeService, ReqUser } from '../access/access-scope.service';
@@ -26,10 +27,21 @@ export class PayrollApprovalService {
     private readonly runRepo: Repository<PayrollRunEntity>,
     private readonly processingSvc: PayrollProcessingService,
     private readonly access: AccessScopeService,
+    private readonly ds: DataSource,
   ) {}
 
   /** Submit a processed run for approval */
   async submitForApproval(
+    runId: string,
+    submittedByUserId: string,
+    user?: ReqUser,
+  ) {
+    return withPayrollRunLock(this.ds, runId, () =>
+      this.submitUnderLock(runId, submittedByUserId, user),
+    );
+  }
+
+  private async submitUnderLock(
     runId: string,
     submittedByUserId: string,
     user?: ReqUser,
@@ -116,6 +128,17 @@ export class PayrollApprovalService {
     comments?: string,
     user?: ReqUser,
   ) {
+    return withPayrollRunLock(this.ds, runId, () =>
+      this.approveUnderLock(runId, approvedByUserId, comments, user),
+    );
+  }
+
+  private async approveUnderLock(
+    runId: string,
+    approvedByUserId: string,
+    comments?: string,
+    user?: ReqUser,
+  ) {
     const run = await this.findRun(runId);
     if (user) await this.access.assertClientAllowed(user, run.clientId);
 
@@ -169,6 +192,17 @@ export class PayrollApprovalService {
     reason: string,
     user?: ReqUser,
   ) {
+    return withPayrollRunLock(this.ds, runId, () =>
+      this.rejectUnderLock(runId, rejectedByUserId, reason, user),
+    );
+  }
+
+  private async rejectUnderLock(
+    runId: string,
+    rejectedByUserId: string,
+    reason: string,
+    user?: ReqUser,
+  ) {
     const run = await this.findRun(runId);
     if (user) await this.access.assertClientAllowed(user, run.clientId);
 
@@ -214,6 +248,12 @@ export class PayrollApprovalService {
 
   /** Revert a rejected or approved run to DRAFT so it can be reprocessed */
   async revertToDraft(runId: string, user?: ReqUser) {
+    return withPayrollRunLock(this.ds, runId, () =>
+      this.revertUnderLock(runId, user),
+    );
+  }
+
+  private async revertUnderLock(runId: string, user?: ReqUser) {
     const run = await this.findRun(runId);
     if (user) await this.access.assertClientAllowed(user, run.clientId);
 
