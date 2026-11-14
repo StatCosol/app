@@ -26,7 +26,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
 }
 
       @if (!loading && loadError) {
-        <div class="text-sm text-red-600" role="alert">Could not load nomination approvals: {{ loadError }}</div>
+        <div class="text-sm text-red-600" role="alert">Could not load nomination approvals: {{ loadError }}
+          <button type="button" class="standard-action btn-secondary" (click)="load()">Retry</button>
+        </div>
       }
       @if (!loading && !loadError && !nominations.length) {
 <div
@@ -70,8 +72,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
 
           <div class="flex flex-col gap-2 min-w-[160px]">
-            <button (click)="approve(nom)" class="compact-action btn-approve" [disabled]="processing.has(nom.id)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
-            <button (click)="startReject(nom)" class="compact-action btn-reject" [disabled]="processing.has(nom.id)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button (click)="approve(nom)" class="compact-action btn-approve" [disabled]="loading || !!loadError || processing.has(nom.id)" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+            <button (click)="startReject(nom)" class="compact-action btn-reject" [disabled]="loading || !!loadError || processing.has(nom.id)" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
           </div>
         </div>
 
@@ -81,7 +83,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <label class="text-xs font-medium text-gray-600" for="na-reject-reason">Reason for rejection:</label>
           <textarea autocomplete="off" id="na-reject-reason" name="rejectReason" [(ngModel)]="rejectReason" rows="2" class="field-input mt-1"></textarea>
           <div class="flex gap-2 mt-2">
-            <button (click)="confirmReject(nom)" class="standard-action btn-reject" [disabled]="!rejectReason.trim()">
+            <button (click)="confirmReject(nom)" class="standard-action btn-reject" [disabled]="loading || !!loadError || !rejectReason.trim() || processing.has(nom.id)">
               Confirm Reject
             </button>
             <button (click)="rejectId = ''" class="standard-action btn-secondary">Cancel</button>
@@ -179,6 +181,9 @@ export class NominationApprovalsComponent implements OnInit, OnDestroy {
   rejectId = '';
   rejectReason = '';
   private readonly destroy$ = new Subject<void>();
+  private destroyed = false;
+  private loadVersion = 0;
+  private readonly completedAtLoad = new Map<string, number>();
 
   constructor(private api: BranchApprovalsApiService, private cdr: ChangeDetectorRef, private toast: ToastService) {}
 
@@ -187,21 +192,26 @@ export class NominationApprovalsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   load(): void {
+    if (this.destroyed) return;
+    const version = ++this.loadVersion;
+    const current = () => !this.destroyed && version === this.loadVersion;
     this.loading = true;
+    this.loadError = '';
     this.api.listPendingNominations()
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+        finalize(() => { if (current()) { this.loading = false; this.cdr.detectChanges(); } }),
       )
       .subscribe({
-        next: (list) => { this.loading = false; this.loadError = ''; this.nominations = list; },
+        next: (list) => { if (current()) this.nominations = list.filter(row => (this.completedAtLoad.get(row.id) ?? -1) < version); },
         error: (e) => {
-          this.loading = false;
+          if (!current()) return;
           this.nominations = [];
           this.loadError = describeApiError(e, 'Please try again.');
         },
@@ -209,35 +219,49 @@ export class NominationApprovalsComponent implements OnInit, OnDestroy {
   }
 
   approve(nom: PendingNomination): void {
-    if (this.processing.has(nom.id)) return; // prevent double-click
+    if (!this.canDecide(nom.id)) return;
     this.processing.add(nom.id);
     this.api.approveNomination(nom.id)
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => { this.processing.delete(nom.id); this.cdr.detectChanges(); }),
+        finalize(() => { this.processing.delete(nom.id); if (!this.destroyed) this.cdr.detectChanges(); }),
       )
       .subscribe({
-        next: () => { this.processing.delete(nom.id); this.load(); },
+        next: () => this.completeDecision(nom.id),
         error: () => { this.processing.delete(nom.id); this.toast.error('Failed to approve nomination.'); },
       });
   }
 
   startReject(nom: PendingNomination): void {
+    if (!this.canDecide(nom.id)) return;
     this.rejectId = nom.id;
     this.rejectReason = '';
   }
 
   confirmReject(nom: PendingNomination): void {
-    if (this.processing.has(nom.id)) return; // prevent double-click
+    const reason = this.rejectReason.trim();
+    if (this.rejectId !== nom.id || !reason || !this.canDecide(nom.id)) return;
     this.processing.add(nom.id);
-    this.api.rejectNomination(nom.id, this.rejectReason.trim())
+    this.api.rejectNomination(nom.id, reason)
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => { this.processing.delete(nom.id); this.rejectId = ''; this.cdr.detectChanges(); }),
+        finalize(() => { this.processing.delete(nom.id); if (!this.destroyed) this.cdr.detectChanges(); }),
       )
       .subscribe({
-        next: () => { this.processing.delete(nom.id); this.rejectId = ''; this.load(); },
-        error: () => { this.processing.delete(nom.id); this.rejectId = ''; this.toast.error('Failed to reject nomination.'); },
+        next: () => this.completeDecision(nom.id),
+        error: () => { this.toast.error('Failed to reject nomination.'); },
       });
+  }
+
+  private canDecide(id: string): boolean {
+    return !this.destroyed && !this.loading && !this.loadError && !this.processing.has(id)
+      && this.nominations.some(row => row.id === id);
+  }
+
+  private completeDecision(id: string): void {
+    // A later server read may contain a corrected resubmission of this ID.
+    this.completedAtLoad.set(id, this.loadVersion);
+    this.nominations = this.nominations.filter(row => row.id !== id);
+    if (this.rejectId === id) { this.rejectId = ''; this.rejectReason = ''; }
   }
 }

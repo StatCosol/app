@@ -34,7 +34,7 @@ export interface PendingLeave {
 
 @Injectable({ providedIn: 'root' })
 export class BranchApprovalsApiService {
-  private base = 'api/v1/branch-approvals';
+  private base = '/api/v1/branch-approvals';
 
   constructor(private http: HttpClient) {}
 
