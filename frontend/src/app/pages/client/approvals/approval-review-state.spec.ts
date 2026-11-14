@@ -46,7 +46,8 @@ describe.each(['leave', 'nomination'])('%s approval editor', kind => {
  });
  it('does not clear another request busy state when the first request finishes',()=>{
   const f=fixture(),second=new Subject<any>();f.c.startReject(f.a);f.c.rejectReason='A';f.confirm();f.reject.mockReturnValue(second);
-  f.c.startReject(f.b);f.c.rejectReason='B';kind==='leave'?f.c.confirmReject():f.c.confirmReject(f.b);
+  f.c.startReject(f.b);f.c.rejectReason='B';
+  if(kind==='leave') f.c.confirmReject(); else f.c.confirmReject(f.b);
   f.pending.next({});f.pending.complete();expect(f.c.processing.has(f.b.id)).toBe(true);second.complete();f.c.ngOnDestroy();
  });
  it('rejects empty reasons and duplicate submissions before calling the API',()=>{
@@ -87,7 +88,8 @@ describe('Unified approvals captured decision',()=>{
   const c=new ClientUnifiedApprovalsComponent(api as any,toast() as any,cdr() as any);c.load();c.select(c.queue.find(r=>r.id===a.id)!);return {c,a,b,pending,api};
  }
  for(const action of ['approve','reject']) it(`${action} records the original request and submitted notes while preserving a newer selection`,()=>{
-  const f=fixture();f.c.decisionNotes='Notes A';f.c.rejectionReason='Reason A';action==='approve'?f.c.approveSelected():f.c.rejectSelected();
+  const f=fixture();f.c.decisionNotes='Notes A';f.c.rejectionReason='Reason A';
+  if(action==='approve') f.c.approveSelected(); else f.c.rejectSelected();
   f.c.select(f.c.queue.find(r=>r.id===f.b.id)!);f.c.decisionNotes='Unsaved B';f.c.rejectionReason='Reason B';f.pending.next({});f.pending.complete();
   const audit=(f.c as any).auditTrail[0];expect(audit.id).toBe(f.a.id);expect(audit.note).toBe('Notes A');expect(audit.reason).toBe(action==='reject'?'Reason A':undefined);
   expect(f.c.selected?.id).toBe(f.b.id);expect(f.c.decisionNotes).toBe('Unsaved B');expect(f.c.rejectionReason).toBe('Reason B');expect(f.c.queue.some(r=>r.id===f.a.id)).toBe(false);f.c.ngOnDestroy();
