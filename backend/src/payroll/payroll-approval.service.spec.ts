@@ -46,6 +46,13 @@ describe('Payroll approval workflow invariants', () => {
       repo as unknown as Repository<PayrollRunEntity>,
       processing as unknown as PayrollProcessingService,
       access as unknown as AccessScopeService,
+      {
+        createQueryRunner: () => ({
+          connect: async () => undefined,
+          query: async () => [{ acquired: true }],
+          release: async () => undefined,
+        }),
+      } as any,
     );
   });
   it('submits clean runs and clears old decision metadata', async () => {

@@ -90,7 +90,9 @@
           >Auditee <strong>{{ session.auditee_name }}</strong></span
         >
       }
-      <a [routerLink]="['/auditor/audits', audit.id, 'workspace']">Review workspace documents & reports</a>
+      <a [routerLink]="['/auditor/audits', audit.id, 'workspace']"
+        >Review workspace documents & reports</a
+      >
     </section>
     @if (!session && supported && !busy) {
       @if (readonly) {
@@ -371,9 +373,15 @@
       @if (!readonly) {
         <section class="submission">
           <p>
-            Save all {{ items.length }} points and finish the existing workspace checklist and document reviews before submitting.
-            Non-compliances will enter the correction workflow.
+            Save all {{ items.length }} points and finish the existing workspace checklist and
+            document reviews before submitting. Non-compliances will enter the correction workflow.
           </p>
+          @if (hasUnsavedReviewRemarks) {
+            <p class="notice" role="status">
+              Save your document review remarks by accepting the document or requesting re-upload,
+              or restore the previous remarks before submitting.
+            </p>
+          }
           <button type="button" class="primary" [disabled]="!canSubmit" (click)="showSubmit = true">
             Submit audit
           </button>

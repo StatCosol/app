@@ -239,6 +239,7 @@
                 name="importFile"
                 accept=".xlsx,.xls,.csv"
                 (change)="onImportFileSelected($event)"
+                [disabled]="!canChangePayrollInputs()"
               />
               <ui-button
                 variant="primary"
@@ -312,7 +313,7 @@
                 <select name="bulkLeaveSource"
                   [(ngModel)]="bulkLeaveSource"
                   class="lv-select"
-                  [disabled]="bulkResolvingLeave"
+                  [disabled]="bulkResolvingLeave || !canChangePayrollInputs()"
                 >
                   <option value="ESS">ESS (snap sheet to ESS)</option>
                   <option value="SHEET">Sheet (accept sheet as truth)</option>
@@ -321,7 +322,7 @@
                   variant="primary"
                   size="sm"
                   (clicked)="resolveAllLeaveValidation()"
-                  [disabled]="bulkResolvingLeave || pendingLeaveCount === 0"
+                  [disabled]="bulkResolvingLeave || pendingLeaveCount === 0 || !canChangePayrollInputs()"
                   [title]="
                     leaveValidationSearch
                       ? 'Resolve ' + pendingLeaveCount + ' filtered row(s) using ' + bulkLeaveSource
@@ -395,7 +396,7 @@
                           <select [name]="'leaveSource-' + row.empCode"
                             [(ngModel)]="row.resolveSource"
                             class="lv-select"
-                            [disabled]="!!row.resolving || !!row.resolved"
+                            [disabled]="!!row.resolving || !!row.resolved || !canChangePayrollInputs()"
                           >
                             <option value="ESS">
                               ESS ({{ row.essApprovedLeave | number: '1.0-2' }})
@@ -418,7 +419,7 @@
                               variant="primary"
                               size="sm"
                               (clicked)="resolveLeaveValidationRow(row.empCode)"
-                              [disabled]="!!row.resolving"
+                              [disabled]="!!row.resolving || !canChangePayrollInputs()"
                              icon="check-circle" [iconOnly]="true" label="Resolve">
                               {{ row.resolving ? 'Resolving...' : 'Resolve' }}
                             </ui-button>
@@ -483,7 +484,7 @@
                 }
                 <span class="lv-bulk-spacer"></span>
                 <label class="lv-bulk-label">Bulk source:</label>
-                <select name="bulkOtSource" [(ngModel)]="bulkOtSource" class="lv-select" [disabled]="bulkResolvingOt">
+                <select name="bulkOtSource" [(ngModel)]="bulkOtSource" class="lv-select" [disabled]="bulkResolvingOt || !canChangePayrollInputs()">
                   <option value="BRANCH">Branch / Client</option>
                   <option value="ESS">ESS</option>
                   <option value="SHEET">Sheet</option>
@@ -492,7 +493,7 @@
                   variant="primary"
                   size="sm"
                   (clicked)="resolveAllOtValidation()"
-                  [disabled]="bulkResolvingOt || pendingOtCount === 0"
+                  [disabled]="bulkResolvingOt || pendingOtCount === 0 || !canChangePayrollInputs()"
                   [title]="
                     otValidationSearch
                       ? 'Snap OT to ' + bulkOtSource + ' for ' + pendingOtCount + ' filtered row(s)'
@@ -544,7 +545,7 @@
                           <select [name]="'otSource-' + row.empCode"
                             [(ngModel)]="row.resolveSource"
                             class="lv-select"
-                            [disabled]="!!row.resolving || !!row.resolved"
+                            [disabled]="!!row.resolving || !!row.resolved || !canChangePayrollInputs()"
                           >
                             <option value="BRANCH">
                               Branch/Client ({{ row.branchClientOt | number: '1.0-2' }})
@@ -574,7 +575,7 @@
                               variant="primary"
                               size="sm"
                               (clicked)="resolveOtValidationRow(row.empCode)"
-                              [disabled]="!!row.resolving"
+                              [disabled]="!!row.resolving || !canChangePayrollInputs()"
                              icon="check-circle" [iconOnly]="true" label="Resolve">
                               {{ row.resolving ? 'Resolving...' : 'Resolve' }}
                             </ui-button>
@@ -817,7 +818,7 @@
                 <button
                   class="compact-action btn-primary-sm"
                   (click)="toggleAddEmployeePanel()"
-                  [disabled]="addEmpBusy"
+                  [disabled]="addEmpBusy || !canChangePayrollInputs()"
                  title="+ Add Employee" aria-label="+ Add Employee" data-action-label="+ Add Employee" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
                   {{ showAddEmployeePanel ? '✕ Close' : '+ Add Employee' }}
                 </span></button>
@@ -847,11 +848,11 @@
                     CSV file with employee codes in the first column (one per row)
                   </div>
                   <div class="add-emp-upload-row">
-                    <input name="addEmployeeFile" type="file" accept=".csv,.txt" (change)="onAddEmpFileSelected($event)" />
+                    <input name="addEmployeeFile" type="file" accept=".csv,.txt" (change)="onAddEmpFileSelected($event)" [disabled]="!canChangePayrollInputs()" />
                     <button
                       class="compact-action btn-confirm-add"
                       (click)="uploadAddEmpFile()"
-                      [disabled]="addEmpUploadBusy || !addEmpParsedCodes.length"
+                      [disabled]="addEmpUploadBusy || !addEmpParsedCodes.length || !canChangePayrollInputs()"
                      title="Upload & Add (" aria-label="Upload & Add (" data-action-label="Upload & Add (" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
                       {{
                         addEmpUploadBusy
@@ -908,7 +909,7 @@
                     <button
                       class="compact-action btn-confirm-add"
                       (click)="confirmAddEmployees()"
-                      [disabled]="addEmpBusy"
+                      [disabled]="addEmpBusy || !canChangePayrollInputs()"
                      title="Add " aria-label="Add " data-action-label="Add " data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
                       {{
                         addEmpBusy
@@ -1037,7 +1038,7 @@
                             <button
                               class="compact-action btn-row-edit"
                               (click)="startEditEmployee(row)"
-                              [disabled]="editEmpBusy || isPublished(selectedRun)"
+                              [disabled]="editEmpBusy || !canChangePayrollInputs()"
 
                              title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
                           }
@@ -1438,7 +1439,7 @@
                                 <button
                                   class="standard-action btn-save-edit"
                                   (click)="saveEmployeeEdit(row)"
-                                  [disabled]="editEmpBusy"
+                                  [disabled]="editEmpBusy || !canChangePayrollInputs()"
                                 >
                                   {{ editEmpBusy ? 'Saving...' : 'Save & Reprocess' }}
                                 </button>

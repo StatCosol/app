@@ -80,6 +80,10 @@ jobs:
         env:
           REGISTRATION_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
         run: node scripts/verify-registration-test-isolation.cjs
+      - name: Contractor document review PostgreSQL regressions
+        env:
+          CONTRACTOR_REVIEW_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
+        run: node scripts/verify-contractor-review-postgres.cjs
       - name: Automation PostgreSQL regressions
         env:
           AUTOMATION_TEST_PORT: 5432

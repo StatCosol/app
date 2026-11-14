@@ -1,11 +1,13 @@
 import { actualContractorDocumentSql } from '../common/actual-records';
 import {
   BadRequestException,
+  ConflictException,
   Controller,
   Get,
   NotFoundException,
   Post,
   Param,
+  ParseUUIDPipe,
   Body,
   Query,
   UseGuards,
@@ -117,7 +119,7 @@ export class CrmContractorDocumentsController {
          cd.expiry_date    AS "expiryDate",
          cd.created_at     AS "createdAt",
          cd.review_notes   AS "reviewNotes",
-         cd.reviewed_at    AS "reviewedAt",
+         to_char(cd.reviewed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "reviewedAt",
          cd.branch_id      AS "branchId",
          b.branchname      AS "branchName",
          cd.client_id      AS "clientId",
@@ -135,7 +137,7 @@ export class CrmContractorDocumentsController {
        WHERE ${recordSql} AND ($2::uuid IS NULL OR c.id = $2)
          AND ($3::uuid IS NULL OR b.id = $3)
          AND ($4::uuid IS NULL OR cd.contractor_user_id = $4)
-         AND ($5::text IS NULL OR cd.status = $5::text)
+         AND ($5::text IS NULL OR cd.status::text = $5::text)
          AND (
            $6::int IS NULL
            OR (cd.expiry_date IS NOT NULL AND cd.expiry_date <= CURRENT_DATE + ($6 || ' days')::interval)
@@ -196,15 +198,46 @@ export class CrmContractorDocumentsController {
   @Post(':id/review')
   async review(
     @CurrentUser() user: ReqUser,
-    @Param('id') id: string,
-    @Body() body: { status: string; reviewNotes?: string },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body()
+    body: {
+      status: string;
+      reviewNotes?: string;
+      expectedFilePath?: string;
+      expectedStatus?: string;
+      expectedReviewedAt?: string | null;
+    },
   ) {
     const crmUserId = user.id;
-    const newStatus = body.status;
-    const notes = body.reviewNotes || null;
+    const newStatus = body?.status;
+    const notes = body?.reviewNotes || null;
 
     if (!['APPROVED', 'REJECTED'].includes(newStatus)) {
       throw new BadRequestException('Status must be APPROVED or REJECTED');
+    }
+    if (
+      typeof body.expectedFilePath !== 'string' ||
+      !body.expectedFilePath ||
+      ![
+        'UPLOADED',
+        'PENDING_REVIEW',
+        'APPROVED',
+        'REJECTED',
+        'EXPIRED',
+      ].includes(body.expectedStatus || '') ||
+      !Object.prototype.hasOwnProperty.call(body, 'expectedReviewedAt') ||
+      (body.expectedReviewedAt !== null &&
+        (typeof body.expectedReviewedAt !== 'string' ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$/.test(
+            body.expectedReviewedAt,
+          ) ||
+          !Number.isFinite(Date.parse(body.expectedReviewedAt)) ||
+          new Date(body.expectedReviewedAt).toISOString().slice(0, 19) !==
+            body.expectedReviewedAt.slice(0, 19)))
+    ) {
+      throw new BadRequestException(
+        'Refresh the document list before reviewing this evidence',
+      );
     }
 
     // Verify doc belongs to CRM's assigned client
@@ -224,16 +257,40 @@ export class CrmContractorDocumentsController {
       throw new NotFoundException('Document not found or not in your scope');
     }
 
-    await this.db.many(
+    // The file may be replaced after the list or permission check. Compare the
+    // reviewed snapshot atomically, including assignment, when writing status.
+    const updated = await this.db.many(
       `UPDATE contractor_documents
        SET status = $1::contractor_document_status,
            review_notes = $2,
            reviewed_by_user_id = $3,
            reviewed_at = NOW()
        WHERE id = $4
+         AND file_path = $5
+         AND status::text = $6::text
+         AND reviewed_at IS NOT DISTINCT FROM $7::timestamptz
+         AND EXISTS (
+           SELECT 1 FROM client_assignments_current cac
+           WHERE cac.client_id = contractor_documents.client_id
+             AND cac.assigned_to_user_id = $3
+             AND cac.assignment_type = 'CRM'
+         )
        RETURNING id`,
-      [newStatus, notes, crmUserId, id],
+      [
+        newStatus,
+        notes,
+        crmUserId,
+        id,
+        body.expectedFilePath,
+        body.expectedStatus,
+        body.expectedReviewedAt,
+      ],
     );
+    if (!updated.length) {
+      throw new ConflictException(
+        'This evidence changed or is no longer in your scope. Refresh and review the current file.',
+      );
+    }
 
     return { ok: true };
   }

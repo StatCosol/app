@@ -144,6 +144,9 @@ const checks = [];
       'ALTER TABLE contractor_documents ADD file_path text, ADD file_type text, ADD expiry_date date, ADD reviewed_at timestamptz, ADD reviewed_by_user_id uuid',
     );
     await db.query(
+      "UPDATE contractor_documents SET file_path = 'contractor-documents/' || file_name",
+    );
+    await db.query(
       'CREATE TEMP TABLE clients(id uuid,client_name text); CREATE TEMP TABLE client_branches(id uuid,branchname text); CREATE TEMP TABLE users(id uuid,name text); CREATE TEMP TABLE client_assignments_current(client_id uuid,assigned_to_user_id uuid,assignment_type text)',
     );
     await db.query(
@@ -161,6 +164,18 @@ const checks = [];
       [c, crmId],
     );
     const crm = new CrmContractorDocumentsController({ many: query });
+    const currentTestEvidenceBinding = async () => {
+      const row = (
+        await crm.list({ id: crmId }, { recordScope: 'TEST' })
+      ).data.find((doc) => doc.id === 'test-hyphen');
+      assert.ok(row, 'The assigned CRM can read the explicit test fixture');
+      assert.ok(row.filePath, 'The review snapshot must identify its file');
+      return {
+        expectedFilePath: row.filePath,
+        expectedStatus: row.status,
+        expectedReviewedAt: row.reviewedAt,
+      };
+    };
     const actualKpis = await crm.kpis({ id: crmId });
     assert.equal(Number(actualKpis.approved), 4);
     assert.equal((await crm.list({ id: crmId }, {})).data.length, 4);
@@ -177,13 +192,17 @@ const checks = [];
       /Invalid record scope/,
     );
     await assert.rejects(
-      crm.review({ id: other }, 'test-hyphen', { status: 'APPROVED' }),
+      crm.review({ id: other }, 'test-hyphen', {
+        status: 'APPROVED',
+        ...(await currentTestEvidenceBinding()),
+      }),
       /not in your scope/,
     );
     for (const status of ['REJECTED', 'APPROVED']) {
       await crm.review({ id: crmId }, 'test-hyphen', {
         status,
         reviewNotes: 'TEST ONLY review',
+        ...(await currentTestEvidenceBinding()),
       });
       assert.deepEqual(await crm.kpis({ id: crmId }), actualKpis);
       assert.equal(

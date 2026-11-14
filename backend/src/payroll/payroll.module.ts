@@ -109,6 +109,7 @@ import { PayslipGeneratorService } from './services/payslip-generator.service';
 import { PayslipController } from './payslip.controller';
 // Approval workflow
 import { PayrollApprovalService } from './payroll-approval.service';
+import { PayrollRunWriteLockInterceptor } from './payroll-run-write-lock.interceptor';
 import { PayrollApprovalController } from './payroll-approval.controller';
 // Config audit trail
 import { PayrollConfigAuditEntity } from './entities/payroll-config-audit.entity';
@@ -270,6 +271,7 @@ import { AccessModule } from '../access/access.module';
     TdsCalculatorService,
     PayslipGeneratorService,
     PayrollApprovalService,
+    PayrollRunWriteLockInterceptor,
     PayrollConfigAuditService,
     GratuityCalculatorService,
     // Client-structures engine

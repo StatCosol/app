@@ -126,6 +126,13 @@ export class AuditorStatutoryEntryComponent implements OnInit {
   get completed() {
     return Object.keys(this.saved).length;
   }
+  get hasUnsavedReviewRemarks() {
+    return Object.entries(this.documents).some(
+      ([id, document]) =>
+        this.reviewRemarks[id] !== undefined &&
+        this.reviewRemarks[id] !== (document.review_remarks || ''),
+    );
+  }
   get filtered() {
     const q = this.search.toLowerCase().trim();
     return this.items.filter(
@@ -155,6 +162,7 @@ export class AuditorStatutoryEntryComponent implements OnInit {
       !this.readonly &&
       !this.busy &&
       !this.dirty.size &&
+      !this.hasUnsavedReviewRemarks &&
       this.items.length > 0 &&
       this.completed === this.items.length
     );
@@ -193,11 +201,12 @@ export class AuditorStatutoryEntryComponent implements OnInit {
   canLeave() {
     return (
       !this.busy &&
-      (!this.dirty.size || window.confirm('Leave this audit and discard unsaved point edits?'))
+      ((!this.dirty.size && !this.hasUnsavedReviewRemarks) ||
+        window.confirm('Leave this audit and discard unsaved answers or document review remarks?'))
     );
   }
   @HostListener('window:beforeunload', ['$event']) beforeUnload(e: BeforeUnloadEvent) {
-    if (this.dirty.size || this.busy) {
+    if (this.dirty.size || this.hasUnsavedReviewRemarks || this.busy) {
       e.preventDefault();
       e.returnValue = '';
     }
@@ -213,6 +222,8 @@ export class AuditorStatutoryEntryComponent implements OnInit {
     this.saved = {};
     this.drafts = {};
     this.evidence = {};
+    this.documents = {};
+    this.reviewRemarks = {};
     this.dirty.clear();
     this.error = '';
     this.message = '';
@@ -228,6 +239,8 @@ export class AuditorStatutoryEntryComponent implements OnInit {
     this.drafts = {};
     this.dirty.clear();
     this.evidence = {};
+    this.documents = {};
+    this.reviewRemarks = {};
     this.category = '';
     this.page = 1;
     this.search = '';
@@ -400,10 +413,20 @@ export class AuditorStatutoryEntryComponent implements OnInit {
     this.error = '';
     try {
       const data = await firstValueFrom(this.http.get<any>(`${this.base}/${this.auditId}`));
+      const previousDocuments = this.documents;
+      const previousRemarks = this.reviewRemarks;
       this.documents = {};
+      this.reviewRemarks = {};
       for (const d of data.documents) {
+        const previous = previousDocuments[d.item_id];
+        const draft = previousRemarks[d.item_id];
+        const sameReview =
+          !!previous && previous.id === d.id && previous.review_version === d.review_version;
         this.documents[d.item_id] = d;
-        this.reviewRemarks[d.item_id] = d.review_remarks || '';
+        this.reviewRemarks[d.item_id] =
+          sameReview && draft !== undefined && draft !== (previous.review_remarks || '')
+            ? draft
+            : d.review_remarks || '';
       }
       for (const a of data.answers)
         if (a.stale) {
