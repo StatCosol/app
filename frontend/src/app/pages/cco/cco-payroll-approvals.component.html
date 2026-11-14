@@ -14,6 +14,15 @@
           <option value="STRUCTURES">Salary Structures</option>
         </select>
       </label>
+      @if (mode === 'STRUCTURES') {
+      <label>
+        Records
+        <select [(ngModel)]="recordScope" (change)="load()" aria-label="Salary structure records">
+          <option value="ACTUAL">Actual structures</option>
+          <option value="TEST">Test structures only</option>
+        </select>
+      </label>
+      }
       <div class="field-action-group">
       @if (mode === 'RUNS') {
 <label class="action-field">
@@ -57,10 +66,11 @@
 }
 
   @if (mode === 'STRUCTURES') {
+<p class="muted" role="status">{{ recordScope === 'TEST' ? 'Test structures only. These records and counts are excluded from the normal approval queue.' : 'Actual structures only. Test records are excluded from this queue and its counts.' }}</p>
 <div class="summary-strip">
     <div class="summary-card summary-card--pending">
       <span class="summary-value">{{ structures.length }}</span>
-      <span class="summary-label">{{ statusFilter }} queue</span>
+      <span class="summary-label">{{ recordScope === 'TEST' ? 'Test' : 'Actual' }} {{ statusFilter }} queue</span>
     </div>
     <div class="summary-card">
       <span class="summary-value">{{ selected ? '1' : '0' }}</span>
@@ -199,7 +209,7 @@
     <article class="card list-pane">
       <header class="section-head">
         <div>
-          <h2>{{ statusFilter }} structures</h2>
+          <h2>{{ recordScope === 'TEST' ? 'Test' : 'Actual' }} {{ statusFilter }} structures</h2>
           <p>Salary structures awaiting governance review</p>
         </div>
         <span>{{ structures.length }} rows</span>
@@ -209,7 +219,7 @@
 <div class="empty-state">
         <div class="empty-icon">OK</div>
         <h3>No structures match</h3>
-        <p>There are no payroll structures for the selected approval status.</p>
+        <p>There are no {{ recordScope === 'TEST' ? 'test' : 'actual' }} salary structures for the selected approval status.</p>
       </div>
 }
 

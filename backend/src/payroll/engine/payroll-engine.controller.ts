@@ -1,4 +1,5 @@
 import { PayrollConfigurationScopeGuard } from '../payroll-configuration-scope.guard';
+import { salaryStructureTestSql } from '../salary-structure-record-scope';
 import {
   BadRequestException,
   ConflictException,
@@ -401,6 +402,7 @@ export class PayrollEngineController {
   async listApprovalQueue(
     @CurrentUser() user: ReqUser,
     @Query('status') status?: string,
+    @Query('recordScope') recordScope?: string,
   ) {
     const allowed = ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED'];
     const s = (status || 'PENDING').toUpperCase();
@@ -408,6 +410,14 @@ export class PayrollEngineController {
       throw new BadRequestException(
         `status must be one of ${allowed.join(', ')}`,
       );
+    }
+    if (recordScope !== undefined && typeof recordScope !== 'string') {
+      throw new BadRequestException('recordScope must be ACTUAL or TEST');
+    }
+    const scope =
+      recordScope === undefined ? 'ACTUAL' : recordScope.trim().toUpperCase();
+    if (!['ACTUAL', 'TEST'].includes(scope)) {
+      throw new BadRequestException('recordScope must be ACTUAL or TEST');
     }
     const qb = this.structureRepo
       .createQueryBuilder('ps')
@@ -438,6 +448,13 @@ export class PayrollEngineController {
       )
       .addSelect('e.name', 'employeeName')
       .where('ps.approval_status = :s', { s });
+
+    // Partition before listing/counting; preserve fixture records and approval history.
+    qb.andWhere(
+      scope === 'TEST'
+        ? salaryStructureTestSql()
+        : `NOT ${salaryStructureTestSql()}`,
+    );
 
     // CCOs may only see structures whose owning client is assigned to a CRM
     // they own. Admins see everything.
