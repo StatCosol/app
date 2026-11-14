@@ -46,6 +46,23 @@ interface ChecklistItem {
   done: boolean;
 }
 
+interface CaseDraft {
+  inputs: SettlementBreakup;
+  amount: number;
+  remarks: string;
+  manualOverride: boolean;
+  checklist: ChecklistItem[];
+}
+
+interface CaseActionContext {
+  id: string;
+  selection: number;
+  scope: number;
+  scopeKey: string;
+  mutation: number;
+  draft: CaseDraft;
+}
+
 @Component({
   selector: 'app-payroll-fnf',
   standalone: true,
@@ -56,6 +73,19 @@ interface ChecklistItem {
 })
 export class PayrollFnfComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private scopeVersion = 0;
+  private listVersion = 0;
+  private selectionVersion = 0;
+  private detailRequestVersion = 0;
+  private selectedCaseId = '';
+  private documentVersion = 0;
+  private modalVersion = 0;
+  private employeeRequestVersion = 0;
+  private readonly mutationVersions = new Map<string, number>();
+  private readonly pendingSettlementRefresh = new Map<string, number>();
+  private settlementRefreshVersion = 0;
+  private savedDraft: CaseDraft | null = null;
+  private createdModalIdentity = '';
 
   loading = true;
   detailLoading = false;
@@ -150,6 +180,12 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.listVersion++;
+    this.selectionVersion++;
+    this.detailRequestVersion++;
+    this.documentVersion++;
+    this.modalVersion++;
+    this.employeeRequestVersion++;
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -260,7 +296,8 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   }
 
   get canCreateCase(): boolean {
-    return !!(this.createModel.clientId && this.createModel.employeeId && this.createModel.separationDate);
+    return !!(this.createModel.clientId && this.createModel.employeeId && this.createModel.separationDate) &&
+      this.createdModalIdentity !== JSON.stringify([this.createModel.clientId, this.createModel.employeeId.trim()]);
   }
 
   trackCase(_: number, row: PayrollFnfItem): string {
@@ -283,6 +320,8 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   }
 
   openCreateModal(): void {
+    this.modalVersion++;
+    this.createdModalIdentity = '';
     this.createModel = {
       clientId: this.selectedClientId || this.clients[0]?.id || '',
       employeeId: '',
@@ -299,6 +338,8 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   }
 
   onCreateClientChange(): void {
+    this.employeeRequestVersion++;
+    this.modalEmployeesLoading = false;
     this.createModel.employeeId = '';
     this.createModel.separationDate = '';
     this.createModel.lastWorkingDay = '';
@@ -318,35 +359,50 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   }
 
   private loadModalEmployees(clientId: string): void {
+    const version = ++this.employeeRequestVersion;
+    const modal = this.modalVersion;
+    const current = () => version === this.employeeRequestVersion && modal === this.modalVersion && this.showCreateModal && this.createModel.clientId === clientId;
     this.modalEmployeesLoading = true;
     this.payrollApi
       .getEmployees({ clientId, status: 'EXITED', limit: 1000 })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!current()) return;
           this.modalEmployeesLoading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (res) => {
+          if (!current()) return;
           this.modalEmployees = (res.data || []).slice().sort((a, b) =>
             (a.dateOfExit || '').localeCompare(b.dateOfExit || '') ||
               (a.employeeCode || '').localeCompare(b.employeeCode || ''),
           );
         },
         error: () => {
+          if (!current()) return;
           this.modalEmployees = [];
         },
       });
   }
 
   closeCreateModal(): void {
+    this.modalVersion++;
+    this.employeeRequestVersion++;
+    this.modalEmployeesLoading = false;
     this.showCreateModal = false;
+    this.createdModalIdentity = '';
   }
 
   createCase(): void {
     if (!this.canCreateCase || this.actionBusy) return;
+    const modal = this.modalVersion;
+    const submitted = JSON.stringify(this.createModel);
+    const identity = JSON.stringify([this.createModel.clientId, this.createModel.employeeId.trim()]);
+    const scope = this.scopeVersion;
+    const scopeKey = this.currentScopeKey();
     this.actionBusy = true;
 
     this.payrollApi
@@ -367,15 +423,24 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('F&F case initiated');
-          this.showCreateModal = false;
-          this.loadCases();
+          this.toast.success('F&F case initiated. Open the case to review or make further changes.');
+          if (modal === this.modalVersion) {
+            this.createdModalIdentity = identity;
+            if (submitted === JSON.stringify(this.createModel)) this.closeCreateModal();
+          }
+          if (scope === this.scopeVersion && scopeKey === this.currentScopeKey()) this.loadCases(true);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to initiate F&F case'),
       });
   }
 
   selectCase(row: PayrollFnfItem): void {
+    this.closeDetail();
+    const settlementRefresh = this.pendingSettlementRefresh.get(row.id);
+    this.selectedCaseId = row.id;
+    const selection = this.selectionVersion;
+    const request = ++this.detailRequestVersion;
+    const current = () => selection === this.selectionVersion && request === this.detailRequestVersion;
     this.detailLoading = true;
     this.statusRemarks = '';
 
@@ -384,22 +449,38 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!current()) return;
           this.detailLoading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (detail) => {
+          if (!current()) return;
           this.selectedCase = detail;
           this.seedLocalInputsFromDetail(detail);
+          this.completeSettlementRefresh(row.id, settlementRefresh);
           this.loadFnfDocuments(detail.id);
         },
-        error: (err) => this.toast.error(err?.error?.message || 'Failed to load F&F case detail'),
+        error: (err) => { if (current()) this.toast.error(err?.error?.message || 'Failed to load F&F case detail'); },
       });
   }
 
   closeDetail(): void {
+    this.selectionVersion++;
+    this.detailRequestVersion++;
+    this.selectedCaseId = '';
+    this.documentVersion++;
     this.selectedCase = null;
+    this.detailLoading = false;
+    this.fnfDocuments = [];
+    this.fnfDocsLoading = false;
+    this.fnfDocName = '';
+    this.fnfDocRemarks = '';
+    this.settlementInputs = this.defaultBreakup();
+    this.settlementAmountInput = 0;
+    this.manualOverride = false;
+    this.savedDraft = null;
     this.statusRemarks = '';
     this.documentChecklistDraft = [];
   }
@@ -414,15 +495,16 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   }
 
   approveCase(): void {
-    if (!this.selectedCase || this.actionBusy) return;
+    if (!this.selectedCase || this.actionBusy || this.breakupSaveBusy) return;
     const guard = this.actionGuardReason('APPROVED');
     if (guard) {
       this.toast.error(guard);
       return;
     }
     this.actionBusy = true;
+    const context = this.captureCaseAction();
     this.payrollApi
-      .approveFullAndFinal(this.selectedCase.id, this.statusRemarks || undefined)
+      .approveFullAndFinal(context.id, this.statusRemarks || undefined)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -433,18 +515,19 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('F&F case approved');
-          this.reloadAfterAction(this.selectedCase!.id);
+          this.reloadAfterAction(context);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Approval failed'),
       });
   }
 
   saveBreakup(): void {
-    if (!this.selectedCase || this.breakupSaveBusy) return;
+    if (!this.selectedCase || this.breakupSaveBusy || this.actionBusy) return;
     this.breakupSaveBusy = true;
+    const context = this.captureCaseAction(true);
     this.payrollApi
       .saveFnfBreakup(
-        this.selectedCase.id,
+        context.id,
         {
           pendingSalary: Number(this.settlementInputs.pendingSalary || 0),
           leaveEncashment: Number(this.settlementInputs.leaveEncashment || 0),
@@ -463,17 +546,19 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: (res) => {
-          this.settlementAmountInput = res.settlementAmount;
+        next: () => {
           this.toast.success('Breakup saved');
-          this.reloadAfterAction(this.selectedCase!.id);
+          // Settlement must wait for a detail read started after this save.
+          // A queue response alone cannot confirm the new settlement total.
+          this.pendingSettlementRefresh.set(context.id, ++this.settlementRefreshVersion);
+          this.reloadAfterAction(context);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Save failed'),
       });
   }
 
   settleCase(): void {
-    if (!this.selectedCase || this.actionBusy) return;
+    if (!this.selectedCase || this.actionBusy || this.breakupSaveBusy) return;
     const guard = this.actionGuardReason('SETTLED');
     if (guard) {
       this.toast.error(guard);
@@ -482,9 +567,10 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     const amount = Number(this.settlementAmountInput || this.netSettlement || 0);
 
     this.actionBusy = true;
+    const context = this.captureCaseAction();
     this.payrollApi
       .settleFullAndFinal(
-        this.selectedCase.id,
+        context.id,
         amount,
         {
           pendingSalary: Number(this.settlementInputs.pendingSalary || 0),
@@ -505,7 +591,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Settlement marked as settled');
-          this.reloadAfterAction(this.selectedCase!.id);
+          this.reloadAfterAction(context);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Settlement update failed'),
       });
@@ -542,31 +628,41 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
 
   // ── Settlement Document Repository ──
   loadFnfDocuments(fnfId: string): void {
+    if (this.selectedCase?.id !== fnfId) return;
+    const version = ++this.documentVersion;
+    const selection = this.selectionVersion;
+    const current = () => version === this.documentVersion && selection === this.selectionVersion && this.selectedCase?.id === fnfId;
     this.fnfDocsLoading = true;
     this.payrollApi
       .listFnfDocuments(fnfId)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!current()) return;
           this.fnfDocsLoading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
-        next: (docs) => (this.fnfDocuments = docs || []),
-        error: () => (this.fnfDocuments = []),
+        next: (docs) => { if (current()) this.fnfDocuments = docs || []; },
+        error: () => { if (current()) this.fnfDocuments = []; },
       });
   }
 
   onFnfDocFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!file || !this.selectedCase) return;
+    if (!file || !this.selectedCase || this.fnfDocUploading) return;
+    const caseId = this.selectedCase.id;
+    const selection = this.selectionVersion;
+    const name = this.fnfDocName;
+    const remarks = this.fnfDocRemarks;
+    const current = () => selection === this.selectionVersion && this.selectedCase?.id === caseId;
 
     this.fnfDocUploading = true;
     this.payrollApi
       .uploadFnfDocument(
-        this.selectedCase.id,
+        caseId,
         file,
         this.fnfDocType,
         this.fnfDocName || file.name,
@@ -583,9 +679,11 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success('Document uploaded');
-          this.fnfDocName = '';
-          this.fnfDocRemarks = '';
-          this.loadFnfDocuments(this.selectedCase!.id);
+          if (current()) {
+            if (this.fnfDocName === name) this.fnfDocName = '';
+            if (this.fnfDocRemarks === remarks) this.fnfDocRemarks = '';
+          }
+          if (this.selectedCase?.id === caseId) this.loadFnfDocuments(caseId);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Upload failed'),
       });
@@ -640,19 +738,22 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   ];
 
   async deleteFnfDoc(doc: any): Promise<void> {
+    if (!this.selectedCase) return;
+    const caseId = this.selectedCase.id;
+    const selection = this.selectionVersion;
     const ok = await this.dialog.confirm(
       'Remove Document',
       'Remove this document permanently?',
       { variant: 'danger', confirmText: 'Remove' },
     );
-    if (!ok) return;
+    if (!ok || selection !== this.selectionVersion || this.selectedCase?.id !== caseId) return;
     this.payrollApi
       .deleteFnfDocument(doc.id)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
           this.toast.success('Document removed');
-          this.loadFnfDocuments(this.selectedCase!.id);
+          if (this.selectedCase?.id === caseId) this.loadFnfDocuments(caseId);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Delete failed'),
       });
@@ -701,11 +802,12 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       checklist?: Array<{ label: string; done: boolean }>;
     },
   ): void {
-    if (!this.selectedCase || this.actionBusy) return;
+    if (!this.selectedCase || this.actionBusy || this.breakupSaveBusy) return;
     this.actionBusy = true;
+    const context = this.captureCaseAction();
 
     this.payrollApi
-      .updateFnfStatus(this.selectedCase.id, status, {
+      .updateFnfStatus(context.id, status, {
         remarks: this.statusRemarks || undefined,
         checklist: options?.checklist,
       })
@@ -719,26 +821,87 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toast.success(`Status updated to ${status}`);
-          this.reloadAfterAction(this.selectedCase!.id);
+          this.reloadAfterAction(context);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Status update failed'),
       });
   }
 
-  private reloadAfterAction(caseId: string): void {
-    this.loadCases(() => {
-      const row = this.cases.find((c) => c.id === caseId);
-      if (row) this.selectCase(row);
+  private currentScopeKey(): string {
+    return JSON.stringify([this.selectedClientId, this.lifecycleFilter, this.searchText.trim(), this.page, this.pageSize]);
+  }
+
+  private captureDraft(): CaseDraft {
+    return {
+      inputs: { ...this.settlementInputs }, amount: this.settlementAmountInput,
+      remarks: this.statusRemarks, manualOverride: this.manualOverride,
+      checklist: this.documentChecklistDraft.map(item => ({ ...item })),
+    };
+  }
+
+  private captureCaseAction(acknowledgeBreakup = false): CaseActionContext {
+    const id = this.selectedCase!.id;
+    const mutation = (this.mutationVersions.get(id) || 0) + 1;
+    this.mutationVersions.set(id, mutation);
+    const submitted = this.captureDraft();
+    const baseline = this.savedDraft || submitted;
+    const draft = acknowledgeBreakup
+      ? { ...baseline, inputs: submitted.inputs, remarks: submitted.remarks, manualOverride: submitted.manualOverride }
+      : baseline;
+    return { id, mutation, selection: this.selectionVersion, scope: this.scopeVersion, scopeKey: this.currentScopeKey(), draft };
+  }
+
+  private reloadAfterAction(context: CaseActionContext): void {
+    const sameScope = () => context.scope === this.scopeVersion && context.scopeKey === this.currentScopeKey();
+    if (!sameScope()) return;
+    // Refresh queue metadata without selecting or reseeding an unrelated editor.
+    this.loadCases(true);
+    if (this.selectedCaseId !== context.id || this.mutationVersions.get(context.id) !== context.mutation) return;
+    const selection = this.selectionVersion;
+    const settlementRefresh = this.pendingSettlementRefresh.get(context.id);
+    const baseline = selection === context.selection ? context.draft : this.savedDraft || this.captureDraft();
+    const request = ++this.detailRequestVersion;
+    const current = () => sameScope() && selection === this.selectionVersion && request === this.detailRequestVersion &&
+      this.selectedCaseId === context.id && this.mutationVersions.get(context.id) === context.mutation;
+    this.payrollApi.getFullAndFinalCaseById(context.id).pipe(takeUntil(this.destroy$), finalize(() => {
+      if (current()) { this.detailLoading = false; this.cdr.markForCheck(); }
+    })).subscribe({
+      next: detail => {
+        if (!current()) return;
+        const draft = this.captureDraft();
+        this.selectedCase = detail;
+        this.seedLocalInputsFromDetail(detail);
+        this.completeSettlementRefresh(context.id, settlementRefresh);
+        // Only untouched fields may hydrate from the completed action.
+        for (const key of Object.keys(draft.inputs) as Array<keyof SettlementBreakup>) {
+          if (draft.inputs[key] !== baseline.inputs[key]) this.settlementInputs[key] = draft.inputs[key];
+        }
+        if (draft.amount !== baseline.amount) this.settlementAmountInput = draft.amount;
+        if (draft.remarks !== baseline.remarks) this.statusRemarks = draft.remarks;
+        if (draft.manualOverride !== baseline.manualOverride) this.manualOverride = draft.manualOverride;
+        if (JSON.stringify(draft.checklist) !== JSON.stringify(baseline.checklist)) this.documentChecklistDraft = draft.checklist;
+        if (this.fnfDocuments.length === 0 && !this.fnfDocsLoading) this.loadFnfDocuments(context.id);
+        this.cdr.markForCheck();
+      },
+      error: () => { if (current()) this.toast.error('Saved changes could not be refreshed. Select this case again to review them.'); },
     });
   }
 
+  private completeSettlementRefresh(caseId: string, version: number | undefined): void {
+    if (version !== undefined && this.pendingSettlementRefresh.get(caseId) === version) {
+      this.pendingSettlementRefresh.delete(caseId);
+    }
+  }
+
   private loadClientsAndCases(): void {
+    const version = this.listVersion;
     this.loading = true;
     this.payrollApi
       .getAssignedClients()
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (version !== this.listVersion) return;
           this.loading = false;
           this.cdr.markForCheck();
         }),
@@ -746,16 +909,26 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           this.clients = rows || [];
-          this.loadCases();
+          if (version === this.listVersion) this.loadCases();
         },
         error: () => {
           this.clients = [];
-          this.loadCases();
+          if (version === this.listVersion) this.loadCases();
         },
       });
   }
 
-  private loadCases(afterLoad?: () => void): void {
+  private loadCases(preserveEditor = false): void {
+    const version = ++this.listVersion;
+    const scopeKey = this.currentScopeKey();
+    if (!preserveEditor) {
+      this.scopeVersion++;
+      this.closeDetail();
+      this.cases = [];
+      this.totalCount = 0;
+    }
+    const selection = this.selectionVersion;
+    const current = () => version === this.listVersion && scopeKey === this.currentScopeKey();
     this.loading = true;
     this.payrollApi
       .getFullAndFinalCases({
@@ -768,12 +941,14 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!current()) return;
           this.loading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (res) => {
+          if (!current()) return;
           this.cases = (res?.data || []).map((row) => ({
             ...row,
             status: this.statusKey(row.status),
@@ -784,18 +959,12 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
           }));
           this.totalCount = Number(res?.total || this.cases.length);
 
-          if (this.selectedCase) {
-            const stillExists = this.cases.find((c) => c.id === this.selectedCase?.id);
-            if (!stillExists) this.selectedCase = null;
-          }
-
-          if (!this.selectedCase && this.cases.length) {
+          if (!preserveEditor && selection === this.selectionVersion && !this.selectedCase && this.cases.length) {
             this.selectCase(this.cases[0]);
           }
-
-          if (afterLoad) afterLoad();
         },
         error: (err) => {
+          if (!current()) return;
           this.cases = [];
           this.totalCount = 0;
           this.toast.error(err?.error?.message || 'Failed to load F&F cases');
@@ -834,6 +1003,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     this.statusRemarks = detail.remarks || '';
     this.manualOverride = !!detail.manualOverride;
     this.documentChecklistDraft = this.buildChecklist(detail);
+    this.savedDraft = this.captureDraft();
   }
 
   statusKey(status: string): string {
@@ -885,6 +1055,9 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
 
   private actionGuardReason(action: LifecycleAction): string | null {
     if (!this.selectedCase) return 'Select a case first.';
+    if (action === 'SETTLED' && this.pendingSettlementRefresh.has(this.selectedCase.id)) {
+      return 'The saved settlement total must be refreshed before settling. Select this case again if the refresh fails.';
+    }
     const blockedByLifecycle = this.transitionBlockedByLifecycle(action);
     if (blockedByLifecycle) return blockedByLifecycle;
 
