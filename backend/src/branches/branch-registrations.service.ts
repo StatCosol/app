@@ -2,6 +2,7 @@ import { isFactoryLicence } from './licence-alerts.policy';
 import {
   actualAuditSql,
   actualAuditObservationSql,
+  actualRegistrationSql,
 } from '../common/actual-records';
 import {
   Injectable,
@@ -71,7 +72,11 @@ export class BranchRegistrationsService {
    * List registrations for a branch, with computed status based on expiry_date.
    * Returns items sorted by urgency (expired first, then expiring soon, then active).
    */
-  async listByBranch(branchId: string, clientId: string) {
+  async listByBranch(
+    branchId: string,
+    clientId: string,
+    recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL',
+  ) {
     // Validate branch belongs to client
     const branch = await this.branchRepo.findOne({
       where: { id: branchId, isDeleted: false },
@@ -109,6 +114,7 @@ export class BranchRegistrationsService {
       FROM branch_registrations r
       WHERE r.branch_id = $1
         AND r.client_id = $2
+        AND ${recordScope === 'TEST' ? 'NOT' : ''} (${actualRegistrationSql('r')})
         AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
       ORDER BY
         CASE
@@ -269,6 +275,7 @@ export class BranchRegistrationsService {
       FROM branch_registrations r
       WHERE r.client_id = $1
         AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
+        AND ${actualRegistrationSql('r')}
         ${branchFilter}
     `,
       params,
@@ -318,6 +325,7 @@ export class BranchRegistrationsService {
       FROM branch_registrations r
       WHERE r.client_id = $1
         AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
+        AND ${actualRegistrationSql('r')}
         ${branchFilter}
     `,
       params,
@@ -374,6 +382,7 @@ export class BranchRegistrationsService {
       JOIN branch_registrations r ON r.id=a.registration_id AND r.client_id=a.client_id AND r.branch_id=a.branch_id
       WHERE a.client_id = $1
         AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
+        AND ${actualRegistrationSql('r')}
         AND (r.renewed_on IS NULL OR a.created_at >= r.renewed_on)
         ${branchFilter}
       ORDER BY a.created_at DESC

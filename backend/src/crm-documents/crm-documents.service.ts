@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import {
   BadRequestException,
   ForbiddenException,
@@ -230,7 +231,7 @@ export class CrmDocumentsService {
     await this.assertBranchBelongsToClient(branchId, clientId);
     return this.docRepo.manager.query(
       `SELECT id, type, registration_number AS "registrationNumber", expiry_date::text AS "expiryDate"
-       FROM branch_registrations WHERE client_id=$1 AND branch_id=$2 AND status <> 'DELETED' ORDER BY type, registration_number`,
+       FROM branch_registrations WHERE client_id=$1 AND branch_id=$2 AND status <> 'DELETED' AND ${actualRegistrationSql()} ORDER BY type, registration_number`,
       [clientId, branchId],
     );
   }

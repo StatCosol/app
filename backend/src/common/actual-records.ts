@@ -49,6 +49,15 @@ export function actualUnitDocumentSql(alias = 'd'): string {
     )
     .join(' AND ');
 }
+/** Explicit registration fixtures stay out of operational counts and reminders. */
+export function actualRegistrationSql(alias = ''): string {
+  return ['type', 'registration_number', 'remarks']
+    .map(
+      (name) =>
+        `COALESCE(${column(alias, name)}, '') !~* '^(TEST[ _-]ONLY|SYNTHETIC[ _-]TEST[ _-]ONLY)([ .:_-]|$)'`,
+    )
+    .join(' AND ');
+}
 export function actualAuditObservationSql(alias = 'o'): string {
   return `COALESCE(${column(alias, 'observation')}, '') !~* '^(TEST[ _-]ONLY|SYNTHETIC[ _-]TEST[ _-]ONLY)([ .:_-]|$)' AND COALESCE(${column(alias, 'observation')}, '') !~* '^TEST-BRANCH-UI-[0-9]{8}.*Synthetic correction workflow check'`;
 }

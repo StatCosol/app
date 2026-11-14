@@ -73,6 +73,11 @@ interface RegForm {
 })
 export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private listChanged$ = new Subject<void>();
+  private clientChanged$ = new Subject<void>();
+  private listContext = '';
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
+  loadError = '';
   documentPreview: AuditFilePreview | null = null;
 
   viewDocument(url: string, label = 'Registration certificate'): void {
@@ -136,6 +141,13 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
+      this.clientChanged$.next();
+      this.listChanged$.next();
+      this.clearResults();
+      this.branches = [];
+      this.selectedBranchId = '';
+      this.recordScope = 'ACTUAL';
+      this.loading = false;
       this.clientId = params.get('clientId') ?? '';
       if (this.clientId) this.loadBranches();
     });
@@ -145,7 +157,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.cdr.markForCheck();
     this.crmClientsApi.getBranchesForClient(this.clientId)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.clientChanged$), takeUntil(this.destroy$))
       .subscribe({
         next: (b) => {
           this.branches = (b || []).map((x: any) => ({
@@ -157,11 +169,18 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
           if (this.selectedBranchId) this.load();
         },
-        error: () => { this.loading = false; this.cdr.markForCheck(); },
+        error: () => { this.loadError = 'Could not load branches. Please reload the page.'; this.loading = false; this.cdr.markForCheck(); },
       });
   }
 
   load(): void {
+    this.listChanged$.next();
+    const context = JSON.stringify([this.clientId, this.selectedBranchId, this.recordScope]);
+    // A background upload reloads the same list; only scope changes close editors.
+    const scopeChanged = context !== this.listContext;
+    this.listContext = context;
+    this.clearResults(scopeChanged);
+    this.loading = false;
     if (!this.selectedBranchId || !this.clientId) {
       this.rows = [];
       this.filtered = [];
@@ -173,8 +192,8 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.cdr.markForCheck();
 
-    this.branchSvc.crmListRegistrations(this.selectedBranchId, this.clientId)
-      .pipe(takeUntil(this.destroy$))
+    this.branchSvc.crmListRegistrations(this.selectedBranchId, this.clientId, this.recordScope)
+      .pipe(takeUntil(this.listChanged$), takeUntil(this.destroy$))
       .subscribe({
         next: (r) => {
           this.rows = r || [];
@@ -183,8 +202,19 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
           this.loading = false;
           this.cdr.markForCheck();
         },
-        error: () => { this.loading = false; this.cdr.markForCheck(); },
+        error: () => { this.loadError = 'Could not load registrations. Please retry.'; this.loading = false; this.cdr.markForCheck(); },
       });
+  }
+
+  private clearResults(closeEditor = true): void {
+    this.rows = [];
+    this.filtered = [];
+    this.computeCounts();
+    this.loadError = '';
+    if (closeEditor) {
+      this.documentPreview = null;
+      this.closeForm();
+    }
   }
 
   applyFilters(): void {
@@ -208,7 +238,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   openCreate(): void {
-    if (!this.selectedBranchId) return;
+    if (!this.selectedBranchId || this.recordScope === 'TEST') return;
     this.editingId = null;
     this.showForm = true;
     this.form = this.emptyForm();
@@ -219,6 +249,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   openEdit(row: any): void {
+    if (this.recordScope === 'TEST') return;
     this.editingId = row.id;
     this.showForm = true;
     this.form = {
@@ -245,6 +276,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   save(): void {
+    if (this.recordScope === 'TEST') return;
     if (!this.form.branchId || !this.form.type?.trim()) {
       this.toast.error('Branch and Registration/License Type are required.');
       return;
@@ -315,6 +347,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   async deleteRow(row: any): Promise<void> {
+    if (this.recordScope === 'TEST') return;
     if (!(await this.dialog.confirm('Delete Registration', `Delete "${row.type}"?`, { variant: 'danger', confirmText: 'Delete' }))) return;
 
     this.deletingId = row.id;
@@ -348,6 +381,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   uploadFile(event: any, row: any, field: 'document' | 'renewal' = 'document'): void {
+    if (this.recordScope === 'TEST') return;
     const file = event.target?.files?.[0];
     if (!file) return;
 
@@ -400,6 +434,10 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.listChanged$.next();
+    this.listChanged$.complete();
+    this.clientChanged$.next();
+    this.clientChanged$.complete();
     this.destroy$.next();
     this.destroy$.complete();
   }

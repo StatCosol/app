@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
@@ -29,7 +30,7 @@ export class RiskService {
     const expiredRows = await this.ds.query(
       `SELECT COUNT(*)::int AS cnt
        FROM branch_registrations
-       WHERE branch_id = $1
+       WHERE ${actualRegistrationSql()} AND branch_id = $1
          AND status <> 'DELETED'
          AND expiry_date IS NOT NULL
          AND expiry_date < $2`,
@@ -53,7 +54,7 @@ export class RiskService {
     const totalRegRows = await this.ds.query(
       `SELECT COUNT(*)::int AS cnt
        FROM branch_registrations
-       WHERE branch_id = $1 AND status <> 'DELETED'`,
+       WHERE ${actualRegistrationSql()} AND branch_id = $1 AND status <> 'DELETED'`,
       [branchId],
     );
     const totalRegs = totalRegRows[0]?.cnt || 1; // avoid div by zero

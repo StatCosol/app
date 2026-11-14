@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../../common/actual-records';
 import { AutomationScope, scopedRows } from '../automation-scope';
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -23,6 +24,7 @@ export class RenewalFilingEngineService {
       FROM branch_registrations br JOIN client_branches b ON b.id=br.branch_id AND b.clientid=br.client_id
       JOIN clients c ON c.id=br.client_id
       WHERE br.expiry_date BETWEEN $1::date AND $1::date + $2::int
+        AND ${actualRegistrationSql('br')}
         AND br.status='ACTIVE' AND b.isactive=true AND c.is_deleted=false`,
       [today, scope.options?.registrationDays ?? 60],
       scope,

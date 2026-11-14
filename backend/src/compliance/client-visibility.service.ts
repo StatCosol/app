@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
@@ -60,6 +61,7 @@ export class ClientVisibilityService {
        FROM branch_registrations br
        JOIN client_branches b ON b.id = br.branch_id
        WHERE b.clientid = $1
+         AND ${actualRegistrationSql('br')}
          AND br.expiry_date IS NOT NULL
          AND br.expiry_date > NOW()
          AND br.expiry_date <= NOW() + INTERVAL '90 days'
@@ -104,6 +106,7 @@ export class ClientVisibilityService {
        FROM branch_registrations br
        JOIN client_branches b ON b.id = br.branch_id
        WHERE b.clientid = $1
+         AND ${actualRegistrationSql('br')}
          AND EXTRACT(YEAR FROM br.expiry_date) = $2
          AND EXTRACT(MONTH FROM br.expiry_date) = $3
        ORDER BY br.expiry_date`,
@@ -180,7 +183,7 @@ export class ClientVisibilityService {
               b.branchname AS branch_name
        FROM branch_registrations br
        JOIN client_branches b ON b.id = br.branch_id
-       WHERE ${regsWhere}
+       WHERE ${regsWhere} AND ${actualRegistrationSql('br')}
        ORDER BY br.expiry_date`,
       regsParams,
     );

@@ -76,6 +76,10 @@ jobs:
         env:
           AUDIT_CLOSURES_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
         run: node scripts/verify-crm-audit-closures.cjs
+      - name: Registration test-data isolation regressions
+        env:
+          REGISTRATION_TEST_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
+        run: node scripts/verify-registration-test-isolation.cjs
       - name: Automation PostgreSQL regressions
         env:
           AUTOMATION_TEST_PORT: 5432

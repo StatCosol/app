@@ -1,3 +1,4 @@
+import { actualRegistrationSql } from '../common/actual-records';
 import { actualContractorDocumentSql } from '../common/actual-records';
 import {
   actualAuditSql,
@@ -152,6 +153,7 @@ export class BranchReportsController {
        FROM branch_registrations r
        JOIN client_branches b ON b.id = r.branch_id
        WHERE r.client_id = $1 ${branchFilter}
+         AND ${actualRegistrationSql('r')}
        ORDER BY
          CASE
            WHEN r.expiry_date IS NULL THEN 3
