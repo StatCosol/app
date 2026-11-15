@@ -63,12 +63,15 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <a routerLink="/branch/appraisal-dashboard" class="header-action-btn">Dashboard</a>
       </ui-page-header>
 
+      @if (cyclesError) {
+        <div role="alert" class="table-card mb-4 text-red-700">{{ cyclesError }} <button type="button" class="standard-action" (click)="loadCycles()">Retry cycles</button></div>
+      }
       <!-- Filters -->
       <div class="table-card mb-6">
         <div class="flex flex-wrap items-end gap-4">
           <div>
             <label class="text-xs font-medium text-gray-600 block mb-1" for="cycle-filter">Cycle</label>
-            <select id="cycle-filter" name="cycleFilter" [(ngModel)]="cycleId" (ngModelChange)="load()" class="filter-select">
+            <select [disabled]="!!cyclesError" id="cycle-filter" name="cycleFilter" [(ngModel)]="cycleId" (ngModelChange)="filtersChanged()" class="filter-select">
               <option value="">All Cycles</option>
               @for (c of cycles; track c) {
 <option [value]="c.id">{{ c.cycleName }} ({{ c.financialYear }})</option>
@@ -77,7 +80,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
           <div>
             <label class="text-xs font-medium text-gray-600 block mb-1" for="status-filter">Status</label>
-            <select id="status-filter" name="statusFilter" [(ngModel)]="status" (ngModelChange)="load()" class="filter-select">
+            <select id="status-filter" name="statusFilter" [(ngModel)]="status" (ngModelChange)="filtersChanged()" class="filter-select">
               <option value="">All</option>
               <option value="INITIATED">Initiated</option>
               <option value="MANAGER_REVIEWED">Manager Reviewed</option>
@@ -89,16 +92,19 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
           <div>
             <label class="text-xs font-medium text-gray-600 block mb-1" for="search-filter">Search</label>
-            <input id="search-filter" name="searchFilter" type="text" [(ngModel)]="search" (ngModelChange)="load()" placeholder="Name or code..." class="search-input" autocomplete="off" />
+            <input id="search-filter" name="searchFilter" type="text" [(ngModel)]="search" (ngModelChange)="filtersChanged()" placeholder="Name or code..." class="search-input" autocomplete="off" />
           </div>
         </div>
       </div>
 
+      @if (loadError) {
+        <div role="alert" class="table-card text-red-700">{{ loadError }} <button type="button" class="standard-action" (click)="load()">Retry</button></div>
+      }
       @if (loading) {
 <div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
 }
 
-      @if (!loading) {
+      @if (!loading && !loadError) {
 <div class="table-card">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs text-gray-500">{{ total }} records</span>
@@ -170,6 +176,11 @@ import { PageHeaderComponent } from '../../../shared/ui';
 export class BranchAppraisalsListComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   loading = true;
+  loadError = '';
+  cyclesError = '';
+  private loadVersion = 0;
+  private cyclesVersion = 0;
+  private destroyed = false;
   cycles: AppraisalCycle[] = [];
   appraisals: EmployeeAppraisal[] = [];
   total = 0;
@@ -185,11 +196,27 @@ export class BranchAppraisalsListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.svc.getCycles().pipe(takeUntil(this.destroy$)).subscribe(c => { this.cycles = c; this.cdr.markForCheck(); });
+    this.loadCycles();
     this.load();
   }
 
+  loadCycles() {
+    const version = ++this.cyclesVersion;
+    this.cyclesError = '';
+    this.svc.getCycles().pipe(takeUntil(this.destroy$)).subscribe({
+      next: cycles => { if (!this.destroyed && version === this.cyclesVersion) { this.cycles = cycles; this.cdr.markForCheck(); } },
+      error: () => { if (!this.destroyed && version === this.cyclesVersion) { this.cycles = []; this.cyclesError = 'Appraisal cycles could not be loaded.'; this.cdr.markForCheck(); } },
+    });
+  }
+
+  filtersChanged() { this.page = 1; this.load(); }
+
   load() {
+    const version = ++this.loadVersion;
+    const current = () => !this.destroyed && version === this.loadVersion;
+    this.loadError = '';
+    this.appraisals = [];
+    this.total = 0;
     this.loading = true;
     this.cdr.markForCheck();
     const filter: any = { page: this.page, pageSize: this.pageSize };
@@ -199,10 +226,13 @@ export class BranchAppraisalsListComponent implements OnInit, OnDestroy {
 
     this.svc.getAppraisals(filter).pipe(
       takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
-    ).subscribe(r => { this.appraisals = r.data; this.total = r.total; });
+      finalize(() => { if (current()) { this.loading = false; this.cdr.markForCheck(); } }),
+    ).subscribe({
+      next: r => { if (current()) { this.appraisals = r.data; this.total = r.total; this.cdr.markForCheck(); } },
+      error: () => { if (current()) { this.loadError = 'Appraisals could not be loaded. Retry before relying on results or counts.'; this.cdr.markForCheck(); } },
+    });
   }
 
   trackById(_: number, item: any) { return item.id; }
-  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+  ngOnDestroy() { this.destroyed = true; this.destroy$.next(); this.destroy$.complete(); }
 }
