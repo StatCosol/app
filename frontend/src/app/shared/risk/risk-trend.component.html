@@ -9,16 +9,16 @@
     <div class="controls">
       @if (showClientPicker) {
 <select
-       
+
         id="rt-client-id"
         name="trendClientId"
         [(ngModel)]="clientId"
         (change)="onClientChange()"
-        [disabled]="clients.length === 0"
+        [disabled]="clientsLoading || clients.length === 0"
         class="ctrl-select"
         aria-label="Client"
       >
-        <option value="" disabled>{{ clients.length ? 'Select client' : 'No clients' }}</option>
+        <option value="" disabled>{{ clientsLoading ? 'Loading clients…' : clientLoadError ? 'Clients unavailable' : clients.length ? 'Select client' : 'No clients' }}</option>
         @for (c of clients; track c) {
 <option [value]="c.id">{{ c.name }}</option>
 }
@@ -30,20 +30,37 @@
         name="trendBranchId"
         [(ngModel)]="branchId"
         (change)="load()"
-        [disabled]="branches.length === 0"
+        [disabled]="branchesLoading || branches.length === 0"
         class="ctrl-select"
         aria-label="Branch"
       >
-        <option value="" disabled>{{ branches.length ? 'Select branch' : 'No branches' }}</option>
+        <option value="" disabled>{{ branchesLoading ? 'Loading branches…' : branchLoadError ? 'Branches unavailable' : branches.length ? 'Select branch' : 'No branches' }}</option>
         @for (b of branches; track b) {
 <option [value]="b.id">{{ b.name }}</option>
 }
       </select>
 
-      <input autocomplete="off" id="rt-from" type="date" name="trendFrom" [(ngModel)]="from" (change)="load()" class="ctrl-input" />
-      <input autocomplete="off" id="rt-to" type="date" name="trendTo" [(ngModel)]="to" (change)="load()" class="ctrl-input" />
+      <label class="date-control" for="rt-from">From
+        <input autocomplete="off" id="rt-from" type="date" name="trendFrom" [(ngModel)]="from" (change)="load()" class="ctrl-input" />
+      </label>
+      <label class="date-control" for="rt-to">To
+        <input autocomplete="off" id="rt-to" type="date" name="trendTo" [(ngModel)]="to" (change)="load()" class="ctrl-input" />
+      </label>
     </div>
   </div>
+
+  @if (clientLoadError) {
+    <div class="load-error" role="alert">{{ clientLoadError }} <button class="retry-button" type="button" (click)="retryClients()">Retry clients</button></div>
+  }
+  @if (branchLoadError) {
+    <div class="load-error" role="alert">{{ branchLoadError }} <button class="retry-button" type="button" (click)="retryBranches()">Retry branches</button></div>
+  }
+  @if (loadError) {
+    <div class="load-error" role="alert">{{ loadError }} <button class="retry-button" type="button" (click)="load()">Retry risk history</button></div>
+  }
+  @if (clientsLoading || branchesLoading) {
+    <p role="status">Loading scope options…</p>
+  }
 
   <!-- Loading -->
   @if (loading) {
@@ -98,13 +115,13 @@
 }
 
   <!-- Empty state -->
-  @if (!loading && points.length === 0) {
+  @if (!loading && !clientsLoading && !branchesLoading && !clientLoadError && !branchLoadError && !loadError && points.length === 0) {
 <div class="empty">
     <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
             d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
-    <p>No data — snapshots will be generated daily at 1 AM.</p>
+    <p>{{ trendLoaded ? 'No risk snapshots for this branch and date range.' : 'Select an available branch to view its risk history.' }}</p>
   </div>
 }
 </div>
