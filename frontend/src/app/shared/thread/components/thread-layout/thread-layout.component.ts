@@ -186,22 +186,35 @@ export class ThreadLayoutComponent {
   sendReply(payload: { message: string; files: File[] }): void {
     if (!this.selected || !this.isOpen || this.loadingThread || this.sending || this.statusUpdating) return;
     const threadId = this.selected.id;
+    const subject = this.selected.subject;
+    const submitted = {
+      message: this.composer?.message ?? payload.message,
+      files: [...payload.files],
+    };
+    const unchanged = (draft: { message: string; files: File[] } | undefined) =>
+      !!draft && draft.message === submitted.message &&
+      draft.files.length === submitted.files.length &&
+      draft.files.every((file, index) => file === submitted.files[index]);
     this.replyError = '';
     this.sending = true;
     this.cdr.markForCheck();
 
-    this.replyRequest = this.api.reply(threadId, payload.message, payload.files).subscribe({
+    this.replyRequest = this.api.reply(threadId, payload.message, [...submitted.files]).pipe(take(1)).subscribe({
       next: () => {
         this.sending = false;
-        this.drafts.delete(threadId);
-        if (this.selectedId === threadId && this.composer) { this.composer.message=''; this.composer.files=[]; }
+        // Clear only the draft that was sent, including when it is stored off-screen.
+        if (this.selectedId === threadId && this.composer) {
+          if (unchanged(this.composer)) { this.composer.message = ''; this.composer.files = []; }
+        } else if (unchanged(this.drafts.get(threadId))) {
+          this.drafts.delete(threadId);
+        }
         if (this.selectedId === threadId) this.selectThread({ id: threadId } as ThreadListItem);
         this.loadList();
         this.replySent.emit();
       },
       error: () => {
         this.sending = false;
-        this.replyError = 'Reply was not sent. Your draft is retained; try again.';
+        this.replyError = `Reply to “${subject || 'Untitled thread'}” was not sent. Your draft is retained; try again.`;
         this.cdr.markForCheck();
       },
     });
