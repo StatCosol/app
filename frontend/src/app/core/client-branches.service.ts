@@ -199,10 +199,11 @@ export class ClientBranchesService {
 
   /* ── Escalations ──────────────────────── */
 
-  getEscalations(params?: { status?: string; branchId?: string }): Observable<any> {
+  getEscalations(params?: { status?: string; branchId?: string; clientId?: string }): Observable<any> {
     let p = new HttpParams();
     if (params?.status) p = p.set('status', params.status);
     if (params?.branchId) p = p.set('branchId', params.branchId);
+    if (params?.clientId) p = p.set('clientId', params.clientId);
     return this.http.get(`${this.baseUrl}/api/v1/escalations`, { params: p });
   }
 
