@@ -1,216 +1,137 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, forkJoin } from 'rxjs';
-import { takeUntil, finalize } from 'rxjs/operators';
-import { ClientBranchesService } from '../../../core/client-branches.service';
-import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
-import { ToastService } from '../../../shared/toast/toast.service';
+import { Subscription } from 'rxjs';
+import { CcoEscalation, CcoEscalationsApi } from '../../../core/api/cco-escalations.api';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
-import {
-  PageHeaderComponent, StatCardComponent, StatusBadgeComponent,
-  LoadingSpinnerComponent, EmptyStateComponent, ActionButtonComponent,
-  DataTableComponent, TableCellDirective, TableColumn,
-} from '../../../shared/ui';
-
-type EscType = 'OVERDUE_COMPLIANCE' | 'REPEAT_DEFAULTS' | 'CRITICAL_AUDITS' | 'SLA_BREACHED_QUERIES' | '';
 
 @Component({
   selector: 'app-cco-escalations',
   standalone: true,
-  imports: [
-    FormsModule,
-    PageHeaderComponent,
-    StatCardComponent,
-    StatusBadgeComponent,
-    LoadingSpinnerComponent,
-    EmptyStateComponent,
-    ActionButtonComponent,
-    DataTableComponent,
-    TableCellDirective
-],
+  imports: [CommonModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './cco-escalations.component.html',
+  styleUrls: ['../../../shared/escalations/escalations.component.scss'],
 })
 export class CcoEscalationsComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
-
-  loading = false;
-  items: any[] = [];
-  filtered: any[] = [];
-
-  readonly columns: TableColumn[] = [
-    { key: 'type', header: 'Type', searchValue: row => row.type?.replace('_', ' ') || '-' },
-    { key: 'clientBranch', header: 'Client / Branch',
-      searchValue: row => `${row.clientName || '-'} ${row.branchName || '-'}` },
-    { key: 'title', header: 'Title' },
-    { key: 'severity', header: 'Severity', align: 'center' },
-    { key: 'ageDays', header: 'Age (days)', align: 'center' },
-    { key: 'status', header: 'Status', align: 'center' },
-    { key: 'actions', header: 'Actions', align: 'right' },
-  ];
-
-  tab: EscType = '';
+  items: CcoEscalation[] = [];
   statusFilter = '';
-
-  // KPIs
-  kpiTotal = 0;
-  kpiOpen = 0;
-  kpiInProgress = 0;
-  kpiCritical = 0;
-
-  // Assign modal
-  showAssignModal = false;
-  assignTarget: any = null;
-  assignRole: 'CRM' | 'AUDITOR' = 'CRM';
-  assigneeId = '';
-  allUsers: UserDto[] = [];
-
-  get filteredUsers(): UserDto[] {
-    return this.allUsers.filter(u => u.roleCode === this.assignRole);
-  }
-
-  // Notify modal
-  showNotifyModal = false;
-  notifyTarget: any = null;
-  notifyMessage = '';
+  search = '';
+  private appliedSearch = '';
+  page = 1;
+  readonly limit = 25;
+  total = 0;
+  loaded = false;
+  loading = false;
+  loadError = '';
+  actionError = '';
+  private read?: Subscription;
+  private writes = new Subscription();
+  private saving = new Set<string>();
+  private uncertain = new Set<string>();
+  private confirming = new Set<string>();
+  private version = 0;
+  private destroyed = false;
 
   constructor(
-    private api: ClientBranchesService,
-    private usersApi: AdminUsersApi,
-    private toast: ToastService,
+    private api: CcoEscalationsApi,
     private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
   ) {}
 
-  ngOnInit(): void {
-    this.load();
-    forkJoin({
-      crms: this.usersApi.getCcoCrmUsers(),
-      auditors: this.usersApi.getCcoAuditorUsers(),
-    }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: ({ crms, auditors }) => {
-        this.allUsers = [...(crms || []), ...(auditors || [])];
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.allUsers = [];
-        this.cdr.detectChanges();
-      },
-    });
-  }
-
+  ngOnInit(): void { this.load(); }
   ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
+    this.destroyed = true;
+    this.version++;
+    this.read?.unsubscribe();
+    this.writes.unsubscribe();
   }
-
+  applyFilters(): void {
+    this.appliedSearch = this.search.trim();
+    this.page = 1;
+    this.load();
+  }
   load(): void {
+    if (this.destroyed) return;
+    this.read?.unsubscribe();
+    this.version++;
+    this.items = [];
+    this.total = 0;
+    this.loaded = false;
     this.loading = true;
-    const params: any = {};
-    if (this.statusFilter) params.status = this.statusFilter;
-
-    this.api.getEscalations(params).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: (res: any) => {
-        this.items = res?.items || res?.data || res || [];
-        this.computeKpis();
-        this.applyTabFilter();
-        this.cdr.detectChanges();
+    this.loadError = '';
+    this.actionError = '';
+    this.cdr.markForCheck();
+    this.read = this.api.list({ page: this.page, limit: this.limit, status: this.statusFilter, q: this.appliedSearch }).subscribe({
+      next: result => {
+        // Closing the last item on a later page may shrink the result set.
+        const lastPage = Math.max(1, Math.ceil(result.total / this.limit));
+        if (this.page > lastPage) { this.page = lastPage; this.load(); return; }
+        this.items = result.items;
+        this.total = result.total;
+        this.items.forEach(row => this.uncertain.delete(row.id));
+        this.loading = false;
+        this.loaded = true;
+        this.cdr.markForCheck();
       },
       error: () => {
-        this.items = [];
-        this.filtered = [];
-        this.cdr.detectChanges();
+        this.loading = false;
+        this.loadError = 'Escalations could not be loaded. Retry before relying on the list or counts.';
+        this.cdr.markForCheck();
       },
     });
   }
-
-  private computeKpis(): void {
-    this.kpiTotal = this.items.length;
-    this.kpiOpen = this.items.filter(i => i.status === 'OPEN').length;
-    this.kpiInProgress = this.items.filter(i => i.status === 'IN_PROGRESS').length;
-    this.kpiCritical = this.items.filter(i => i.severity === 'CRITICAL').length;
+  get pageCount(): number { return Math.max(1, Math.ceil(this.total / this.limit)); }
+  get openCount(): number { return this.items.filter(row => row.status === 'OPEN').length; }
+  get ackCount(): number { return this.items.filter(row => row.status === 'ACK').length; }
+  get closedCount(): number { return this.items.filter(row => row.status === 'CLOSED').length; }
+  changePage(page: number): void {
+    if (this.loading || !this.loaded || page < 1 || page > this.pageCount || page === this.page) return;
+    this.page = page;
+    this.load();
   }
-
-  setTab(t: EscType): void {
-    this.tab = t;
-    this.applyTabFilter();
+  isSaving(id: string): boolean { return this.saving.has(id); }
+  isUncertain(id: string): boolean { return this.uncertain.has(id); }
+  canAct(row: CcoEscalation, status: 'ACK' | 'CLOSED'): boolean {
+    return !this.destroyed && this.loaded && !this.loading && !this.loadError
+      && this.items.includes(row) && !!row.id && !!row.clientId
+      && ['OPEN', 'ACK'].includes(row.status) && row.status !== status
+      && !this.saving.has(row.id) && !this.uncertain.has(row.id) && !this.confirming.has(row.id);
   }
-
-  applyTabFilter(): void {
-    this.filtered = this.tab ? this.items.filter(i => i.type === this.tab) : this.items;
-  }
-
-  updateStatus(item: any, status: string): void {
-    this.api.updateEscalation(item.id, { status }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => { this.toast.success('Status updated.'); this.load(); },
-      error: () => this.toast.error('Failed to update status.'),
-    });
-  }
-
-  openAssignModal(item: any): void {
-    this.assignTarget = item;
-    this.assigneeId = '';
-    this.showAssignModal = true;
-  }
-
-  confirmAssign(): void {
-    if (!this.assignTarget || !this.assigneeId.trim()) return;
-    this.api.updateEscalation(this.assignTarget.id, {
-      assigneeRole: this.assignRole,
-      assigneeId: this.assigneeId.trim(),
-    }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.toast.success('Assigned.');
-        this.showAssignModal = false;
-        this.load();
-      },
-      error: () => this.toast.error('Assignment failed.'),
-    });
-  }
-
-  openNotifyModal(item: any): void {
-    this.notifyTarget = item;
-    this.notifyMessage = '';
-    this.showNotifyModal = true;
-  }
-
-  sendNotification(): void {
-    if (!this.notifyTarget || !this.notifyMessage.trim()) return;
-    this.api.updateEscalation(this.notifyTarget.id, {
-      action: 'notify',
-      message: this.notifyMessage.trim(),
-    }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.toast.success('Notification sent.');
-        this.showNotifyModal = false;
-      },
-      error: () => this.toast.error('Failed to send notification.'),
-    });
-  }
-
-  async closeEscalation(item: any): Promise<void> {
-    const ok = await this.dialog.confirm('Close Escalation', `Close "${item.title}"? This cannot be undone.`);
-    if (!ok) return;
-    this.updateStatus(item, 'CLOSED');
-  }
-
-  severityColor(sev: string): string {
-    switch (sev) {
-      case 'CRITICAL': return 'bg-red-100 text-red-700';
-      case 'HIGH': return 'bg-orange-100 text-orange-700';
-      case 'MEDIUM': return 'bg-amber-100 text-amber-700';
-      default: return 'bg-green-100 text-green-700';
+  async closeEscalation(row: CcoEscalation): Promise<void> {
+    if (!this.canAct(row, 'CLOSED')) return;
+    const version = this.version;
+    this.confirming.add(row.id);
+    this.cdr.markForCheck();
+    try {
+      const ok = await this.dialog.confirm('Close escalation', 'Confirm the issue is resolved before closing this escalation.', { confirmText: 'Close escalation' });
+      this.confirming.delete(row.id);
+      if (ok && version === this.version) this.updateStatus(row, 'CLOSED');
+    } finally {
+      this.confirming.delete(row.id);
+      if (!this.destroyed) this.cdr.markForCheck();
     }
   }
-
-  readonly tabOptions: { value: EscType; label: string }[] = [
-    { value: '', label: 'All' },
-    { value: 'OVERDUE_COMPLIANCE', label: 'Overdue' },
-    { value: 'REPEAT_DEFAULTS', label: 'Repeat Defaults' },
-    { value: 'CRITICAL_AUDITS', label: 'Critical Audits' },
-    { value: 'SLA_BREACHED_QUERIES', label: 'SLA Breached' },
-  ];
+  updateStatus(row: CcoEscalation, status: 'ACK' | 'CLOSED'): void {
+    if (!['ACK', 'CLOSED'].includes(status) || !this.canAct(row, status)) return;
+    this.saving.add(row.id);
+    this.actionError = '';
+    this.cdr.markForCheck();
+    this.writes.add(this.api.updateStatus(row, status).subscribe({
+      next: () => { this.saving.delete(row.id); this.load(); },
+      error: () => {
+        this.saving.delete(row.id);
+        this.uncertain.add(row.id);
+        // A pending read may predate the uncertain update and cannot confirm it.
+        if (this.loading) {
+          this.read?.unsubscribe();
+          this.version++;
+          this.loading = false;
+          this.loadError = 'Refresh escalations to confirm the latest statuses.';
+        }
+        this.actionError = 'The status change could not be confirmed. Refresh before retrying.';
+        this.cdr.markForCheck();
+      },
+    }));
+  }
 }
