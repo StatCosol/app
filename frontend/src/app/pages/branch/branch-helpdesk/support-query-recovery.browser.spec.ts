@@ -43,6 +43,7 @@ describe.each([390,768,1440])('Support forms at %ipx', width => {
   });
   it('keeps the newer Branch editor open and prevents hiding a pending submission',async()=>{
     const t=await setup(true);t.dom.querySelector<HTMLButtonElement>('[aria-label="Raise Ticket"]')!.click();await t.render();
+    expect(t.dom.querySelector('[aria-label="Hide Form"]')!.getAttribute('data-action-label')).toBe('Hide Form');
     await t.input('bh-subject','TEST branch');await t.input('bh-message','Synthetic first');
     const submit=t.dom.querySelector<HTMLButtonElement>('button[type="submit"]')!;submit.click();await t.render();
     expect(t.dom.querySelector<HTMLButtonElement>('[aria-label="Hide Form"]')!.disabled).toBe(true);

@@ -37,7 +37,7 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
             type="button"
             class="compact-action px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             [disabled]="submitting"
-            (click)="showNewTicketForm = !showNewTicketForm" [title]="showNewTicketForm ? 'Hide Form' : 'Raise Ticket'" [attr.aria-label]="showNewTicketForm ? 'Hide Form' : 'Raise Ticket'" data-action-label="Raise Ticket" data-action-icon="plus"><ui-icon [name]="showNewTicketForm ? 'x' : 'plus'" [size]="20" /><span class="compact-action-label">
+            (click)="showNewTicketForm = !showNewTicketForm" [title]="showNewTicketForm ? 'Hide Form' : 'Raise Ticket'" [attr.aria-label]="showNewTicketForm ? 'Hide Form' : 'Raise Ticket'" [attr.data-action-label]="showNewTicketForm ? 'Hide Form' : 'Raise Ticket'" [attr.data-action-icon]="showNewTicketForm ? 'x' : 'plus'"><ui-icon [name]="showNewTicketForm ? 'x' : 'plus'" [size]="20" /><span class="compact-action-label">
             {{ showNewTicketForm ? 'Hide Form' : 'Raise Ticket' }}
           </span></button>
         </div>
