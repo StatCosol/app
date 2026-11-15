@@ -11,6 +11,7 @@ import { AuditorThreadApiService } from '../core/auditor-thread-api.service';
 import { ContractorThreadApiService } from '../core/contractor-thread-api.service';
 import { PaydekThreadApiService } from '../core/paydek-thread-api.service';
 import { CcoThreadApiService } from '../core/cco-thread-api.service';
+import { ProtectedFileService } from '../shared/files/services/protected-file.service';
 
 afterEach(() => {
   TestBed.resetTestingModule();
@@ -29,9 +30,18 @@ for (const width of [390, 768, 1440])
   for (const [portal, Service] of portals) {
     it(`${portal} retains failed attachments and renders the successful retry at ${width}px (isolated HTTP)`, async () => {
       await page.viewport(width, 900);
+      const downloadResponse = new Subject<void>(),
+        downloadRetry = new Subject<void>();
+      const download = vi
+        .fn()
+        .mockReturnValueOnce(downloadResponse)
+        .mockReturnValueOnce(downloadRetry);
       await TestBed.configureTestingModule({
         imports: [ThreadLayoutComponent],
-        providers: [provideZonelessChangeDetection()],
+        providers: [
+          provideZonelessChangeDetection(),
+          { provide: ProtectedFileService, useValue: { download } },
+        ],
       }).compileComponents();
       const response = new Subject<void>(),
         retry = new Subject<void>();
@@ -110,6 +120,29 @@ for (const width of [390, 768, 1440])
       expect(host.querySelector('textarea')!.value).toBe('');
       expect(fixture.componentInstance.composer!.files).toEqual([]);
       for (let i = 1; i <= 5; i++) expect(host.textContent).toContain(`TEST-${i}.pdf`);
+      const attachmentButton = () =>
+        Array.from(host.querySelectorAll<HTMLButtonElement>('ui-thread-message-panel button')).find(
+          (b) => b.textContent?.includes('TEST-1.pdf'),
+        )!;
+      attachmentButton().click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(attachmentButton().disabled).toBe(true);
+      expect(downloadResponse.observed).toBe(true);
+      attachmentButton().click();
+      expect(download).toHaveBeenCalledOnce();
+      downloadResponse.error(new Error('TEST download outage'));
+      await fixture.whenStable();
+      expect(host.querySelector('[role=alert]')?.textContent).toContain('Try again');
+      attachmentButton().click();
+      await fixture.whenStable();
+      expect(download).toHaveBeenLastCalledWith('/TEST-ONLY/TEST-1.pdf', 'TEST-1.pdf');
+      downloadRetry.next();
+      downloadRetry.complete();
+      await fixture.whenStable();
+      expect(attachmentButton().disabled).toBe(false);
+      expect(host.querySelector('[role=alert]')).toBeNull();
       expect(host.scrollWidth).toBeLessThanOrEqual(width + 1);
       fixture.destroy();
     });

@@ -1,27 +1,20 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ThreadMessage } from '../../models/thread.model';
-import { ProtectedFileService } from '../../../files/services/protected-file.service';
+import { ThreadAttachmentComponent } from '../../../components/thread/thread-attachment.component';
 
 @Component({
   selector: 'app-message-bubble',
   standalone: true,
-  imports: [CommonModule, DatePipe],
+  imports: [CommonModule, DatePipe, ThreadAttachmentComponent],
   templateUrl: './message-bubble.component.html',
 })
 export class MessageBubbleComponent {
   @Input() msg!: ThreadMessage;
 
-  constructor(private readonly files: ProtectedFileService) {}
-
   /** Roles treated as "outgoing" (right-aligned) */
   get isOutgoing(): boolean {
     const outgoing = ['ADMIN', 'CRM', 'CCO', 'CEO', 'AUDITOR'];
     return outgoing.includes(this.msg?.senderRole);
-  }
-
-  downloadAttachment(attachment: { name?: string | null; url?: string | null }): void {
-    if (!attachment.url) return;
-    this.files.download(attachment.url, attachment.name || 'attachment').subscribe();
   }
 }
