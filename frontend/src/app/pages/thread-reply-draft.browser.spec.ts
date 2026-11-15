@@ -24,7 +24,7 @@ for (const width of [390, 768, 1440]) {
     const send=Array.from(host.querySelectorAll<HTMLButtonElement>('button')).find(b=>b.textContent?.trim()==='Send')!;
     send.click();await fixture.whenStable();expect(send.disabled).toBe(true);
     await type('TEST newer A');
-    const file=new File(['synthetic'],'TEST-only.txt',{type:'text/plain'});
+    const file=new File(['%PDF synthetic'],'TEST-only.pdf',{type:'application/pdf'});
     const transfer=new DataTransfer();transfer.items.add(file);
     const fileInput=host.querySelector<HTMLInputElement>('input[type=file]')!;fileInput.files=transfer.files;fileInput.dispatchEvent(new Event('change',{bubbles:true}));await fixture.whenStable();
     if(scenario!=='same-thread'){fixture.componentInstance.backToList();await fixture.whenStable();await select('TEST-B');await type('TEST newer B');}
@@ -36,7 +36,7 @@ for (const width of [390, 768, 1440]) {
       fixture.componentInstance.backToList();await fixture.whenStable();await select('TEST-A');
     }
     expect(host.querySelector('textarea')!.value).toBe('TEST newer A');
-    expect(fixture.componentInstance.composer!.files.map(f=>f.name)).toEqual(['TEST-only.txt']);
+    expect(fixture.componentInstance.composer!.files.map(f=>f.name)).toEqual(['TEST-only.pdf']);
     expect(host.scrollWidth).toBeLessThanOrEqual(width+1);fixture.destroy();
   });
 }
