@@ -25,48 +25,25 @@ export class BranchThreadApiService implements ThreadApi {
   ) {}
 
   list(filters: ThreadFilters): Observable<PageRes<ThreadListItem>> {
-    let params = new HttpParams();
+    const positiveInt = (value: number | undefined, fallback: number) =>
+      Number.isFinite(Number(value)) ? Math.max(1, Math.floor(Number(value))) : fallback;
+    const page = positiveInt(filters.page, 1);
+    const limit = Math.min(100, Math.max(10, positiveInt(filters.limit, 20)));
+    let params = new HttpParams().set('page', page).set('limit', limit);
     if (filters.status) params = params.set('status', filters.status);
     if (filters.unread) params = params.set('unreadOnly', '1');
+    if (filters.type) params = params.set('queryType', filters.type);
+    if (filters.q?.trim()) params = params.set('q', filters.q.trim());
 
     return this.http.get<any>(`${this.base}/inbox`, { params }).pipe(
-      map((res) => {
-        const page = Math.max(1, Number(filters.page || 1));
-        const limit = Math.max(1, Number(filters.limit || 20));
-        const q = String(filters.q || '').trim().toLowerCase();
-        const typeFilter = filters.type || '';
-
-        let items = (res?.data ?? res?.rows ?? []).map((row: any) =>
-          this.toListItem(row),
-        );
-
-        if (typeFilter) {
-          items = items.filter((item: ThreadListItem) => item.type === typeFilter);
-        }
-        if (q) {
-          items = items.filter((item: ThreadListItem) => {
-            const haystack = [
-              item.subject,
-              item.fromName,
-              item.clientName,
-              item.branchName,
-              item.type,
-            ]
-              .filter(Boolean)
-              .join(' ')
-              .toLowerCase();
-            return haystack.includes(q);
-          });
-        }
-
-        const total = items.length;
-        const start = (page - 1) * limit;
-        const pagedItems = items.slice(start, start + limit);
-        return { items: pagedItems, total, page, limit };
-      }),
+      map((res) => ({
+        items: (res?.data ?? res?.rows ?? []).map((row: any) => this.toListItem(row)),
+        total: res?.total ?? 0,
+        page: res?.page ?? page,
+        limit: res?.limit ?? limit,
+      })),
     );
   }
-
   read(id: string): Observable<ThreadDetail> {
     return this.http
       .get<any>(`${this.base}/threads/${id}`)
