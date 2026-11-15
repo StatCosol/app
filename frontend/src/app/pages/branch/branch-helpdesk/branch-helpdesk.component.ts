@@ -36,7 +36,8 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
           <button
             type="button"
             class="compact-action px-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            (click)="showNewTicketForm = !showNewTicketForm" title="Raise Ticket" aria-label="Raise Ticket" data-action-label="Raise Ticket" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
+            [disabled]="submitting"
+            (click)="showNewTicketForm = !showNewTicketForm" [title]="showNewTicketForm ? 'Hide Form' : 'Raise Ticket'" [attr.aria-label]="showNewTicketForm ? 'Hide Form' : 'Raise Ticket'" data-action-label="Raise Ticket" data-action-icon="plus"><ui-icon [name]="showNewTicketForm ? 'x' : 'plus'" [size]="20" /><span class="compact-action-label">
             {{ showNewTicketForm ? 'Hide Form' : 'Raise Ticket' }}
           </span></button>
         </div>
@@ -136,12 +137,13 @@ export class BranchHelpdeskComponent implements OnDestroy {
   submitTicket(): void {
     if (!this.canSubmitTicket || this.submitting) return;
 
+    const draft = { ...this.newTicket };
     this.submitting = true;
     this.api
       .createTicket({
-        queryType: this.newTicket.queryType,
-        subject: this.newTicket.subject,
-        message: this.newTicket.message,
+        queryType: draft.queryType,
+        subject: draft.subject.trim(),
+        message: draft.message.trim(),
       })
       .pipe(
         takeUntil(this.destroy$),
@@ -152,13 +154,15 @@ export class BranchHelpdeskComponent implements OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Ticket raised', 'Query created successfully.');
-          this.newTicket = {
+          const unchanged = this.newTicket.queryType === draft.queryType &&
+            this.newTicket.subject === draft.subject && this.newTicket.message === draft.message;
+          this.toast.success('Ticket raised', unchanged ? 'Query created successfully.' : 'Query created. Your newer form edits have been kept.');
+          if (unchanged) this.newTicket = {
             queryType: 'COMPLIANCE',
             subject: '',
             message: '',
           };
-          this.showNewTicketForm = false;
+          if (unchanged) this.showNewTicketForm = false;
           this.refreshThreads();
           this.cdr.markForCheck();
         },

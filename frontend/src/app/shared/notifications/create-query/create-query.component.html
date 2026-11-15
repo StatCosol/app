@@ -40,12 +40,13 @@
         type="button"
         (clicked)="submit()"
         [disabled]="isSubmitting"
-        [loading]="isSubmitting" icon="send" [iconOnly]="true" label="Submit">
-        Submit
+        [loading]="isSubmitting" icon="send" label="Submit Query">
+        Submit Query
       </ui-button>
 
       @if (resultText) {
-<div class="alert alert-success">{{ resultText }}</div>
+<div [attr.role]="resultIsError ? 'alert' : 'status'" class="alert"
+  [class.alert-danger]="resultIsError" [class.alert-success]="!resultIsError">{{ resultText }}</div>
 }
     </div>
   </div>
