@@ -38,7 +38,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
 <div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
 }
 
-      @if (!loading) {
+      @if (loadError) { <div role="alert" class="table-card text-red-700">{{ loadError }} <button type="button" class="standard-action" (click)="loadCycles()">Retry</button></div> }
+      @if (!loading && !loadError) {
 <div class="table-card">
         <div class="overflow-x-auto">
           <table class="data-table">
@@ -92,17 +93,30 @@ import { PageHeaderComponent } from '../../../shared/ui';
 export class BranchAppraisalCyclesComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   loading = true;
+  loadError = '';
+  private loadVersion = 0;
+  private destroyed = false;
   cycles: AppraisalCycle[] = [];
 
   constructor(private svc: PerformanceAppraisalService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
+    this.loadCycles();
+  }
+
+  loadCycles() {
+    const version = ++this.loadVersion;
+    const current = () => !this.destroyed && version === this.loadVersion;
+    this.loading = true; this.loadError = ''; this.cycles = []; this.cdr.markForCheck();
     this.svc.getCycles().pipe(
       takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
-    ).subscribe(c => { this.cycles = c; });
+      finalize(() => { if (current()) { this.loading = false; this.cdr.markForCheck(); } }),
+    ).subscribe({
+      next: c => { if (current()) { this.cycles = c; this.cdr.markForCheck(); } },
+      error: () => { if (current()) { this.loadError = 'Appraisal cycles could not be loaded. Retry before relying on counts.'; this.cdr.markForCheck(); } },
+    });
   }
 
   trackById(_: number, item: any) { return item.id; }
-  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+  ngOnDestroy() { this.destroyed = true; this.destroy$.next(); this.destroy$.complete(); }
 }

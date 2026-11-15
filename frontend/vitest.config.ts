@@ -18,6 +18,7 @@ export default defineConfig({
       'src/app/pages/client/approvals/approval-review-state.spec.ts',
       'src/app/pages/client/performance-appraisal/appraisal-review-context.spec.ts',
       'src/app/pages/client/performance-appraisal/appraisal-list-report-state.spec.ts',
+      'src/app/pages/client/performance-appraisal/appraisal-cycle-state.spec.ts',
       'src/app/pages/crm/compliance/crm-reupload-backlog.component.spec.ts',
       'src/app/pages/branch/branch-reports/branch-reports.component.spec.ts',
       // Billing component TestBed specs run through ng test, not the Node runner.

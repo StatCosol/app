@@ -3,7 +3,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRe
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, Observable } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
 import { AppraisalCycle } from '../../../core/models/appraisal.models';
@@ -21,11 +21,14 @@ import { PageHeaderComponent } from '../../../shared/ui';
         title="Appraisal Cycles"
         subtitle="Create and manage appraisal cycles">
         <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
-        <button (click)="showCreateForm = !showCreateForm" class="compact-action appraisal-action appraisal-action--primary" title="Create Cycle" aria-label="Create Cycle" data-action-label="Create Cycle" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
-          {{ showCreateForm ? 'Cancel' : 'Create Cycle' }}
+        <button [disabled]="creating" (click)="showCreateForm = !showCreateForm" class="standard-action appraisal-action appraisal-action--primary" [title]="showCreateForm ? 'Close Form' : 'Create Cycle'" [attr.aria-label]="showCreateForm ? 'Close Form' : 'Create Cycle'">@if (!showCreateForm) { <ui-icon name="plus" [size]="20" /> }<span>
+          {{ showCreateForm ? 'Close Form' : 'Create Cycle' }}
         </span></button>
       </ui-page-header>
 
+      @if (actionError) { <div role="alert" class="table-card mb-4 text-red-700">{{ actionError }}</div> }
+      @if (actionMessage) { <div role="status" class="table-card mb-4">{{ actionMessage }}</div> }
+      @if (pendingAction) { <div role="status" class="mb-4">Updating cycle. Please wait before another action.</div> }
       <!-- Create Form -->
       @if (showCreateForm) {
 <div class="table-card mb-6">
@@ -63,7 +66,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           </div>
         </div>
         <div class="flex items-center gap-3 mt-4">
-          <button (click)="createCycle()" [disabled]="creating" class="compact-action appraisal-action appraisal-action--primary" title="Create" aria-label="Create" data-action-label="Create" data-action-icon="plus"><ui-icon name="plus" [size]="20" /><span class="compact-action-label">
+          <button (click)="createCycle()" [disabled]="creating || !!pendingAction" class="standard-action appraisal-action appraisal-action--primary" title="Create" aria-label="Create"><ui-icon name="plus" [size]="20" /><span>
             {{ creating ? 'Creating...' : 'Create' }}
           </span></button>
         </div>
@@ -74,7 +77,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
 <div class="flex items-center justify-center py-20"><div class="spinner"></div></div>
 }
 
-      @if (!loading) {
+      @if (loadError) { <div role="alert" class="table-card text-red-700">{{ loadError }} <button type="button" class="standard-action" (click)="loadCycles()">Retry</button></div> }
+      @if (!loading && !loadError) {
 <div class="table-card">
         <div class="overflow-x-auto">
           <table class="data-table">
@@ -114,13 +118,13 @@ import { PageHeaderComponent } from '../../../shared/ui';
                 <td>
                   <div class="flex items-center gap-2">
                     @if (c.status === 'DRAFT') {
-<button (click)="activateCycle(c.id)" class="compact-action text-emerald-600 hover:text-emerald-800 text-xs font-medium" title="Activate" aria-label="Activate" data-action-label="Activate" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+<button [disabled]="!!pendingAction || creating" (click)="activateCycle(c.id)" class="compact-action text-emerald-600 hover:text-emerald-800 text-xs font-medium" title="Activate" aria-label="Activate" data-action-label="Activate" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
                     @if (c.status === 'ACTIVE') {
-<button (click)="generateEmployees(c.id)" class="standard-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Generate" aria-label="Generate" data-action-label="Generate" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span>Generate</span></button>
+<button [disabled]="!!pendingAction || creating" (click)="generateEmployees(c.id)" class="standard-action text-brand-600 hover:text-brand-800 text-xs font-medium" title="Generate" aria-label="Generate" data-action-label="Generate" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span>Generate</span></button>
 }
                     @if (c.status === 'ACTIVE') {
-<button (click)="closeCycle(c.id)" class="standard-action text-red-600 hover:text-red-800 text-xs font-medium">Close</button>
+<button [disabled]="!!pendingAction || creating" (click)="closeCycle(c.id)" class="standard-action text-red-600 hover:text-red-800 text-xs font-medium">Close</button>
 }
                   </div>
                 </td>
@@ -140,7 +144,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <!-- Generation result -->
       @if (genResult) {
 <div class="table-card mt-4 bg-brand-50 border-brand-200">
-        <p class="text-sm text-brand-800">Generated {{ genResult.generated }} appraisals ({{ genResult.alreadyExisted }} already existed, {{ genResult.total }} eligible)</p>
+        <p class="text-sm text-brand-800">{{ genCycleName }}: Generated {{ genResult.generated }} appraisals ({{ genResult.alreadyExisted }} already existed, {{ genResult.total }} eligible)</p>
       </div>
 }
     </div>
@@ -149,6 +153,13 @@ import { PageHeaderComponent } from '../../../shared/ui';
 export class ClientAppraisalCyclesComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   loading = true;
+  loadError = '';
+  actionError = '';
+  actionMessage = '';
+  pendingAction = '';
+  genCycleName = '';
+  private loadVersion = 0;
+  private destroyed = false;
   creating = false;
   showCreateForm = false;
   cycles: AppraisalCycle[] = [];
@@ -160,41 +171,75 @@ export class ClientAppraisalCyclesComponent implements OnInit, OnDestroy {
   ngOnInit() { this.loadCycles(); }
 
   loadCycles() {
+    const version = ++this.loadVersion;
+    const current = () => !this.destroyed && version === this.loadVersion;
+    this.loadError = ''; this.cycles = [];
     this.loading = true; this.cdr.markForCheck();
     this.svc.getCycles().pipe(
       takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
-    ).subscribe(c => { this.cycles = c; });
+      finalize(() => { if (current()) { this.loading = false; this.cdr.markForCheck(); } }),
+    ).subscribe({
+      next: c => { if (current()) { this.cycles = c; this.cdr.markForCheck(); } },
+      error: () => { if (current()) { this.loadError = 'Appraisal cycles could not be loaded. Retry before relying on counts or actions.'; this.cdr.markForCheck(); } },
+    });
   }
 
   createCycle() {
+    if (this.destroyed || this.creating || this.pendingAction) return;
+    const snapshot = { ...this.newCycle };
+    const validDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && Number.isFinite(Date.parse(s)) && new Date(s).toISOString().slice(0,10) === s;
+    this.actionMessage = ''; this.actionError = '';
+    if (!snapshot.cycleCode?.trim() || !snapshot.cycleName?.trim() || !snapshot.financialYear?.trim() || !validDate(snapshot.reviewPeriodFrom) || !validDate(snapshot.reviewPeriodTo) || snapshot.reviewPeriodFrom > snapshot.reviewPeriodTo) {
+      this.actionError = 'Enter a cycle code, name, financial year and valid review dates in order.'; this.cdr.markForCheck(); return;
+    }
     this.creating = true;
-    this.svc.createCycle(this.newCycle).pipe(
+    this.svc.createCycle({ ...snapshot }).pipe(
       takeUntil(this.destroy$),
-      finalize(() => { this.creating = false; this.cdr.markForCheck(); }),
-    ).subscribe(() => {
-      this.showCreateForm = false;
-      this.newCycle = { cycleCode: '', cycleName: '', financialYear: '', appraisalType: 'ANNUAL', reviewPeriodFrom: '', reviewPeriodTo: '' };
-      this.loadCycles();
+      finalize(() => { if (!this.destroyed) { this.creating = false; this.cdr.markForCheck(); } }),
+    ).subscribe({
+      next: () => {
+        if (this.destroyed) return;
+        const unchanged = Object.keys(snapshot).every(k => this.newCycle[k] === snapshot[k]);
+        if (unchanged) {
+          this.showCreateForm = false;
+          this.newCycle = { cycleCode: '', cycleName: '', financialYear: '', appraisalType: 'ANNUAL', reviewPeriodFrom: '', reviewPeriodTo: '' };
+        }
+        this.actionMessage = unchanged ? 'Cycle created.' : 'Cycle created. Your newer form edits have been kept.';
+        this.loadCycles();
+      },
+      error: () => { if (!this.destroyed) { this.actionError = 'Cycle creation failed. Your entries have been kept; retry when ready.'; this.cdr.markForCheck(); } },
     });
   }
 
   activateCycle(id: string) {
-    this.svc.activateCycle(id).pipe(takeUntil(this.destroy$)).subscribe(() => this.loadCycles());
+    this.runCycleAction(id, 'activate');
   }
 
   closeCycle(id: string) {
-    this.svc.closeCycle(id).pipe(takeUntil(this.destroy$)).subscribe(() => this.loadCycles());
+    this.runCycleAction(id, 'close');
   }
 
   generateEmployees(id: string) {
-    this.genResult = null;
-    this.svc.generateEmployees(id).pipe(takeUntil(this.destroy$)).subscribe(r => {
-      this.genResult = r;
-      this.loadCycles();
+    this.runCycleAction(id, 'generate');
+  }
+
+  private runCycleAction(id: string, action: 'activate' | 'close' | 'generate') {
+    if (this.destroyed || this.pendingAction || this.creating || this.loading || this.loadError) return;
+    const cycle = this.cycles.find(c => c.id === id);
+    if (!cycle || cycle.status !== (action === 'activate' ? 'DRAFT' : 'ACTIVE')) return;
+    this.pendingAction = id; this.actionError = ''; this.actionMessage = ''; this.genResult = null;
+    const request: Observable<any> = action === 'activate' ? this.svc.activateCycle(id) : action === 'close' ? this.svc.closeCycle(id) : this.svc.generateEmployees(id);
+    request.pipe(takeUntil(this.destroy$), finalize(() => { if (!this.destroyed) { this.pendingAction = ''; this.cdr.markForCheck(); } })).subscribe({
+      next: (result: any) => {
+        if (this.destroyed) return;
+        if (action === 'generate') { this.genResult = result; this.genCycleName = cycle.cycleName; }
+        this.actionMessage = action === 'activate' ? 'Cycle activated.' : action === 'close' ? 'Cycle closed.' : 'Appraisal generation completed.';
+        this.loadCycles();
+      },
+      error: () => { if (!this.destroyed) { this.actionError = 'Cycle action failed. Refresh the cycles before retrying.'; this.loadCycles(); this.cdr.markForCheck(); } },
     });
   }
 
   trackById(_: number, item: any) { return item.id; }
-  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+  ngOnDestroy() { this.destroyed = true; this.destroy$.next(); this.destroy$.complete(); }
 }
