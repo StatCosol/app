@@ -1,13 +1,13 @@
 import { IconComponent } from '../ui/icon/icon.component';
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { ClientBranchesService } from '../../core/client-branches.service';
 import { AuthService } from '../../core/auth.service';
-import { ChecklistsApiService } from '../../core/checklists-api.service';
+import { BranchComplianceDocService } from '../../core/branch-compliance-doc.service';
+import { uploadStatusSummary } from './upload-status-summary';
 import { ComplianceTrendComponent } from './compliance-trend.component';
 import { RiskForecastComponent } from './risk-forecast.component';
 import { ComplianceSummaryComponent } from './compliance-summary.component';
@@ -30,6 +30,8 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
     .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
     input,select{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff;font-size:13px;}
     .cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:12px 0;}
+    .cards.upload-cards{grid-template-columns:repeat(4,minmax(0,1fr));}
+    @media(max-width:900px){.cards.upload-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
     .card{background:#fff;border:1px solid #f1f5f9;border-radius:16px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
     .k{color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
     .v{margin-top:8px;font-size:20px;font-weight:900;color:#0f172a;}
@@ -72,7 +74,7 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
     @media(max-width:900px){.cards{grid-template-columns:repeat(2,minmax(0,1fr));}.detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
   `]
 })
-export class BranchComplianceComponent implements OnInit {
+export class BranchComplianceComponent implements OnInit, OnDestroy {
   month = this.toYYYYMM(new Date());
   module: ModuleType = 'ALL';
 
@@ -83,6 +85,12 @@ export class BranchComplianceComponent implements OnInit {
 
   loading = false;
   errorMessage = '';
+  completionLoading = false;
+  completionError = '';
+  completionReady = false;
+  riskReady = false;
+  private requestVersion = 0;
+  private requests = new Subscription();
   stateCode: string | null = null;
   establishmentType: string | null = null;
 
@@ -116,7 +124,7 @@ export class BranchComplianceComponent implements OnInit {
 
   constructor(
     private api: ClientBranchesService,
-    private checklistsApi: ChecklistsApiService,
+    private documents: BranchComplianceDocService,
     private auth: AuthService,
     private router: Router,
     private cdr: ChangeDetectorRef
@@ -162,36 +170,54 @@ export class BranchComplianceComponent implements OnInit {
   }
 
   load() {
-    if (!this.branchId) return;
-
-    this.loading = true;
-    this.errorMessage = '';
+    const version = ++this.requestVersion;
+    this.requests.unsubscribe();
+    this.requests = new Subscription();
+    const { branchId, month } = this;
+    const current = () => version === this.requestVersion && branchId === this.branchId && month === this.month;
+    this.items = [];
+    this.selectedOverviewItem = null;
+    this.stateCode = this.establishmentType = null;
+    this.computeKpi([]);
+    this.completionReady = this.riskReady = false;
+    this.completionError = this.errorMessage = '';
+    this.completedCount = this.pendingCount = this.totalApplicableCodes = this.uploaded = this.completionPercent = 0;
+    this.actionPlan = [];
+    this.riskReasons = [];
+    this.loading = this.completionLoading = this.actionPlanLoading = false;
+    if (!branchId || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      this.errorMessage = 'Select a branch and valid month.';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.loading = this.completionLoading = true;
     this.cdr.markForCheck();
-
-    this.api.getBranchComplianceItems(this.branchId, this.month).subscribe({
+    this.requests.add(this.api.getBranchComplianceItems(branchId, month).subscribe({
       next: (res: any) => {
+        if (!current()) return;
         this.stateCode = res.stateCode ?? null;
         this.establishmentType = res.establishmentType ?? null;
-
         const all = res.items || [];
         this.items = this.module === 'ALL' ? all : all.filter((x: any) => x.module === this.module);
-        this.selectedOverviewItem = this.pickSelectedItem(this.items, this.selectedOverviewItem?.code);
-
-        this.computeKpi(all);
-        this.loadCompletion();
+        this.selectedOverviewItem = this.pickSelectedItem(this.items);
+        this.computeKpi(this.items);
         this.loading = false;
         this.cdr.markForCheck();
       },
-      error: (err: any) => {
-        console.error('[BranchCompliance] compliance-items error:', err?.message || err?.statusText);
-        this.items = [];
-        this.selectedOverviewItem = null;
-        this.computeKpi([]);
+      error: () => {
+        if (!current()) return;
         this.loading = false;
-        this.errorMessage = 'Failed to load compliance items — ' + (err?.error?.message || err?.statusText || 'server error');
+        this.errorMessage = 'Schedule items could not be loaded. Refresh to retry.';
         this.cdr.markForCheck();
       }
-    });
+    }));
+    this.loadCompletion(branchId, month, current);
+    this.loadRiskScore(branchId, month, current);
+  }
+
+  ngOnDestroy(): void {
+    ++this.requestVersion;
+    this.requests.unsubscribe();
   }
 
   // Open the correct execution workspace from the overview screen.
@@ -331,81 +357,71 @@ export class BranchComplianceComponent implements OnInit {
     return 'Schedule not configured';
   }
 
-  private loadCompletion() {
-    forkJoin({
-      completion: this.api.getComplianceCompletion(this.month, this.branchId).pipe(
-        catchError(() => of(null)),
-      ),
-      checklist: this.checklistsApi.getBranchSummary(this.branchId).pipe(
-        catchError(() => of(null)),
-      ),
-    }).subscribe(({ completion, checklist }) => {
-      const row = completion?.items?.[0];
-      if (row) {
-        this.completionPercent = row.completionPercent ?? 0;
-        this.uploaded = row.uploaded ?? 0;
-        this.totalApplicableCodes = row.totalApplicable ?? row.totalApplicableCodes ?? 0;
-      } else {
-        this.completionPercent = 0;
-        this.uploaded = 0;
-        this.totalApplicableCodes = 0;
-      }
-      this.completedCount = this.uploaded;
-      this.pendingCount = Math.max(this.totalApplicableCodes - this.uploaded, 0);
-
-      if (checklist && Object.keys(checklist).length > 0) {
-        const completed = checklist['COMPLETED'] ?? checklist['UPLOADED'];
-        const pending = checklist['PENDING'];
-        const overdue = checklist['OVERDUE'];
-        if (completed != null) this.completedCount = completed;
-        if (pending != null) this.pendingCount = pending;
-        if (overdue != null) this.overdueCount = overdue;
-      }
-
+  private loadCompletion(branchId: string, month: string, current: () => boolean) {
+    const [year, periodMonth] = month.split('-').map(Number);
+    const unavailable = () => {
+      if (!current()) return;
+      this.completionLoading = false;
+      this.completionError = 'Monthly upload counts are unavailable. Refresh to retry.';
       this.cdr.markForCheck();
-      this.loadRiskScore();
-    });
+    };
+    this.requests.add(this.documents.getChecklist({
+      branchId, year, month: periodMonth, frequency: 'MONTHLY', recordScope: 'ACTUAL',
+    }).subscribe({
+      next: (res) => {
+        if (!current()) return;
+        if (!Array.isArray(res?.data)) { unavailable(); return; }
+        const counts = uploadStatusSummary(res.data);
+        this.totalApplicableCodes = counts.total;
+        this.uploaded = this.completedCount = counts.uploaded;
+        // Returned and missing evidence remain pending until valid resubmission.
+        this.pendingCount = counts.total - counts.uploaded;
+        this.completionPercent = counts.percent;
+        this.completionReady = true;
+        this.completionLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: unavailable,
+    }));
   }
 
-  private loadRiskScore() {
-    if (!this.branchId) return;
-    this.api.getRiskScore(this.month, this.branchId).subscribe({
+  private loadRiskScore(branchId: string, month: string, current: () => boolean) {
+    this.requests.add(this.api.getRiskScore(month, branchId).subscribe({
       next: (res: any) => {
-        const row = (res?.items || [])[0];
+        if (!current()) return;
+        const row = (res?.items || []).find((r: any) => r.branchId === branchId);
         this.riskScore = row?.riskScore ?? 0;
         this.riskLevel = row?.riskLevel ?? 'LOW';
         this.inspectionProbability = row?.inspectionProbability ?? 0;
         this.riskReasons = row?.reasons || [];
+        this.riskReady = !!row;
         this.cdr.markForCheck();
-        this.loadActionPlan();
+        this.loadActionPlan(branchId, month, current);
       },
       error: () => {
-        this.riskScore = 0;
-        this.riskLevel = 'LOW';
-        this.inspectionProbability = 0;
-        this.riskReasons = [];
+        if (!current()) return;
+        this.riskReady = false;
         this.cdr.markForCheck();
       }
-    });
+    }));
   }
 
-  private loadActionPlan() {
-    if (!this.branchId) return;
+  private loadActionPlan(branchId: string, month: string, current: () => boolean) {
     this.actionPlanLoading = true;
-    this.cdr.markForCheck();
-
-    this.api.getActionPlan(this.month, this.branchId).subscribe({
+    this.requests.add(this.api.getActionPlan(month, branchId).subscribe({
       next: (res: any) => {
+        if (!current()) return;
         this.actionPlan = res?.actions || [];
         this.actionPlanLoading = false;
         this.cdr.markForCheck();
       },
       error: () => {
+        if (!current()) return;
         this.actionPlan = [];
         this.actionPlanLoading = false;
         this.cdr.markForCheck();
       }
-    });
+    }));
   }
 
   private computeKpi(all: any[]) {

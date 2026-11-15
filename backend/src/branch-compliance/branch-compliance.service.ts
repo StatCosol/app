@@ -470,6 +470,13 @@ export class BranchComplianceService {
       docsQb.andWhere('d.status = :status', { status: q.status });
     }
 
+    // Match the actual/test evidence scope used by the document lists.
+    docsQb.andWhere(
+      "COALESCE(d.uploaded_file_name, '') " +
+        (q.recordScope === 'TEST' ? '~*' : '!~*') +
+        ' :testMarker',
+      { testMarker: '^TEST([ _-]|$)' },
+    );
     const existingDocs = await docsQb.getMany();
     const docsByCode = new Map(existingDocs.map((d) => [d.returnCode, d]));
 

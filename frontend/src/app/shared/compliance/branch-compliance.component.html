@@ -1,9 +1,9 @@
 <div class="page">
   <div class="head">
     <div>
-      <h1 class="title">Branch Compliance</h1>
+      <h1 class="title">Upload Status</h1>
       <div class="sub">
-        Branch-level operating view for schedule health, compliance completion, and workflow routing.
+        Track monthly document uploads for the selected branch and month. Review scheduled obligations separately below.
       </div>
       <div class="flex flex-wrap gap-2.5 mt-2.5 text-xs text-slate-600">
         @if (clientName) {
@@ -27,15 +27,15 @@
     </div>
 
     <div class="controls aligned-filter-controls">
-      <input autocomplete="off" id="bc-month" type="month" name="compMonth" [(ngModel)]="month" (change)="load()" />
+      <input autocomplete="off" aria-label="Compliance month" id="bc-month" type="month" name="compMonth" [(ngModel)]="month" (change)="load()" />
 
-      <select id="bc-branch-id" name="compBranchId" [(ngModel)]="branchId" (change)="load()">
+      <select aria-label="Branch" id="bc-branch-id" name="compBranchId" [(ngModel)]="branchId" (change)="load()">
         @for (b of branches; track b) {
 <option [value]="b.id">{{ b.name }}</option>
 }
       </select>
 
-      <select id="bc-module" name="compModule" [(ngModel)]="module" (change)="load()">
+      <select aria-label="Schedule module" id="bc-module" name="compModule" [(ngModel)]="module" (change)="load()">
         <option value="ALL">All</option>
         <option value="RETURNS">Returns</option>
         <option value="MCD">MCD</option>
@@ -55,43 +55,36 @@
   </div>
 }
 
-  @if (!loading) {
-<div class="cards">
-    <div class="card">
-      <div class="k">Total Applicable Items</div>
-      <div class="v">{{ total }}</div>
-      <div class="muted mt-1">{{ returnsCount }} returns | {{ mcdCount }} MCD</div>
-    </div>
-    <div class="card">
-      <div class="k">Completed</div>
-      <div class="v">{{ completedCount }}</div>
-      <div class="muted mt-1">Uploaded against current month</div>
-    </div>
-    <div class="card">
-      <div class="k">Pending</div>
-      <div class="v">{{ pendingCount }}</div>
-      <div class="muted mt-1">Still awaiting upload</div>
-    </div>
-    <div class="card">
-      <div class="k">Overdue</div>
-      <div class="v">{{ overdueCount }}</div>
-      <div class="muted mt-1">Past due date or closed window</div>
-    </div>
-    <div class="card border-l-4 border-brand-500">
-      <div class="k">Due Soon</div>
-      <div class="v">{{ dueSoonCount }}</div>
-      <div class="muted mt-1">Due in 7 days or window closing</div>
-    </div>
-    <div class="card" [style.border-left]="'4px solid ' + (riskLevel==='CRITICAL'?'#dc2626':riskLevel==='HIGH'?'#f97316':riskLevel==='MODERATE'?'#eab308':'#22c55e')">
-      <div class="k">Compliance Score</div>
-      <div class="v" [style.color]="riskLevel==='CRITICAL'?'#dc2626':riskLevel==='HIGH'?'#f97316':riskLevel==='MODERATE'?'#92400e':'#166534'">{{ completionPercent }}%</div>
-      <div class="muted mt-1">
-        <span [class]="'badge ' + riskLevel">{{ riskLevel }}</span>
-        <span class="ml-1.5">{{ highCritical }} high/critical items | {{ inspectionProbability }}% inspection probability</span>
+  <section aria-label="Monthly upload counts">
+    <h2 class="title">Monthly document uploads</h2>
+    <p class="sub">All monthly upload requirements for {{ monthLabel }}. The module filter applies only to the schedule below. Uploaded means submitted, resubmitted or approved with a file; pending includes corrections.</p>
+    @if (completionLoading) { <p role="status">Loading monthly upload counts...</p> }
+    @if (completionError) { <div class="error-banner" role="alert">{{ completionError }}</div> }
+    @if (completionReady) {
+      <div class="cards upload-cards">
+        <div class="card"><div class="k">Required monthly uploads</div><div class="v">{{ totalApplicableCodes }}</div></div>
+        <div class="card"><div class="k">Uploaded</div><div class="v">{{ completedCount }}</div></div>
+        <div class="card"><div class="k">Pending upload or correction</div><div class="v">{{ pendingCount }}</div></div>
+        <div class="card"><div class="k">Upload completion</div><div class="v">{{ completionPercent }}%</div></div>
       </div>
-    </div>
-  </div>
-}
+      @if (totalApplicableCodes === 0) { <p>No required monthly uploads for this branch and month.</p> }
+    }
+  </section>
+  @if (!loading && !errorMessage) {
+    <section aria-label="Schedule counts">
+      <h2 class="title">Scheduled obligations</h2>
+      <p class="sub">Selected month and schedule module. These are schedule entries, not document upload totals; past dates do not establish whether a document is missing.</p>
+      <div class="cards upload-cards">
+        <div class="card"><div class="k">Scheduled items</div><div class="v">{{ total }}</div><div class="muted">{{ returnsCount }} returns | {{ mcdCount }} MCD</div></div>
+        <div class="card"><div class="k">Past scheduled date</div><div class="v">{{ overdueCount }}</div></div>
+        <div class="card"><div class="k">Due soon</div><div class="v">{{ dueSoonCount }}</div></div>
+        <div class="card"><div class="k">Branch risk assessment</div>
+          @if (riskReady) { <div class="v">{{ riskLevel }}</div><div class="muted">{{ inspectionProbability }}% inspection probability</div> }
+          @else { <div class="muted">Unavailable</div> }
+        </div>
+      </div>
+    </section>
+  }
 
   @if (!loading && branchId) {
 <app-compliance-trend [branchId]="branchId" [months]="6"></app-compliance-trend>
@@ -141,7 +134,7 @@
 <app-risk-simulator [branchId]="branchId" [month]="month"></app-risk-simulator>
 }
 
-  @if (!loading) {
+  @if (!loading && !errorMessage) {
 <div class="tbl">
     <div class="table-wrap"><table>
       <thead>
