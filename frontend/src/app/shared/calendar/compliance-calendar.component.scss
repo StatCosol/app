@@ -146,8 +146,8 @@
     }
 
     &.active {
-      background: #f1f5f9;
-      color: #0f172a;
+      background: var(--portal-primary, #116653);
+      color: #fff;
     }
 
     &:hover:not(.active) {

@@ -68,15 +68,15 @@
     </div>
 
     <!-- View toggle -->
-    <div class="cal-view-toggle">
-      <button type="button" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" title="Calendar view">
+    <div class="cal-view-toggle" role="group" aria-label="Calendar display">
+      <button type="button" class="cal-view-btn" [attr.aria-pressed]="viewMode === 'grid'" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" title="Calendar view">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/>
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 10h16M10 4v16"/>
         </svg>
       </button>
-      <button type="button" [class.active]="viewMode === 'list'" (click)="viewMode = 'list'" title="List view">
+      <button type="button" class="cal-view-btn" [attr.aria-pressed]="viewMode === 'list'" [class.active]="viewMode === 'list'" (click)="viewMode = 'list'" title="List view">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 6h16M4 12h16M4 18h16"/>
