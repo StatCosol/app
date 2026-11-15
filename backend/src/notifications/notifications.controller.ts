@@ -74,7 +74,7 @@ export class NotificationsController {
     FilesInterceptor(
       'files',
       5,
-      makeSafeUploadOptions({ memory: true, maxMb: 10 }),
+      makeSafeUploadOptions({ memory: true, maxMb: 10, maxFiles: 5 }),
     ),
   )
   threadReply(
