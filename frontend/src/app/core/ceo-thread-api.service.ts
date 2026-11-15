@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { EMPTY, Observable } from 'rxjs';
+import { expand, map, reduce } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ThreadApi } from '../shared/thread/services/thread-api.interface';
 import {
@@ -25,16 +25,36 @@ export class CeoThreadApiService implements ThreadApi {
     if (filters.status) params = params.set('status', filters.status);
     if (filters.unread) params = params.set('unreadOnly', '1');
 
-    return this.http.get<any>(`${this.base}/inbox`, { params }).pipe(
-      map((res) => {
+    // Search includes sender/client/branch names, which the server's subject-only
+    // filter cannot cover. Collect the scoped pages before filtering and paging.
+    const fetchPage = (page: number) =>
+      this.http
+        .get<any>(`${this.base}/inbox`, {
+          params: params.set('page', page).set('limit', 100),
+        })
+        .pipe(
+          map((res) => ({
+            rows: res?.data ?? res?.rows ?? [],
+            total: Number(res?.total || 0),
+            page,
+            limit: Number(res?.limit || 100),
+          })),
+        );
+
+    return fetchPage(1).pipe(
+      expand((res) =>
+        res.rows.length && res.page * res.limit < res.total ? fetchPage(res.page + 1) : EMPTY,
+      ),
+      reduce((all: any[], res) => [...all, ...res.rows], []),
+      map((rows) => {
         const page = Math.max(1, Number(filters.page || 1));
         const limit = Math.max(1, Number(filters.limit || 20));
-        const q = String(filters.q || '').trim().toLowerCase();
+        const q = String(filters.q || '')
+          .trim()
+          .toLowerCase();
         const typeFilter = filters.type || '';
 
-        let items = (res?.data ?? res?.rows ?? []).map((row: any) =>
-          this.toListItem(row),
-        );
+        let items = rows.map((row: any) => this.toListItem(row));
 
         if (typeFilter) {
           items = items.filter((item: ThreadListItem) => item.type === typeFilter);
@@ -64,9 +84,7 @@ export class CeoThreadApiService implements ThreadApi {
   }
 
   read(id: string): Observable<ThreadDetail> {
-    return this.http
-      .get<any>(`${this.base}/threads/${id}`)
-      .pipe(map((res) => this.toDetail(res)));
+    return this.http.get<any>(`${this.base}/threads/${id}`).pipe(map((res) => this.toDetail(res)));
   }
 
   reply(id: string, message: string, files: File[] = []): Observable<any> {
@@ -92,17 +110,11 @@ export class CeoThreadApiService implements ThreadApi {
       id: String(row?.id ?? ''),
       type: this.normalizeType(row?.queryType ?? row?.query_type),
       status: row?.status ?? 'OPEN',
-      fromRole: this.normalizeRole(
-        row?.createdBy?.roleCode ?? row?.from?.roleCode ?? 'CEO',
-      ),
+      fromRole: this.normalizeRole(row?.createdBy?.roleCode ?? row?.from?.roleCode ?? 'CEO'),
       fromName: row?.createdBy?.name ?? row?.from?.name ?? '',
       subject: row?.subject ?? row?.title ?? '(No subject)',
       lastMessageAt:
-        row?.lastMessageAt ??
-        row?.last_message_at ??
-        row?.updatedAt ??
-        row?.createdAt ??
-        '',
+        row?.lastMessageAt ?? row?.last_message_at ?? row?.updatedAt ?? row?.createdAt ?? '',
       unread: !!row?.unread,
       priority: this.normalizePriority(row?.priority),
       clientName: row?.clientName ?? '',
@@ -138,22 +150,19 @@ export class CeoThreadApiService implements ThreadApi {
   }
 
   private normalizeType(value: unknown): ThreadType {
-    const v = String(value || '').toUpperCase().trim();
-    if (
-      v === 'TECHNICAL' ||
-      v === 'COMPLIANCE' ||
-      v === 'AUDIT' ||
-      v === 'GENERAL'
-    ) {
+    const v = String(value || '')
+      .toUpperCase()
+      .trim();
+    if (v === 'TECHNICAL' || v === 'COMPLIANCE' || v === 'AUDIT' || v === 'GENERAL') {
       return v;
     }
     return 'GENERAL';
   }
 
-  private normalizePriority(
-    value: unknown,
-  ): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
-    const priority = String(value || '').toUpperCase().trim();
+  private normalizePriority(value: unknown): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+    const priority = String(value || '')
+      .toUpperCase()
+      .trim();
     if (
       priority === 'LOW' ||
       priority === 'MEDIUM' ||
