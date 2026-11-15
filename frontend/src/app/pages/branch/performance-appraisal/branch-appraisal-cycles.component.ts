@@ -31,7 +31,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <ui-page-header
         title="Appraisal Cycles"
         subtitle="View active and past appraisal cycles">
-        <a routerLink="/branch/appraisal-dashboard" class="btn-secondary">Dashboard</a>
+        <a routerLink="/branch/appraisal-dashboard" class="standard-action btn-secondary">Dashboard</a>
       </ui-page-header>
 
       @if (loading) {
