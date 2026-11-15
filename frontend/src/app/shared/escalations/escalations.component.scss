@@ -53,6 +53,7 @@
 }
 
 .select {
+  max-width: 100%;
   padding: 8px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -148,9 +149,9 @@ td {
 
 .reason-cell {
   max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 160px;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .overdue-cell {
@@ -254,6 +255,8 @@ td {
 }
 
 /* ── Responsive ── */
+.load-error { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 10px; margin: 12px 0; }
+.retry-button { color: var(--brand-primary, #155e50); background: white; border: 1px solid currentColor; border-radius: 8px; padding: 8px 12px; margin: 4px; min-height: 36px; cursor: pointer; }
 @media (max-width: 768px) {
   .title-row { flex-direction: column; align-items: flex-start; }
   .controls { flex-direction: column; }

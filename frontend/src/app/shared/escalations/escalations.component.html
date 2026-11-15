@@ -3,17 +3,23 @@
   <div class="header">
     <div class="title-row">
       <h1 class="title">Escalations</h1>
-      <div class="stats">
+      @if (loaded && !loading && !loadError) { <div class="stats" aria-label="Counts for the current filters">
         <span class="stat-pill stat-open">{{ openCount }} Open</span>
         <span class="stat-pill stat-ack">{{ ackCount }} Acknowledged</span>
         <span class="stat-pill stat-closed">{{ closedCount }} Closed</span>
-      </div>
+      </div> }
     </div>
 
     <!-- ── Controls ── -->
     <div class="controls">
-      @if (!isBranchUser && branches.length) {
-<select id="e-selected-branch" name="selectedBranch"
+      @if (showClientPicker) {
+        <select aria-label="Client" [(ngModel)]="clientId" (ngModelChange)="onClientChange()" [disabled]="clientsLoading || !clients.length" class="select">
+          <option value="" disabled>{{ clientsLoading ? 'Loading clients…' : 'Select client' }}</option>
+          @for (c of clients; track c.id) { <option [value]="c.id">{{ c.clientName || c.name || 'Client' }}</option> }
+        </select>
+      }
+      @if (!isBranchUser) {
+<select id="e-selected-branch" name="selectedBranch" aria-label="Branch" [disabled]="branchesLoading || !!branchLoadError || (showClientPicker && !clientId)"
               [(ngModel)]="selectedBranch"
               (ngModelChange)="load()"
               class="select">
@@ -24,7 +30,7 @@
       </select>
 }
 
-      <select id="e-selected-status" name="selectedStatus" [(ngModel)]="selectedStatus"
+      <select id="e-selected-status" name="selectedStatus" aria-label="Escalation status" [(ngModel)]="selectedStatus"
               (ngModelChange)="load()"
               class="select">
         <option value="">All Statuses</option>
@@ -35,13 +41,20 @@
     </div>
   </div>
 
+  @if (clientLoadError) { <div class="load-error" role="alert">{{ clientLoadError }} <button type="button" class="retry-button" (click)="retryClients()">Retry clients</button></div> }
+  @if (branchLoadError) { <div class="load-error" role="alert">{{ branchLoadError }} <button type="button" class="retry-button" (click)="retryBranches()">Retry branches</button></div> }
+  @if (loadError) { <div class="load-error" role="alert">{{ loadError }} <button type="button" class="retry-button" (click)="load()">Retry escalations</button></div> }
+  @if (actionError) { <div class="load-error" role="alert">{{ actionError }} <button type="button" class="retry-button" (click)="load()">Refresh escalations</button></div> }
+  @if (clientsLoading || branchesLoading) { <p role="status">Loading scope options…</p> }
+  @if (showClientPicker && !clientId && !clientsLoading && !clientLoadError) { <p>Select an available client to view escalations.</p> }
+
   <!-- ── Loading ── -->
   @if (loading) {
 <div class="loading">Loading escalations…</div>
 }
 
   <!-- ── Table ── -->
-  @if (!loading && filtered.length > 0) {
+  @if (!loading && loaded && !loadError && filtered.length > 0) {
 <div class="table-wrap">
     <table>
       <thead>
@@ -82,13 +95,15 @@
             <div class="action-btns">
               <button class="compact-action btn btn-ack"
                       (click)="updateStatus(it, 'ACK')"
-                      [disabled]="it.status === 'ACK' || it.status === 'CLOSED'" title="Acknowledge" aria-label="Acknowledge" data-action-label="Acknowledge" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                      [disabled]="isSaving(it.id) || isUnconfirmed(it.id) || it.status === 'ACK' || it.status === 'CLOSED'" title="Acknowledge" aria-label="Acknowledge" data-action-label="Acknowledge" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
               <button class="standard-action btn btn-close"
                       (click)="updateStatus(it, 'CLOSED')"
-                      [disabled]="it.status === 'CLOSED'">
+                      [disabled]="isSaving(it.id) || isUnconfirmed(it.id) || it.status === 'CLOSED'">
                 Close
               </button>
             </div>
+            @if (isSaving(it.id)) { <span role="status">Saving status…</span> }
+            @if (isUnconfirmed(it.id)) { <button type="button" class="retry-button" (click)="load()">Refresh to confirm</button> }
           </td>
         </tr>
 }
@@ -98,14 +113,14 @@
 }
 
   <!-- ── Empty ── -->
-  @if (!loading && filtered.length === 0) {
+  @if (!loading && loaded && !loadError && filtered.length === 0) {
 <div class="empty">
     <svg class="empty-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round"
             d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>
     <p>No escalations found</p>
-    <p class="empty-sub">All clear — no open escalations matching your filters.</p>
+    <p class="empty-sub">No escalations match the current filters.</p>
   </div>
 }
 </div>
