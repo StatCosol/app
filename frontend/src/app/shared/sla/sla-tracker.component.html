@@ -7,13 +7,20 @@
     </div>
 
     <div class="controls">
-      <select id="st-branch-id" name="slaBranchId" [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1" class="ctrl-select">
+      @if (showClientPicker) {
+        <select aria-label="Client" name="slaClientId" [(ngModel)]="clientId" (change)="onClientChange()" [disabled]="clientsLoading || !clients.length" class="ctrl-select">
+          <option value="" disabled>{{ clientsLoading ? 'Loading clients…' : clientLoadError ? 'Clients unavailable' : 'Select client' }}</option>
+          @for (client of clients; track client.id) { <option [value]="client.id">{{ client.name }}</option> }
+        </select>
+      }
+      <select aria-label="Branch" id="st-branch-id" name="slaBranchId" [(ngModel)]="branchId" (change)="load()" [disabled]="branchesLoading || branches.length <= 1" class="ctrl-select">
+        <option value="" disabled>{{ branchesLoading ? 'Loading branches…' : branchLoadError ? 'Branches unavailable' : 'Select branch' }}</option>
         @for (b of branches; track b) {
 <option [value]="b.id">{{ b.name }}</option>
 }
       </select>
 
-      <select id="st-module" name="slaModule" [(ngModel)]="module" (change)="load()" class="ctrl-select">
+      <select aria-label="Compliance module" id="st-module" name="slaModule" [(ngModel)]="module" (change)="load()" class="ctrl-select">
         <option value="ALL">All Modules</option>
         <option value="REGISTRATION">Registrations</option>
         <option value="MCD">MCD</option>
@@ -21,7 +28,7 @@
         <option value="AUDIT">Audit</option>
       </select>
 
-      <select id="st-status" name="slaStatus" [(ngModel)]="status" (change)="load()" class="ctrl-select">
+      <select aria-label="Task status" id="st-status" name="slaStatus" [(ngModel)]="status" (change)="load()" class="ctrl-select">
         <option value="OPEN">Open</option>
         <option value="IN_PROGRESS">In Progress</option>
         <option value="OVERDUE">Overdue</option>
@@ -29,6 +36,23 @@
       </select>
     </div>
   </div>
+
+  @if (clientLoadError) {
+    <div class="load-error" role="alert">{{ clientLoadError }} <button class="retry-button" type="button" (click)="retryClients()">Retry clients</button></div>
+  }
+  @if (branchLoadError) {
+    <div class="load-error" role="alert">{{ branchLoadError }} <button class="retry-button" type="button" (click)="retryBranches()">Retry branches</button></div>
+  }
+  @if (loadError) {
+    <div class="load-error" role="alert">{{ loadError }} <button class="retry-button" type="button" (click)="load()">Retry tasks</button></div>
+  }
+  @if (actionError) {
+    <div class="load-error" role="alert">{{ actionError }} <button class="retry-button" type="button" (click)="load()">Refresh tasks</button></div>
+  }
+  @if (clientsLoading || branchesLoading) { <p role="status">Loading scope options…</p> }
+  @if (!loading && !tasksLoaded && !loadError && !clientLoadError && !branchLoadError && !clientsLoading && !branchesLoading) {
+    <p class="empty-cell">Select an available branch to view its SLA tasks.</p>
+  }
 
   <!-- Loading -->
   @if (loading) {
@@ -39,7 +63,7 @@
 }
 
   <!-- Table -->
-  @if (!loading) {
+  @if (!loading && tasksLoaded && !loadError) {
 <div class="table-wrap">
     <table>
       <thead>
@@ -59,20 +83,25 @@
           <td><span class="module-tag" [ngClass]="it.module">{{ it.module }}</span></td>
           <td class="title-cell">{{ it.title }}</td>
           <td><span class="priority-tag" [ngClass]="it.priority">{{ it.priority }}</span></td>
-          <td><span class="status-badge" [ngClass]="it.status">{{ it.status }}</span></td>
+          <td>
+            <span class="status-badge" [ngClass]="it.status">{{ it.status }}</span>
+            @if (it.status === 'OVERDUE' && workStatus(it) === 'IN_PROGRESS') { <span class="status-badge IN_PROGRESS">In Progress</span> }
+          </td>
           <td>
             <div class="actions">
               <button
                 class="btn btn-progress"
                 (click)="setStatus(it, 'IN_PROGRESS')"
-                [disabled]="it.status === 'IN_PROGRESS' || it.status === 'CLOSED'"
+                [disabled]="isSaving(it.id) || isUnconfirmed(it.id) || workStatus(it) === 'IN_PROGRESS' || workStatus(it) === 'CLOSED'"
               >In Progress</button>
               <button
                 class="standard-action btn btn-close"
                 (click)="setStatus(it, 'CLOSED')"
-                [disabled]="it.status === 'CLOSED'"
+                [disabled]="isSaving(it.id) || isUnconfirmed(it.id) || workStatus(it) === 'CLOSED'"
               >Close</button>
             </div>
+            @if (isSaving(it.id)) { <span role="status">Saving status…</span> }
+            @if (isUnconfirmed(it.id)) { <button class="retry-button" type="button" (click)="load()">Refresh to confirm</button> }
           </td>
         </tr>
 }
