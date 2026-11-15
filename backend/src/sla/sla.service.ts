@@ -66,6 +66,7 @@ export class SlaService {
     return {
       items: rows.map((row) => ({
         ...row,
+        workflowStatus: row.status === 'OVERDUE' ? 'OPEN' : row.status,
         status:
           row.status !== 'CLOSED' && row.dueDate < today
             ? 'OVERDUE'

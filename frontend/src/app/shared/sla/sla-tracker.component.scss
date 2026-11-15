@@ -30,9 +30,16 @@
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
 }
 
+.load-error { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px; margin-bottom: 16px; border: 1px solid #fbbf24; border-radius: 12px; background: #fffbeb; color: #92400e; overflow-wrap: anywhere; }
+.retry-button { min-height: 40px; padding: 8px 14px; border-radius: 8px; border: 1px solid currentColor; background: white; color: var(--portal-primary, #116653); font-weight: 600; }
+
 .ctrl-select {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 10px 14px;
