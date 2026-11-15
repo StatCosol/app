@@ -85,7 +85,7 @@ import {
 
           <!-- Content -->
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-0.5">
+            <div class="flex flex-wrap items-center gap-2 mb-0.5">
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                     [class]="r.reminder_type === 'RETURN_DUE' ? 'bg-brand-100 text-brand-800' : 'bg-orange-100 text-orange-800'">
                 {{ r.reminder_type === 'RETURN_DUE' ? 'Return' : 'Registration' }}
@@ -96,7 +96,7 @@ import {
               </span>
 }
             </div>
-            <p class="text-sm font-semibold text-slate-800 truncate">{{ r.title }}</p>
+            <p class="reminder-title text-sm font-semibold text-slate-800 whitespace-normal [overflow-wrap:anywhere]">{{ r.title }}</p>
             <p class="text-xs text-slate-500">{{ r.branch_name }} · Due {{ r.due_date | date:'mediumDate' }}</p>
           </div>
 

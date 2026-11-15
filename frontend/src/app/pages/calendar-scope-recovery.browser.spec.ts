@@ -16,8 +16,8 @@ afterEach(() => {
   TestBed.resetTestingModule();
   document.querySelectorAll('[data-calendar-test]').forEach(n => n.remove());
 });
-function host(element: HTMLElement) {
-  const h = document.createElement('main'); h.className = 'workspace-ui';
+function host(element: HTMLElement, role = 'Client') {
+  const h = document.createElement('app-' + role.toLowerCase() + '-layout'); h.className = 'workspace-ui';
   h.setAttribute('data-calendar-test', ''); document.body.append(h); h.append(element); return h;
 }
 function select(h: HTMLElement, label: string, value: string) {
@@ -41,7 +41,7 @@ for (const width of [390, 768, 1440]) {
           { provide: CrmClientsApi, useValue: { getBranchesForClient: () => of(branches) } },
         ],
       }).compileComponents();
-      const f = TestBed.createComponent(ComplianceCalendarComponent), c = f.componentInstance, h = host(f.nativeElement);
+      const f = TestBed.createComponent(ComplianceCalendarComponent), c = f.componentInstance, h = host(f.nativeElement, role);
       f.detectChanges(); await f.whenStable();
       const old = reads[0];
       select(h, 'Branch', 'TEST-B'); await f.whenStable();
@@ -52,7 +52,17 @@ for (const width of [390, 768, 1440]) {
       await f.whenStable();
       expect(h.textContent).toContain('TEST-current'); expect(h.textContent).not.toContain('TEST-stale');
       expect(h.scrollWidth).toBeLessThanOrEqual(width + 1);
+      const gridButton = h.querySelector<HTMLButtonElement>('button[title="Calendar view"]')!;
+      const listButton = h.querySelector<HTMLButtonElement>('button[title="List view"]')!;
+      expect(gridButton.getAttribute('aria-pressed')).toBe('true');
+      expect(listButton.getAttribute('aria-pressed')).toBe('false');
+      const activeColor = getComputedStyle(gridButton).backgroundColor;
+      expect(activeColor).not.toBe(getComputedStyle(listButton).backgroundColor);
       (h.querySelector('button[title="List view"]') as HTMLButtonElement).click(); await f.whenStable();
+      expect(gridButton.getAttribute('aria-pressed')).toBe('false');
+      expect(listButton.getAttribute('aria-pressed')).toBe('true');
+      await expect.poll(() => getComputedStyle(listButton).backgroundColor).toBe(activeColor);
+      await expect.poll(() => getComputedStyle(gridButton).backgroundColor).not.toBe(activeColor);
       expect(h.querySelector('.cal-list')).not.toBeNull(); expect(h.scrollWidth).toBeLessThanOrEqual(width + 1);
       select(h, 'Compliance module', 'RETURNS'); await f.whenStable();
       reads.at(-1)!.error(Error('Synthetic outage')); await f.whenStable();
@@ -79,9 +89,13 @@ for (const width of [390, 768, 1440]) {
     }).compileComponents();
     const f = TestBed.createComponent(ClientComplianceRemindersComponent), h = host(f.nativeElement);
     f.detectChanges(); await f.whenStable(); select(h, 'Branch', 'TEST-B'); await f.whenStable();
-    reads[1].next([{ title: 'TEST-current', days_left: 7, due_date: '2026-11-22', reminder_type: 'RETURN_DUE', branch_name: 'Synthetic B' }]);
+    reads[1].next([{ title: 'TEST-current-' + 'long_reminder_name_'.repeat(12), status: 'PENDING_REVIEW', days_left: 7, due_date: '2026-11-22', reminder_type: 'RETURN_DUE', branch_name: 'Synthetic B' }]);
     reads[0].next([{ title: 'TEST-stale' }]); await f.whenStable();
     expect(h.textContent).toContain('TEST-current'); expect(h.textContent).not.toContain('TEST-stale');
+    const title = Array.from(h.querySelectorAll('p')).find(p => p.textContent?.startsWith('TEST-current'))!;
+    expect(getComputedStyle(title).whiteSpace).not.toBe('nowrap');
+    expect(title.scrollWidth).toBeLessThanOrEqual(title.clientWidth + 1);
+    expect(h.scrollWidth).toBeLessThanOrEqual(width + 1);
     select(h, 'Branch', 'TEST-A'); await f.whenStable(); reads[2].error(Error('Synthetic outage')); await f.whenStable();
     expect(h.querySelector('[role=alert]')?.textContent).toContain('Retry');
     expect(h.textContent).not.toContain('No upcoming');
