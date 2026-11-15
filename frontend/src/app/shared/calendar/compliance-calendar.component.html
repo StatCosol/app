@@ -25,7 +25,7 @@
   <div class="cal-controls">
     <!-- CRM: Client selector -->
     @if (isCrm && clients.length) {
-<select id="cc-selected-client-id" name="calClientId" [(ngModel)]="selectedClientId"
+<select id="cc-selected-client-id" aria-label="Client" name="calClientId" [(ngModel)]="selectedClientId"
             (ngModelChange)="onClientChange()" class="cal-select">
       @for (c of clients; track c) {
 <option [value]="c.id">{{ c.name }}</option>
@@ -35,7 +35,7 @@
 
     <!-- Branch selector -->
     @if (branches.length > 1) {
-<select name="calBranchId" [(ngModel)]="selectedBranchId"
+<select aria-label="Branch" name="calBranchId" [(ngModel)]="selectedBranchId"
             (ngModelChange)="reload()" class="cal-select">
       <option value="">All Branches</option>
       @for (b of branches; track b) {
@@ -45,7 +45,7 @@
 }
 
     <!-- Module filter -->
-    <select id="cc-module" name="calModule" [(ngModel)]="module" (ngModelChange)="reload()" class="cal-select">
+    <select id="cc-module" aria-label="Compliance module" name="calModule" [(ngModel)]="module" (ngModelChange)="reload()" class="cal-select">
       <option value="ALL">All Modules</option>
       <option value="REGISTRATION">Registrations</option>
       <option value="MCD">MCD</option>
@@ -59,7 +59,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
       </button>
-      <input autocomplete="off" id="cc-month" type="month" name="calMonth" [(ngModel)]="month" (change)="reload()" class="cal-month-input" />
+      <input autocomplete="off" id="cc-month" aria-label="Calendar month" type="month" name="calMonth" [(ngModel)]="month" (change)="reload()" class="cal-month-input" />
       <button type="button" class="cal-nav-btn" (click)="nextMonth()" title="Next month">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -85,6 +85,18 @@
     </div>
   </div>
 
+  @if (clientLoadError || branchLoadError) {
+    <div class="cal-error" role="alert">
+      <span>{{ clientLoadError || branchLoadError }}</span>
+      <button type="button" class="btn btn-secondary" (click)="retryScopeOptions()">Retry selections</button>
+    </div>
+  }
+  @if (loadError) {
+    <div class="cal-error" role="alert">
+      <span>{{ loadError }}</span>
+      <button type="button" class="btn btn-secondary" (click)="reload()">Retry calendar</button>
+    </div>
+  }
   <!-- ═══ Loading ═══ -->
   @if (loading) {
 <div class="cal-loading">
@@ -94,7 +106,7 @@
 }
 
   <!-- ═══ Calendar Grid ═══ -->
-  @if (!loading && viewMode === 'grid') {
+  @if (!loading && calendarLoaded && !loadError && !clientLoadError && viewMode === 'grid') {
 <div class="cal-grid-wrapper">
     <!-- Day-of-week headers -->
     <div class="cal-dow-row">
@@ -105,7 +117,7 @@
 
     <div class="cal-grid">
       <!-- Leading blanks -->
-      @for (_ of leadingBlanks; track _) {
+      @for (_ of leadingBlanks; track $index) {
 <div class="cal-cell cal-cell--blank"></div>
 }
 
@@ -136,7 +148,7 @@
 }
 
   <!-- ═══ List View ═══ -->
-  @if (!loading && viewMode === 'list') {
+  @if (!loading && calendarLoaded && !loadError && !clientLoadError && viewMode === 'list') {
 <div class="cal-list">
     <table>
       <thead>
@@ -176,7 +188,7 @@
 }
 
   <!-- ═══ Empty state (grid) ═══ -->
-  @if (!loading && viewMode === 'grid' && allItems.length === 0) {
+  @if (!loading && calendarLoaded && !loadError && !clientLoadError && viewMode === 'grid' && allItems.length === 0) {
 <div class="cal-empty-state">
     <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"

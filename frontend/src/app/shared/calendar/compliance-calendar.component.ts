@@ -11,7 +11,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
 import { AuthService } from '../../core/auth.service';
 import { CrmService } from '../../core/crm.service';
 import { CrmClientsApi } from '../../core/api/crm-clients.api';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 type ModuleType = 'ALL' | 'REGISTRATION' | 'MCD' | 'RETURNS';
@@ -56,6 +56,13 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
   loading = false;
   days: CalendarDay[] = [];
   allItems: any[] = [];
+  loadError = '';
+  calendarLoaded = false;
+  clientLoadError = '';
+  branchLoadError = '';
+  private calendarRequest?: Subscription;
+  private branchRequest?: Subscription;
+  private clientRequest?: Subscription;
 
   private readonly destroy$ = new Subject<void>();
   private todayISO = '';
@@ -78,18 +85,23 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
     if (this.isCrm) {
       this.initCrm();
     } else {
-      this.initClient();
+      this.initClient(true);
     }
   }
 
   ngOnDestroy(): void {
+    this.calendarRequest?.unsubscribe();
+    this.branchRequest?.unsubscribe();
+    this.clientRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   /** CRM: load assigned clients first, then branches for selected client */
   private initCrm(): void {
-    this.crmService
+    this.clientRequest?.unsubscribe();
+    this.clientLoadError = '';
+    this.clientRequest = this.crmService
       .getAssignedClientsCached()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -101,36 +113,44 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
           if (this.clients.length) {
             this.selectedClientId = this.clients[0].id;
             this.loadBranchesForClient();
+          } else {
+            this.clientLoadError = 'No assigned clients are available for this calendar.';
           }
           this.cdr.markForCheck();
         },
         error: () => {
           this.clients = [];
+          this.clientLoadError = 'Clients could not be loaded. Retry to select a client.';
           this.cdr.markForCheck();
         },
       });
   }
 
   /** CLIENT / BRANCH: load branches from client portal */
-  private initClient(): void {
+  private initClient(resetScope = false): void {
+    this.branchRequest?.unsubscribe();
+    this.branchLoadError = '';
     const branchIds = this.auth.getBranchIds();
 
     if (branchIds?.length) {
       // Branch user — locked to their branches
       this.branches = branchIds.map((id) => ({ id, name: 'Branch' }));
-      this.selectedBranchId = branchIds[0];
+      if (resetScope) this.selectedBranchId = branchIds[0];
       this.reload();
-      this.api.list().pipe(takeUntil(this.destroy$)).subscribe({
+      this.branchRequest = this.api.list().pipe(takeUntil(this.destroy$)).subscribe({
         next: (b: any[]) => {
           const nameMap = new Map((b || []).map((x: any) => [x.id, x.branchName || x.name || 'Branch']));
           this.branches = branchIds.map((id) => ({ id, name: nameMap.get(id) || 'Branch' }));
           this.cdr.markForCheck();
         },
-        error: () => this.cdr.markForCheck(),
+        error: () => {
+          this.branchLoadError = 'Branch names could not be loaded. Retry to refresh the branch selector.';
+          this.cdr.markForCheck();
+        },
       });
     } else {
       // Master user — load all branches
-      this.api
+      this.branchRequest = this.api
         .list()
         .pipe(takeUntil(this.destroy$))
         .subscribe({
@@ -142,17 +162,25 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
             this.cdr.markForCheck();
             this.reload();
           },
-          error: () => this.cdr.markForCheck(),
+          error: () => {
+            this.branchLoadError = 'Branches could not be loaded. Retry to load the calendar.';
+            this.cdr.markForCheck();
+          },
         });
     }
   }
 
   /** CRM: load branches for the selected client */
-  loadBranchesForClient(): void {
+  loadBranchesForClient(resetScope = true): void {
+    this.branchRequest?.unsubscribe();
+    this.branchLoadError = '';
+    if (resetScope) {
+      this.branches = [];
+      this.selectedBranchId = '';
+      this.reload();
+    }
     if (!this.selectedClientId) return;
-    this.branches = [];
-    this.selectedBranchId = '';
-    this.crmClientsApi
+    this.branchRequest = this.crmClientsApi
       .getBranchesForClient(this.selectedClientId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -165,9 +193,16 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.branches = [];
+          this.branchLoadError = 'Branches could not be loaded. Retry to refresh the branch selector.';
+          this.cdr.markForCheck();
         },
       });
-    this.reload();
+  }
+
+  retryScopeOptions(): void {
+    if (this.clientLoadError) this.initCrm();
+    else if (this.isCrm) this.loadBranchesForClient(false);
+    else this.initClient();
   }
 
   onClientChange(): void {
@@ -175,6 +210,23 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
   }
 
   reload(): void {
+    this.calendarRequest?.unsubscribe();
+    this.allItems = [];
+    this.days = [];
+    this.calendarLoaded = false;
+    this.loading = false;
+    this.loadError = '';
+    if (!/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(this.month)) {
+      this.loadError = 'Select a valid month to load compliance deadlines.';
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.isCrm && !this.selectedClientId) {
+      this.loadError = 'Select a client to load compliance deadlines.';
+      this.cdr.markForCheck();
+      return;
+    }
+    const requestMonth = this.month;
     const [from, to] = this.monthRange(this.month);
     const mod = this.module === 'ALL' ? undefined : this.module;
 
@@ -193,19 +245,21 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
       params.clientId = this.selectedClientId;
     }
 
-    this.api
+    this.calendarRequest = this.api
       .getCalendar(params)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res: any) => {
           this.allItems = res?.items || [];
-          this.days = this.buildMonthCells(this.month, this.allItems);
+          this.calendarLoaded = true;
+          this.days = this.buildMonthCells(requestMonth, this.allItems);
           this.loading = false;
           this.cdr.markForCheck();
         },
         error: () => {
           this.allItems = [];
-          this.days = this.buildMonthCells(this.month, []);
+          this.days = [];
+          this.loadError = 'Compliance deadlines could not be loaded. Retry before relying on this calendar.';
           this.loading = false;
           this.cdr.markForCheck();
         },
@@ -257,6 +311,11 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
   }
 
   prevMonth(): void {
+    if (!/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(this.month)) {
+      this.month = this.toYYYYMM(new Date());
+      this.reload();
+      return;
+    }
     const [y, m] = this.month.split('-').map(Number);
     const d = new Date(y, m - 2, 1);
     this.month = this.toYYYYMM(d);
@@ -264,6 +323,11 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
   }
 
   nextMonth(): void {
+    if (!/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(this.month)) {
+      this.month = this.toYYYYMM(new Date());
+      this.reload();
+      return;
+    }
     const [y, m] = this.month.split('-').map(Number);
     const d = new Date(y, m, 1);
     this.month = this.toYYYYMM(d);

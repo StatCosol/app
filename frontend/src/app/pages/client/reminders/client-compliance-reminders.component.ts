@@ -8,8 +8,8 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Subject, of } from 'rxjs';
-import { takeUntil, catchError } from 'rxjs/operators';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ClientVisibilityService } from '../../../core/client-visibility.service';
 import { environment } from '../../../../environments/environment';
 import {
@@ -29,7 +29,7 @@ import {
     <div class="p-6">
       <!-- Branch filter -->
       <div class="mb-4">
-        <select [(ngModel)]="selectedBranchId" (ngModelChange)="loadReminders()"
+        <select aria-label="Branch" [(ngModel)]="selectedBranchId" (ngModelChange)="loadReminders()"
                 class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
           <option value="">All Branches</option>
           @for (b of branches; track b) {
@@ -38,13 +38,25 @@ import {
         </select>
       </div>
 
+      @if (branchLoadError) {
+        <div role="alert" class="mb-4 p-4 rounded-lg bg-orange-50 text-orange-900">
+          <p>{{ branchLoadError }}</p>
+          <button type="button" class="btn btn-secondary mt-2" (click)="loadBranches()">Retry branches</button>
+        </div>
+      }
+      @if (loadError) {
+        <div role="alert" class="mb-4 p-4 rounded-lg bg-orange-50 text-orange-900">
+          <p>{{ loadError }}</p>
+          <button type="button" class="btn btn-secondary mt-2" (click)="loadReminders()">Retry reminders</button>
+        </div>
+      }
       @if (loading) {
 <ui-loading-spinner></ui-loading-spinner>
 }
 
-      @if (!loading && reminders.length === 0) {
+      @if (!loading && !loadError && reminders.length === 0) {
 <div>
-        <ui-empty-state message="No upcoming compliance reminders." icon="bell"></ui-empty-state>
+        <ui-empty-state title="No upcoming compliance reminders." description="No reminders were returned for the selected branch in the next 30 days."></ui-empty-state>
       </div>
 }
 
@@ -109,6 +121,10 @@ export class ClientComplianceRemindersComponent implements OnInit, OnDestroy {
   reminders: any[] = [];
   branches: any[] = [];
   selectedBranchId = '';
+  loadError = '';
+  branchLoadError = '';
+  private reminderRequest?: Subscription;
+  private branchRequest?: Subscription;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -123,27 +139,47 @@ export class ClientComplianceRemindersComponent implements OnInit, OnDestroy {
   }
 
   loadBranches() {
-    this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/client/branches`)
-      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
-      .subscribe(data => {
-        this.branches = data || [];
-        this.cdr.markForCheck();
+    this.branchRequest?.unsubscribe();
+    this.branchLoadError = '';
+    this.branchRequest = this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/client/branches`)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: data => {
+          this.branches = data || [];
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.branchLoadError = 'Branches could not be loaded. Retry to refresh the branch selector.';
+          this.cdr.markForCheck();
+        },
       });
   }
 
   loadReminders() {
+    this.reminderRequest?.unsubscribe();
+    this.loadError = '';
+    this.reminders = [];
     this.loading = true;
     this.cdr.markForCheck();
-    this.visibilityService.getReminders(30, this.selectedBranchId || undefined)
-      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
-      .subscribe(data => {
-        this.reminders = data;
-        this.loading = false;
-        this.cdr.markForCheck();
+    this.reminderRequest = this.visibilityService.getReminders(30, this.selectedBranchId || undefined)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: data => {
+          this.reminders = data || [];
+          this.loading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.loadError = 'Compliance reminders could not be loaded. Retry before relying on these deadlines.';
+          this.loading = false;
+          this.cdr.markForCheck();
+        },
       });
   }
 
   ngOnDestroy() {
+    this.reminderRequest?.unsubscribe();
+    this.branchRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }

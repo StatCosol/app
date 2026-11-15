@@ -65,6 +65,7 @@
 }
 
 .cal-select {
+  max-width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 8px 12px;
@@ -204,11 +205,12 @@
 
 .cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
 
 .cal-cell {
+  min-width: 0;
   background: #fff;
   border: 1px solid #f1f5f9;
   border-radius: 12px;
@@ -444,6 +446,18 @@
 }
 
 /* ── Empty state ── */
+.cal-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+}
 .cal-empty {
   text-align: center;
   padding: 24px;
@@ -459,7 +473,7 @@
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .cal-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .cal-dow-row {
