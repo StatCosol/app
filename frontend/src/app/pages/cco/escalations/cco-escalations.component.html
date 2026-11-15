@@ -1,136 +1,75 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <ui-page-header
-    title="Escalations"
-    subtitle="Monitor and action compliance escalations across all portals">
-    <ui-button variant="secondary" size="sm" (clicked)="load()" icon="refresh" [iconOnly]="true" label="Refresh">Refresh</ui-button>
-  </ui-page-header>
-
-  <!-- KPI Strip -->
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-    <ui-stat-card label="Total" [value]="kpiTotal" color="primary"></ui-stat-card>
-    <ui-stat-card label="Open" [value]="kpiOpen" color="warning"></ui-stat-card>
-    <ui-stat-card label="In Progress" [value]="kpiInProgress" color="info"></ui-stat-card>
-    <ui-stat-card label="Critical" [value]="kpiCritical" color="error"></ui-stat-card>
-  </div>
-
-  <!-- Tabs by Escalation Type -->
-  <div class="flex items-center gap-1 mb-4 bg-gray-100 rounded-xl p-1 w-fit overflow-x-auto">
-    @for (opt of tabOptions; track opt) {
-<button type="button"
-      (click)="setTab(opt.value)"
-      [class]="tab === opt.value
-        ? 'bg-white shadow-sm text-gray-900 font-semibold'
-        : 'text-gray-500 hover:text-gray-700'"
-      class="px-4 py-2 rounded-lg text-sm transition-all whitespace-nowrap">
-      {{ opt.label }}
-    </button>
-}
-  </div>
-
-  <!-- Filters -->
-  <div class="flex gap-3 mb-4">
-    <select id="ce-status-filter" name="statusFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-brand-500"
-      [(ngModel)]="statusFilter" (change)="load()">
-      <option value="">All Statuses</option>
-      <option value="OPEN">Open</option>
-      <option value="IN_PROGRESS">In Progress</option>
-      <option value="CLOSED">Closed</option>
-    </select>
-  </div>
-
-  <!-- Loading & Empty -->
-  @if (loading) {
-<ui-loading-spinner text="Loading escalations..."></ui-loading-spinner>
-}
-  @if (!loading && filtered.length === 0) {
-<ui-empty-state
-    title="No escalations" message="No escalations match your current filters.">
-  </ui-empty-state>
-}
-
-  <!-- Table -->
-  @if (!loading && filtered.length) {
-<ui-data-table
-    [columns]="columns" [data]="filtered" [loading]="loading"
-    emptyMessage="No escalations found.">
-    <ng-template uiTableCell="type" let-row>
-      <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-        {{ row.type?.replace('_', ' ') || '-' }}
-      </span>
-    </ng-template>
-    <ng-template uiTableCell="clientBranch" let-row>
-      <div class="text-gray-900 font-medium">{{ row.clientName || '-' }}</div>
-      <div class="text-xs text-gray-500">{{ row.branchName || '-' }}</div>
-    </ng-template>
-    <ng-template uiTableCell="title" let-row>{{ row.title || '-' }}</ng-template>
-    <ng-template uiTableCell="severity" let-row>
-      <span [class]="severityColor(row.severity)"
-        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
-        {{ row.severity }}
-      </span>
-    </ng-template>
-    <ng-template uiTableCell="ageDays" let-row>
-      <span class="font-medium" [class]="row.ageDays > 7 ? 'text-red-600' : 'text-gray-700'">{{ row.ageDays ?? '-' }}</span>
-    </ng-template>
-    <ng-template uiTableCell="status" let-row>
-      <ui-status-badge [status]="row.status" size="sm"></ui-status-badge>
-    </ng-template>
-    <ng-template uiTableCell="actions" let-row>
-      <div class="flex justify-end gap-2">
-        <ui-button variant="secondary" size="sm" (clicked)="openAssignModal(row)"
-          [disabled]="row.status === 'CLOSED'" icon="cog" [iconOnly]="true" label="Assign">Assign</ui-button>
-        <ui-button variant="secondary" size="sm" (clicked)="openNotifyModal(row)"
-          [disabled]="row.status === 'CLOSED'" icon="send" [iconOnly]="true" label="Notify">Notify</ui-button>
-        <ui-button variant="secondary" size="sm" (clicked)="closeEscalation(row)"
-          [disabled]="row.status === 'CLOSED'">Close</ui-button>
-      </div>
-    </ng-template>
-  </ui-data-table>
-}
-
-  <!-- Assign Modal -->
-  @if (showAssignModal) {
-<div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Assign Escalation</h3>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1" for="assign-role">Assignee Role</label>
-          <select id="assign-role" name="assignRole" class="w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="assignRole">
-            <option value="CRM">CRM</option>
-            <option value="AUDITOR">Auditor</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1" for="assignee-id">Assignee</label>
-          <select id="assignee-id" name="assigneeId" class="w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="assigneeId">
-            <option value="">Select a user…</option>
-            @for (u of filteredUsers; track u) {
-<option [value]="u.id">{{ u.name }} ({{ u.email }})</option>
-}
-          </select>
-        </div>
-      </div>
-      <div class="flex justify-end gap-3 mt-6">
-        <ui-button variant="secondary" (clicked)="showAssignModal = false">Cancel</ui-button>
-        <ui-button variant="primary" (clicked)="confirmAssign()" [disabled]="!assigneeId.trim()" icon="cog" [iconOnly]="true" label="Assign">Assign</ui-button>
-      </div>
+<section class="page" aria-labelledby="cco-escalation-title">
+  <div class="header">
+    <div class="title-row">
+      <h1 id="cco-escalation-title" class="title">Escalations</h1>
+      <button type="button" class="retry-button" (click)="load()" [disabled]="loading">Refresh escalations</button>
     </div>
+    <p>Review risk and overdue SLA issues for your assigned clients. Acknowledge an issue when review begins and close it after resolution.</p>
+    <form class="controls" (ngSubmit)="applyFilters()" aria-label="Escalation filters">
+      <label for="ce-status-filter">Status
+        <select id="ce-status-filter" name="status" class="select" [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
+          <option value="">All statuses</option>
+          <option value="OPEN">Open</option>
+          <option value="ACK">Acknowledged</option>
+          <option value="CLOSED">Closed</option>
+        </select>
+      </label>
+      <label for="ce-search">Client, branch or reason
+        <input id="ce-search" name="search" class="select" [(ngModel)]="search" placeholder="Search escalations" />
+      </label>
+      <button type="submit" class="retry-button">Search</button>
+    </form>
   </div>
-}
-
-  <!-- Notify Modal -->
-  @if (showNotifyModal) {
-<div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Send Notification</h3>
-      <textarea autocomplete="off" id="ce-notify-message" name="notifyMessage" class="w-full rounded-lg border-gray-300 text-sm mb-4" rows="3"
-        [(ngModel)]="notifyMessage" placeholder="Enter notification message..."></textarea>
-      <div class="flex justify-end gap-3">
-        <ui-button variant="secondary" (clicked)="showNotifyModal = false">Cancel</ui-button>
-        <ui-button variant="primary" (clicked)="sendNotification()" [disabled]="!notifyMessage.trim()" icon="send" [iconOnly]="true" label="Send">Send</ui-button>
-      </div>
+  @if (loading) { <p role="status">Loading escalations…</p> }
+  @if (loadError) {
+    <div role="alert" class="load-error">{{ loadError }}
+      <button type="button" class="retry-button" (click)="load()">Retry escalations</button>
     </div>
-  </div>
-}
-</div>
+  }
+  @if (actionError) {
+    <div role="alert" class="load-error">{{ actionError }}
+      <button type="button" class="retry-button" (click)="load()">Refresh to confirm</button>
+    </div>
+  }
+  @if (loaded && !loading && !loadError) {
+    <p role="status">{{ total }} matching escalations · Page {{ page }} of {{ pageCount }}</p>
+    <div class="stats" aria-label="Counts on this page">
+      <span class="stat-pill stat-open">{{ openCount }} Open on this page</span>
+      <span class="stat-pill stat-ack">{{ ackCount }} Acknowledged on this page</span>
+      <span class="stat-pill stat-closed">{{ closedCount }} Closed on this page</span>
+    </div>
+    @if (items.length === 0) {
+      <div class="empty"><p>No escalations match the current filters.</p></div>
+    } @else {
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Escalation records">
+        <table>
+          <thead><tr><th>Client / Branch</th><th>Created</th><th>Reason</th><th>Risk score</th><th>Overdue SLAs</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            @for (row of items; track row.id) {
+              <tr>
+                <td class="reason-cell"><div>{{ row.client?.clientName || 'Client name unavailable' }}</div><div>{{ row.branch?.branchName || 'Branch name unavailable' }}</div></td>
+                <td class="date-cell">{{ row.createdAt | date:'dd-MMM-yyyy' }}</td>
+                <td class="reason-cell">{{ row.reason }}</td>
+                <td>{{ row.riskScore }}%</td>
+                <td>{{ row.slaOverdueCount }}</td>
+                <td><span class="badge" [ngClass]="row.status">{{ row.status === 'ACK' ? 'Acknowledged' : row.status }}</span></td>
+                <td>
+                  <div class="action-btns">
+                    <button type="button" class="btn btn-ack" [disabled]="!canAct(row, 'ACK')" (click)="updateStatus(row, 'ACK')">Acknowledge</button>
+                    <button type="button" class="btn btn-close" [disabled]="!canAct(row, 'CLOSED')" (click)="closeEscalation(row)">Close</button>
+                  </div>
+                  @if (isSaving(row.id)) { <span role="status">Saving status…</span> }
+                  @if (isUncertain(row.id)) { <span role="status">Refresh to confirm this status.</span> }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    <nav class="controls" aria-label="Escalation pages">
+      <button type="button" class="retry-button" (click)="changePage(page - 1)" [disabled]="page === 1">Previous</button>
+      <button type="button" class="retry-button" (click)="changePage(page + 1)" [disabled]="page >= pageCount">Next</button>
+    </nav>
+  }
+</section>
