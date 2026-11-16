@@ -1112,6 +1112,9 @@ export class BranchComplianceService {
     doc: ComplianceDocumentEntity,
     remarks: string | null | undefined,
   ): Promise<void> {
+    // Match the explicit filename marker used by actual/test document lists.
+    // Test reviews retain their status/history without contacting live uploaders.
+    if (/^TEST([ _-]|$)/i.test(doc.uploadedFileName || '')) return;
     if (!doc.uploadedByUserId) return;
     try {
       const rows = await this.dataSource.query(
