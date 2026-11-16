@@ -472,13 +472,23 @@ export class AuditListingService {
 
   async listForClient(
     user: ReqUser,
-    q: { frequency?: string; status?: string; year?: number | string },
+    q: {
+      frequency?: string;
+      status?: string;
+      year?: number | string;
+      recordScope?: 'ACTUAL' | 'TEST';
+    },
   ) {
     if (!user || user.roleCode !== 'CLIENT') {
       throw new ForbiddenException('CLIENT access only');
     }
     if (!user.clientId) {
       throw new ForbiddenException('Client missing clientId');
+    }
+
+    const recordScope = q.recordScope || 'ACTUAL';
+    if (!['ACTUAL', 'TEST'].includes(recordScope)) {
+      throw new BadRequestException('Invalid audit record scope');
     }
 
     const qb = this.repo
@@ -489,6 +499,11 @@ export class AuditListingService {
       .where('a.clientId = :clientId', { clientId: user.clientId });
 
     applyClientBranchScope(qb, user, 'a.branchId');
+    qb.andWhere(
+      recordScope === 'TEST'
+        ? `NOT ${actualAuditSql('a')}`
+        : actualAuditSql('a'),
+    );
     if (q.frequency) {
       qb.andWhere('a.frequency = :freq', { freq: q.frequency });
     }
@@ -521,6 +536,7 @@ export class AuditListingService {
       .addSelect('COUNT(*)', 'count')
       .where('a.clientId = :clientId', { clientId: user.clientId });
     applyClientBranchScope(qb, user, 'a.branchId');
+    qb.andWhere(actualAuditSql('a'));
     const rows = await qb.groupBy('a.status').getRawMany();
 
     let total = 0;

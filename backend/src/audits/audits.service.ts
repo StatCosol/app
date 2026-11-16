@@ -462,7 +462,12 @@ export class AuditsService implements OnModuleInit {
 
   async listForClient(
     user: ReqUser,
-    q: { frequency?: string; status?: string; year?: number | string },
+    q: {
+      frequency?: string;
+      status?: string;
+      year?: number | string;
+      recordScope?: 'ACTUAL' | 'TEST';
+    },
   ) {
     return this.listingService.listForClient(user, q);
   }
