@@ -25,9 +25,11 @@ export class ClientAuditsComponent implements OnDestroy {
   loading = true;
   errorMessage = '';
   private loadRequest?: Subscription;
+  private reportRequest?: Subscription;
   audits: any[] = [];
 
   filters = {
+    recordScope: 'ACTUAL' as 'ACTUAL' | 'TEST',
     year: new Date().getFullYear() as number | '',
     status: '',
     frequency: '',
@@ -43,6 +45,11 @@ export class ClientAuditsComponent implements OnDestroy {
     { key: 'status', header: 'Status', sortable: true, align: 'center' },
     { key: 'dueDate', header: 'Due Date', sortable: true },
     { key: 'notes', header: 'Audit evidence', sortable: false, width: '160px' },
+  ];
+
+  readonly recordScopeOptions = [
+    { value: 'ACTUAL', label: 'Actual audits' },
+    { value: 'TEST', label: 'Test audits only' },
   ];
 
   // Static options — must NOT be inline arrays in template (new refs every CD cycle → NG0103)
@@ -86,7 +93,11 @@ export class ClientAuditsComponent implements OnDestroy {
 
   loadAudits() {
     this.loadRequest?.unsubscribe();
+    this.reportRequest?.unsubscribe();
+    this.openingReport = '';
     this.selectedAudit = null;
+    this.preview = null;
+    this.audits = [];
     this.errorMessage = '';
     this.loading = true;
     this.loadRequest = this.api.list(this.filters).pipe(
@@ -129,7 +140,7 @@ export class ClientAuditsComponent implements OnDestroy {
     if (!audit.publishedReportAvailable || this.openingReport) return;
     this.openingReport = audit.id;
     this.errorMessage = '';
-    this.api.publishedReport(audit.id).pipe(takeUntil(this.destroy$), timeout(20000),
+    this.reportRequest = this.api.publishedReport(audit.id).pipe(takeUntil(this.destroy$), timeout(20000),
       finalize(() => { this.openingReport = ''; this.cdr.markForCheck(); })).subscribe({
       next: blob => { this.preview = { blob, name: `${audit.auditCode || 'Audit'} - ${audit.contractorUser?.name || auditTypeLabel(audit.auditType)}.pdf` }; this.cdr.markForCheck(); },
       error: () => { this.errorMessage = 'The published report could not be opened. Refresh and try again.'; this.cdr.markForCheck(); },
@@ -167,6 +178,7 @@ export class ClientAuditsComponent implements OnDestroy {
   }
 
   exportCsv(): void {
+    if (this.loading || this.errorMessage) return;
     ReportsService.exportCsv(this.audits, [
       { key: 'auditType', label: 'Audit Type' },
       { key: 'frequency', label: 'Frequency' },
@@ -175,6 +187,6 @@ export class ClientAuditsComponent implements OnDestroy {
       { key: 'contractor', label: 'Contractor' },
       { key: 'status', label: 'Status' },
       { key: 'dueDate', label: 'Due Date' },
-    ], 'client-audits.csv');
+    ], this.filters.recordScope === 'TEST' ? 'TEST-ONLY-client-audits.csv' : 'client-audits.csv');
   }
 }
