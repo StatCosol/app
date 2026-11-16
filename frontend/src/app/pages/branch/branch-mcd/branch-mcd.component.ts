@@ -15,6 +15,7 @@ import {
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ModalComponent, PageHeaderComponent, StatusBadgeComponent } from '../../../shared/ui';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
+import { uploadStatusSummary } from '../../../shared/compliance/upload-status-summary';
 
 type StatusFilter = 'ALL' | 'PENDING_UPLOAD' | 'QUERY_PENDING' | 'SUBMITTED' | 'APPROVED' | 'NOT_APPLICABLE';
 
@@ -144,6 +145,7 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
       year: this.selectedYear,
       month: this.selectedMonth,
       frequency: 'MONTHLY',
+      recordScope: 'ACTUAL' as const,
     };
 
     this.load$.next();
@@ -456,34 +458,32 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
   }
 
   get completenessPct(): number {
-    return this.totalItems ? Math.round((this.uploadedCount / this.totalItems) * 100) : 0;
+    return uploadStatusSummary(this.checklist).percent;
   }
 
   get totalItems(): number {
-    return this.checklist.length;
+    return uploadStatusSummary(this.checklist).total;
   }
 
   get uploadedCount(): number {
-    return this.checklist.filter((item) => !!item.document).length;
+    return uploadStatusSummary(this.checklist).uploaded;
   }
 
   get pendingCount(): number {
-    return this.checklist.filter((item) => {
-      const status = this.statusOf(item);
-      return status === 'NOT_UPLOADED' || status === 'OVERDUE';
-    }).length;
+    const counts = uploadStatusSummary(this.checklist);
+    return counts.total - counts.uploaded;
   }
 
   get returnedCount(): number {
-    return this.checklist.filter((item) => this.statusOf(item) === 'REUPLOAD_REQUIRED').length;
+    return uploadStatusSummary(this.checklist).returned;
   }
 
   get pendingQueryCount(): number {
-    return this.checklist.filter((item) => this.isQueryPending(item)).length;
+    return this.requiredItems.filter((item) => this.isQueryPending(item)).length;
   }
 
   get approvedCount(): number {
-    return this.checklist.filter((item) => this.statusOf(item) === 'APPROVED').length;
+    return uploadStatusSummary(this.checklist).approved;
   }
 
   get naCount(): number {
@@ -491,7 +491,11 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
   }
 
   get overdueCount(): number {
-    return this.checklist.filter((item) => this.isOverdue(item)).length;
+    return this.requiredItems.filter((item) => this.isOverdue(item)).length;
+  }
+
+  private get requiredItems(): ChecklistItem[] {
+    return this.checklist.filter(item => item.uploadRequired !== false && item.document?.status !== 'NOT_APPLICABLE');
   }
 
   get selectedMonthLabel(): string {
