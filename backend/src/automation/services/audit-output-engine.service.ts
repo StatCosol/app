@@ -11,6 +11,7 @@ import { AuditNonComplianceEntity } from '../../audits/entities/audit-non-compli
 import { NotificationsService } from '../../notifications/notifications.service';
 import { AutomationNotificationService } from './automation-notification.service';
 import { generateAuditReportPdfBuffer } from '../../audits/utils/report-pdf';
+import { actualAuditSql, isTestAudit } from '../../common/actual-records';
 
 @Injectable()
 export class AuditOutputEngineService {
@@ -265,7 +266,7 @@ export class AuditOutputEngineService {
     const audit = await (
       manager?.getRepository(AuditEntity) ?? this.auditRepo
     ).findOne({ where: { id: auditId } });
-    if (!audit) return;
+    if (!audit || isTestAudit(audit)) return;
 
     const auditCode = audit.auditCode || auditId.slice(0, 8);
     const scoreText = audit.score != null ? `${audit.score}%` : 'N/A';
@@ -351,7 +352,12 @@ export class AuditOutputEngineService {
     const audit = await (
       manager?.getRepository(AuditEntity) ?? this.auditRepo
     ).findOne({ where: { id: auditId } });
-    if (audit && report.pdfBuffer && report.publishable) {
+    if (
+      audit &&
+      !isTestAudit(audit) &&
+      report.pdfBuffer &&
+      report.publishable
+    ) {
       await this.automationNotification.sendAuditReportReady(
         {
           auditId,
@@ -450,7 +456,7 @@ export class AuditOutputEngineService {
               COALESCE(SUM(a.score) FILTER (WHERE a.status IN ('COMPLETED','CLOSED')),0)::float AS score_total,
               ROUND(AVG(a.score) FILTER (WHERE a.status IN ('COMPLETED','CLOSED')),1)::float AS avg_score
        FROM clients c
-       LEFT JOIN audits a ON a.client_id = c.id
+       LEFT JOIN audits a ON a.client_id = c.id AND ${actualAuditSql('a')}
        WHERE COALESCE(c.is_deleted,false) = false
          AND EXISTS (SELECT 1 FROM client_assignments_current cac
            WHERE cac.client_id = c.id AND cac.assigned_to_user_id = $1 AND cac.assignment_type = 'CRM')
@@ -478,7 +484,7 @@ export class AuditOutputEngineService {
       MAX(a.updated_at) AS last_audit_date`;
     return this.dataSource.query(
       `WITH scoped_audits AS (
-        SELECT a.* FROM audits a WHERE a.client_id = $1
+        SELECT a.* FROM audits a WHERE a.client_id = $1 AND ${actualAuditSql('a')}
         ${
           branchIds
             ? `AND (a.branch_id = ANY($2::uuid[]) OR (

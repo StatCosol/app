@@ -1,5 +1,10 @@
 import { AuditOutputEngineService } from './audit-output-engine.service';
 import { generateAuditReportPdfBuffer } from '../../audits/utils/report-pdf';
+import {
+  actualAuditSql,
+  isTestAudit,
+  LEGACY_TEST_AUDIT_CODES,
+} from '../../common/actual-records';
 
 jest.mock('../../audits/utils/report-pdf', () => ({
   generateAuditReportPdfBuffer: jest.fn(),
@@ -30,7 +35,7 @@ describe('Audit output follow-up integrity', () => {
       notify as any,
       { query } as any,
     );
-    return { query, service, notify };
+    return { query, service, notify, repo };
   }
   beforeEach(() => {
     pdf.mockReset();
@@ -89,5 +94,68 @@ describe('Audit output follow-up integrity', () => {
     await h.service.refreshAuditOutputs('uuid-audit');
     expect(publish).toHaveBeenCalledWith('uuid-audit');
     expect(h.notify.sendAuditReportReady).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { notes: 'TEST ONLY live workflow' },
+    { notes: 'synthetic test only_fixture' },
+    {
+      branchId: '94ad1c42-ea05-460e-b494-0a7e634de127',
+      auditCode: LEGACY_TEST_AUDIT_CODES[0],
+    },
+  ])(
+    'never creates client tickets or ready notifications for a synthetic audit %j',
+    async (fixture) => {
+      const h = setup({ version_no: 1, status: 'PUBLISHED', held_at: null });
+      h.repo.findOne.mockResolvedValue({
+        id: 'uuid-audit',
+        clientId: 'client',
+        auditCode: 'AUD-1',
+        ...fixture,
+      } as any);
+      jest
+        .spyOn(h.service, 'calculateAuditScore')
+        .mockResolvedValue({ blendedScore: 100 } as any);
+      const queryCount = h.query.mock.calls.length;
+      await h.service.publishToCrmAndClient('uuid-audit');
+      expect(h.query).toHaveBeenCalledTimes(queryCount);
+      await h.service.refreshAuditOutputs('uuid-audit');
+      expect(h.notify.sendAuditReportReady).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not classify actual future periods or incidental review wording as test data', () => {
+    expect(
+      isTestAudit({
+        notes: 'Review the test equipment',
+        auditCode: 'AUD-2099',
+      }),
+    ).toBe(false);
+    expect(
+      isTestAudit({
+        branchId: 'another-branch',
+        auditCode: LEGACY_TEST_AUDIT_CODES[0],
+      }),
+    ).toBe(false);
+  });
+
+  it('excludes fixtures from Client and CRM summary aggregates while retaining assignment scopes', async () => {
+    const h = setup(null);
+    await h.service.getClientAuditSummaries('client', ['branch']);
+    expect(h.query).toHaveBeenLastCalledWith(
+      expect.stringContaining(`a.client_id = $1 AND ${actualAuditSql('a')}`),
+      ['client', ['branch']],
+    );
+    expect(h.query.mock.calls.at(-1)![0]).toContain(
+      'a.branch_id = ANY($2::uuid[])',
+    );
+    await h.service.getCrmAuditSummaries('crm-user');
+    expect(h.query).toHaveBeenLastCalledWith(
+      expect.stringContaining(`a.client_id = c.id AND ${actualAuditSql('a')}`),
+      ['crm-user'],
+    );
+    expect(h.query.mock.calls.at(-1)![0]).toContain(
+      "cac.assignment_type = 'CRM'",
+    );
   });
 });

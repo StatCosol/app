@@ -18,6 +18,20 @@ export const LEGACY_TEST_AUDIT_CODES = [
   'AX-2099-1F65C3C9590D',
 ] as const;
 const TEST_MARKER = '^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)';
+/** Entity counterpart of actualAuditSql for suppressing synthetic notifications. */
+export function isTestAudit(audit: {
+  notes?: string | null;
+  branchId?: string | null;
+  auditCode?: string | null;
+}): boolean {
+  return (
+    new RegExp(TEST_MARKER, 'i').test(audit.notes || '') ||
+    (audit.branchId === '94ad1c42-ea05-460e-b494-0a7e634de127' &&
+      (LEGACY_TEST_AUDIT_CODES as readonly string[]).includes(
+        audit.auditCode || '',
+      ))
+  );
+}
 function column(alias: string, name: string): string {
   if (alias && !/^[a-z][a-z0-9_]*$/i.test(alias))
     throw new Error('Invalid SQL alias');
