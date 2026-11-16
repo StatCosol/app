@@ -58,10 +58,18 @@ describe('BranchComplianceService', () => {
   };
   // client_assignments_current rows returned for the calling user
   let assignedClientIds: string[];
+  let recipientQuery: jest.Mock;
+  let sendMcdRejection: jest.Mock;
 
   beforeEach(async () => {
     qb = makeQb();
     assignedClientIds = ['client-itc'];
+    recipientQuery = jest
+      .fn()
+      .mockResolvedValue([
+        { email: 'uploader@example.com', branch_name: 'Fixture branch' },
+      ]);
+    sendMcdRejection = jest.fn().mockResolvedValue(undefined);
     docRepo = {
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn(),
@@ -97,9 +105,9 @@ describe('BranchComplianceService', () => {
           useValue: { find: jest.fn().mockResolvedValue([]) },
         },
         { provide: BranchAccessService, useValue: {} },
-        { provide: DataSource, useValue: { query: jest.fn() } },
+        { provide: DataSource, useValue: { query: recipientQuery } },
         { provide: AuditLogsService, useValue: { log: jest.fn() } },
-        { provide: RejectionMailService, useValue: {} },
+        { provide: RejectionMailService, useValue: { sendMcdRejection } },
         { provide: AccessScopeService, useValue: accessScope },
       ],
     }).compile();
@@ -180,6 +188,88 @@ describe('BranchComplianceService', () => {
         'd.companyId IN (:...scopeIds)',
         { scopeIds: ['client-itc'] },
       ]);
+    });
+  });
+
+  describe('test compliance review notification isolation', () => {
+    const reviewFixture = (fileName: string | null, status = 'SUBMITTED') => {
+      docRepo.findOne.mockResolvedValue({
+        id: 'isolated-doc',
+        companyId: 'client-itc',
+        branchId: 'branch-fixture',
+        uploadedByUserId: 'uploader',
+        uploadedFileName: fileName,
+        returnCode: 'PF_ECR',
+        periodMonth: 10,
+        periodYear: 2050,
+        status,
+        isLocked: false,
+      });
+    };
+
+    it.each([
+      'TEST-ONLY-proof.pdf',
+      'test_proof.pdf',
+      'Test proof.pdf',
+      'TEST',
+    ])(
+      'returns %s for correction without recipient lookup or mail',
+      async (fileName) => {
+        reviewFixture(fileName);
+        const saved = await service.reviewDocument(
+          user('CRM'),
+          'isolated-doc',
+          {
+            status: 'REUPLOAD_REQUIRED',
+            remarks: 'Synthetic correction required',
+          } as any,
+        );
+        expect(saved.status).toBe('REUPLOAD_REQUIRED');
+        expect(saved.isLocked).toBe(false);
+        expect(saved.remarks).toBe('Synthetic correction required');
+        expect(saved.reviewedByUserId).toBe('crm-itc');
+        expect(docRepo.save).toHaveBeenCalledTimes(1);
+        expect(recipientQuery).not.toHaveBeenCalled();
+        expect(sendMcdRejection).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      'PF-ECR.pdf',
+      'TESTING-certificate.pdf',
+      'latest-TEST-report.pdf',
+      null,
+    ])(
+      'preserves real uploader notifications for %s even in a future period',
+      async (fileName) => {
+        reviewFixture(fileName);
+        await service.reviewDocument(user('CRM'), 'isolated-doc', {
+          status: 'REUPLOAD_REQUIRED',
+          remarks: 'Correct the attachment',
+        } as any);
+        expect(recipientQuery).toHaveBeenCalledTimes(1);
+        expect(sendMcdRejection).toHaveBeenCalledWith(
+          expect.objectContaining({
+            to: 'uploader@example.com',
+            docName: 'PF_ECR',
+            month: '10/2050',
+            crmRemarks: 'Correct the attachment',
+          }),
+        );
+      },
+    );
+
+    it('approves and locks a corrected test submission without notifying an uploader', async () => {
+      reviewFixture('TEST-ONLY-corrected.pdf', 'RESUBMITTED');
+      const saved = await service.reviewDocument(user('CRM'), 'isolated-doc', {
+        status: 'APPROVED',
+        remarks: 'Synthetic correction verified',
+      } as any);
+      expect(saved.status).toBe('APPROVED');
+      expect(saved.isLocked).toBe(true);
+      expect(saved.remarks).toBe('Synthetic correction verified');
+      expect(recipientQuery).not.toHaveBeenCalled();
+      expect(sendMcdRejection).not.toHaveBeenCalled();
     });
   });
 });
