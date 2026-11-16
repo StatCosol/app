@@ -114,6 +114,7 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
         if (parsedYear >= 2000 && parsedMonth >= 1 && parsedMonth <= 12) {
           this.selectedYear = parsedYear;
           this.selectedMonth = parsedMonth;
+          this.years = [...new Set([...this.years, parsedYear])].sort((a, b) => a - b);
         }
       }
     }

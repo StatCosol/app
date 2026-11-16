@@ -18,12 +18,15 @@ for (const width of [390,768,1440]) it('renders required upload and correction c
   const rows=Array.from({length:46},(_,i)=>({returnCode:'TEST-'+i,returnName:'Synthetic upload '+i,uploadRequired:i<40,document:null}));
   await TestBed.configureTestingModule({imports:[BranchMcdComponent],providers:[provideZonelessChangeDetection(),
     {provide:BranchComplianceDocService,useValue:{getChecklist:()=>of({data:rows}),listBranchDocs:()=>of({data:[]})}},
-    {provide:AuthService,useValue:{getBranchIds:()=>['TEST-B']}},{provide:ActivatedRoute,useValue:{snapshot:{queryParamMap:{get:()=>null}}}},
+    {provide:AuthService,useValue:{getBranchIds:()=>['TEST-B']}},{provide:ActivatedRoute,useValue:{snapshot:{queryParamMap:{get:(key:string)=>key==='month'?'2050-10':null}}}},
     {provide:ToastService,useValue:{}},{provide:ProtectedFileService,useValue:{}}]})
     .overrideComponent(BranchMcdComponent,{set:{imports:[CommonModule,FormsModule],schemas:[NO_ERRORS_SCHEMA]}}).compileComponents();
   const f=TestBed.createComponent(BranchMcdComponent), c=f.componentInstance;
   f.detectChanges();await f.whenStable();
   const h:HTMLElement=f.nativeElement;
+  expect(c.selectedYear).toBe(2050);
+  expect(c.years).toContain(2050);
+  expect(Array.from(h.querySelectorAll('select')).some(s=>s.selectedOptions[0]?.textContent?.trim()==='2050')).toBe(true);
   const values=()=>Array.from(h.querySelectorAll('.summary-card .summary-value')).map(x=>x.textContent?.trim());
   expect(values().slice(0,4)).toEqual(['0%','40','40','0']);
   expect(h.textContent).toContain('Required monthly uploads');expect(h.textContent).toContain('Pending upload or correction');
