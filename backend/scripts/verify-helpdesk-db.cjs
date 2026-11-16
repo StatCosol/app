@@ -37,6 +37,8 @@ async function main() {
       CREATE TABLE client_assignments_current(client_id uuid, assigned_to_user_id uuid, assignment_type text);
       CREATE TABLE client_branches(id uuid PRIMARY KEY, clientid uuid, isactive boolean DEFAULT true, isdeleted boolean DEFAULT false);
       CREATE TABLE user_branches(user_id uuid, branch_id uuid);
+      CREATE TABLE audits(id uuid PRIMARY KEY, client_id uuid, branch_id uuid, notes text, audit_code text);
+      CREATE TABLE audit_observations(id uuid PRIMARY KEY, audit_id uuid, observation text);
     `);
     await db.query("INSERT INTO roles VALUES($1,'PF_TEAM'),($2,'CRM'),($3,'EMPLOYEE')", [id(1), id(2), id(3)]);
     await db.query('INSERT INTO users(id,role_id) VALUES($1,$4),($2,$5),($3,$6)', [id(11), id(12), id(13), id(1), id(2), id(3)]);
@@ -99,6 +101,39 @@ async function main() {
     );
     assert.ok(['CLOSED', 'OPEN'].includes(closed.status));
     assert.equal(await repo.count(), 2);
+    // Exercise the production list predicate against real PostgreSQL, including
+    // the audit tables now used by Client/Branch request isolation.
+    await db.query('INSERT INTO audits VALUES($1,$3,$4,$5,$6),($2,$3,$4,$7,$8)',
+      [id(50), id(51), client.clientId, seed.branchId, 'Customer review mentions a test procedure',
+        'AUD-2099-ACTUAL', 'TEST ONLY isolation fixture', 'TEST-ONLY-AUDIT']);
+    await db.query('INSERT INTO audit_observations VALUES($1,$4,$6),($2,$4,$7),($3,$5,$6)',
+      [id(52), id(53), id(54), id(50), id(51), 'Ordinary finding', 'TEST ONLY synthetic finding']);
+    const closure = { ...seed, category: 'AUDIT', subCategory: 'AUDIT_OBSERVATION_CLOSURE' };
+    const linked = observationId => `[AUDIT_OBSERVATION_CLOSURE]\nObservation ID: ${observationId}\nNotes: sample`;
+    const fixtures = [
+      { ...closure, id: id(60), description: linked(id(52)) },
+      { ...closure, id: id(61), description: linked(id(53)) },
+      { ...closure, id: id(62), description: linked(id(54)) },
+      { ...closure, id: id(63), description: 'Observation ID: malformed-identifier' },
+      { ...closure, id: id(64), category: 'GENERIC', description: linked(id(53)) },
+      // A cross-tenant reference cannot hide an otherwise visible request.
+      { ...closure, id: id(65), description: linked(id(55)) },
+    ];
+    await db.query('INSERT INTO audits VALUES($1,$2,$3,$4,$5)',
+      [id(56), id(21), id(31), 'TEST ONLY another tenant', 'TEST-OTHER']);
+    await db.query('INSERT INTO audit_observations VALUES($1,$2,$3)',
+      [id(55), id(56), 'TEST ONLY another tenant finding']);
+    await repo.save(fixtures);
+    for (const actor of [client, { ...client, userType: 'BRANCH' }, { id: id(12), roleCode: 'CRM' }]) {
+      const listed = await service.listTickets(actor, {});
+      assert.deepEqual(listed.filter(t => fixtures.some(f => f.id === t.id)).map(t => t.id).sort(),
+        [id(60), id(63), id(64), id(65)]);
+      assert.equal((await service.getTicket(actor, id(61))).id, id(61));
+      assert.equal((await service.getTicket(actor, id(62))).id, id(62));
+    }
+    assert.equal(await repo.count(), 8); // Filtering never deletes history.
+    await repo.delete(fixtures.map(t => t.id)); // Only this disposable database.
+    console.log('PASS: Client, Branch and CRM exclude linked synthetic closures while preserving ordinary, unlinked, cross-tenant-reference and detail records');
     // Attachment metadata and downloads must resolve to the same owning ticket.
     await repo.update(seed.id, { category: 'PF', assignedToUserId: pf.id });
     const message = await messages.save({ ticketId: seed.id, senderUserId: pf.id, message: 'Sample attachment' });

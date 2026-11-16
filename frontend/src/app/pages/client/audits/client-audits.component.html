@@ -13,6 +13,9 @@
   </ui-page-header>
 
   @if (errorMessage) { <div role="alert">{{ errorMessage }} <button (click)="loadAudits()">Retry</button></div> }
+  @if (filters.recordScope === 'TEST') {
+    <div role="status" class="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900">Test audits only. These records and totals are separate from actual client audits.</div>
+  }
   <!-- Summary Cards -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="client-kpi client-kpi--blue">
@@ -77,7 +80,14 @@
       </svg>
       <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Filters</h3>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <ui-form-select
+        selectId="client-audit-record-scope"
+        label="Records"
+        [(ngModel)]="filters.recordScope"
+        (ngModelChange)="loadAudits()"
+        [options]="recordScopeOptions">
+      </ui-form-select>
       <ui-form-select
         id="year"
         label="Year"
@@ -108,7 +118,7 @@
   <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
     <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
       <span class="text-sm text-gray-500">{{ audits.length }} audit{{ audits.length === 1 ? '' : 's' }}</span>
-      <button type="button" (click)="exportCsv()" class="compact-action inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export" aria-label="Export" data-action-label="Export" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+      <button type="button" [disabled]="loading || !!errorMessage" (click)="exportCsv()" class="compact-action inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900" title="Export" aria-label="Export" data-action-label="Export" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
     </div>
     <ui-data-table
       [columns]="columns"
