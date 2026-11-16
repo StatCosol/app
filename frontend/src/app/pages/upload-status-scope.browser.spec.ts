@@ -1,0 +1,37 @@
+import { NO_ERRORS_SCHEMA, provideZonelessChangeDetection } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { Subject, of } from 'rxjs';
+import { page } from 'vitest/browser';
+import { afterEach, expect, it, vi } from 'vitest';
+import { BranchComplianceComponent } from '../shared/compliance/branch-compliance.component';
+import { ClientBranchesService } from '../core/client-branches.service';
+import { BranchComplianceDocService } from '../core/branch-compliance-doc.service';
+import { AuthService } from '../core/auth.service';
+import { IconComponent } from '../shared/ui/icon/icon.component';
+afterEach(()=>TestBed.resetTestingModule());
+for(const width of [390,768,1440]) it('Upload counts, scope, failure recovery and schedule at '+width+'px',async()=>{
+  await page.viewport(width,900);
+  const reads:Subject<any>[]=[];
+  const documents={getChecklist:vi.fn(()=>{const s=new Subject<any>();reads.push(s);return s;})};
+  const api={list:()=>of([{id:'TEST-B',name:'Synthetic branch'}]),getBranchComplianceItems:()=>of({items:[{code:'A',module:'RETURNS',name:'Synthetic return',frequency:'MONTHLY'},{code:'B',module:'RETURNS'},{code:'C',module:'MCD'}]}),getRiskScore:()=>of({items:[]}),getActionPlan:()=>of({actions:[]})};
+  await TestBed.configureTestingModule({imports:[BranchComplianceComponent],providers:[
+    provideZonelessChangeDetection(),{provide:ClientBranchesService,useValue:api},{provide:BranchComplianceDocService,useValue:documents},{provide:AuthService,useValue:{getUser:()=>({}),getBranchIds:()=>[]}},{provide:Router,useValue:{navigate:vi.fn()}}]}).overrideComponent(BranchComplianceComponent,{set:{imports:[FormsModule,IconComponent],schemas:[NO_ERRORS_SCHEMA]}}).compileComponents();
+  const f=TestBed.createComponent(BranchComplianceComponent);f.detectChanges();await f.whenStable();
+  const h:HTMLElement=f.nativeElement;
+  const respond=async(data:any[])=>{reads.at(-1)!.next({data});reads.at(-1)!.complete();await f.whenStable();};
+  await respond(Array.from({length:52},()=>({uploadRequired:true,document:null})));
+  const counts=()=>Array.from(h.querySelectorAll('[aria-label="Monthly upload counts"] .v')).map(e=>e.textContent?.trim());
+  expect(counts()).toEqual(['52','0','52','0%']);expect(h.querySelector('[aria-label="Schedule counts"] .v')?.textContent).toBe('3');
+  expect(h.textContent).toContain('pending includes corrections');
+  const module=h.querySelector<HTMLSelectElement>('#bc-module')!;module.value='MCD';module.dispatchEvent(new Event('change',{bubbles:true}));await f.whenStable();
+  expect(counts()).toEqual([]);await respond([{document:{status:'APPROVED',uploadedFileUrl:'local.pdf'}},{document:{status:'REUPLOAD_REQUIRED',uploadedFileUrl:'old.pdf'}}]);
+  expect(counts()).toEqual(['2','1','1','50%']);expect(h.querySelector('[aria-label="Schedule counts"] .v')?.textContent).toBe('1');
+  const refresh=h.querySelector<HTMLButtonElement>('button[aria-label="Refresh"]')!;refresh.click();await f.whenStable();reads.at(-1)!.error(Error('local outage'));await f.whenStable();
+  expect(h.querySelector('[role="alert"]')?.textContent).toContain('unavailable');expect(counts()).toEqual([]);
+  refresh.click();await f.whenStable();await respond([]);expect(counts()).toEqual(['0','0','0','0%']);
+  expect(h.textContent).toContain('No required monthly uploads');
+  expect(h.scrollWidth).toBeLessThanOrEqual(width+1);
+  f.destroy();
+});
