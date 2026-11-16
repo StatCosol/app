@@ -97,6 +97,106 @@ describe('AuditsService', () => {
   });
 
   const user = { userId: 'auditor', roleCode: 'AUDITOR' } as any;
+  describe.each(['standard', 'statutory'])(
+    '%s submission notification isolation',
+    (flow) => {
+      it.each([
+        ['explicit test', { notes: 'TEST ONLY - submission fixture' }, true],
+        ['synthetic marker', { notes: 'SYNTHETIC TEST ONLY fixture' }, true],
+        [
+          'legacy fixture',
+          {
+            auditCode: 'AX-2099-48EF3CF2FE89',
+            branchId: '94ad1c42-ea05-460e-b494-0a7e634de127',
+          },
+          true,
+        ],
+        [
+          'future actual audit',
+          { auditCode: 'AUD-2099-123', notes: 'Actual audit' },
+          false,
+        ],
+        ['incidental mention', { notes: 'Inspect test equipment' }, false],
+        [
+          'legacy code outside fixture branch',
+          { auditCode: 'AX-2099-48EF3CF2FE89', branchId: 'other-branch' },
+          false,
+        ],
+      ])(
+        '%s preserves submission and isolates only synthetic inbox tickets',
+        async (_label, scope, synthetic) => {
+          const audit = {
+            id: 'audit',
+            clientId: 'client',
+            branchId: 'branch',
+            auditCode: 'AUD-2026-001',
+            assignedAuditorId: 'auditor',
+            status: 'IN_PROGRESS',
+            ...scope,
+          };
+          audits.findOne.mockResolvedValue(audit);
+          audits.save.mockImplementation(async (value) => value);
+          (audits as any).findOneByOrFail = jest.fn().mockResolvedValue(audit);
+          checklist.find.mockResolvedValue([{ status: 'COMPLIED' }]);
+          const notification = jest
+            .fn()
+            .mockResolvedValue({ threadId: 'thread' });
+          (service as any).notificationsService.createTicket = notification;
+          (service as any).documentReviewService.listDocumentsForAudit = jest
+            .fn()
+            .mockResolvedValue({
+              branchDocuments: [],
+              contractorDocuments: [],
+            });
+          (service as any).ncRepo.count = jest.fn().mockResolvedValue(0);
+          const statutorySubmit = jest
+            .fn()
+            .mockResolvedValue({ status: 'SUBMITTED', score: 100 });
+          (service as any).statutoryEntry = {
+            hasSession: jest.fn().mockResolvedValue(flow === 'statutory'),
+            submit: statutorySubmit,
+          };
+          jest.spyOn(service, 'calculateScore').mockResolvedValue({
+            score: 100,
+            breakdown: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+          });
+          const schedule = jest
+            .spyOn(service, 'updateScheduleStatusOnSubmit')
+            .mockResolvedValue();
+          const result = await service.submitAudit(
+            user,
+            'audit',
+            'TEST ONLY regression remark',
+          );
+          expect(result.status).toBe('SUBMITTED');
+          expect(schedule).toHaveBeenCalledWith('audit');
+          if (flow === 'statutory')
+            expect(statutorySubmit).toHaveBeenCalledWith(
+              user,
+              'audit',
+              'TEST ONLY regression remark',
+            );
+          else
+            expect(audits.save).toHaveBeenCalledWith(
+              expect.objectContaining({ status: 'SUBMITTED' }),
+            );
+          expect(notification).toHaveBeenCalledTimes(
+            synthetic ? 0 : flow === 'statutory' ? 1 : 2,
+          );
+          if (!synthetic)
+            expect(notification).toHaveBeenCalledWith(
+              'auditor',
+              'AUDITOR',
+              expect.objectContaining({
+                clientId: 'client',
+                branchId: audit.branchId,
+                queryType: 'COMPLIANCE',
+              }),
+            );
+        },
+      );
+    },
+  );
   it('requires generated remarks to be cross-checked and preserves manual remarks', async () => {
     audits.findOne.mockResolvedValue({
       assignedAuditorId: 'auditor',

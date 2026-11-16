@@ -29,6 +29,7 @@ import { ClientsService } from '../clients/clients.service';
 import { UsersService } from '../users/users.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { AuditType, Frequency } from '../common/enums';
+import { isTestAudit } from '../common/actual-records';
 import {
   generateAuditReportPdfBuffer,
   generatePreliminaryReportPdfBuffer,
@@ -1242,13 +1243,14 @@ export class AuditsService implements OnModuleInit {
       try {
         await this.updateScheduleStatusOnSubmit(auditId);
         const submitted = await this.repo.findOneByOrFail({ id: auditId });
-        await this.notificationsService.createTicket(user.userId, 'AUDITOR', {
-          queryType: 'COMPLIANCE',
-          subject: `Audit ${submitted.auditCode || auditId} submitted`,
-          message: `Statutory audit submitted. Status: ${result.status}. Score: ${result.score === null ? 'Not applicable' : result.score + '%'}.`,
-          clientId: submitted.clientId,
-          branchId: submitted.branchId || undefined,
-        });
+        if (!isTestAudit(submitted))
+          await this.notificationsService.createTicket(user.userId, 'AUDITOR', {
+            queryType: 'COMPLIANCE',
+            subject: `Audit ${submitted.auditCode || auditId} submitted`,
+            message: `Statutory audit submitted. Status: ${result.status}. Score: ${result.score === null ? 'Not applicable' : result.score + '%'}.`,
+            clientId: submitted.clientId,
+            branchId: submitted.branchId || undefined,
+          });
       } catch (error) {
         this.logger.warn(
           'Statutory audit submitted; follow-up notification or schedule update failed',
@@ -1310,32 +1312,33 @@ export class AuditsService implements OnModuleInit {
     await this.updateScheduleStatusOnSubmit(auditId);
 
     // ── Notify CRM and Client about audit submission ──
-    try {
-      const auditCode = audit.auditCode || auditId.slice(0, 8);
-      const status = audit.status;
-      const scoreText = `${blendedScore}%`;
+    if (!isTestAudit(audit))
+      try {
+        const auditCode = audit.auditCode || auditId.slice(0, 8);
+        const status = audit.status;
+        const scoreText = `${blendedScore}%`;
 
-      // Notify CRM (routed via COMPLIANCE queryType → assigned CRM)
-      await this.notificationsService.createTicket(user.userId, 'AUDITOR', {
-        queryType: 'COMPLIANCE',
-        subject: `Audit ${auditCode} ${status === 'CORRECTION_PENDING' ? 'Submitted with NCs' : 'Submitted'} — Score ${scoreText}`,
-        message: `Auditor has submitted audit ${auditCode}. Score: ${scoreText}. Status: ${status}.${openNcCount > 0 ? ` ${openNcCount} non-compliance(s) pending correction.` : ' All items complied.'}`,
-        clientId: audit.clientId,
-        branchId: audit.branchId || undefined,
-      });
+        // Notify CRM (routed via COMPLIANCE queryType → assigned CRM)
+        await this.notificationsService.createTicket(user.userId, 'AUDITOR', {
+          queryType: 'COMPLIANCE',
+          subject: `Audit ${auditCode} ${status === 'CORRECTION_PENDING' ? 'Submitted with NCs' : 'Submitted'} — Score ${scoreText}`,
+          message: `Auditor has submitted audit ${auditCode}. Score: ${scoreText}. Status: ${status}.${openNcCount > 0 ? ` ${openNcCount} non-compliance(s) pending correction.` : ' All items complied.'}`,
+          clientId: audit.clientId,
+          branchId: audit.branchId || undefined,
+        });
 
-      // Notify Client master user (routed via GENERAL → admin, but we also
-      // create a direct ticket visible in their notifications feed)
-      await this.notificationsService.createTicket(user.userId, 'AUDITOR', {
-        queryType: 'AUDIT',
-        subject: `Audit Report: ${auditCode} — Score ${scoreText}`,
-        message: `Audit ${auditCode} has been submitted. Score: ${scoreText}. Status: ${status}. The report will be available after CRM approval and publication.`,
-        clientId: audit.clientId,
-        branchId: audit.branchId || undefined,
-      });
-    } catch {
-      // Non-critical: don't fail the audit submission if notifications fail
-    }
+        // Notify Client master user (routed via GENERAL → admin, but we also
+        // create a direct ticket visible in their notifications feed)
+        await this.notificationsService.createTicket(user.userId, 'AUDITOR', {
+          queryType: 'AUDIT',
+          subject: `Audit Report: ${auditCode} — Score ${scoreText}`,
+          message: `Audit ${auditCode} has been submitted. Score: ${scoreText}. Status: ${status}. The report will be available after CRM approval and publication.`,
+          clientId: audit.clientId,
+          branchId: audit.branchId || undefined,
+        });
+      } catch {
+        // Non-critical: don't fail the audit submission if notifications fail
+      }
 
     return {
       id: audit.id,
