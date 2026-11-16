@@ -261,6 +261,9 @@ export class HelpdeskService {
         .createQueryBuilder('t')
         .where('t.client_id = :clientId', { clientId: user.clientId });
       applyClientBranchScope(qb, user, 't.branch_id');
+      // Match the actual-only observation list and CRM queue. Keep synthetic
+      // closure history stored and accessible through authorized detail reads.
+      qb.andWhere(actualAuditRequestSql());
       if (q?.branchId)
         qb.andWhere('t.branch_id = :branchId', { branchId: q.branchId });
       if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
