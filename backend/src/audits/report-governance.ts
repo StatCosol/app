@@ -14,24 +14,28 @@ export async function transitionGovernedReport(
 ): Promise<void> {
   if (report.held_at)
     throw new BadRequestException('Release the report hold first');
+  // These columns are calendar dates, not timestamps. Match the report's India
+  // timezone before truncating so UTC deployments do not store yesterday.
   const rules = {
     approve: {
       allowed: ['SUBMITTED'],
       condition: "status = 'SUBMITTED'",
       assignment:
-        "status = 'APPROVED', approved_by_user_id = $2, approved_date = CURRENT_DATE",
+        "status = 'APPROVED', approved_by_user_id = $2, approved_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date",
       verb: 'approved',
     },
     publishAdmin: {
       allowed: ['APPROVED'],
       condition: "status = 'APPROVED'",
-      assignment: "status = 'PUBLISHED', published_date = CURRENT_DATE",
+      assignment:
+        "status = 'PUBLISHED', published_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date",
       verb: 'published',
     },
     publishCrm: {
       allowed: ['APPROVED'],
       condition: "status = 'APPROVED'",
-      assignment: "status = 'PUBLISHED', published_date = CURRENT_DATE",
+      assignment:
+        "status = 'PUBLISHED', published_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date",
       verb: 'published',
     },
   }[action];
