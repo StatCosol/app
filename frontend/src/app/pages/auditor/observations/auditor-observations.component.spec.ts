@@ -5,7 +5,7 @@ import { AuditorObservationsComponent } from './auditor-observations.component';
 describe('AuditXpert corrections workspace', () => {
   function setup() {
     const queries = new BehaviorSubject(convertToParamMap({ auditId: 'audit-a' }));
-    const api = { list: vi.fn(() => of([]) as any), listCategories: vi.fn(() => of([])), update: vi.fn(() => of({})), verifyObservationClosure: vi.fn(() => of({})), reopenObservation: vi.fn(() => of({})) };
+    const api = { list: vi.fn(() => of([]) as any), listCategories: vi.fn(() => of([])), update: vi.fn((_id: string, _patch: any) => of({})), verifyObservationClosure: vi.fn(() => of({})), reopenObservation: vi.fn(() => of({})) };
     const files = { open: vi.fn(() => of(undefined)) };
     const component = new AuditorObservationsComponent(api as any, { auditorListAllAudits: () => of([]) } as any, { paramMap: of(convertToParamMap({})), queryParamMap: queries } as any, { success: vi.fn(), warning: vi.fn(), error: vi.fn() } as any, { markForCheck: vi.fn() } as any, files as any);
     return { component, queries, api, files };
@@ -48,5 +48,45 @@ describe('AuditXpert corrections workspace', () => {
     x.component.loadObservations();
     expect(x.component.filteredRows).toEqual([]);
     expect(x.component.selected).toBeNull();
+  });
+
+  it.each(['markAcknowledged', 'markResolved'] as const)(
+    '%s preserves the saved response when verification notes are present', action => {
+      const x = setup();
+      const saved = { id: 'a', status: 'OPEN', elaboration: 'Original Branch correction response' };
+      x.component.selected = { ...saved };
+      x.component.loading = false;
+      x.component.verificationNotes = 'Auditor note intended for verification';
+      x.api.update.mockImplementation((_id: string, patch: any) => {
+        Object.assign(saved, patch);
+        return of(saved);
+      });
+      x.api.list.mockReturnValue(of([saved]));
+
+      x.component[action]();
+
+      expect(saved.status).toBe(action === 'markResolved' ? 'RESOLVED' : 'ACKNOWLEDGED');
+      expect(saved.elaboration).toBe('Original Branch correction response');
+      expect(x.component.selected.elaboration).toBe(saved.elaboration);
+      expect(x.api.verifyObservationClosure).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not replay a stale response when resolving without verification notes', () => {
+    const x = setup();
+    const saved = { id: 'a', status: 'OPEN', elaboration: 'Newer saved Branch response' };
+    x.component.selected = { ...saved, elaboration: 'Older response from initial selection' };
+    x.component.loading = false;
+    x.api.update.mockImplementation((_id: string, patch: any) => {
+      Object.assign(saved, patch);
+      return of(saved);
+    });
+    x.api.list.mockReturnValue(of([saved]));
+
+    x.component.markResolved();
+
+    expect(saved.status).toBe('RESOLVED');
+    expect(saved.elaboration).toBe('Newer saved Branch response');
+    expect(x.component.selected.elaboration).toBe(saved.elaboration);
   });
 });

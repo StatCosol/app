@@ -406,10 +406,9 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
     if (!this.selected || this.busy) return;
     this.busy = true;
     this.observationsApi
-      .update(this.selected.id, {
-        status,
-        elaboration: this.verificationNotes.trim() || this.selected.elaboration || null,
-      })
+      // Verification notes belong to verify/reopen actions. A status change
+      // must not replace the saved Branch response, even with a stale copy.
+      .update(this.selected.id, { status })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
