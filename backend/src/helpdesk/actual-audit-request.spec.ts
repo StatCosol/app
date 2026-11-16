@@ -5,7 +5,7 @@ import {
 } from '../common/actual-records';
 import { HelpdeskService } from './helpdesk.service';
 
-describe('CRM operational audit-request isolation', () => {
+describe('Operational audit-request isolation', () => {
   it('uses the linked observation and audit within the ticket tenant/branch', () => {
     const sql = actualAuditRequestSql();
     expect(sql).toContain('NOT EXISTS');
@@ -77,4 +77,64 @@ describe('CRM operational audit-request isolation', () => {
     ).resolves.toEqual([]);
     expect(repo.createQueryBuilder).not.toHaveBeenCalled();
   });
+
+  it.each(['MASTER', 'BRANCH'])(
+    'excludes synthetic closure requests from %s lists while preserving authorized detail access',
+    async (userType) => {
+      const ticket = {
+        id: 'synthetic-closure',
+        clientId: 'client-a',
+        branchId: 'branch-a',
+      };
+      const qb: any = { getMany: jest.fn().mockResolvedValue([]) };
+      for (const name of ['where', 'andWhere', 'orderBy'])
+        qb[name] = jest.fn().mockReturnValue(qb);
+      const repo = {
+        createQueryBuilder: jest.fn(() => qb),
+        findOne: jest.fn().mockResolvedValue(ticket),
+        update: jest.fn(),
+        save: jest.fn(),
+      };
+      const ds = { query: jest.fn().mockResolvedValue([{ id: 'branch-a' }]) };
+      const service = new HelpdeskService(
+        repo as any,
+        {} as any,
+        {} as any,
+        ds as any,
+      );
+      const user = {
+        id: 'client-user',
+        roleCode: 'CLIENT',
+        clientId: 'client-a',
+        userType,
+      } as any;
+      await service.listTickets(user, {
+        branchId: 'branch-a',
+        category: 'AUDIT',
+        status: 'OPEN',
+      });
+      expect(qb.where).toHaveBeenCalledWith('t.client_id = :clientId', {
+        clientId: 'client-a',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith(actualAuditRequestSql());
+      expect(qb.andWhere).toHaveBeenCalledWith('t.branch_id = :branchId', {
+        branchId: 'branch-a',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('t.category = :cat', {
+        cat: 'AUDIT',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('t.status = :s', { s: 'OPEN' });
+      const scoped = qb.andWhere.mock.calls.some(([sql]) =>
+        sql.includes('user_branches portal_ub'),
+      );
+      expect(scoped).toBe(userType === 'BRANCH');
+      await expect(service.getTicket(user, ticket.id)).resolves.toEqual(ticket);
+      expect(ds.query).toHaveBeenCalledWith(
+        expect.stringContaining('user_branches'),
+        ['branch-a', 'client-a', userType === 'MASTER', 'client-user'],
+      );
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(repo.update).not.toHaveBeenCalled();
+    },
+  );
 });
