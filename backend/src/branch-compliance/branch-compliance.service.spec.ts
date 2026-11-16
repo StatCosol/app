@@ -153,6 +153,28 @@ describe('BranchComplianceService', () => {
       ]);
     });
 
+    it.each([
+      [undefined, '!~*'],
+      ['ACTUAL', '!~*'],
+      ['TEST', '~*'],
+    ])(
+      'isolates CRM counts for scope %s without losing client restrictions',
+      async (recordScope, operator) => {
+        await service.getCrmDashboardKpis(user('CRM'), {
+          recordScope: recordScope as 'ACTUAL' | 'TEST' | undefined,
+          year: 2050,
+        });
+        expect(qb.clauses).toContainEqual([
+          `COALESCE(d.uploaded_file_name, '') ${operator} :testMarker`,
+          { testMarker: '^TEST([ _-]|$)' },
+        ]);
+        expect(qb.clauses).toContainEqual([
+          'd.companyId IN (:...scopeIds)',
+          { scopeIds: ['client-itc'] },
+        ]);
+      },
+    );
+
     it("does not let a CRM approve another client's document by id", async () => {
       docRepo.findOne.mockResolvedValue({
         id: 'doc-1',
