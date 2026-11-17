@@ -47,6 +47,17 @@ import { AuditFilePreviewComponent, AuditFilePreview } from '../files/components
                 <button type="button" class="border rounded p-1 mr-2" (click)="open(doc)">View</button>
                 <button type="button" class="border rounded p-1" (click)="open(doc, true)">Download</button>
               }</td></tr>
+            @if (doc.remarks?.trim() || doc.status === 'REUPLOAD_REQUIRED') {
+              <tr class="border-b bg-slate-50">
+                <td [attr.colspan]="branch ? 4 : 5" class="p-3">
+                  <div class="review-feedback" role="note" [attr.aria-label]="'CRM feedback for ' + doc.returnName + ', ' + period(doc)">
+                    <strong>{{ doc.status === 'REUPLOAD_REQUIRED' ? 'Correction required' : 'CRM review remarks' }}</strong>
+                    @if (doc.version) { <span> · Version {{ doc.version }}</span> }
+                    <p>{{ doc.remarks?.trim() || 'No correction reason was provided. Contact your CRM reviewer before uploading a replacement.' }}</p>
+                  </div>
+                </td>
+              </tr>
+            }
           } @empty { <tr><td [attr.colspan]="branch ? 4 : 5" class="p-3">No submissions for this period.</td></tr> }
           </tbody>
         </table></div>
@@ -58,6 +69,7 @@ import { AuditFilePreviewComponent, AuditFilePreview } from '../files/components
     </section>
     @if (documentPreview) { <app-audit-file-preview [request]="documentPreview" (closed)="documentPreview = null" /> }
   `,
+  styles: [`.review-feedback { white-space: pre-wrap; overflow-wrap: anywhere; }`],
 })
 export class ComplianceDocumentRecordsComponent implements OnChanges, OnDestroy {
   documentPreview: AuditFilePreview | null = null;
