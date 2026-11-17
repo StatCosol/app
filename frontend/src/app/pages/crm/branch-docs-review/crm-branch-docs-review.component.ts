@@ -3,7 +3,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
@@ -101,11 +101,15 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 })
 export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private listRead?: Subscription;
+  private kpiRead?: Subscription;
 
   loading = false;
   reviewing = false;
   documents: ComplianceDoc[] = [];
   kpis: any = null;
+  loadError = '';
+  kpiError = '';
 
   readonly docColumns: TableColumn[] = [
     { key: 'branch', header: 'Branch', width: '18%' },
@@ -122,6 +126,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   selectedMonth = 0;
   selectedFrequency = '';
   selectedStatus = '';
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
 
   // Review modal
   showReviewModal = false;
@@ -164,8 +169,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private protectedFiles: ProtectedFileService,
   ) {
-    const currentYear = new Date().getFullYear();
-    this.years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+    this.years = Array.from({ length: 31 }, (_, i) => 2020 + i);
   }
 
   ngOnInit(): void {
@@ -182,11 +186,20 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    if (this.reviewing) return;
+    this.listRead?.unsubscribe();
+    this.kpiRead?.unsubscribe();
+    this.closeReviewModal();
+    this.documents = [];
+    this.kpis = null;
+    this.loadError = '';
+    this.kpiError = '';
     // A calendar month is meaningful only for monthly filings.
     if (this.selectedFrequency !== 'MONTHLY') this.selectedMonth = 0;
     this.loading = true;
 
-    this.complianceDoc.listCrmDocs({
+    this.listRead = this.complianceDoc.listCrmDocs({
+      recordScope: this.recordScope,
       year: this.selectedYear,
       month: this.selectedMonth || undefined,
       frequency: this.selectedFrequency || undefined,
@@ -195,27 +208,30 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
     .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
     .subscribe({
       next: (res) => { this.documents = res.data || []; },
-      error: () => { this.documents = []; },
+      error: () => { this.documents = []; this.loadError = 'Documents could not be loaded. Retry before reviewing.'; },
     });
 
     // KPIs
-    this.complianceDoc.getCrmKpis({
+    this.kpiRead = this.complianceDoc.getCrmKpis({
+      recordScope: this.recordScope,
       year: this.selectedYear,
       month: this.selectedMonth || undefined,
       frequency: this.selectedFrequency || undefined,
     })
     .pipe(takeUntil(this.destroy$))
     .subscribe({
-      next: (k) => { this.kpis = k; },
-      error: () => { this.kpis = null; },
+      next: (k) => { this.kpis = k; this.cdr.detectChanges(); },
+      error: () => { this.kpis = null; this.kpiError = 'Review counts are unavailable. Retry to refresh them.'; this.cdr.detectChanges(); },
     });
   }
 
   canReview(doc: ComplianceDoc): boolean {
-    return doc.status === 'SUBMITTED' || doc.status === 'RESUBMITTED';
+    return !this.loading && !this.reviewing && this.documents.includes(doc) &&
+      (doc.status === 'SUBMITTED' || doc.status === 'RESUBMITTED');
   }
 
   openReviewModal(doc: ComplianceDoc, action: 'APPROVED' | 'REUPLOAD_REQUIRED'): void {
+    if (!this.canReview(doc)) return;
     this.reviewDoc = doc;
     this.reviewAction = action;
     this.reviewRemarks = '';
@@ -229,7 +245,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   }
 
   submitReview(): void {
-    if (!this.reviewDoc) return;
+    if (!this.reviewDoc || !this.canReview(this.reviewDoc)) return;
     if (this.reviewAction === 'REUPLOAD_REQUIRED' && !this.reviewRemarks.trim()) {
       this.toast.warning('Please provide remarks for reupload request.');
       return;
@@ -244,6 +260,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
     .pipe(takeUntil(this.destroy$), finalize(() => { this.reviewing = false; this.cdr.detectChanges(); }))
     .subscribe({
       next: () => {
+        this.reviewing = false;
         this.closeReviewModal();
         this.load();
       },

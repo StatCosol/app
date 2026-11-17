@@ -88,6 +88,7 @@ export class CrmComplianceDocsController {
     @Query() q: Record<string, string>,
   ) {
     return this.svc.getCrmDashboardKpis(user, {
+      recordScope: q.recordScope === 'TEST' ? 'TEST' : 'ACTUAL',
       companyId: q.companyId,
       year: q.year ? Number(q.year) : undefined,
       month: q.month ? Number(q.month) : undefined,

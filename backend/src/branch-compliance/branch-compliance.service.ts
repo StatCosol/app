@@ -1407,6 +1407,7 @@ export class BranchComplianceService {
   async getCrmDashboardKpis(
     user: ReqUser,
     q: {
+      recordScope?: 'ACTUAL' | 'TEST';
       companyId?: string;
       year?: number;
       month?: number;
@@ -1444,6 +1445,10 @@ export class BranchComplianceService {
       qb.andWhere('d.period_month = :month', { month });
     }
 
+    qb.andWhere(
+      `COALESCE(d.uploaded_file_name, '') ${q.recordScope === 'TEST' ? '~*' : '!~*'} :testMarker`,
+      { testMarker: '^TEST([ _-]|$)' },
+    );
     const result = await qb.getRawOne();
     return result;
   }

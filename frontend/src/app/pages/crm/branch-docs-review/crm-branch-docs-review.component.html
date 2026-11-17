@@ -6,7 +6,12 @@
   </ui-page-header>
 
   <!-- Filter Bar -->
-  <div class="filter-bar">
+  <fieldset class="filter-bar" [disabled]="reviewing">
+    <legend class="sr-only">Review filters</legend>
+    <select aria-label="Records" name="recordScope" class="filter-select" [(ngModel)]="recordScope" (change)="load()">
+      <option value="ACTUAL">Actual records</option>
+      <option value="TEST">Test records only</option>
+    </select>
     <select aria-label="Frequency" id="cbdr-selected-frequency" name="selectedFrequency" class="filter-select" [(ngModel)]="selectedFrequency" (change)="load()">
       @for (f of frequencies; track f) {
 <option [ngValue]="f.value">{{ f.label }}</option>
@@ -31,10 +36,22 @@
 }
     </select>
 
+    @if (!loading && !loadError) {
     <span class="ml-auto text-sm font-semibold" [class.text-orange-500]="pendingCount > 0" [class.text-green-600]="pendingCount === 0">
       {{ pendingCount }} pending review
     </span>
-  </div>
+    }
+    <button type="button" class="filter-select" (click)="load()" [disabled]="loading">Refresh</button>
+  </fieldset>
+  @if (recordScope === 'TEST') {
+    <p class="mb-4 text-sm text-amber-800" role="status">TEST DATA ONLY — excluded from actual review lists and counts.</p>
+  }
+  @if (loadError || kpiError) {
+    <div class="mb-4 text-sm text-red-700" role="alert">
+      <p>{{ loadError }}</p><p>{{ kpiError }}</p>
+      <button type="button" class="filter-select" (click)="load()" [disabled]="loading || reviewing">Retry</button>
+    </div>
+  }
 
   <!-- KPI Cards -->
   @if (kpis) {
@@ -79,7 +96,7 @@
   <!-- Documents Table -->
   @if (!loading) {
 
-    @if (documents.length === 0) {
+    @if (documents.length === 0 && !loadError) {
 <div class="text-center py-12 text-gray-400">
       <svg class="mx-auto w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>

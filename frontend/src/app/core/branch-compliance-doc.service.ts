@@ -287,7 +287,7 @@ export class BranchComplianceDocService {
   }
 
   /** CRM dashboard KPIs */
-  getCrmKpis(params: { companyId?: string; year?: number; month?: number; frequency?: string }): Observable<any> {
+  getCrmKpis(params: { recordScope?: 'ACTUAL' | 'TEST'; companyId?: string; year?: number; month?: number; frequency?: string }): Observable<any> {
     return this.http.get(`${this.crmBase}/dashboard-kpis`, { params: this.toParams(params) });
   }
 
