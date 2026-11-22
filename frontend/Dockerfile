@@ -7,7 +7,8 @@ COPY . .
 RUN npx ng build --configuration=production --base-href /app/ --deploy-url /app/
 
 # ── Stage 2: Serve with Nginx ────────────────
-FROM nginxinc/nginx-unprivileged:stable-alpine
+# Maintained registry and patched stable release; the nginxinc image is frozen.
+FROM nginx/nginx-unprivileged:1.30.7-alpine@sha256:0c53a1f2890c3526bfd201440f0fd3970e5b78f80630f58284aad0d34b5ec7bd
 USER root
 # The upstream image pins optional modules to its Nginx build, preventing
 # apk upgrade from installing security fixes. This app uses none of them.

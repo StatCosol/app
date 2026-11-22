@@ -28,6 +28,7 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
   confirming = false;
   submissionsRevision = 0;
   loading = false;
+  checklistError = '';
   uploading = false;
 
   year = new Date().getFullYear();
@@ -109,6 +110,7 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
 
   loadAll() {
     this.checklistRequest?.unsubscribe();
+    this.checklistError = '';
     this.checklistRows = []; this.kpis = null;
     if (!this.branchId) { this.loading = false; return; }
     this.loading = true;
@@ -124,7 +126,11 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.cdr.markForCheck();
       },
-      error: () => { this.loading = false; this.cdr.markForCheck(); this.toast.error('Failed to load checklist.'); },
+      error: () => {
+        this.loading = false;
+        this.checklistError = 'Unable to load the compliance checklist. Retry before uploading or relying on the counts.';
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -173,7 +179,7 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
   }
 
   async upload() {
-    if (this.uploading || this.confirming || this.loading) return;
+    if (this.uploading || this.confirming || this.loading || this.checklistError) return;
     if (!this.branchId || !this.uploadReturnCode || !this.availableReturns.some(r => r.returnCode === this.uploadReturnCode)) {
       this.toast.error('Please select a branch and a return for this frequency.');
       return;
