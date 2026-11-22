@@ -38,10 +38,10 @@
 
     @if (!loading && !loadError) {
     <span class="ml-auto text-sm font-semibold" [class.text-orange-500]="pendingCount > 0" [class.text-green-600]="pendingCount === 0">
-      {{ pendingCount }} pending review
+      {{ pendingCount }} pending review on this page
     </span>
     }
-    <button type="button" class="filter-select" (click)="load()" [disabled]="loading">Refresh</button>
+    <button type="button" class="filter-select" (click)="load(false)" [disabled]="loading">Refresh</button>
   </fieldset>
   @if (recordScope === 'TEST') {
     <p class="mb-4 text-sm text-amber-800" role="status">TEST DATA ONLY — excluded from actual review lists and counts.</p>
@@ -49,12 +49,13 @@
   @if (loadError || kpiError) {
     <div class="mb-4 text-sm text-red-700" role="alert">
       <p>{{ loadError }}</p><p>{{ kpiError }}</p>
-      <button type="button" class="filter-select" (click)="load()" [disabled]="loading || reviewing">Retry</button>
+      <button type="button" class="filter-select" (click)="load(false)" [disabled]="loading || reviewing">Retry</button>
     </div>
   }
 
   <!-- KPI Cards -->
   @if (kpis) {
+<p class="mb-3 text-sm text-gray-500">Review totals cover the selected records and period across all pages and statuses.</p>
 <div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-value text-brand-600">{{ kpis.pending_review || 0 }}</div>
@@ -165,6 +166,17 @@
 }
 
   <!-- Review Modal -->
+  @if (!loading && !loadError && total > 0) {
+    <nav aria-label="Document pages" class="flex flex-wrap items-center justify-between gap-3 my-4 text-sm">
+      <span role="status">{{ total }} documents · Page {{ page }} of {{ totalPages }}</span>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="filter-select" aria-label="Previous document page"
+          [disabled]="reviewing || page <= 1" (click)="changePage(page - 1)">Previous</button>
+        <button type="button" class="filter-select" aria-label="Next document page"
+          [disabled]="reviewing || page >= totalPages" (click)="changePage(page + 1)">Next</button>
+      </div>
+    </nav>
+  }
   @if (showReviewModal) {
 <ui-modal
 
