@@ -17,6 +17,8 @@ async function run() {
   await db.query(`CREATE SCHEMA "${schema}"`);
   try {
     await db.query(`
+      CREATE TABLE clients(id uuid PRIMARY KEY,is_active boolean DEFAULT true,is_deleted boolean DEFAULT false,deleted_at timestamptz);
+      CREATE TABLE attendance_shifts(client_id uuid,employee_id uuid,start_time time,end_time time,grace_out_min int,active boolean DEFAULT true);
       CREATE TABLE client_branches(id uuid PRIMARY KEY,clientid uuid,branchname text,statecode text,isdeleted boolean DEFAULT false);
       CREATE TABLE employees(id uuid PRIMARY KEY,client_id uuid,branch_id uuid,employee_code text,name text,
         is_active boolean DEFAULT true,approval_status text DEFAULT 'APPROVED',date_of_joining date,date_of_exit date);
@@ -32,9 +34,10 @@ async function run() {
       CREATE TABLE user_branches(user_id uuid,branch_id uuid);
       CREATE TABLE notifications(id uuid DEFAULT gen_random_uuid() PRIMARY KEY,created_by_user_id uuid REFERENCES users(id),
         created_by_role text,query_type text,subject text,client_id uuid,branch_id uuid,status text,priority int,
-        assigned_to_user_id uuid REFERENCES users(id),assigned_to_role text,source_key text);
+        assigned_to_user_id uuid REFERENCES users(id),assigned_to_role text,source_key text,created_at timestamptz DEFAULT now());
       CREATE TABLE notification_messages(id bigserial,notification_id uuid REFERENCES notifications(id),sender_user_id uuid REFERENCES users(id),message text);
     `);
+    await db.query('INSERT INTO clients(id) VALUES($1),($2)',[company,otherCompany]);
     await db.query(require('node:fs').readFileSync(require('node:path').join(__dirname,'../migrations/20261122_time_office_roles.sql'),'utf8'));
     assert.equal((await db.query("SELECT count(*)::int AS n FROM roles WHERE code LIKE 'TIME_OFFICE_%'"))[0].n,2);
     await db.query(`INSERT INTO client_branches(id,clientid,branchname,statecode) VALUES ($1,$2,'Main','TS'),($3,$4,'Other','KA')`,[branch,company,otherBranch,otherCompany]);
@@ -77,6 +80,7 @@ async function run() {
     await assert.rejects(()=>followups.send(user,{employeeId:unlinked,date:'2026-01-06',target:'BRANCH'}),/no longer needs/);
     await db.query(`DELETE FROM user_branches WHERE user_id=$1`,[managerUser]);
     await assert.rejects(()=>followups.send(user,{employeeId:unlinked,date:'2026-01-05',target:'BRANCH'}),/No active branch/);
+    await require('./verify-time-office-auto-postgres.cjs')({db,company,branch,sender,managerUser,followups});
     console.log('PASS: PostgreSQL attendance, leaves, comp-off, tenant isolation, recipient routing, concurrent deduplication, correction recheck, holiday exclusions and missing-recipient handling.');
   } finally {
     await db.query(`DROP SCHEMA "${schema}" CASCADE`);

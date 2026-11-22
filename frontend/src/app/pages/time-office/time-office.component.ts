@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import { TimeOfficeNotificationsComponent } from '../../shared/time-office-notifications.component';
+import { TimeOfficeAutomationComponent } from './time-office-automation.component';
 
 interface OfficeData {
   date?: string;
@@ -19,7 +20,12 @@ interface OfficeData {
 @Component({
   selector: 'app-time-office',
   standalone: true,
-  imports: [CommonModule, FormsModule, TimeOfficeNotificationsComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    TimeOfficeNotificationsComponent,
+    TimeOfficeAutomationComponent,
+  ],
   templateUrl: './time-office.component.html',
   styleUrl: './time-office.component.scss',
 })
@@ -46,6 +52,7 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
     { id: 'leaves', label: 'Leaves' },
     { id: 'coff', label: 'Comp-off' },
     { id: 'notifications', label: 'Notifications & escalations' },
+    { id: 'automation', label: 'Automatic follow-ups' },
   ];
   readonly labels: Record<string, string> = {
     employees: 'Employees',
@@ -79,7 +86,7 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
     this.view = view;
     this.issue = '';
     this.notice = '';
-    if (view !== 'notifications') this.load();
+    if (!['notifications', 'automation'].includes(view)) this.load();
   }
   followUp(row: Record<string, any>, target: 'EMPLOYEE' | 'BRANCH') {
     if (this.sending || !this.data.date) return;

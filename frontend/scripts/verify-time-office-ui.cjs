@@ -12,7 +12,7 @@ async function run(){
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const browser=await puppeteer.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
   try{
-    const page=await browser.newPage();const errors=[];const sent=[];
+    const page=await browser.newPage();const errors=[];const sent=[];const savedSettings=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.setViewport({width:1440,height:1000});
     await page.evaluateOnNewDocument(()=>{
@@ -24,6 +24,7 @@ async function run(){
       if(!req.url().includes('/api/'))return req.continue();
       const u=new URL(req.url());let body={};
       if(u.pathname.endsWith('/time-office/follow-up')){sent.push(JSON.parse(req.postData()));body={sent:1,existing:0,recipients:['Test recipient']};}
+      else if(u.pathname.endsWith('/time-office/automation')){const changes=req.method()==='PUT'?JSON.parse(req.postData()):null;if(changes)savedSettings.push(changes);body={enabled:changes?changes.enabled:true,weekly_off_days:changes?changes.weeklyOffDays:[0],starts_on:'2026-01-05',last_run_at:null,awaiting_correction:2,escalated:1,delivery_issues:0,issues:[]};}
       else if(u.pathname.endsWith('/time-office')){
         const view=u.searchParams.get('view');
         const row={id:'test-employee',name:'Missing Employee',employee_code:'E001',branch:'Test Branch',status:'NOT_MARKED',incomplete:false};
@@ -49,11 +50,16 @@ async function run(){
     await click('Notifications & escalations');await page.waitForFunction(()=>document.body.innerText.includes('Missed attendance reminder'));
     await page.evaluate(()=>[...document.querySelectorAll('button')].find(e=>e.textContent.includes('Missed attendance reminder')).click());
     await page.waitForSelector('textarea');await page.type('textarea','Attendance has been reviewed.');await click('Send reply');await page.waitForNetworkIdle();
+    await click('Automatic follow-ups');await page.waitForSelector('input[name=enabled]');
+    assert(await page.$eval('input[name=enabled]',e=>e.disabled));
+    await page.evaluate(()=>{const user=JSON.parse(sessionStorage.getItem('user'));user.roleCode='TIME_OFFICE_MANAGER';sessionStorage.setItem('user',JSON.stringify(user));});
+    await click('Attendance');await click('Automatic follow-ups');await page.waitForSelector('input[name=enabled]');
+    await page.click('input[name=enabled]');await click('Save settings');await page.waitForFunction(()=>document.body.innerText.includes('settings saved'));assert.equal(savedSettings[0].enabled,false);
     await click('Attendance');await page.waitForSelector('table');
     await page.setViewport({width:390,height:844});await page.screenshot({path:path.join(__dirname,'../time-office-mobile.png'),fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'Page should fit mobile viewport');
     assert.deepEqual(errors,[]);
-    console.log('PASS: production browser rendering, four menus, employee reminder, branch escalation, notification reply and mobile layout (mock API fixtures).');
+    console.log('PASS: production browser rendering, automatic settings, manager-only changes, employee reminder, branch escalation, notification reply and mobile layout (mock API fixtures).');
   }finally{await browser.close();server.close();}
 }
 run().catch(e=>{console.error(e);server.close();process.exitCode=1;});

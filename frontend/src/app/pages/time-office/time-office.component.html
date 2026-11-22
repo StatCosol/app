@@ -24,6 +24,8 @@
   </nav>
   @if (view === 'notifications') {
     <app-time-office-notifications />
+  } @else if (view === 'automation') {
+    <app-time-office-automation />
   } @else {
     <form class="filters" (ngSubmit)="load()">
       <label

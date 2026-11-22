@@ -11,6 +11,7 @@ const migrationsDir = join(__dirname, '..', 'migrations');
 loadEnv({ path: join(__dirname, '..', '.env') });
 
 const serviceMigrationFiles = new Set([
+  '20261122b_time_office_automation.sql',
   '20261122_time_office_roles.sql',
   '20261014_intern_enrollment_period.sql',
   '20261011_licence_manpower_renewal_alerts.sql',
