@@ -9,7 +9,11 @@ RUN npx ng build --configuration=production --base-href /app/ --deploy-url /app/
 # ── Stage 2: Serve with Nginx ────────────────
 FROM nginxinc/nginx-unprivileged:stable-alpine
 USER root
-RUN apk upgrade --no-cache
+# The upstream image pins optional modules to its Nginx build, preventing
+# apk upgrade from installing security fixes. This app uses none of them.
+RUN apk del nginx-module-geoip nginx-module-image-filter nginx-module-njs nginx-module-xslt && \
+    apk add --no-cache --upgrade 'nginx>=1.30.7-r0' && \
+    apk upgrade --no-cache
 COPY --from=builder --chown=101:101 /app/dist/statco-frontend/browser /usr/share/nginx/html/app
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 

@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { roleGuard } from './core/role.guard';
 import { ADMIN_ROUTES } from './pages/admin/admin.routes';
 import { AUDITOR_ROUTES } from './pages/auditor/auditor.routes';
 import { BRANCH_ROUTES } from './pages/branch/branch.routes';
@@ -46,6 +47,9 @@ export const routes: Routes = [
   ...ESS_ROUTES,
   ...ACCOUNTS_ROUTES,
   ...SALES_ROUTES,
+
+  { path: 'time-office', canActivate: [roleGuard(['TIME_OFFICE_EXECUTIVE', 'TIME_OFFICE_MANAGER'])],
+    loadComponent: () => import('./pages/time-office/time-office.component').then(m => m.TimeOfficeComponent) },
 
   // ── Shared ──
   {

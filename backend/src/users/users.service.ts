@@ -175,6 +175,16 @@ export class UsersService implements OnModuleInit {
 
     const roles = [
       {
+        code: 'TIME_OFFICE_EXECUTIVE',
+        name: 'Time Office Executive',
+        description: 'Company attendance monitoring',
+      },
+      {
+        code: 'TIME_OFFICE_MANAGER',
+        name: 'Time Office Manager',
+        description: 'Company attendance monitoring',
+      },
+      {
         code: 'ADMIN',
         name: 'Admin',
         description: 'System owner and user management',
@@ -619,7 +629,14 @@ export class UsersService implements OnModuleInit {
     await this.enforceLimits(role.code);
 
     // Validate clientId for CLIENT and CONTRACTOR role users (client-scoped logins)
-    if (role.code === 'CLIENT' || role.code === 'CONTRACTOR') {
+    if (
+      [
+        'CLIENT',
+        'CONTRACTOR',
+        'TIME_OFFICE_EXECUTIVE',
+        'TIME_OFFICE_MANAGER',
+      ].includes(role.code)
+    ) {
       if (!dto.clientId) {
         throw new BadRequestException('clientId is required for this role');
       }
@@ -1863,7 +1880,13 @@ export class UsersService implements OnModuleInit {
 
     const servicePackage =
       user.clientId &&
-      ['CLIENT', 'CONTRACTOR', 'EMPLOYEE'].includes(roleCode ?? '')
+      [
+        'CLIENT',
+        'CONTRACTOR',
+        'EMPLOYEE',
+        'TIME_OFFICE_EXECUTIVE',
+        'TIME_OFFICE_MANAGER',
+      ].includes(roleCode ?? '')
         ? await this.getClientServicePackage(user.clientId)
         : null;
 
@@ -2146,6 +2169,24 @@ export class UsersService implements OnModuleInit {
       });
       if (!nextRole) {
         throw new BadRequestException(`Invalid role: ${dto.role}`);
+      }
+      if (
+        ['TIME_OFFICE_EXECUTIVE', 'TIME_OFFICE_MANAGER'].includes(nextRole.code)
+      ) {
+        const client = user.clientId
+          ? await this.clientsRepo.findOne({
+              where: {
+                id: user.clientId,
+                isActive: true,
+                isDeleted: false,
+                deletedAt: IsNull(),
+              },
+            })
+          : null;
+        if (!client)
+          throw new BadRequestException(
+            'Create a Time Office user with an active company assignment',
+          );
       }
       user.roleId = nextRole.id;
       user.role = nextRole.code;

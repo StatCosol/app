@@ -370,9 +370,9 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
   get isClientRole(): boolean {
-    // Company selection is required for CONTRACTOR users
+    // Company selection is required for contractor and Time Office users.
     // CLIENT users are now created via Client Registration page
-    return this.selectedRoleCode === 'CONTRACTOR';
+    return ['CONTRACTOR', 'TIME_OFFICE_EXECUTIVE', 'TIME_OFFICE_MANAGER'].includes(this.selectedRoleCode || '');
   }
 
   get isCrmRole(): boolean {

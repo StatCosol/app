@@ -20,6 +20,7 @@ const VALID_ROLES = [
   'EMPLOYEE',
   'ACCOUNTS',
   'SALES',
+  'TIME_OFFICE_EXECUTIVE', 'TIME_OFFICE_MANAGER',
 ] as const;
 type RoleCode = (typeof VALID_ROLES)[number];
 
@@ -380,6 +381,8 @@ export class AuthService {
       EMPLOYEE: '/ess',
       ACCOUNTS: '/accounts',
       SALES: '/sales',
+      TIME_OFFICE_EXECUTIVE: '/time-office',
+      TIME_OFFICE_MANAGER: '/time-office',
     };
     return redirects[role || ''] || '';
   }

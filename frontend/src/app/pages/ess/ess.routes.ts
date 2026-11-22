@@ -57,6 +57,7 @@ export const ESS_ROUTES: Routes = [
     canActivate: [roleGuard(['EMPLOYEE'])],
     children: [
       { path: 'dashboard', loadComponent: EssDashboardComponent },
+      { path: 'notifications', loadComponent: () => import('../../shared/time-office-notifications.component').then(m => m.TimeOfficeNotificationsComponent) },
       { path: 'profile', loadComponent: EssProfileComponent },
       { path: 'pf', loadComponent: EssPfComponent },
       { path: 'esi', loadComponent: EssEsiComponent },
