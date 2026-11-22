@@ -1,6 +1,31 @@
 import { JwtStrategy } from './jwt.strategy';
 
 describe('JwtStrategy branch scope', () => {
+  it.each(['TIME_OFFICE_EXECUTIVE', 'TIME_OFFICE_MANAGER'])(
+    'uses current company assignment for %s',
+    async (roleCode) => {
+      const users = {
+        findById: jest.fn().mockResolvedValue({
+          id: 'office-user',
+          clientId: 'current-company',
+          isActive: true,
+        }),
+        getUserRoleCode: jest.fn().mockResolvedValue(roleCode),
+      };
+      const strategy = new JwtStrategy(
+        users as any,
+        { getOrThrow: () => 'test-jwt-secret' } as any,
+      );
+      const result = await strategy.validate({
+        sub: 'office-user',
+        type: 'access',
+        roleCode,
+        clientId: 'previous-company',
+      });
+      expect(result.clientId).toBe('current-company');
+    },
+  );
+
   it('uses current database branch mappings instead of stale token mappings', async () => {
     const usersService = {
       findById: jest.fn().mockResolvedValue({

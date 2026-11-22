@@ -420,6 +420,7 @@ export class EssLayoutComponent implements OnInit, OnDestroy {
     documents: 'Documents',
     payslips: 'Payslips',
     helpdesk: 'Helpdesk',
+    notifications: 'Notifications',
     appraisals: 'My Appraisals',
   };
 
@@ -472,6 +473,7 @@ export class EssLayoutComponent implements OnInit, OnDestroy {
       { label: 'Documents',   route: '/ess/documents',   icon: s('documents') },
       { label: 'Payslips',    route: '/ess/payslips',    icon: s('payslips') },
       { label: 'Helpdesk',    route: '/ess/helpdesk',    icon: s('helpdesk') },
+      { label: 'Notifications', route: '/ess/notifications', icon: s('helpdesk') },
       { label: 'Appraisals',  route: '/ess/appraisals',  icon: s('appraisals') },
     ];
   }

@@ -152,7 +152,16 @@ export class ServiceEntitlementsGuard implements CanActivate {
     if (!user?.clientId) return true;
 
     const role = String(user.roleCode || user.role || '').toUpperCase();
-    if (!['CLIENT', 'CONTRACTOR', 'EMPLOYEE'].includes(role)) return true;
+    if (
+      ![
+        'CLIENT',
+        'CONTRACTOR',
+        'EMPLOYEE',
+        'TIME_OFFICE_EXECUTIVE',
+        'TIME_OFFICE_MANAGER',
+      ].includes(role)
+    )
+      return true;
 
     const path = String(req.originalUrl || req.url || '')
       .replace(/\?.*$/, '')
