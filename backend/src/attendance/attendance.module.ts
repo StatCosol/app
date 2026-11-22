@@ -1,5 +1,10 @@
 import { TimeOfficeController, TimeOfficeService } from './time-office';
 import { TimeOfficeFollowupsService } from './time-office-followups';
+import {
+  TimeOfficeAutomationController,
+  TimeOfficeAutomationService,
+} from './time-office-automation.service';
+import { ServiceEntitlementsModule } from '../service-entitlements/service-entitlements.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AttendanceEntity } from './entities/attendance.entity';
@@ -16,6 +21,7 @@ import { HolidayCalendarController } from './holiday-calendar.controller';
 
 @Module({
   imports: [
+    ServiceEntitlementsModule,
     TypeOrmModule.forFeature([
       AttendanceEntity,
       AttendanceMismatchEntity,
@@ -30,12 +36,14 @@ import { HolidayCalendarController } from './holiday-calendar.controller';
     AttendanceController,
     HolidayCalendarController,
     TimeOfficeController,
+    TimeOfficeAutomationController,
   ],
   providers: [
     AttendanceService,
     HolidayCalendarService,
     TimeOfficeService,
     TimeOfficeFollowupsService,
+    TimeOfficeAutomationService,
   ],
   exports: [AttendanceService, HolidayCalendarService],
 })

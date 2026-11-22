@@ -7,6 +7,10 @@ import { IsIn, IsString, IsUUID, Matches } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { ReqUser } from '../access/access-scope.service';
 import { timeOfficeFilters } from './time-office-filters';
+import { automaticReminderDue } from './time-office-automation-time';
+
+export class FollowupResolvedException extends BadRequestException {}
+export class FollowupDeferredException extends BadRequestException {}
 
 export class TimeOfficeFollowupDto {
   @IsUUID() employeeId: string;
@@ -18,7 +22,11 @@ export class TimeOfficeFollowupDto {
 export class TimeOfficeFollowupsService {
   constructor(private readonly db: DataSource) {}
 
-  async send(user: ReqUser, input: TimeOfficeFollowupDto) {
+  async send(
+    user: ReqUser,
+    input: TimeOfficeFollowupDto,
+    automatic?: { now: Date; weeklyOffDays: number[] },
+  ) {
     if (!user.clientId || !user.id)
       throw new ForbiddenException('Company assignment required');
     timeOfficeFilters({ date: input.date });
@@ -55,9 +63,30 @@ export class TimeOfficeFollowupsService {
         employee.holiday ||
         (employee.attendance_id && !incomplete)
       ) {
-        throw new BadRequestException(
+        throw new FollowupResolvedException(
           'Attendance no longer needs a missed-punch follow-up. Refresh the register.',
         );
+      }
+      if (automatic) {
+        const weekday = new Date(`${input.date}T00:00:00Z`).getUTCDay();
+        if (
+          !employee.attendance_id &&
+          automatic.weeklyOffDays.includes(weekday)
+        ) {
+          throw new FollowupResolvedException(
+            'Configured weekly off; no reminder required',
+          );
+        }
+        const [shift] = await manager.query(
+          `SELECT start_time::text, end_time::text, grace_out_min
+          FROM attendance_shifts WHERE client_id=$1 AND employee_id=$2 AND active=true`,
+          [user.clientId, employee.id],
+        );
+        if (!automaticReminderDue(input.date, automatic.now, shift)) {
+          throw new FollowupDeferredException(
+            'Shift or next-morning reminder window has not finished',
+          );
+        }
       }
       const recipients =
         input.target === 'EMPLOYEE'
@@ -82,6 +111,7 @@ export class TimeOfficeFollowupsService {
         );
       let sent = 0;
       let existing = 0;
+      let firstNotificationAt: Date | null = null;
       const subject = `${input.target === 'BRANCH' ? 'Attendance escalation' : 'Missed attendance reminder'}: ${employee.employee_code} · ${input.date}`;
       const message =
         `${employee.name} (${employee.employee_code}) has ${incomplete ? 'an incomplete attendance punch' : 'no attendance record'} on ${input.date}. ` +
@@ -92,20 +122,23 @@ export class TimeOfficeFollowupsService {
       for (const recipient of recipients) {
         const key = `time-office:${input.target}:${employee.id}:${input.date}:${recipient.id}`;
         const [prior] = await manager.query(
-          'SELECT id FROM notifications WHERE client_id=$1 AND source_key=$2',
+          'SELECT id, created_at FROM notifications WHERE client_id=$1 AND source_key=$2',
           [user.clientId, key],
         );
         if (prior) {
+          const at = new Date(prior.created_at);
+          if (!firstNotificationAt || at < firstNotificationAt)
+            firstNotificationAt = at;
           existing++;
           continue;
         }
         const [notification] = await manager.query(
           `INSERT INTO notifications
           (created_by_user_id,created_by_role,query_type,subject,client_id,branch_id,status,priority,assigned_to_user_id,assigned_to_role,source_key)
-          VALUES ($1,$2,'SYSTEM',$3,$4,$5,'OPEN',$6,$7,$8,$9) RETURNING id`,
+          VALUES ($1,$2,'SYSTEM',$3,$4,$5,'OPEN',$6,$7,$8,$9) RETURNING id, created_at`,
           [
             user.id,
-            user.roleCode,
+            automatic ? 'SYSTEM' : user.roleCode,
             subject,
             user.clientId,
             employee.branch_id,
@@ -115,16 +148,24 @@ export class TimeOfficeFollowupsService {
             key,
           ],
         );
+        const at = new Date(notification.created_at);
+        if (!firstNotificationAt || at < firstNotificationAt)
+          firstNotificationAt = at;
         await manager.query(
           `INSERT INTO notification_messages (notification_id,sender_user_id,message)
           VALUES ($1,$2,$3)`,
-          [notification.id, user.id, message],
+          [
+            notification.id,
+            user.id,
+            (automatic ? 'Automatic Time Office follow-up. ' : '') + message,
+          ],
         );
         sent++;
       }
       return {
         sent,
         existing,
+        firstNotificationAt,
         recipients: recipients.map((r: { name: string }) => r.name),
       };
     });
