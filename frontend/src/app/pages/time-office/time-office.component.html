@@ -1,0 +1,243 @@
+<main>
+  <header>
+    <div>
+      <span class="eyebrow">STATCO · TIME OFFICE</span>
+      <h1>Workforce attendance</h1>
+      <p>Review attendance, leaves and comp-off across your company’s branches.</p>
+    </div>
+    <div>
+      <p>{{ user?.clientName || 'Assigned company' }} · {{ user?.name }}</p>
+      <button type="button" (click)="auth.logout()">Sign out</button>
+    </div>
+  </header>
+  <nav aria-label="Time Office views">
+    @for (tab of tabs; track tab.id) {
+      <button
+        type="button"
+        [class.active]="view === tab.id"
+        [attr.aria-pressed]="view === tab.id"
+        (click)="switchView(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+  @if (view === 'notifications') {
+    <app-time-office-notifications />
+  } @else if (view === 'automation') {
+    <app-time-office-automation />
+  } @else {
+    <form class="filters" (ngSubmit)="load()">
+      <label
+        >{{ view === 'leaves' ? 'Date in reporting month' : 'Review date'
+        }}<input type="date" name="date" [(ngModel)]="date" [max]="today" required
+      /></label>
+      <label
+        >Branch<select name="branch" [(ngModel)]="branch">
+          <option value="">All branches</option>
+          @for (b of data.branches; track b.id) {
+            <option [value]="b.id">{{ b.name }}</option>
+          }
+        </select></label
+      >
+      <label
+        >Employee<input
+          name="search"
+          [(ngModel)]="search"
+          placeholder="Name or employee code"
+          maxlength="100"
+      /></label>
+      @if (view === 'attendance') {
+        <label
+          >Review hours<input
+            type="number"
+            name="hours"
+            [(ngModel)]="hours"
+            min="0.01"
+            max="24"
+            step="0.01"
+            required
+        /></label>
+        <label
+          >Show<select name="issue" [(ngModel)]="issue">
+            <option value="">All employees</option>
+            <option value="NOT_MARKED">Attendance not marked</option>
+            <option value="SHORT_HOURS">Below review hours</option>
+            <option value="INCOMPLETE">Incomplete punches</option>
+            <option value="ABSENT">Marked absent</option>
+            <option value="ON_LEAVE">On leave</option>
+          </select></label
+        >
+      }
+      <button class="primary" type="submit" [disabled]="loading">
+        {{ loading ? 'Loading…' : 'Apply / refresh' }}
+      </button>
+    </form>
+    @if (error) {
+      <div class="error" role="alert">{{ error }}</div>
+    }
+    @if (notice) {
+      <p class="note" role="status">{{ notice }}</p>
+    }
+    <section class="cards" aria-label="Summary">
+      @for (card of cards; track card.label) {
+        <article>
+          <span>{{ card.label }}</span
+          ><strong>{{ card.value | number: '1.0-2' }}</strong>
+        </article>
+      }
+    </section>
+    <section class="records" [attr.aria-busy]="loading">
+      <div class="table-heading">
+        <div>
+          <h2>
+            {{
+              view === 'attendance'
+                ? 'Daily employee register'
+                : view === 'leaves'
+                  ? 'Leave applications in selected month'
+                  : 'Comp-off balances as of review date'
+            }}
+          </h2>
+          <p>{{ data.total }} records · {{ data.date || date }}</p>
+        </div>
+        <button type="button" (click)="exportPage()" [disabled]="loading || !data.rows.length">
+          Export this page
+        </button>
+      </div>
+      @if (view === 'attendance') {
+        <p class="note">
+          Review hours are a comparison threshold, not a payroll rule. Short hours require both
+          punches and recorded worked hours. Incomplete punches may include an ongoing shift. “Not
+          marked” means no attendance record, approved leave or calendar holiday; check weekly offs
+          before following up. Summary counts follow the branch and employee filters.
+        </p>
+      }
+      @if (view === 'coff') {
+        <p class="note">
+          Balances use recorded comp-off ledger entries through the review date. Comp-off leave
+          applications appear under Leaves.
+        </p>
+      }
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Branch</th>
+              @if (view === 'attendance') {
+                <th>Status</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
+                <th>Worked hours</th>
+                <th>Review flags</th>
+                <th>Approval</th>
+                <th>Follow up</th>
+              }
+              @if (view === 'leaves') {
+                <th>Leave type</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Days</th>
+                <th>Status</th>
+              }
+              @if (view === 'coff') {
+                <th>Accrued days</th>
+                <th>Used days</th>
+                <th>Lapsed days</th>
+                <th>Available days</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of data.rows; track $index) {
+              <tr>
+                <td>
+                  <strong>{{ row['name'] }}</strong
+                  ><small>{{ row['employee_code'] }}</small>
+                </td>
+                <td>{{ row['branch'] }}</td>
+                @if (view === 'attendance') {
+                  <td>
+                    <span class="badge" [class.warning]="row['status'] === 'NOT_MARKED'">{{
+                      label(row['status'])
+                    }}</span>
+                  </td>
+                  <td>{{ row['check_in'] || '—' }}</td>
+                  <td>{{ row['check_out'] || '—' }}</td>
+                  <td>{{ row['worked_hours'] ?? '—' }}</td>
+                  <td>
+                    {{
+                      row['short_hours']
+                        ? 'Below review hours'
+                        : row['incomplete']
+                          ? 'Incomplete punches'
+                          : '—'
+                    }}
+                  </td>
+                  <td>{{ label(row['approval_status']) }}</td>
+                }
+                @if (view === 'attendance') {
+                  <td>
+                    @if (row['status'] === 'NOT_MARKED' || row['incomplete']) {
+                      <button
+                        type="button"
+                        [disabled]="!!sending || loading"
+                        (click)="followUp(row, 'EMPLOYEE')"
+                      >
+                        Notify employee
+                      </button>
+                      <button
+                        type="button"
+                        [disabled]="!!sending || loading"
+                        (click)="followUp(row, 'BRANCH')"
+                      >
+                        Escalate to branch
+                      </button>
+                    } @else {
+                      —
+                    }
+                  </td>
+                }
+                @if (view === 'leaves') {
+                  <td>{{ label(row['leave_type']) }}</td>
+                  <td>{{ row['from_date'] }}</td>
+                  <td>{{ row['to_date'] }}</td>
+                  <td>{{ row['total_days'] }}</td>
+                  <td>{{ label(row['status']) }}</td>
+                }
+                @if (view === 'coff') {
+                  <td>{{ row['accrued'] }}</td>
+                  <td>{{ row['used'] }}</td>
+                  <td>{{ row['lapsed'] }}</td>
+                  <td>
+                    <strong>{{ row['available'] }}</strong>
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="empty">
+                  {{
+                    loading
+                      ? 'Loading records…'
+                      : error
+                        ? 'Records could not be loaded.'
+                        : 'No records match these filters.'
+                  }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <footer>
+        <span>Page {{ page }} of {{ pages }} · Up to 50 records per page</span>
+        <div>
+          <button (click)="turnPage(-1)" [disabled]="page <= 1 || loading">Previous</button
+          ><button (click)="turnPage(1)" [disabled]="page >= pages || loading">Next</button>
+        </div>
+      </footer>
+    </section>
+  }
+</main>

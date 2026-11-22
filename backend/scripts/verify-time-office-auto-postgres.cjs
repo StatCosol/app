@@ -1,0 +1,62 @@
+const assert=require('node:assert/strict');
+const {randomUUID:id}=require('node:crypto');
+const fs=require('node:fs'),path=require('node:path');
+const {TimeOfficeAutomationService}=require('../dist/src/attendance/time-office-automation.service');
+module.exports=async function({db,company,branch,sender,managerUser,followups}) {
+  await db.query(fs.readFileSync(path.join(__dirname,'../migrations/20261122b_time_office_automation.sql'),'utf8'));
+  await db.query('UPDATE employees SET is_active=false');
+  await db.query('DELETE FROM holiday_calendar');
+  await db.query('INSERT INTO user_branches VALUES($1,$2)',[managerUser,branch]);
+  const cases={missing:id(),corrected:id(),leave:id(),noLogin:id(),night:id(),weekly:id()};
+  for(const [code,employee] of Object.entries(cases)) {
+    await db.query(`INSERT INTO employees(id,client_id,branch_id,employee_code,name,date_of_joining) VALUES($1,$2,$3,$4,$4,'2026-01-05')`,[employee,company,branch,code]);
+    if(code!=='noLogin')await db.query(`INSERT INTO users(id,client_id,employee_id,role_id,name) SELECT $1,$2,$3,id,$4 FROM roles WHERE code='EMPLOYEE'`,[id(),company,employee,code]);
+  }
+  await db.query(`INSERT INTO attendance_shifts(client_id,employee_id,start_time,end_time,grace_out_min) VALUES($1,$2,'23:00','10:00',15)`,[company,cases.night]);
+  await db.query(`INSERT INTO attendance_records(employee_id,client_id,date,status) VALUES($1,$2,'2026-01-05','WEEK_OFF')`,[cases.weekly,company]);
+  await db.query(`INSERT INTO time_office_automation_settings(client_id,starts_on,weekly_off_days) VALUES($1,'2026-01-05',ARRAY[0])`,[company]);
+  const service=new TimeOfficeAutomationService(db,followups,{hasModule:async()=>true});
+  const morning=new Date('2026-01-06T09:00:00+05:30');
+  await assert.rejects(()=>followups.send({id:sender,clientId:company,roleCode:'TIME_OFFICE_EXECUTIVE'},
+    {employeeId:cases.missing,date:'2026-01-05',target:'EMPLOYEE'}, {now:morning,weeklyOffDays:[1]}),/Configured weekly off/);
+  await service.processCompany(company,new Date('2026-01-06T08:59:00+05:30'));
+  const notifications=async(employee,target)=>Number((await db.query(`SELECT count(*) AS n FROM notifications WHERE source_key LIKE $1`,[`time-office:${target}:${employee}:2026-01-05:%`]))[0].n);
+  assert.equal(await notifications(cases.missing,'EMPLOYEE'),0);
+  await Promise.all([service.processCompany(company,morning),service.processCompany(company,morning)]);
+  assert.equal(await notifications(cases.missing,'EMPLOYEE'),1);
+  assert.equal(await notifications(cases.night,'EMPLOYEE'),0);
+  assert.equal(await notifications(cases.weekly,'EMPLOYEE'),0);
+  let [unlinked]=await db.query(`SELECT * FROM time_office_followup_cases WHERE employee_id=$1 AND attendance_date='2026-01-05'`,[cases.noLogin]);
+  assert.match(unlinked.last_error,/No active ESS/);assert.equal(unlinked.reminded_at,null);
+  await service.processCompany(company,new Date('2026-01-06T13:00:00+05:30'));
+  assert.equal(await notifications(cases.night,'EMPLOYEE'),1);
+  // Control persisted delivery timestamps to test the exact 24-hour boundary.
+  await db.query(`UPDATE time_office_followup_cases SET reminded_at=$2 WHERE client_id=$1 AND reminded_at IS NOT NULL`,[company,morning]);
+  await db.query(`INSERT INTO attendance_records(employee_id,client_id,date,status,check_in,check_out,worked_hours) VALUES($1,$2,'2026-01-05','PRESENT','09:00','18:00',9)`,[cases.corrected,company]);
+  await db.query(`INSERT INTO leave_applications(employee_id,client_id,from_date,to_date,total_days,leave_type,status) VALUES($1,$2,'2026-01-05','2026-01-05',1,'CL','APPROVED')`,[cases.leave,company]);
+  await service.processCompany(company,new Date('2026-01-07T08:59:00+05:30'));
+  assert.equal(await notifications(cases.missing,'BRANCH'),0);
+  await db.query('DELETE FROM user_branches WHERE user_id=$1',[managerUser]);
+  await service.processCompany(company,new Date('2026-01-07T09:00:00+05:30'));
+  assert.equal(await notifications(cases.missing,'BRANCH'),0);
+  const [failedEscalation]=await db.query("SELECT last_error FROM time_office_followup_cases WHERE employee_id=$1 AND attendance_date='2026-01-05'",[cases.missing]);
+  assert.match(failedEscalation.last_error,/No active branch/);
+  await db.query('INSERT INTO user_branches VALUES($1,$2)',[managerUser,branch]);
+  await service.processCompany(company,new Date('2026-01-07T09:15:00+05:30'));
+  assert.equal(await notifications(cases.missing,'BRANCH'),1);
+  assert.equal(await notifications(cases.corrected,'BRANCH'),0);
+  assert.equal(await notifications(cases.leave,'BRANCH'),0);
+  assert.equal(await notifications(cases.noLogin,'BRANCH'),0);
+  await service.processCompany(company,new Date('2026-01-07T09:15:00+05:30'));
+  assert.equal(await notifications(cases.missing,'BRANCH'),1);
+  const [delivery]=await db.query(`SELECT assigned_to_user_id FROM notifications WHERE source_key LIKE $1`,[`time-office:BRANCH:${cases.missing}:2026-01-05:%`]);
+  assert.equal(delivery.assigned_to_user_id,managerUser);
+  const [resolved]=await db.query(`SELECT resolved_at FROM time_office_followup_cases WHERE employee_id=$1 AND attendance_date='2026-01-05'`,[cases.corrected]);assert(resolved.resolved_at);
+  const before=Number((await db.query('SELECT count(*) AS n FROM notifications'))[0].n);
+  const settings=await service.save({id:sender,clientId:company,roleCode:'TIME_OFFICE_MANAGER'},{enabled:false,weeklyOffDays:[0]});
+  assert.equal(settings.enabled,false);assert(settings.delivery_issues>0);
+  await service.processCompany(company,new Date('2026-01-08T09:00:00+05:30'));
+  assert.equal(Number((await db.query('SELECT count(*) AS n FROM notifications'))[0].n),before);
+  await assert.rejects(()=>service.save({id:sender,clientId:company,roleCode:'TIME_OFFICE_EXECUTIVE'},{enabled:true,weeklyOffDays:[]}),/Only Time Office Managers/);
+  console.log('PASS: automatic 9am reminders, overnight deferral, 24-hour escalation, correction/leave suppression, branch routing, replica safety, missing-login visibility and pause setting.');
+};

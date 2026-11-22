@@ -104,7 +104,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: payload.sub,
       email: payload.email ?? user.email,
       roleCode,
-      clientId: payload.clientId ?? user.clientId ?? null,
+      clientId: ['TIME_OFFICE_EXECUTIVE', 'TIME_OFFICE_MANAGER'].includes(
+        roleCode,
+      )
+        ? (user.clientId ?? null)
+        : (payload.clientId ?? user.clientId ?? null),
       userType,
       employeeId: user.employeeId ?? null,
       branchIds,

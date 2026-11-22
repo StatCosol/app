@@ -21,7 +21,14 @@ const ASSIGNED_ROLES = ['CRM', 'PAYROLL', 'AUDITOR', 'PAYDEK'];
  * clientId on the request must equal `user.clientId` — these users have
  * exactly one company and can never legitimately name another.
  */
-const TENANT_ROLES = ['CLIENT', 'BRANCH_DESK', 'CONTRACTOR', 'EMPLOYEE'];
+const TENANT_ROLES = [
+  'CLIENT',
+  'BRANCH_DESK',
+  'CONTRACTOR',
+  'EMPLOYEE',
+  'TIME_OFFICE_EXECUTIVE',
+  'TIME_OFFICE_MANAGER',
+];
 
 /**
  * ScopeGuard attaches `req.accessScope` derived from the authenticated user
