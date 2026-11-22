@@ -78,6 +78,12 @@
     <a routerLink="/branch/compliance-library" class="underline">CRM reference files</a>
   </div>
   <!-- Upload Box -->
+  @if (checklistError) {
+    <div role="alert" class="border border-red-200 bg-red-50 rounded p-4 mb-4">
+      <p class="text-red-800 mb-2">{{ checklistError }}</p>
+      <button type="button" aria-label="Retry checklist" class="border rounded px-3 py-2" (click)="loadAll()">Retry checklist</button>
+    </div>
+  }
   <div class="border rounded p-4 mb-4">
     <div class="font-medium mb-2">Upload Compliance File</div>
 
@@ -98,7 +104,7 @@
               placeholder="Notes (optional)" [(ngModel)]="uploadNotes"></textarea>
 
     <button type="button" class="compact-action mt-3 px-3 py-2 text-sm bg-black text-white rounded"
-            [disabled]="uploading || confirming || loading"
+            [disabled]="uploading || confirming || loading || !!checklistError"
             (click)="upload()" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
       {{ uploading ? 'Uploading...' : 'Upload' }}
     </span></button>
@@ -111,7 +117,7 @@
 <div class="text-sm text-gray-500">Loading…</div>
 }
 
-  @if (!loading) {
+  @if (!loading && !checklistError) {
 <div>
     <h2 class="font-semibold mb-2">Required compliance checklist</h2>
     <ui-data-table
