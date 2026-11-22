@@ -187,6 +187,9 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
     const context = JSON.stringify(this.periodQuery);
     const sameContext = () => !this.destroyed && revision === this.contextRevision
       && context === JSON.stringify(this.periodQuery);
+    const draft = { file: this.selectedFile, returnCode: this.uploadReturnCode, notes: this.uploadNotes };
+    const sameDraft = () => this.selectedFile === draft.file
+      && this.uploadReturnCode === draft.returnCode && this.uploadNotes === draft.notes;
     const fd = new FormData();
     fd.append('file', this.selectedFile);
     fd.append('branchId', this.branchId);
@@ -203,16 +206,23 @@ export class BranchComplianceDocsComponent implements OnInit, OnDestroy {
     try { ok = await this.dialog.confirm('Upload Document', 'Upload document for ' + this.periodLabel + '?'); }
     finally { this.confirming = false; this.cdr.markForCheck(); }
     if (!ok || !sameContext()) return;
+    if (!sameDraft()) {
+      this.toast.error('The upload draft changed. Review it and confirm the upload again.');
+      return;
+    }
     this.uploading = true;
     this.docs.uploadDocument(fd).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.uploading = false; this.cdr.markForCheck();
         if (!sameContext()) return;
-        this.toast.success('Uploaded successfully.');
+        const completedDraft = sameDraft();
+        this.toast.success(completedDraft ? 'Uploaded successfully.' : 'Uploaded successfully. Your newer draft has been preserved.');
         this.submissionsRevision++;
-        this.selectedFile = null;
-        if (this.fileInput) this.fileInput.value = '';
-        this.uploadNotes = '';
+        if (completedDraft) {
+          this.selectedFile = null;
+          if (this.fileInput) this.fileInput.value = '';
+          this.uploadNotes = '';
+        }
         this.loadAll();
       },
       error: err => {
