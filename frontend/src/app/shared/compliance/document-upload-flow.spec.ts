@@ -86,4 +86,36 @@ describe('document upload UI', () => {
     c.branch = false; c.crm = true; c.companyId = 'company-a'; c.load(); expect(api.listCrmDocs).toHaveBeenCalledWith(expect.objectContaining({companyId:'company-a'}));
     c.crm = false; c.load(); expect(api.listClientDocs).toHaveBeenCalled();
   });
+  it.each(['file', 'notes', 'return'])('preserves a newer same-period draft when its %s changes during upload', async field => {
+    const { c, docs } = setup(); const pending = new Subject<any>();
+    c.uploadNotes = 'Original notes';
+    docs.getChecklist.mockReturnValue(of({data:[{returnCode:'RETURN'},{returnCode:'OTHER'}]}));
+    c.fileInput = {value:'original.pdf'} as HTMLInputElement;
+    docs.uploadDocument.mockReturnValue(pending); await c.upload();
+    if(field === 'file') { c.selectedFile = new File(['new'], 'TEST-new.pdf'); c.fileInput.value='TEST-new.pdf'; }
+    if(field === 'notes') c.uploadNotes = 'New unsaved notes';
+    if(field === 'return') c.uploadReturnCode = 'OTHER';
+    const draft = {file:c.selectedFile, notes:c.uploadNotes, code:c.uploadReturnCode, input:c.fileInput.value};
+    pending.next({});
+    expect(c.selectedFile).toBe(draft.file); expect(c.uploadNotes).toBe(draft.notes);
+    expect(c.uploadReturnCode).toBe(draft.code); expect(c.fileInput.value).toBe(draft.input);
+    expect(c.submissionsRevision).toBe(1); expect(c.uploading).toBe(false);
+  });
+  it('clears the completed draft when no edits were made', async () => {
+    const {c, docs} = setup(); const pending=new Subject<any>();
+    c.uploadNotes='Completed notes'; c.fileInput={value:'original.pdf'} as HTMLInputElement;
+    docs.uploadDocument.mockReturnValue(pending); await c.upload(); pending.next({});
+    expect(c.selectedFile).toBeNull(); expect(c.uploadNotes).toBe(''); expect(c.fileInput.value).toBe('');
+  });
+  it.each(['file', 'notes', 'return'])('does not send an obsolete draft if %s changes during confirmation', async field => {
+    const {c, docs, dialog}=setup(); let accept!: (ok:boolean)=>void;
+    dialog.confirm.mockReturnValue(new Promise(resolve=>accept=resolve));
+    const pending=c.upload();
+    if(field==='file') c.selectedFile=new File(['new'],'TEST-new.pdf');
+    if(field==='notes') c.uploadNotes='Changed notes';
+    if(field==='return') c.uploadReturnCode='OTHER';
+    accept(true); await pending;
+    expect(docs.uploadDocument).not.toHaveBeenCalled(); expect(c.confirming).toBe(false);
+  });
+
 });
