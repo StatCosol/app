@@ -169,7 +169,11 @@ export class AccessScopeService {
       };
     }
 
-    if (roleCode === 'CONTRACTOR') {
+    if (
+      ['CONTRACTOR', 'TIME_OFFICE_EXECUTIVE', 'TIME_OFFICE_MANAGER'].includes(
+        roleCode,
+      )
+    ) {
       if (!clientId) throw new ForbiddenException('No client linked to user');
       return { level: 'client', clientId };
     }
