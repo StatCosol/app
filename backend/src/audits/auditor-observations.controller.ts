@@ -44,8 +44,12 @@ export class AuditorObservationsController {
 
   @ApiOperation({ summary: 'List' })
   @Get()
-  list(@CurrentUser() user: ReqUser, @Query('auditId') auditId?: string) {
-    return this.service.listForAuditor(user, auditId);
+  list(
+    @CurrentUser() user: ReqUser,
+    @Query('auditId') auditId?: string,
+    @Query('recordScope') recordScope?: string,
+  ) {
+    return this.service.listForAuditor(user, auditId, recordScope);
   }
 
   @ApiOperation({ summary: 'Get One' })
@@ -102,8 +106,9 @@ export class AuditorObservationsController {
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
     @Param('auditId', ParseUUIDPipe) auditId: string,
+    @Query('recordScope') recordScope?: string,
   ) {
-    const pdfBuffer = await this.service.exportPdf(user, auditId);
+    const pdfBuffer = await this.service.exportPdf(user, auditId, recordScope);
 
     res.set({
       'Content-Type': 'application/pdf',

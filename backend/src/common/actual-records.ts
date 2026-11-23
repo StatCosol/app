@@ -75,6 +75,17 @@ export function actualRegistrationSql(alias = ''): string {
 export function actualAuditObservationSql(alias = 'o'): string {
   return `COALESCE(${column(alias, 'observation')}, '') !~* '^(TEST[ _-]ONLY|SYNTHETIC[ _-]TEST[ _-]ONLY)([ .:_-]|$)' AND COALESCE(${column(alias, 'observation')}, '') !~* '^TEST-BRANCH-UI-[0-9]{8}.*Synthetic correction workflow check'`;
 }
+/** Entity counterpart of actualAuditObservationSql; never classify incidental text. */
+export function isTestAuditObservation(observation?: string | null): boolean {
+  return (
+    /^(TEST[ _-]ONLY|SYNTHETIC[ _-]TEST[ _-]ONLY)([ .:_-]|$)/i.test(
+      observation || '',
+    ) ||
+    /^TEST-BRANCH-UI-[0-9]{8}.*Synthetic correction workflow check/i.test(
+      observation || '',
+    )
+  );
+}
 export function actualAuditSql(alias = 'a'): string {
   const codes = LEGACY_TEST_AUDIT_CODES.map((code) => "'" + code + "'").join(
     ',',

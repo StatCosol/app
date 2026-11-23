@@ -13,9 +13,10 @@ export class AuditorObservationsService {
     return this.http.get(`${this.baseUrl}/api/v1/auditor/observations/categories`);
   }
 
-  list(auditId?: string | null): Observable<any> {
+  list(auditId?: string | null, recordScope?: 'ACTUAL' | 'TEST'): Observable<any> {
     let params = new HttpParams();
     if (auditId) params = params.set('auditId', auditId);
+    if (recordScope) params = params.set('recordScope', recordScope);
     return this.http.get(`${this.baseUrl}/api/v1/auditor/observations`, { params });
   }
 
@@ -57,10 +58,10 @@ export class AuditorObservationsService {
     });
   }
 
-  exportAuditObservationsPdf(auditId: string): Observable<Blob> {
+  exportAuditObservationsPdf(auditId: string, recordScope?: 'ACTUAL' | 'TEST'): Observable<Blob> {
     return this.http.get(
       `${this.baseUrl}/api/v1/auditor/observations/audit/${auditId}/export`,
-      { responseType: 'blob' },
+      { responseType: 'blob', params: recordScope ? new HttpParams().set('recordScope', recordScope) : new HttpParams() },
     );
   }
 }

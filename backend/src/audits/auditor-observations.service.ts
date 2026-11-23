@@ -14,6 +14,7 @@ import { AssignmentsService } from '../assignments/assignments.service';
 import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 import { generateObservationsPdfBuffer } from './utils/observations-pdf';
 import { ReqUser } from '../access/access-scope.service';
+import { isTestAudit, isTestAuditObservation } from '../common/actual-records';
 
 @Injectable()
 export class AuditorObservationsService {
@@ -59,9 +60,33 @@ export class AuditorObservationsService {
     return audit;
   }
 
-  async listForAuditor(user: ReqUser, auditId?: string) {
+  async listForAuditor(user: ReqUser, auditId?: string, recordScope?: string) {
+    if (
+      recordScope !== undefined &&
+      !['ACTUAL', 'TEST'].includes(recordScope)
+    ) {
+      throw new BadRequestException('recordScope must be ACTUAL or TEST');
+    }
+    const scoped = (
+      rows: AuditObservationEntity[],
+      audits: AuditEntity[] = [],
+    ) =>
+      rows
+        .map((row) => ({
+          ...row,
+          isTest:
+            isTestAudit(
+              row.audit || audits.find((a) => a.id === row.auditId) || {},
+            ) || isTestAuditObservation(row.observation),
+        }))
+        // An explicit audit deep link retains its history. Global queues default to actual.
+        .filter((row) =>
+          auditId && recordScope === undefined
+            ? true
+            : row.isTest === (recordScope === 'TEST'),
+        );
     if (auditId) {
-      await this.verifyAuditorAccess(user.userId, auditId);
+      const audit = await this.verifyAuditorAccess(user.userId, auditId);
       const observations = await this.observationRepo.find({
         where: { auditId },
         relations: [
@@ -73,7 +98,7 @@ export class AuditorObservationsService {
         ],
         order: { sequenceNumber: 'ASC', createdAt: 'ASC' },
       });
-      return observations;
+      return scoped(observations, [audit]);
     }
 
     // Get all audits assigned to this auditor
@@ -95,7 +120,7 @@ export class AuditorObservationsService {
 
     if (auditIds.length === 0) return [];
 
-    return this.observationRepo.find({
+    const observations = await this.observationRepo.find({
       where: auditIds.map((id) => ({ auditId: id })),
       relations: [
         'category',
@@ -106,6 +131,7 @@ export class AuditorObservationsService {
       ],
       order: { createdAt: 'DESC' },
     });
+    return scoped(observations, audits);
   }
 
   async getOne(user: ReqUser, id: string) {
@@ -339,8 +365,12 @@ export class AuditorObservationsService {
     return `${existing}\n${next}`;
   }
 
-  async exportPdf(user: ReqUser, auditId: string): Promise<Buffer> {
-    await this.verifyAuditorAccess(user.userId, auditId);
+  async exportPdf(
+    user: ReqUser,
+    auditId: string,
+    recordScope?: string,
+  ): Promise<Buffer> {
+    const observations = await this.listForAuditor(user, auditId, recordScope);
 
     // Keep exported reports identifiable outside the portal.
     const auditWithClient = await this.auditRepo.findOne({
@@ -348,20 +378,14 @@ export class AuditorObservationsService {
       relations: ['client', 'branch', 'contractorUser'],
     });
 
-    const observations = await this.observationRepo.find({
-      where: { auditId },
-      relations: [
-        'category',
-        'audit',
-        'audit.client',
-        'audit.branch',
-        'audit.contractorUser',
-      ],
-      order: { sequenceNumber: 'ASC', createdAt: 'ASC' },
-    });
-
     return generateObservationsPdfBuffer({
       auditId,
+      scopeNotice:
+        recordScope === 'TEST' || isTestAudit(auditWithClient || {})
+          ? 'TEST ONLY — Synthetic findings. Not an actual compliance report.'
+          : observations.some((o) => o.isTest)
+            ? 'Selected audit history includes labelled TEST ONLY findings; these are not actual compliance findings.'
+            : 'Actual findings only. Synthetic test findings are excluded.',
       auditCode: auditWithClient?.auditCode,
       auditType: auditWithClient?.auditType,
       periodCode: auditWithClient?.periodCode,
@@ -370,7 +394,7 @@ export class AuditorObservationsService {
       contractorName: auditWithClient?.contractorUser?.name ?? null,
       rows: observations.map((o) => ({
         sequenceNumber: o.sequenceNumber,
-        observation: o.observation,
+        observation: o.isTest ? `TEST ONLY — ${o.observation}` : o.observation,
         consequences: o.consequences,
         complianceRequirements: o.complianceRequirements,
         clause: o.clause,
