@@ -34,6 +34,8 @@ export class RegistrationRequestQuery {
   @IsOptional() @IsIn(['ACTUAL', 'TEST']) recordScope?: 'ACTUAL' | 'TEST';
 }
 export class NewRegistrationRequestDto {
+  @IsOptional() @IsIn(['APPLY', 'RENEW']) action?: 'APPLY' | 'RENEW';
+  @IsOptional() @IsUUID() registrationId?: string;
   @IsUUID() branchId: string;
   @IsIn(['ACTUAL', 'TEST']) recordScope: 'ACTUAL' | 'TEST';
   @IsString()
@@ -67,9 +69,21 @@ export class RegistrationRequestsController {
     return rows.filter(isRegistrationRequest);
   }
 
+  @Get('renewal-options')
+  @Roles('CLIENT')
+  renewalOptions(
+    @CurrentUser() user: ReqUser,
+    @Query() q: RegistrationRequestQuery,
+  ) {
+    return this.svc.registrationRenewalOptions(user, q.branchId, q.recordScope);
+  }
+
   @Post()
   @Roles('CLIENT')
-  create(@CurrentUser() user: ReqUser, @Body() dto: NewRegistrationRequestDto) {
+  async create(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: NewRegistrationRequestDto,
+  ) {
     if (
       !dto.registrationType.trim() ||
       !dto.authority.trim() ||
@@ -79,12 +93,33 @@ export class RegistrationRequestsController {
         'Registration type, authority and notes are required',
       );
     const isTest = dto.recordScope === 'TEST';
+    const action = dto.action || 'APPLY';
+    let registrationType = dto.registrationType.trim();
+    let authority = dto.authority.trim();
+    if (action === 'RENEW') {
+      if (!dto.registrationId)
+        throw new BadRequestException('Select the registration to renew');
+      const options = await this.svc.registrationRenewalOptions(
+        user,
+        dto.branchId,
+        dto.recordScope,
+      );
+      const selected = options.find(
+        (r: { id: string }) => r.id === dto.registrationId,
+      );
+      if (!selected)
+        throw new BadRequestException(
+          'Registration must belong to this branch and the same actual/test scope',
+        );
+      registrationType = selected.type;
+      authority = selected.authority || authority;
+    }
     return this.svc.createTicket(user, {
       category: 'COMPLIANCE',
-      subCategory: 'REGISTRATION_APPLY',
+      subCategory: `REGISTRATION_${action}`,
       branchId: dto.branchId,
       isTest,
-      description: `[REGISTRATION_REQUEST]\nAction: APPLY\nRegistration ID: NEW\nRegistration Type: ${isTest ? 'TEST ONLY — ' : ''}${dto.registrationType.trim()}\nAuthority: ${dto.authority.trim()}\nNotes: ${dto.notes.trim()}`,
+      description: `[REGISTRATION_REQUEST]\nAction: ${action}\nRegistration ID: ${action === 'RENEW' ? dto.registrationId : 'NEW'}\nRegistration Type: ${isTest ? 'TEST ONLY — ' : ''}${registrationType}\nAuthority: ${authority}\nNotes: ${dto.notes.trim()}`,
     });
   }
 
