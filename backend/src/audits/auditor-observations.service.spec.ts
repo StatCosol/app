@@ -6,6 +6,7 @@ import {
   ObservationReasonDto,
 } from './dto/create-observation.dto';
 import { UpdateObservationDto } from './dto/update-observation.dto';
+import * as observationPdf from './utils/observations-pdf';
 
 describe('AuditXpert assignment and verification boundaries', () => {
   const user = { userId: 'auditor-a', roleCode: 'AUDITOR' } as any;
@@ -63,6 +64,126 @@ describe('AuditXpert assignment and verification boundaries', () => {
     expect(x.audits.find).toHaveBeenCalledWith({
       where: [{ assignedAuditorId: 'auditor-a' }],
     });
+  });
+  it('separates test audit and test observation markers from normal counts without writing records', async () => {
+    const x = setup();
+    x.observations.find.mockResolvedValue([
+      {
+        id: 'actual',
+        auditId: 'audit-a',
+        observation: 'Review test equipment',
+        audit: { notes: '', branchId: null },
+      },
+      {
+        id: 'marker',
+        auditId: 'audit-a',
+        observation: 'TEST ONLY - synthetic',
+        audit: {},
+      },
+      {
+        id: 'legacy-observation',
+        auditId: 'audit-a',
+        observation:
+          'TEST-BRANCH-UI-20261026 — Synthetic correction workflow check. Not an actual compliance finding.',
+        audit: {},
+      },
+      {
+        id: 'test-audit',
+        auditId: 'audit-a',
+        observation: 'Normal title',
+        audit: { notes: 'SYNTHETIC TEST ONLY - isolated' },
+      },
+      {
+        id: 'legacy-audit',
+        auditId: 'audit-a',
+        observation: 'Normal title',
+        audit: {
+          branchId: '94ad1c42-ea05-460e-b494-0a7e634de127',
+          auditCode: 'AX-2099-48EF3CF2FE89',
+        },
+      },
+    ] as any);
+    expect((await x.service.listForAuditor(user)).map((r) => r.id)).toEqual([
+      'actual',
+    ]);
+    expect(
+      (await x.service.listForAuditor(user, undefined, 'TEST')).map(
+        (r) => r.id,
+      ),
+    ).toEqual(['marker', 'legacy-observation', 'test-audit', 'legacy-audit']);
+    expect(x.observations.save).not.toHaveBeenCalled();
+    expect(x.observations.remove).not.toHaveBeenCalled();
+  });
+  it('preserves explicit assigned-audit history and supports an explicit scope within it', async () => {
+    const x = setup();
+    x.observations.find.mockResolvedValue([
+      { id: 'test', auditId: 'audit-a', observation: 'TEST ONLY - fixture' },
+    ] as any);
+    expect(await x.service.listForAuditor(user, 'audit-a')).toEqual([
+      expect.objectContaining({ id: 'test', isTest: true }),
+    ]);
+    expect(await x.service.listForAuditor(user, 'audit-a', 'ACTUAL')).toEqual(
+      [],
+    );
+    expect(
+      await x.service.listForAuditor(user, 'audit-a', 'TEST'),
+    ).toHaveLength(1);
+    x.audits.findOne.mockResolvedValue({
+      id: 'audit-a',
+      assignedAuditorId: 'foreign',
+    } as any);
+    await expect(
+      x.service.listForAuditor(user, 'audit-a', 'TEST'),
+    ).rejects.toThrow('not assigned');
+  });
+  it('rejects invalid scope before reading any records', async () => {
+    const x = setup();
+    await expect(
+      x.service.listForAuditor(user, undefined, 'ALL'),
+    ).rejects.toThrow('recordScope');
+    expect(x.audits.find).not.toHaveBeenCalled();
+    expect(x.observations.find).not.toHaveBeenCalled();
+  });
+  it('exports the selected record scope and labels synthetic PDF content', async () => {
+    const x = setup();
+    x.observations.find.mockResolvedValue([
+      { id: 'actual', auditId: 'audit-a', observation: 'Actual fixture' },
+      {
+        id: 'test',
+        auditId: 'audit-a',
+        observation: 'TEST ONLY synthetic fixture',
+      },
+    ] as any);
+    const pdf = jest
+      .spyOn(observationPdf, 'generateObservationsPdfBuffer')
+      .mockResolvedValue(Buffer.from('PDF fixture'));
+    try {
+      await x.service.exportPdf(user, 'audit-a', 'ACTUAL');
+      expect(pdf).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          rows: [expect.objectContaining({ observation: 'Actual fixture' })],
+          scopeNotice: expect.stringContaining('Actual findings only'),
+        }),
+      );
+      await x.service.exportPdf(user, 'audit-a', 'TEST');
+      expect(pdf).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          rows: [
+            expect.objectContaining({
+              observation: expect.stringContaining('TEST ONLY'),
+            }),
+          ],
+          scopeNotice: expect.stringContaining('TEST ONLY'),
+        }),
+      );
+      await x.service.exportPdf(user, 'audit-a');
+      expect(pdf.mock.calls.at(-1)?.[0].rows).toHaveLength(2);
+      expect(pdf.mock.calls.at(-1)?.[0].scopeNotice).toContain(
+        'includes labelled',
+      );
+    } finally {
+      pdf.mockRestore();
+    }
   });
   it.each(['getOne', 'update', 'delete', 'verifyClosure', 'reopen'])(
     'denies another auditor before %s',

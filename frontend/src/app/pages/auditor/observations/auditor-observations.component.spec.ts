@@ -10,6 +10,34 @@ describe('AuditXpert corrections workspace', () => {
     const component = new AuditorObservationsComponent(api as any, { auditorListAllAudits: () => of([]) } as any, { paramMap: of(convertToParamMap({})), queryParamMap: queries } as any, { success: vi.fn(), warning: vi.fn(), error: vi.fn() } as any, { markForCheck: vi.fn() } as any, files as any);
     return { component, queries, api, files };
   }
+  it('uses actual records for the normal queue and explicit test scope after switching', () => {
+    const x=setup(); x.queries.next(convertToParamMap({})); x.component.ngOnInit();
+    expect(x.api.list).toHaveBeenLastCalledWith(undefined,'ACTUAL');
+    x.component.verificationNotes='Old test note'; x.component.selected={id:'old'};
+    x.component.recordScope='TEST'; x.component.changeRecordScope();
+    expect(x.api.list).toHaveBeenLastCalledWith(undefined,'TEST');
+    expect(x.component.selected).toBeNull(); expect(x.component.verificationNotes).toBe('');
+    expect(x.component.openCount).toBe(0); x.component.ngOnDestroy();
+  });
+  it('keeps an explicit audit deep link available without treating it as the normal queue', () => {
+    const x=setup(); x.component.ngOnInit();
+    expect(x.component.directAuditView).toBe(true);
+    expect(x.api.list).toHaveBeenLastCalledWith('audit-a',undefined);
+    x.queries.next(convertToParamMap({auditId:'audit-a',recordScope:'TEST'}));
+    expect(x.component.directAuditView).toBe(false);
+    expect(x.api.list).toHaveBeenLastCalledWith('audit-a','TEST');
+    x.component.ngOnDestroy();
+  });
+  it('cancels pending actual requests before displaying the test queue', () => {
+    const x=setup(); const actual=new Subject<any[]>(); const test=new Subject<any[]>();
+    x.queries.next(convertToParamMap({})); x.api.list.mockReturnValueOnce(actual).mockReturnValueOnce(test);
+    x.component.ngOnInit(); x.component.recordScope='TEST'; x.component.changeRecordScope();
+    expect(actual.observed).toBe(false);
+    test.next([{id:'test',status:'CLOSED',isTest:true}]); actual.next([{id:'actual',status:'OPEN'}]);
+    expect(x.component.observations.map(r=>r.id)).toEqual(['test']);
+    expect(x.component.closedCount).toBe(1); expect(x.component.openCount).toBe(0);
+    x.component.ngOnDestroy();
+  });
   it('cancels old audit requests and clears stale selections', () => {
     const x = setup(); const old = new Subject<any[]>(); const latest = new Subject<any[]>();
     x.api.list.mockReturnValueOnce(old).mockReturnValueOnce(latest); x.component.ngOnInit();

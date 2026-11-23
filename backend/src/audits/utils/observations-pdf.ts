@@ -22,6 +22,7 @@ export type ObservationsPdfInput = {
   clientName?: string | null;
   branchName?: string | null;
   contractorName?: string | null;
+  scopeNotice?: string;
   rows: ObservationPdfRow[];
 };
 
@@ -36,7 +37,7 @@ export async function generateObservationsPdfBuffer(
     updatedAt: new Date(),
     executiveSummary:
       'Working observation register for the identified audit scope. This export includes current observations and recorded evidence references. It is not a CRM-approved published final report.',
-    scope: '',
+    scope: input.scopeNotice || '',
     methodology: '',
     findings: '',
     recommendations: '',

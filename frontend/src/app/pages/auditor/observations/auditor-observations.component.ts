@@ -35,14 +35,21 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   private focusedId = '';
   private editorVersion = 0;
   private listVersion = 0;
+  private auditOptionsVersion = 0;
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
+  directAuditView = false;
   loadError = '';
 
   readonly auditOptionLabel = auditOptionLabel;
+  private observationAudits: any[] = [];
+  get auditOptions(): any[] {
+    return [...new Map([...this.audits, ...this.observationAudits].map(a => [a.id, a])).values()];
+  }
   contextFor(row: any): any {
-    return this.audits.find(a => a.id === row?.auditId) || row?.audit || null;
+    return this.auditOptions.find(a => a.id === row?.auditId) || row?.audit || null;
   }
   get selectedAudit(): any {
-    return this.selected ? this.contextFor(this.selected) : this.audits.find(a => a.id === this.filterAuditId);
+    return this.selected ? this.contextFor(this.selected) : this.auditOptions.find(a => a.id === this.filterAuditId);
   }
   loading = true;
   busy = false;
@@ -75,16 +82,18 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadCategories();
-    this.loadAudits();
 
     combineLatest([this.route.paramMap, this.route.queryParamMap])
       .pipe(takeUntil(this.destroy$))
       .subscribe(([_, query]) => {
         this.filterAuditId = query.get('auditId') || '';
+        this.recordScope = query.get('recordScope') === 'TEST' ? 'TEST' : 'ACTUAL';
+        this.directAuditView = !!this.filterAuditId && !query.get('recordScope');
         this.focusedId = query.get('observationId') || '';
         this.filterStatus = query.get('status') || '';
         this.filterRisk = query.get('risk') || '';
         this.selected = null;
+        this.loadAudits();
         this.loadObservations();
       });
   }
@@ -174,6 +183,20 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
       if (this.filteredRows.length) this.selectObservation(this.filteredRows[0]);
     }
     this.cdr.markForCheck();
+  }
+
+  changeRecordScope(): void {
+    this.directAuditView = false;
+    this.filterAuditId = ''; this.focusedId = '';
+    this.verificationNotes = ''; this.branchResponseDraft = ''; this.capaDraft = '';
+    this.editorVersion++;
+    this.loadAudits();
+    this.loadObservations();
+  }
+
+  changeAuditFilter(): void {
+    this.directAuditView = false;
+    this.loadObservations();
   }
 
   clearFilters(): void {
@@ -321,15 +344,17 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
       this.toast.warning('Select an audit to export observations PDF');
       return;
     }
+    const auditId = this.filterAuditId;
+    const scope = this.directAuditView ? undefined : this.recordScope;
     this.observationsApi
-      .exportAuditObservationsPdf(this.filterAuditId)
+      .exportAuditObservationsPdf(auditId, scope)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (blob) => {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `observations-${this.filterAuditId}.pdf`;
+          a.download = `observations-${scope || 'AUDIT'}-${auditId}.pdf`;
           a.click();
           URL.revokeObjectURL(url);
         },
@@ -443,7 +468,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
     this.loadError = '';
     this.loading = true;
     this.listRequest = this.observationsApi
-      .list(this.filterAuditId || undefined)
+      .list(this.filterAuditId || undefined, this.directAuditView ? undefined : this.recordScope)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -454,6 +479,12 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows: any) => {
           this.observations = Array.isArray(rows) ? rows : [];
+          // An actual audit can contain a separately marked synthetic finding.
+          // Keep authorized audit contexts from this scope even after filtering to one audit.
+          this.observationAudits = [...new Map([
+            ...this.observationAudits,
+            ...this.observations.filter(row => row.audit?.id).map(row => row.audit),
+          ].map(audit => [audit.id, audit])).values()];
           const focused = this.filteredRows.find(row => row.id === retainId);
           if (focused) this.selectObservation(focused);
           else if (!this.focusedId && this.filteredRows.length) this.selectObservation(this.filteredRows[0]);
@@ -472,15 +503,20 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   }
 
   private loadAudits(): void {
+    const version = ++this.auditOptionsVersion;
+    this.audits = [];
+    this.observationAudits = [];
     this.auditsApi
-      .auditorListAllAudits()
+      .auditorListAllAudits(this.recordScope)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res: any) => {
+          if (version !== this.auditOptionsVersion) return;
           this.audits = Array.isArray(res) ? res : (res?.data || []);
           this.cdr.markForCheck();
         },
         error: () => {
+          if (version !== this.auditOptionsVersion) return;
           this.audits = [];
         },
       });

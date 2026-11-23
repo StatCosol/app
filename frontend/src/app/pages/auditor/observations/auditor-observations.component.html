@@ -12,6 +12,22 @@
   </header>
 
   @if (loadError) { <div role="alert" class="card">{{ loadError }} <button type="button" (click)="loadObservations()" class="standard-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /> <span>Retry</span></button></div> }
+  <section class="card">
+    <label>Records
+      <select aria-label="Correction record scope" [ngModel]="directAuditView ? 'AUDIT' : recordScope" (ngModelChange)="recordScope = $event; changeRecordScope()" [disabled]="busy">
+        @if (directAuditView) { <option value="AUDIT" disabled>Selected audit history</option> }
+        <option value="ACTUAL">Actual records</option>
+        <option value="TEST">Test records only</option>
+      </select>
+    </label>
+    @if (directAuditView) {
+      <p>Viewing the selected audit's history, including any labelled test findings. Choose a record scope to return to its separate queue.</p>
+    } @else if (recordScope === 'TEST') {
+      <p>Test evidence only. These findings and counts are separate from actual client work.</p>
+    } @else {
+      <p>Actual findings only. Synthetic test findings are excluded from this queue and its counts.</p>
+    }
+  </section>
   <section class="summary-grid">
     <article class="summary-card summary-card--warn">
       <span class="label">Open</span>
@@ -34,9 +50,10 @@
     <div class="filter-row">
       <label>
         Audit
-        <select id="ao-filter-audit-id" name="filterAuditId" [(ngModel)]="filterAuditId" (ngModelChange)="loadObservations()">
+        <select id="ao-filter-audit-id" name="filterAuditId" [(ngModel)]="filterAuditId" (ngModelChange)="changeAuditFilter()" [disabled]="busy">
           <option value="">All assigned audits</option>
-          @for (audit of audits; track audit) {
+          @if (directAuditView && !selectedAudit) { <option [value]="filterAuditId">Selected audit — {{ filterAuditId }}</option> }
+          @for (audit of auditOptions; track audit.id) {
 <option [value]="audit.id">
             {{ auditOptionLabel(audit) }}
           </option>
@@ -107,6 +124,7 @@
               [class.selected]="selected?.id === row.id"
             >
               <td>
+                @if (row.isTest) { <strong class="minor">TEST ONLY</strong> }
                 <div class="minor">{{ auditOptionLabel(contextFor(row)) }}</div>
                 <div class="strong">{{ row.observation || '-' }}</div>
                 <div class="minor">{{ row.clause || '-' }} | {{ formatDate(row.createdAt) }}</div>
