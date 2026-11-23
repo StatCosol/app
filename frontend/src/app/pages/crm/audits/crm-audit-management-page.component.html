@@ -489,6 +489,10 @@
     <button type="button" class="compact-action close-btn" (click)="closeScheduleModal()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
   </div>
   <div class="modal-body">
+    @if (isContractorSchedule && !isAssignMode) {
+      <p class="assign-mode-note" id="contractor-schedule-help">Contractor Audit requires one branch and one contractor. For all branches or contractors, create a separate audit for each branch-contractor pair.</p>
+    }
+    @if (scheduleError) { <p class="assign-mode-note" role="alert">{{ scheduleError }}</p> }
     @if (isAssignMode) {
 <div class="assign-mode-note">
       Assignment mode: only auditor, due date, and notes can be updated.
@@ -510,18 +514,18 @@
         </select>
       </div>
       <div>
-        <label class="filter-label" for="camp-branch-id">Branch</label>
-        <select id="camp-branch-id" name="branchId" [(ngModel)]="scheduleModel.branchId" class="filter-input" [disabled]="isAssignMode">
-          <option value="">All branches</option>
+        <label class="filter-label" for="camp-branch-id">Branch{{ isContractorSchedule ? ' *' : '' }}</label>
+        <select id="camp-branch-id" name="branchId" [(ngModel)]="scheduleModel.branchId" (ngModelChange)="onScheduleBranchChange()" class="filter-input" [disabled]="isAssignMode || scheduleSaving" [attr.aria-required]="isContractorSchedule" [attr.aria-describedby]="isContractorSchedule && !isAssignMode ? 'contractor-schedule-help' : null">
+          <option value="">{{ isContractorSchedule ? 'Select one branch' : 'All branches' }}</option>
           @for (branch of modalBranches; track branch) {
 <option [value]="branch.id">{{ branch.branchName }}</option>
 }
         </select>
       </div>
       <div>
-        <label class="filter-label" for="camp-contractor-user-id">Contractor (Optional)</label>
-        <select id="camp-contractor-user-id" name="contractorUserId" [(ngModel)]="scheduleModel.contractorUserId" class="filter-input" [disabled]="isAssignMode">
-          <option value="">All contractors under client</option>
+        <label class="filter-label" for="camp-contractor-user-id">{{ isContractorSchedule ? 'Contractor *' : 'Contractor (Optional)' }}</label>
+        <select id="camp-contractor-user-id" name="contractorUserId" [(ngModel)]="scheduleModel.contractorUserId" (ngModelChange)="scheduleError = ''" class="filter-input" [disabled]="isAssignMode || scheduleSaving" [attr.aria-required]="isContractorSchedule" [attr.aria-describedby]="isContractorSchedule && !isAssignMode ? 'contractor-schedule-help' : null">
+          <option value="">{{ isContractorSchedule ? 'Select one contractor' : 'All contractors under client' }}</option>
           @for (ct of modalContractors; track ct) {
 <option [value]="ct.id">{{ ct.name }}</option>
 }
@@ -546,7 +550,7 @@
       </div>
       <div>
         <label class="filter-label" for="camp-audit-type">Audit Type</label>
-        <select id="camp-audit-type" name="auditType" [(ngModel)]="scheduleModel.auditType" class="filter-input" [disabled]="isAssignMode">
+        <select id="camp-audit-type" name="auditType" [(ngModel)]="scheduleModel.auditType" (ngModelChange)="scheduleError = ''" class="filter-input" [disabled]="isAssignMode || scheduleSaving">
           @for (type of auditTypes; track type) {
 <option [value]="type.value">{{ type.label }}</option>
 }
@@ -578,7 +582,7 @@
   </div>
   <div class="modal-actions">
     <ui-button variant="ghost" (clicked)="closeScheduleModal()" [disabled]="scheduleSaving">Cancel</ui-button>
-    <ui-button variant="primary" (clicked)="saveSchedule()" [loading]="scheduleSaving">
+    <ui-button variant="primary" (clicked)="saveSchedule()" [loading]="scheduleSaving" [disabled]="contractorScheduleScopeIncomplete">
       {{ scheduleMode === 'ASSIGN' ? 'Update Assignment' : 'Schedule' }}
     </ui-button>
   </div>
