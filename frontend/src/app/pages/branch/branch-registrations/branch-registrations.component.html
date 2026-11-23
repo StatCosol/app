@@ -63,6 +63,44 @@
     </article>
   </section>
 
+  <section class="card branch-request-history" aria-label="Branch registration requests">
+    <div class="section-head">
+      <div>
+        <h2>All Registration Requests</h2>
+        <p>Track applications and changes for this branch, including requests made before a registration is issued. A resolved request is not proof that a licence has been issued.</p>
+      </div>
+      <div class="action-row">
+        <button type="button" class="btn btn-secondary" (click)="retryRequestHistory()" [disabled]="loading || !!loadError || requestSaving || requestHistoryLoading" aria-label="Refresh Requests">{{ requestHistoryLoading ? 'Refreshing...' : 'Refresh Requests' }}</button>
+        <button type="button" class="btn btn-secondary" (click)="exportRequests()" [disabled]="loading || !!loadError || !!requestLoadError || requestSaving || requestHistoryLoading || !requests.length" aria-label="Export Requests">Export Requests</button>
+      </div>
+    </div>
+    @if (loading || requestHistoryLoading) {
+      <p role="status">Loading request history...</p>
+    } @else if (loadError || requestLoadError) {
+      <p>Request history unavailable. Retry to refresh.</p>
+    } @else if (requests.length) {
+      <p>{{ requests.length }} requests · {{ openRequestCount }} open</p>
+      <div class="request-list">
+        @for (req of requests; track trackRequest($index, req)) {
+          <details class="branch-request">
+            <summary>
+              <strong>{{ req.ticketRef }} · {{ req.action }} · {{ req.registrationType || 'Registration request' }}</strong>
+              <span [class]="requestStatusClass(req.status)">{{ requestStageLabel(req.status) }}</span>
+            </summary>
+            <div class="request-body">
+              <p>Authority: {{ req.authority || '-' }} · Reference: {{ req.referenceNumber || '-' }}</p>
+              <p>Created: {{ req.createdAt ? (req.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }} · Updated: {{ req.updatedAt ? (req.updatedAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
+              <p>Priority: {{ req.priority }} · SLA: {{ requestSlaText(req) }}</p>
+              <p>Request details: {{ req.notes || 'No additional details' }}</p>
+            </div>
+          </details>
+        }
+      </div>
+    } @else {
+      <p>No registration requests for this branch.</p>
+    }
+  </section>
+
   @if (expiringCount > 0 || expiredCount > 0) {
 <section class="alert-strip">
     <div class="alert-strip__icon">!</div>

@@ -460,6 +460,15 @@ tbody tr.selected {
   gap: 0.42rem;
 }
 
+.branch-request-history .section-head { flex-wrap: wrap; }
+.branch-request-history .section-head > div { min-width: 0; }
+.branch-request-history p { font-size: 0.78rem; color: #475569; overflow-wrap: anywhere; }
+.branch-request { border: 1px solid #e5e7eb; border-radius: 0.64rem; padding: 0.6rem; min-width: 0; }
+.branch-request summary { cursor: pointer; min-height: 44px; overflow-wrap: anywhere; }
+.branch-request summary strong { font-size: 0.82rem; }
+.branch-request summary .status { margin: 0.3rem; white-space: normal; }
+.branch-request .request-body { padding-top: 0.4rem; }
+
 .status-tabs--compact {
   margin-bottom: 0.5rem;
 }
