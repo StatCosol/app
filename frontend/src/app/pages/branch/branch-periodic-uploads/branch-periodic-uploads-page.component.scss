@@ -205,6 +205,7 @@
 
 .list-row {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: stretch;
   width: 100%;
@@ -602,3 +603,11 @@
 .filter-field select, .filter-field input { max-width:100%; min-width:0; width:100%; font-weight:400; }
 .filter-field { flex:1 1 150px; }
 .filter-field--search { flex:2 1 220px; }
+
+@media (max-width: 700px) {
+  .filter-field,
+  .filter-field--search {
+    // Desktop width preferences must not become heights in the stacked layout.
+    flex: 0 0 auto;
+  }
+}
