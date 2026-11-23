@@ -498,6 +498,7 @@
     }
     @if (clientWideSchedule && !isAssignMode) {
       <p class="assign-mode-note">Assign this client to one auditor for the selected period and audit type. Contractor Audit includes every active contractor assigned to each active branch. Other audit types create one audit per active branch. Preview the coverage, then confirm once; each branch and contractor keeps its own documents, findings and reports. Future branches or assignments require a new preview.</p>
+      @if (recordScope === 'TEST') { <p class="assign-mode-note">Test records selected: every new audit in this assignment will be marked TEST ONLY and excluded from normal audit counts.</p> }
     } @else if (isContractorSchedule && !isAssignMode) {
       <p class="assign-mode-note" id="contractor-schedule-help">Contractor Audit requires one branch and one contractor. For all branches or contractors, create a separate audit for each branch-contractor pair using Entire client coverage.</p>
     }

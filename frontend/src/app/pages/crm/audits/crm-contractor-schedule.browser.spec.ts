@@ -118,4 +118,13 @@ describe.each([390,768,1440])('Client-wide assignment at %ipx',width=>{
     expect(t.root.querySelectorAll('.modal-body [role="alert"]').length).toBe(1);
     const panel=t.root.querySelector('.modal-panel')!.getBoundingClientRect();expect(panel.left).toBeGreaterThanOrEqual(0);expect(panel.right).toBeLessThanOrEqual(width+1);
   });
+  it('automatically marks assignments from Test records and invalidates a preview after record-scope changes',async()=>{
+    const t=await setup();t.vm.clientWideSchedule=true;t.vm.recordScope='TEST';t.vm.scheduleModel.notes='';await t.render();
+    expect(t.root.textContent).toContain('every new audit in this assignment will be marked TEST ONLY');
+    t.button().click();const request=t.http.expectOne(r=>r.url.endsWith('/preview'));
+    expect(request.request.body.notes).toMatch(/^TEST ONLY /);request.flush(coverage);await t.render();
+    t.vm.recordScope='ACTUAL';await t.render();expect(t.vm.currentAssignmentPreview).toBeNull();
+    t.vm.recordScope='TEST';await t.render();t.button().click();
+    const save=t.http.expectOne(r=>r.url.endsWith('/client-assignment'));expect(save.request.body.notes).toMatch(/^TEST ONLY /);save.flush({created:[{id:'test'}],existingCount:0});
+  });
 });

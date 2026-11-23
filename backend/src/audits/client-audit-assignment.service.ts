@@ -11,6 +11,7 @@ import { CreateAuditDto } from './dto/create-audit.dto';
 import { ReqUser } from '../access/access-scope.service';
 import { AuditType, Frequency } from '../common/enums';
 import { isTestAudit } from '../common/actual-records';
+import { carryForwardAuditDocuments } from './audit-document-carry-forward';
 
 export class ClientAuditAssignmentDto extends CreateAuditDto {
   @IsUUID() declare clientId: string;
@@ -259,6 +260,15 @@ export class ClientAuditAssignmentService {
           ],
         );
         created.push({ id, auditCode });
+        await carryForwardAuditDocuments(manager, {
+          id,
+          auditCode,
+          clientId: dto.clientId,
+          branchId: scope.branchId,
+          contractorUserId: scope.contractorUserId,
+          auditType: dto.auditType,
+          notes,
+        });
       }
       return {
         assignmentReference: group,

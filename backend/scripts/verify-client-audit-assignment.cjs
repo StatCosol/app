@@ -2,7 +2,8 @@
 const assert = require('node:assert/strict');
 const {PGlite} = require(process.argv[2] || '@electric-sql/pglite');
 const {ClientAuditAssignmentService} = require('../dist/src/audits/client-audit-assignment.service');
-const {actualAuditSql} = require('../dist/src/common/actual-records');
+const {actualAuditSql,actualContractorDocumentSql} = require('../dist/src/common/actual-records');
+const {carryForwardAuditDocuments} = require('../dist/src/audits/audit-document-carry-forward');
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
 (async()=>{
   const db = new PGlite();
@@ -21,7 +22,11 @@ const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
       CREATE TABLE branch_contractor(client_id uuid,branch_id uuid,contractor_user_id uuid);
       CREATE TABLE audits(id uuid PRIMARY KEY,audit_code varchar(20) UNIQUE,client_id uuid,branch_id uuid,contractor_user_id uuid,
         assigned_auditor_id uuid,created_by_user_id uuid,frequency text,audit_type text,period_year int,period_code text,status text,
-        due_date date,upload_lock_from date,upload_lock_until date,notes text);
+        due_date date,upload_lock_from date,upload_lock_until date,notes text,created_at timestamp DEFAULT NOW());
+      CREATE TABLE contractor_documents(id uuid DEFAULT gen_random_uuid(),contractor_user_id uuid,client_id uuid,branch_id uuid,
+        doc_type text,title text,audit_id uuid,observation_id uuid,file_name text,file_path text,file_type text,file_size int,
+        uploaded_by_user_id uuid,status text,doc_month date,expiry_date date,reviewed_by_user_id uuid,reviewed_at timestamp,
+        review_notes text,uploaded_by_role text,acting_on_behalf boolean,original_owner_role text);
     `);
     await db.query("INSERT INTO clients VALUES($1,'ACTIVE',FALSE),($2,'ACTIVE',FALSE)",[id(10),id(20)]);
     await db.query("INSERT INTO client_assignments_current VALUES($1,'CRM',$2)",[id(10),id(1)]);
@@ -56,6 +61,47 @@ const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
     const conflict=await service.preview(actor,{...input,assignedAuditorId:id(3)});assert.equal(conflict.canAssign,false);
     await assert.rejects(service.assign(actor,{...input,assignedAuditorId:id(3),previewToken:conflict.previewToken}),/conflicting/);
     const factory=await service.preview(actor,{...input,auditType:'FACTORY'});assert.equal(factory.createCount,3);assert.equal(factory.uncoveredBranches.length,0);
+    // Both scheduling paths share the same carry-forward helper. New test audits
+    // inherit only test-audit evidence, and copies remain explicitly synthetic.
+    const source=(await db.query('SELECT * FROM audits WHERE branch_id=$1 AND contractor_user_id=$2 ORDER BY created_at DESC,id DESC LIMIT 1',[id(11),id(101)])).rows[0];
+    for(const status of ['APPROVED','REJECTED','PENDING_REVIEW','DRAFT']) await db.query(`INSERT INTO contractor_documents
+      (audit_id,client_id,branch_id,contractor_user_id,doc_type,title,file_name,file_path,status,reviewed_by_user_id,reviewed_at)
+      VALUES ($1,$2,$3,$4,$5,'Synthetic prior evidence',$6,$6,$5,$7,NOW())`,[source.id,id(10),id(11),id(101),status,`synthetic-${status}.pdf`,id(2)]);
+    // Corrupt/mismatched ownership on prior evidence is not propagated.
+    await db.query(`INSERT INTO contractor_documents(audit_id,client_id,branch_id,contractor_user_id,doc_type,status)
+      VALUES ($1,$2,$3,$4,'WRONG_BRANCH','APPROVED')`,[source.id,id(10),id(12),id(101)]);
+    const carryInput={...input,periodYear:2100,periodCode:'2100-01',dueDate:'2100-01-31'};
+    const carryPreview=await service.preview(actor,carryInput);
+    const carried=await service.assign(actor,{...carryInput,previewToken:carryPreview.previewToken});
+    const copies=(await db.query('SELECT * FROM contractor_documents WHERE audit_id=ANY($1::uuid[])',[carried.created.map(a=>a.id)])).rows;
+    assert.equal(copies.length,3);assert.ok(copies.every(d=>d.title.startsWith('TEST ONLY')));
+    assert.equal(copies.filter(d=>d.status==='APPROVED').length,1);assert.equal(copies.filter(d=>d.status==='PENDING_REVIEW').length,2);
+    assert.ok(copies.filter(d=>d.status==='PENDING_REVIEW').every(d=>d.reviewed_by_user_id===null&&d.reviewed_at===null));
+    assert.equal((await db.query(`SELECT COUNT(*)::int n FROM contractor_documents d WHERE d.audit_id=ANY($1::uuid[]) AND ${actualContractorDocumentSql('d')}`,[carried.created.map(a=>a.id)])).rows[0].n,0);
+    const copiedAudit=(await db.query('SELECT * FROM audits WHERE id=$1',[copies[0].audit_id])).rows[0];
+    await carryForwardAuditDocuments(adapter(db),{id:copiedAudit.id,clientId:id(10),branchId:id(11),contractorUserId:id(101),auditType:'CONTRACTOR',notes:copiedAudit.notes});
+    assert.equal((await db.query('SELECT COUNT(*)::int n FROM contractor_documents WHERE audit_id=$1',[copiedAudit.id])).rows[0].n,3);
+    const actualCarry={...carryInput,periodCode:'2100-02',notes:'Operational audit'};
+    const actualCarryPreview=await service.preview(actor,actualCarry);
+    const actualCreated=await service.assign(actor,{...actualCarry,previewToken:actualCarryPreview.previewToken});
+    assert.equal((await db.query('SELECT COUNT(*)::int n FROM contractor_documents WHERE audit_id=ANY($1::uuid[])',[actualCreated.created.map(a=>a.id)])).rows[0].n,0);
+    const actualSource=(await db.query('SELECT id FROM audits WHERE id=ANY($1::uuid[]) AND branch_id=$2 AND contractor_user_id=$3',[actualCreated.created.map(a=>a.id),id(11),id(101)])).rows[0].id;
+    for(const [title,file] of [['Prior approved evidence','approved.pdf'],['TEST ONLY mixed evidence','TEST_evidence.pdf']]) await db.query(`INSERT INTO contractor_documents
+      (audit_id,client_id,branch_id,contractor_user_id,doc_type,title,file_name,file_path,status)
+      VALUES ($1,$2,$3,$4,'APPROVED',$5,$6,$6,'APPROVED')`,[actualSource,id(10),id(11),id(101),title,file]);
+    const nextActual={...actualCarry,periodCode:'2100-03'};
+    const nextActualPreview=await service.preview(actor,nextActual);
+    const nextActualSaved=await service.assign(actor,{...nextActual,previewToken:nextActualPreview.previewToken});
+    const actualCopies=(await db.query('SELECT * FROM contractor_documents WHERE audit_id=ANY($1::uuid[])',[nextActualSaved.created.map(a=>a.id)])).rows;
+    assert.equal(actualCopies.length,1);assert.equal(actualCopies[0].status,'APPROVED');assert.equal(actualCopies[0].file_name,'approved.pdf');
+    const copyFailureInput={...actualCarry,periodCode:'2100-04'};
+    const copyFailurePreview=await service.preview(actor,copyFailureInput);
+    const copyFailure=new ClientAuditAssignmentService({transaction:(...args)=>db.transaction(tx=>args.at(-1)({query:async(sql,params)=>{
+      if(sql.startsWith('INSERT INTO contractor_documents')) throw new Error('synthetic copy failure');
+      return (await tx.query(sql,params)).rows;
+    }}))});
+    await assert.rejects(copyFailure.assign(actor,{...copyFailureInput,previewToken:copyFailurePreview.previewToken}),/copy failure/);
+    assert.equal((await db.query("SELECT COUNT(*)::int n FROM audits WHERE period_code='2100-04'")).rows[0].n,0);
     // Two separate PostgreSQL connections submitting the same preview cannot duplicate the batch.
     if(db.client) {
       const {Client}=require('pg');

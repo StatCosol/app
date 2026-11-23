@@ -1,3 +1,4 @@
+import { carryForwardAuditDocuments } from './audit-document-carry-forward';
 import {
   assertContractorAuditScope,
   contractorScopeReadiness,
@@ -329,68 +330,8 @@ export class AuditsService implements OnModuleInit {
   private async carryForwardContractorDocuments(
     audit: AuditEntity,
   ): Promise<void> {
-    if (!audit?.id || !audit.clientId) return;
-
-    // Find previous audit for same client + branch (+ contractor, if any),
-    // excluding this one. Prefer most recent createdAt.
-    const prevRows = await this.dataSource.query(
-      `SELECT id
-         FROM audits
-        WHERE client_id = $1::uuid
-          AND id <> $2::uuid
-          AND ($3::uuid IS NULL OR branch_id IS NOT DISTINCT FROM $3::uuid)
-          AND ($4::uuid IS NULL OR contractor_user_id IS NOT DISTINCT FROM $4::uuid)
-        ORDER BY created_at DESC
-        LIMIT 1`,
-      [
-        audit.clientId,
-        audit.id,
-        audit.branchId || null,
-        audit.contractorUserId || null,
-      ],
-    );
-    const prevAuditId = prevRows?.[0]?.id as string | undefined;
-    if (!prevAuditId) return;
-
-    // Clone matching rows. Status is rewritten per the rules above.
-    // review_notes is overwritten with a carry-forward marker so the
-    // contractor knows why the doc is showing up under a new audit.
-    await this.dataSource.query(
-      `INSERT INTO contractor_documents (
-          contractor_user_id, client_id, branch_id, doc_type, title,
-          audit_id, observation_id, file_name, file_path, file_type, file_size,
-          uploaded_by_user_id, status, doc_month, expiry_date,
-          reviewed_by_user_id, reviewed_at, review_notes,
-          uploaded_by_role, acting_on_behalf, original_owner_role
-       )
-       SELECT
-          contractor_user_id, client_id, branch_id, doc_type, title,
-          $1::uuid AS audit_id,
-          NULL::uuid AS observation_id,
-          file_name, file_path, file_type, file_size,
-          uploaded_by_user_id,
-          CASE
-            WHEN status = 'APPROVED' THEN 'APPROVED'
-            WHEN status IN ('REJECTED', 'PENDING_REVIEW') THEN 'PENDING_REVIEW'
-            ELSE status
-          END AS status,
-          doc_month, expiry_date,
-          CASE WHEN status = 'APPROVED' THEN reviewed_by_user_id ELSE NULL END,
-          CASE WHEN status = 'APPROVED' THEN reviewed_at ELSE NULL END,
-          CASE
-            WHEN status = 'APPROVED'      THEN 'Carried forward (previously approved)'
-            WHEN status = 'REJECTED'      THEN 'Carried forward as pending — was REJECTED in prior audit'
-            WHEN status = 'PENDING_REVIEW' THEN 'Carried forward — corrected re-upload pending review'
-            ELSE review_notes
-          END AS review_notes,
-          uploaded_by_role, acting_on_behalf, original_owner_role
-       FROM contractor_documents
-       WHERE audit_id = $2::uuid
-         AND status IN ('APPROVED', 'REJECTED', 'PENDING_REVIEW')`,
-      [audit.id, prevAuditId],
-    );
+    await carryForwardAuditDocuments(this.dataSource, audit);
   }
-
   // ─── Listing / KPI — delegated to AuditListingService ───
 
   async listForCrm(

@@ -643,8 +643,12 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   get currentAssignmentPreview(): ClientAssignmentPreview | null {
-    return this.clientWideSchedule && this.assignmentPreviewKey === JSON.stringify(this.scheduleModel)
+    return this.clientWideSchedule && this.assignmentPreviewKey === this.assignmentDraftKey()
       ? this.assignmentPreview : null;
+  }
+
+  private assignmentDraftKey(): string {
+    return JSON.stringify({model:this.scheduleModel,recordScope:this.recordScope});
   }
 
   onAssignmentScopeChange(): void {
@@ -658,15 +662,18 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     const preview = this.currentAssignmentPreview;
     if (preview && (!preview.canAssign || !preview.createCount)) return;
     delete payload['branchId']; delete payload['contractorUserId'];
+    if (this.recordScope === 'TEST' && !/^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)/i.test(payload['notes'] || '')) {
+      payload['notes'] = `TEST ONLY — ${payload['notes'] || 'Client-wide audit assignment'}`;
+    }
     if (preview) payload['previewToken'] = preview.previewToken;
-    const key = JSON.stringify(this.scheduleModel);
+    const key = this.assignmentDraftKey();
     this.scheduleSaving = true;
     this.auditsService.crmClientAssignment(payload, !preview)
       .pipe(takeUntil(this.destroy$), finalize(() => { this.scheduleSaving = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: response => {
           if (!preview) {
-            if (this.showScheduleModal && this.clientWideSchedule && key === JSON.stringify(this.scheduleModel)) {
+            if (this.showScheduleModal && this.clientWideSchedule && key === this.assignmentDraftKey()) {
               this.assignmentPreview = response;
               this.assignmentPreviewKey = key;
             }
