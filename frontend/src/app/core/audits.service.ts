@@ -1,7 +1,8 @@
 import { loadAllPages } from '../shared/utils/load-all-pages';
 import { map, expand, reduce } from 'rxjs/operators';
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
+import { SKIP_ERROR_TOAST } from './interceptors/error.interceptor';
 import { Observable, EMPTY } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -46,7 +47,10 @@ export class AuditsService {
 
   // CRM: create/schedule an audit
   crmCreateAudit(payload: any): Observable<any> {
-    return this.http.post(this.crmBase, payload);
+    // The schedule form retains the draft and displays the error inline.
+    return this.http.post(this.crmBase, payload, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true),
+    });
   }
 
   // CRM: list audits for assigned clients

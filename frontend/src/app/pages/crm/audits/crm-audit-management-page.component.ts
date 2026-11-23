@@ -179,6 +179,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   showScheduleModal = false;
   scheduleSaving = false;
+  scheduleError = '';
   scheduleMode: 'CREATE' | 'ASSIGN' = 'CREATE';
   scheduleAuditId: string | null = null;
   scheduleModel: ScheduleModel = this.defaultScheduleModel();
@@ -562,6 +563,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   async openScheduleModal(base?: AuditRow): Promise<void> {
     if (base && ['CANCELLED', 'COMPLETED', 'CLOSED'].includes(base.status)) return;
+    this.scheduleError = '';
     this.scheduleModel = this.defaultScheduleModel();
     this.scheduleMode = base ? 'ASSIGN' : 'CREATE';
     this.scheduleAuditId = base?.id || null;
@@ -595,6 +597,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   onScheduleClientChange(): void {
+    this.scheduleError = '';
     this.scheduleModel.branchId = '';
     this.scheduleModel.contractorUserId = '';
     if (this.scheduleModel.clientId) {
@@ -609,8 +612,27 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     return this.contractorsByClient[clientId] || [];
   }
 
+  get isContractorSchedule(): boolean {
+    return this.scheduleModel.auditType === 'CONTRACTOR';
+  }
+
+  get contractorScheduleScopeIncomplete(): boolean {
+    return !this.isAssignMode && this.isContractorSchedule &&
+      (!this.scheduleModel.branchId?.trim() || !this.scheduleModel.contractorUserId?.trim());
+  }
+
+  onScheduleBranchChange(): void {
+    this.scheduleError = '';
+    this.scheduleModel.contractorUserId = '';
+  }
+
   saveSchedule(): void {
     if (this.scheduleSaving) return;
+    this.scheduleError = '';
+    if (this.contractorScheduleScopeIncomplete) {
+      this.scheduleError = 'Select one branch and one contractor. Create a separate audit for each branch-contractor pair.';
+      return;
+    }
     if (this.scheduleMode === 'ASSIGN') {
       if (!this.scheduleModel.assignedAuditorId) {
         this.toast.error('Auditor is required.');
@@ -690,7 +712,10 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
           this.showScheduleModal = false;
           this.refreshWorkspace(res?.id || null);
         },
-        error: (err) => this.toast.error(err?.error?.message || 'Unable to schedule audit'),
+        error: (err) => {
+          const message = err?.error?.message;
+          this.scheduleError = Array.isArray(message) ? message.join(' ') : message || 'Unable to schedule audit. Please try again.';
+        },
       });
   }
 
