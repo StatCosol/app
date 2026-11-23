@@ -3,8 +3,8 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject, Subscription } from 'rxjs';
-import { takeUntil, finalize } from 'rxjs/operators';
+import { of, Subject, Subscription } from 'rxjs';
+import { takeUntil, finalize, switchMap } from 'rxjs/operators';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   BranchComplianceDocService,
@@ -107,6 +107,9 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   loading = false;
   reviewing = false;
   documents: ComplianceDoc[] = [];
+  page = 1;
+  readonly pageSize = 50;
+  total = 0;
   kpis: any = null;
   loadError = '';
   kpiError = '';
@@ -185,12 +188,14 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  load(): void {
+  load(resetPage = true): void {
     if (this.reviewing) return;
     this.listRead?.unsubscribe();
     this.kpiRead?.unsubscribe();
     this.closeReviewModal();
+    if (resetPage) this.page = 1;
     this.documents = [];
+    this.total = 0;
     this.kpis = null;
     this.loadError = '';
     this.kpiError = '';
@@ -198,16 +203,29 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
     if (this.selectedFrequency !== 'MONTHLY') this.selectedMonth = 0;
     this.loading = true;
 
-    this.listRead = this.complianceDoc.listCrmDocs({
+    const filters = {
       recordScope: this.recordScope,
       year: this.selectedYear,
       month: this.selectedMonth || undefined,
       frequency: this.selectedFrequency || undefined,
       status: this.selectedStatus || undefined,
-    })
-    .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      page: this.page,
+      pageSize: this.pageSize,
+    };
+    this.listRead = this.complianceDoc.listCrmDocs(filters)
+    .pipe(
+      switchMap(res => {
+        // An approval can remove the last item from a status-filtered page.
+        const lastPage = Math.max(1, Math.ceil((res.total || 0) / this.pageSize));
+        if (!res.data?.length && this.page > lastPage) {
+          this.page = lastPage;
+          return this.complianceDoc.listCrmDocs({ ...filters, page: lastPage });
+        }
+        return of(res);
+      }),
+      takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
     .subscribe({
-      next: (res) => { this.documents = res.data || []; },
+      next: (res) => { this.documents = res.data || []; this.total = res.total ?? this.documents.length; },
       error: () => { this.documents = []; this.loadError = 'Documents could not be loaded. Retry before reviewing.'; },
     });
 
@@ -223,6 +241,14 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
       next: (k) => { this.kpis = k; this.cdr.detectChanges(); },
       error: () => { this.kpis = null; this.kpiError = 'Review counts are unavailable. Retry to refresh them.'; this.cdr.detectChanges(); },
     });
+  }
+
+  get totalPages(): number { return Math.max(1, Math.ceil(this.total / this.pageSize)); }
+
+  changePage(page: number): void {
+    if (this.loading || this.reviewing || this.loadError || !Number.isInteger(page) || page < 1 || page > this.totalPages) return;
+    this.page = page;
+    this.load(false);
   }
 
   canReview(doc: ComplianceDoc): boolean {
@@ -262,7 +288,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
       next: () => {
         this.reviewing = false;
         this.closeReviewModal();
-        this.load();
+        this.load(false);
       },
       error: (err) => {
         this.toast.error(err?.error?.message || 'Review failed.');
