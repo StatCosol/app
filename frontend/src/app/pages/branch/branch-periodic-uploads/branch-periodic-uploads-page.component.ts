@@ -63,6 +63,13 @@ interface ReviewerNoteEntry {
 export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private load$ = new Subject<void>();
+  private loadedScope = '';
+  private scopeVersion = 0;
+  private preferredReturnCode?: string;
+  private uploadDraftVersion = 0;
+  private uploadScope = '';
+  private previewVersion = 0;
+  private previewSourceUrl: string | null = null;
 
   loading = false;
   errorMessage = '';
@@ -166,7 +173,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.releasePreviewHandle();
+    this.closePreviewModal();
     this.destroy$.next();
     this.destroy$.complete();
     this.load$.complete();
@@ -182,6 +189,18 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   load(focusCode?: string): void {
+    const scope = this.scopeKey();
+    if (scope !== this.loadedScope) {
+      this.loadedScope = scope;
+      this.scopeVersion++;
+      this.preferredReturnCode = undefined;
+      this.submissionNotice = '';
+      this.closeUploadModal();
+      this.closePreviewModal();
+    } else {
+      this.preferredReturnCode = this.selectedItem?.returnCode || this.preferredReturnCode;
+    }
+    const selection = focusCode || this.preferredReturnCode;
     this.load$.next(); // cancel previous in-flight requests
     this.errorMessage = '';
     this.checklist = []; this.filteredChecklist = []; this.selectedItem = null; this.timeline = [];
@@ -201,7 +220,10 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
         this.lawAreas = this.unique(this.checklist.map((x) => x.lawArea));
         this.categories = this.unique(this.checklist.map((x) => x.category || 'Other'));
         this.applyFilters();
-        this.hydrateSelection(focusCode || this.selectedItem?.returnCode);
+        this.hydrateSelection(selection);
+        if (this.uploadTarget) {
+          this.uploadTarget = this.checklist.find(item => item.returnCode === this.uploadTarget?.returnCode) || null;
+        }
         this.cdr.detectChanges();
       },
       error: () => {
@@ -258,11 +280,16 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   selectItem(item: ChecklistItem): void {
+    if (this.selectedItem && this.selectedItem.returnCode !== item.returnCode) this.closePreviewModal();
     this.selectedItem = item;
+    this.preferredReturnCode = item.returnCode;
     this.timeline = this.buildTimeline(item);
   }
 
   openUploadModal(item: ChecklistItem): void {
+    if (this.loading || this.errorMessage || !this.canUpload(item)) return;
+    this.uploadDraftVersion++;
+    this.uploadScope = this.scopeKey();
     this.uploadTarget = item;
     this.selectedFile = null;
     this.acknowledgementRef = this.extractAckRef(item) || '';
@@ -271,6 +298,8 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   closeUploadModal(): void {
+    this.uploadDraftVersion++;
+    this.uploadScope = '';
     this.showUploadModal = false;
     this.uploadTarget = null;
     this.selectedFile = null;
@@ -291,7 +320,14 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   onDragOver(event: DragEvent): void { event.preventDefault(); }
 
   submitUpload(): void {
-    if (this.uploading || !this.selectedFile || !this.uploadTarget || !this.branchId || !this.canUpload(this.uploadTarget)) return;
+    if (this.uploading || this.loading || this.errorMessage || this.uploadScope !== this.scopeKey() || !this.selectedFile || !this.uploadTarget || !this.branchId || !this.canUpload(this.uploadTarget)) return;
+
+    const scopeVersion = this.scopeVersion;
+    const scope = this.scopeKey();
+    const draftVersion = this.uploadDraftVersion;
+    const sentFile = this.selectedFile;
+    const sentAck = this.acknowledgementRef;
+    const sentRemarks = this.uploadRemarks;
 
     this.uploading = true;
     const fd = new FormData();
@@ -317,17 +353,24 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
       fd.append('remarks', remarksParts.join(' | '));
     }
 
-    const focusCode = this.uploadTarget.returnCode;
     this.complianceDoc.uploadDocument(fd)
       .pipe(takeUntil(this.destroy$), finalize(() => { this.uploading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => {
+          if (scopeVersion !== this.scopeVersion || scope !== this.scopeKey()) return;
           this.submissionNotice = `Submitted to CRM at ${new Date().toLocaleString('en-IN')}`;
           this.toast.success('Submitted to CRM review queue');
-          this.closeUploadModal();
-          this.loadAndSelect(focusCode);
+          if (draftVersion === this.uploadDraftVersion && this.selectedFile === sentFile &&
+              this.acknowledgementRef === sentAck && this.uploadRemarks === sentRemarks) {
+            this.closeUploadModal();
+          }
+          this.load();
         },
-        error: (err) => { this.toast.error(err?.error?.message || 'Upload failed.'); },
+        error: (err) => {
+          if (scopeVersion === this.scopeVersion && scope === this.scopeKey()) {
+            this.toast.error(err?.error?.message || 'Upload failed.');
+          }
+        },
       });
   }
 
@@ -347,13 +390,20 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   previewFile(item: ChecklistItem): void {
     const url = item.document?.uploadedFileUrl;
     if (!url) return;
-    this.releasePreviewHandle();
+    this.closePreviewModal();
+    const previewVersion = this.previewVersion;
+    const scope = this.scopeKey();
     this.protectedFiles
       .fetch(url, item.document?.uploadedFileName || item.returnName)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (file) => {
+          if (previewVersion !== this.previewVersion || scope !== this.scopeKey()) {
+            file.revoke();
+            return;
+          }
           this.previewHandle = file;
+          this.previewSourceUrl = url;
           const document = item.document!;
           const versions: FileVersionItem[] = [];
           if (document.version) {
@@ -380,19 +430,23 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
         error: (err) => {
-          this.toast.error(err?.error?.message || 'Unable to load preview.');
+          if (previewVersion === this.previewVersion && scope === this.scopeKey()) {
+            this.toast.error(err?.error?.message || 'Unable to load preview.');
+          }
         },
       });
   }
 
   closePreviewModal(): void {
+    this.previewVersion++;
+    this.previewSourceUrl = null;
     this.showPreviewModal = false;
     this.previewData = null;
     this.releasePreviewHandle();
   }
 
   downloadPreviewFile(): void {
-    const url = this.selectedItem?.document?.uploadedFileUrl;
+    const url = this.previewSourceUrl;
     if (!url || !this.previewData) return;
     this.protectedFiles
       .download(url, this.previewData.fileName || this.previewData.name)
@@ -554,7 +608,11 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     ];
   }
 
-  private loadAndSelect(returnCode?: string): void { this.load(returnCode); }
+  private scopeKey(): string {
+    return JSON.stringify([this.branchId, this.selectedFrequency, this.selectedYear,
+      this.selectedFrequency === 'QUARTERLY' ? this.selectedQuarter : null,
+      this.selectedFrequency === 'HALF_YEARLY' ? this.selectedHalf : null]);
+  }
 
   private hydrateSelection(returnCode?: string): void {
     if (!this.filteredChecklist.length) {
