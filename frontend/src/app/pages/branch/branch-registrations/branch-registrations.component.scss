@@ -468,6 +468,7 @@ tbody tr.selected {
 .branch-request summary strong { font-size: 0.82rem; }
 .branch-request summary .status { margin: 0.3rem; white-space: normal; }
 .branch-request .request-body { padding-top: 0.4rem; }
+.branch-request .request-notes { white-space: pre-wrap; }
 
 .status-tabs--compact {
   margin-bottom: 0.5rem;
