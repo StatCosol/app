@@ -34,7 +34,9 @@ export class RegistrationRequestQuery {
   @IsOptional() @IsIn(['ACTUAL', 'TEST']) recordScope?: 'ACTUAL' | 'TEST';
 }
 export class NewRegistrationRequestDto {
-  @IsOptional() @IsIn(['APPLY', 'RENEW']) action?: 'APPLY' | 'RENEW';
+  @IsOptional()
+  @IsIn(['APPLY', 'RENEW', 'AMEND', 'CLOSE'])
+  action?: 'APPLY' | 'RENEW' | 'AMEND' | 'CLOSE';
   @IsOptional() @IsUUID() registrationId?: string;
   @IsUUID() branchId: string;
   @IsIn(['ACTUAL', 'TEST']) recordScope: 'ACTUAL' | 'TEST';
@@ -96,9 +98,11 @@ export class RegistrationRequestsController {
     const action = dto.action || 'APPLY';
     let registrationType = dto.registrationType.trim();
     let authority = dto.authority.trim();
-    if (action === 'RENEW') {
+    if (action !== 'APPLY') {
       if (!dto.registrationId)
-        throw new BadRequestException('Select the registration to renew');
+        throw new BadRequestException(
+          'Select the registration for this request',
+        );
       const options = await this.svc.registrationRenewalOptions(
         user,
         dto.branchId,
@@ -119,7 +123,7 @@ export class RegistrationRequestsController {
       subCategory: `REGISTRATION_${action}`,
       branchId: dto.branchId,
       isTest,
-      description: `[REGISTRATION_REQUEST]\nAction: ${action}\nRegistration ID: ${action === 'RENEW' ? dto.registrationId : 'NEW'}\nRegistration Type: ${isTest ? 'TEST ONLY — ' : ''}${registrationType}\nAuthority: ${authority}\nNotes: ${dto.notes.trim()}`,
+      description: `[REGISTRATION_REQUEST]\nAction: ${action}\nRegistration ID: ${action !== 'APPLY' ? dto.registrationId : 'NEW'}\nRegistration Type: ${isTest ? 'TEST ONLY — ' : ''}${registrationType}\nAuthority: ${authority}\nNotes: ${dto.notes.trim()}`,
     });
   }
 
