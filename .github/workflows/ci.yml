@@ -152,7 +152,9 @@ jobs:
           AUDITXPERT_TEST_PORT: 5432
           AUDITXPERT_TEST_USER: postgres
           AUDITXPERT_TEST_PASSWORD: postgres
-        run: node scripts/verify-helpdesk-db.cjs
+        run: |
+          node scripts/verify-helpdesk-db.cjs
+          node scripts/verify-registration-request-workflow.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
       - name: Billing transaction PostgreSQL regressions

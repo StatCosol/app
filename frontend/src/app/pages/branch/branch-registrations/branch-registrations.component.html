@@ -13,6 +13,8 @@
       @for (branch of branchOptions; track branch.id) { <option [value]="branch.id">{{branch.name}}</option> }
     </select>
   }
+  <app-registration-requests [branchId]="branchId" (changed)="retryRequestHistory()" />
+  <p>Licence totals and request history below show actual records only. Use the review workspace above for isolated test requests.</p>
   @if (loadError) { <p role="alert">{{loadError}} <button type="button" (click)="loadWorkspace()" class="compact-action" title="Retry" aria-label="Retry" data-action-label="Retry" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button></p> }
   @if (requestLoadError) { <p role="alert">{{requestLoadError}} <button type="button" (click)="retryRequestHistory()" [disabled]="requestHistoryLoading || loading" class="btn btn-secondary">{{ requestHistoryLoading ? 'Refreshing request history...' : 'Retry request history' }}</button></p> }
   <section class="summary-grid">
@@ -495,7 +497,7 @@
 @if (requestModalOpen) {
 <section class="modal-panel">
   <header>
-    <h3>Registration Request Wizard</h3>
+    <h3>Actual Registration Request Wizard</h3>
     <button type="button" (click)="closeRequestModal()" class="compact-action" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
   </header>
 

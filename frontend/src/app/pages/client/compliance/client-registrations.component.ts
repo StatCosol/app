@@ -1,3 +1,4 @@
+import { RegistrationRequestsComponent } from '../../../shared/registration-requests/registration-requests.component';
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +10,7 @@ import { AuthService } from '../../../core/auth.service';
 @Component({
   selector: 'app-client-registrations',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RegistrationRequestsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './client-registrations.component.html',
   styleUrls: ['./client-registrations.component.scss'],
