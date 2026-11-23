@@ -1,3 +1,5 @@
+import { ClientAuditAssignmentService } from './client-audit-assignment.service';
+import { ClientAuditAssignmentController } from './client-audit-assignment.controller';
 import {
   StatutoryAuditEntryController,
   AuditeeStatutoryAuditEntryController,
@@ -77,6 +79,7 @@ import { AuditEntryService } from './audit-entry.service';
     forwardRef(() => AutomationModule),
   ],
   controllers: [
+    ClientAuditAssignmentController,
     StatutoryAuditEntryController,
     AuditeeStatutoryAuditEntryController,
     AuditActionApprovalController,
@@ -95,6 +98,7 @@ import { AuditEntryService } from './audit-entry.service';
     AuditorObservationsController,
   ],
   providers: [
+    ClientAuditAssignmentService,
     StatutoryAuditEntryService,
     AuditFieldworkService,
     AuditFollowUpsService,

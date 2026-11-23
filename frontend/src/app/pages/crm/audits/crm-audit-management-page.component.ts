@@ -129,6 +129,17 @@ interface ScheduleModel {
   notes: string;
 }
 
+interface ClientAssignmentPreview {
+  previewToken: string;
+  branchCount: number;
+  createCount: number;
+  existingCount: number;
+  canAssign: boolean;
+  blocking: string[];
+  uncoveredBranches: Array<{id:string;name:string}>;
+  items: Array<{branchId:string;branchName:string;contractorUserId:string|null;contractorName:string|null;action:string}>;
+}
+
 @Component({
   selector: 'app-crm-audit-management-page',
   standalone: true,
@@ -180,6 +191,9 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   showScheduleModal = false;
   scheduleSaving = false;
   scheduleError = '';
+  clientWideSchedule = false;
+  assignmentPreview: ClientAssignmentPreview | null = null;
+  private assignmentPreviewKey = '';
   scheduleMode: 'CREATE' | 'ASSIGN' = 'CREATE';
   scheduleAuditId: string | null = null;
   scheduleModel: ScheduleModel = this.defaultScheduleModel();
@@ -564,6 +578,8 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   async openScheduleModal(base?: AuditRow): Promise<void> {
     if (base && ['CANCELLED', 'COMPLETED', 'CLOSED'].includes(base.status)) return;
     this.scheduleError = '';
+    this.clientWideSchedule = false;
+    this.assignmentPreview = null;
     this.scheduleModel = this.defaultScheduleModel();
     this.scheduleMode = base ? 'ASSIGN' : 'CREATE';
     this.scheduleAuditId = base?.id || null;
@@ -617,13 +633,55 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   get contractorScheduleScopeIncomplete(): boolean {
-    return !this.isAssignMode && this.isContractorSchedule &&
+    return !this.isAssignMode && !this.clientWideSchedule && this.isContractorSchedule &&
       (!this.scheduleModel.branchId?.trim() || !this.scheduleModel.contractorUserId?.trim());
   }
 
   onScheduleBranchChange(): void {
     this.scheduleError = '';
     this.scheduleModel.contractorUserId = '';
+  }
+
+  get currentAssignmentPreview(): ClientAssignmentPreview | null {
+    return this.clientWideSchedule && this.assignmentPreviewKey === JSON.stringify(this.scheduleModel)
+      ? this.assignmentPreview : null;
+  }
+
+  onAssignmentScopeChange(): void {
+    this.assignmentPreview = null;
+    this.scheduleError = '';
+    this.scheduleModel.branchId = '';
+    this.scheduleModel.contractorUserId = '';
+  }
+
+  private saveClientAssignment(payload: Record<string, any>): void {
+    const preview = this.currentAssignmentPreview;
+    if (preview && (!preview.canAssign || !preview.createCount)) return;
+    delete payload['branchId']; delete payload['contractorUserId'];
+    if (preview) payload['previewToken'] = preview.previewToken;
+    const key = JSON.stringify(this.scheduleModel);
+    this.scheduleSaving = true;
+    this.auditsService.crmClientAssignment(payload, !preview)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.scheduleSaving = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: response => {
+          if (!preview) {
+            if (this.showScheduleModal && this.clientWideSchedule && key === JSON.stringify(this.scheduleModel)) {
+              this.assignmentPreview = response;
+              this.assignmentPreviewKey = key;
+            }
+          } else {
+            this.toast.success(`Client assignment complete: ${response.created.length} audits created; ${response.existingCount} already assigned.`);
+            this.showScheduleModal = false;
+            this.refreshWorkspace(response.created[0]?.id || null);
+          }
+        },
+        error: err => {
+          this.assignmentPreview = null;
+          const message = err?.error?.message;
+          this.scheduleError = Array.isArray(message) ? message.join(' ') : message || 'Unable to assign client. Preview the coverage and try again.';
+        },
+      });
   }
 
   saveSchedule(): void {
@@ -670,6 +728,11 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     if (this.scheduleModel.contractorUserId) payload['contractorUserId'] = this.scheduleModel.contractorUserId;
     if (this.scheduleModel.dueDate) payload['dueDate'] = this.scheduleModel.dueDate;
     if (this.scheduleModel.notes.trim()) payload['notes'] = this.scheduleModel.notes.trim();
+
+    if (this.clientWideSchedule && !this.isAssignMode) {
+      this.saveClientAssignment(payload);
+      return;
+    }
 
     this.scheduleSaving = true;
     if (this.scheduleMode === 'ASSIGN' && this.scheduleAuditId) {

@@ -46,6 +46,12 @@ export class AuditsService {
   }
 
   // CRM: create/schedule an audit
+  crmClientAssignment(payload: any, preview = false): Observable<any> {
+    return this.http.post(`${this.crmBase}/client-assignment${preview ? '/preview' : ''}`, payload, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true),
+    });
+  }
+
   crmCreateAudit(payload: any): Observable<any> {
     // The schedule form retains the draft and displays the error inline.
     return this.http.post(this.crmBase, payload, {

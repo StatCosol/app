@@ -82,3 +82,40 @@ it('does not make legacy scope fields editable or block assignment-only updates'
   expect((t.root.querySelector('#camp-contractor-user-id') as HTMLSelectElement).disabled).toBe(true);
   expect(t.button().disabled).toBe(false);
 });
+
+describe.each([390,768,1440])('Client-wide assignment at %ipx',width=>{
+  beforeEach(async()=>page.viewport(width,950));
+  const coverage={previewToken:'reviewed-token',branchCount:2,createCount:2,existingCount:0,canAssign:true,blocking:[],uncoveredBranches:[],items:[
+    {branchId:'branch-a',branchName:'Synthetic unit A',contractorUserId:'vendor',contractorName:'Synthetic contractor',action:'CREATE'},
+    {branchId:'branch-b',branchName:'Synthetic unit B',contractorUserId:'vendor',contractorName:'Synthetic contractor',action:'CREATE'},
+  ]};
+  it('previews exact coverage before confirming one auditor for every pair',async()=>{
+    const t=await setup();t.vm.clientWideSchedule=true;t.vm.onAssignmentScopeChange();await t.render();
+    expect(t.root.querySelector('#camp-branch-id')).toBeNull();expect(t.button().textContent).toContain('Preview coverage');
+    t.button().click();await t.render();expect(t.button().disabled).toBe(true);
+    const preview=t.http.expectOne(r=>r.url.endsWith('/client-assignment/preview'));
+    expect(preview.request.body.assignedAuditorId).toBe('auditor');expect(preview.request.body.branchId).toBeUndefined();
+    preview.flush(coverage);await t.render();
+    expect(t.root.textContent).toContain('Synthetic unit A');expect(t.root.textContent).toContain('Synthetic unit B');
+    expect(t.button().textContent).toContain('Confirm client assignment');
+    t.vm.scheduleModel.dueDate='2100-01-01';await t.render();
+    expect(t.vm.currentAssignmentPreview).toBeNull();expect(t.button().textContent).toContain('Preview coverage');
+    t.button().click();t.http.expectOne(r=>r.url.endsWith('/preview')).flush({...coverage,previewToken:'new-date-token'});await t.render();
+    t.button().click();await t.render();t.vm.saveSchedule();
+    const save=t.http.expectOne(r=>r.url.endsWith('/client-assignment'));
+    expect(save.request.body.previewToken).toBe('new-date-token');expect(save.request.body.dueDate).toBe('2100-01-01');
+    save.flush({created:[{id:'test-a'},{id:'test-b'}],existingCount:0});await t.render();
+    expect(t.vm.showScheduleModal).toBe(false);expect(t.toast.success).toHaveBeenCalledWith(expect.stringContaining('2 audits created'));
+  });
+  it('shows conflicts and unmapped branches, blocks confirmation, and recovers without losing the draft',async()=>{
+    const t=await setup();t.vm.clientWideSchedule=true;await t.render();t.button().click();
+    t.http.expectOne(r=>r.url.endsWith('/preview')).flush({...coverage,canAssign:false,uncoveredBranches:[{id:'empty',name:'Unmapped unit'}],items:[{...coverage.items[0],action:'CONFLICT'}]});await t.render();
+    expect(t.button().disabled).toBe(true);expect(t.root.textContent).toContain('assigned to another auditor');expect(t.root.textContent).toContain('Unmapped unit');
+    t.vm.scheduleModel.notes+=' retry';await t.render();t.button().click();
+    t.http.expectOne(r=>r.url.endsWith('/preview')).flush(coverage);await t.render();t.button().click();
+    t.http.expectOne(r=>r.url.endsWith('/client-assignment')).flush({message:'Coverage changed. Preview again.'},{status:409,statusText:'Conflict'});await t.render();
+    expect(t.toast.error).not.toHaveBeenCalled();expect(t.vm.currentAssignmentPreview).toBeNull();expect(t.vm.scheduleModel.notes).toContain('retry');
+    expect(t.root.querySelectorAll('.modal-body [role="alert"]').length).toBe(1);
+    const panel=t.root.querySelector('.modal-panel')!.getBoundingClientRect();expect(panel.left).toBeGreaterThanOrEqual(0);expect(panel.right).toBeLessThanOrEqual(width+1);
+  });
+});
