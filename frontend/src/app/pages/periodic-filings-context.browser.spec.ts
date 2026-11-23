@@ -144,3 +144,32 @@ it('releases preview resources on close and ignores obsolete errors', async () =
   expect(toast.error).not.toHaveBeenCalled(); c.closePreviewModal(); c.downloadPreviewFile();
   expect(current.revoke).toHaveBeenCalledOnce(); expect(files.download).not.toHaveBeenCalled();
 });
+
+for (const width of [390, 768, 1440]) it(`separates test filing scope and states the unsent status at ${width}px`, async () => {
+  await page.viewport(width, 900);
+  const { c, f, api, rows, root } = await setup();
+  expect(c.recordScope).toBe('ACTUAL');
+  const scope = root.querySelector('#bpup-record-scope') as HTMLSelectElement;
+  scope.value = 'TEST'; scope.dispatchEvent(new Event('change')); f.detectChanges(); await f.whenStable();
+  expect(c.recordScope).toBe('TEST');
+  expect(api.getChecklist.mock.calls.at(-1)).toEqual(expect.arrayContaining([expect.objectContaining({ recordScope: 'TEST' })]));
+  c.openUploadModal(rows[0]); f.detectChanges();
+  expect(root.textContent).toContain('CRM — not submitted yet');
+  expect(root.textContent).toContain('TEST ONLY');
+  c.selectedFile = new File(['synthetic'], 'ordinary-name.pdf'); c.submitUpload();
+  expect(api.uploadDocument.mock.calls[0][0].get('recordScope')).toBe('TEST');
+  expect(root.scrollWidth).toBeLessThanOrEqual(width);
+});
+
+it('invalidates pending upload and preview when switching actual/test evidence', async () => {
+  const { c, api, rows, files } = await setup();
+  const upload = new Subject<any>(); api.uploadDocument.mockReturnValueOnce(upload);
+  const preview = new Subject<any>(); files.fetch.mockReturnValueOnce(preview);
+  c.openUploadModal(rows[0]); c.selectedFile = new File(['synthetic'], 'ordinary.pdf'); c.submitUpload();
+  expect(api.uploadDocument.mock.calls[0][0].get('recordScope')).toBe('ACTUAL');
+  c.previewFile(rows[0]); c.recordScope = 'TEST'; c.load();
+  const calls = api.getChecklist.mock.calls.length; const old = handle('old-actual'); preview.next(old); upload.next({});
+  expect(old.revoke).toHaveBeenCalledOnce(); expect(c.showPreviewModal).toBe(false);
+  expect(c.showUploadModal).toBe(false); expect(c.submissionNotice).toBe('');
+  expect(api.getChecklist).toHaveBeenCalledTimes(calls);
+});

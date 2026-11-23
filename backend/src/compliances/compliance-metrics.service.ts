@@ -258,6 +258,7 @@ export class ComplianceMetricsService {
           `SELECT COUNT(DISTINCT return_code) AS uploaded
            FROM compliance_documents
            WHERE branch_id = $1
+             AND COALESCE(uploaded_file_name, '') !~* '^TEST([ _-]|$)'
              AND period_year = $2
              AND period_month = $3
              AND status NOT IN ('NOT_UPLOADED')`,

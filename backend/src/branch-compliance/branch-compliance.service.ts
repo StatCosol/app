@@ -634,6 +634,8 @@ export class BranchComplianceService {
     file: UploadedFile,
   ) {
     if (!file) throw new BadRequestException('File is required');
+    const recordScope = this.uploadRecordScope(dto, file.originalname);
+    file = this.labelTestUpload(file, recordScope);
     if (!this.allowedMimeTypes.has(file.mimetype)) {
       throw new BadRequestException(
         'File type not allowed. Accepted: PDF, PNG, JPEG, XLS/XLSX',
@@ -666,6 +668,7 @@ export class BranchComplianceService {
       dto.periodMonth,
       dto.periodQuarter,
       dto.periodHalf,
+      recordScope,
     );
 
     if (existing && existing.isLocked) {
@@ -760,6 +763,8 @@ export class BranchComplianceService {
     file: UploadedFile,
   ) {
     if (!file) throw new BadRequestException('File is required');
+    const recordScope = this.uploadRecordScope(dto, file.originalname);
+    file = this.labelTestUpload(file, recordScope);
     if (!this.allowedMimeTypes.has(file.mimetype)) {
       throw new BadRequestException(
         'File type not allowed. Accepted: PDF, PNG, JPEG, XLS/XLSX',
@@ -824,6 +829,7 @@ export class BranchComplianceService {
       dto.periodMonth,
       dto.periodQuarter,
       dto.periodHalf,
+      recordScope,
     );
 
     if (existing && existing.isLocked) {
@@ -1235,6 +1241,7 @@ export class BranchComplianceService {
          END AS compliance_pct
        FROM compliance_documents
        WHERE branch_id = $1
+         AND COALESCE(uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND company_id = $2
          AND period_year = $3
          ${month ? 'AND period_month = $4' : ''}`,
@@ -1285,6 +1292,7 @@ export class BranchComplianceService {
          COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS approved
        FROM compliance_documents
        WHERE branch_id = $1
+         AND COALESCE(uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND company_id = $2
          AND period_year = $3
        GROUP BY frequency`,
@@ -1363,6 +1371,7 @@ export class BranchComplianceService {
        FROM client_branches b
        LEFT JOIN compliance_documents d
          ON d.branch_id = b.id
+         AND COALESCE(d.uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND d.period_year = $2
          AND ($3::int IS NULL OR d.period_month = $3)
        WHERE b.clientid = $1
@@ -1462,6 +1471,7 @@ export class BranchComplianceService {
       `UPDATE compliance_documents
        SET status = 'OVERDUE', updated_at = NOW()
        WHERE status IN ('NOT_UPLOADED', 'REUPLOAD_REQUIRED')
+         AND COALESCE(uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND due_date IS NOT NULL
          AND due_date < $1`,
       [today],
@@ -1503,6 +1513,10 @@ export class BranchComplianceService {
     if (q.status) qb.andWhere('d.status = :status', { status: q.status });
 
     const page = q.page || 1;
+    qb.andWhere(
+      `COALESCE(d.uploaded_file_name, '') ${q.recordScope === 'TEST' ? '~*' : '!~*'} :testMarker`,
+      { testMarker: '^TEST([ _-]|$)' },
+    );
     const pageSize = q.pageSize || 50;
 
     qb.orderBy('d.updatedAt', 'DESC')
@@ -1531,6 +1545,7 @@ export class BranchComplianceService {
          COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS approved
        FROM compliance_documents
        WHERE company_id = $1
+         AND COALESCE(uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND period_year = $2
          AND frequency = 'MONTHLY'
          AND period_month IS NOT NULL
@@ -1584,6 +1599,7 @@ export class BranchComplianceService {
          COUNT(*) FILTER (WHERE status IN ('NOT_UPLOADED','SUBMITTED','RESUBMITTED'))::int AS pending
        FROM compliance_documents
        WHERE branch_id = $1
+         AND COALESCE(uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND company_id = $2
          AND period_year = $3`,
       [branchId, companyId, year],
@@ -1616,6 +1632,7 @@ export class BranchComplianceService {
          COUNT(*) FILTER (WHERE status = 'REUPLOAD_REQUIRED')::int AS reupload
        FROM compliance_documents
        WHERE branch_id = $1
+         AND COALESCE(uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND company_id = $2
          AND period_year = $3
        GROUP BY frequency`,
@@ -1718,6 +1735,7 @@ export class BranchComplianceService {
        FROM client_branches b
        LEFT JOIN compliance_documents d
          ON d.branch_id = b.id
+         AND COALESCE(d.uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND d.period_year = $2
        WHERE b.clientid = $1
          AND ($4::uuid[] IS NULL OR b.id=ANY($4::uuid[]))
@@ -1788,6 +1806,7 @@ export class BranchComplianceService {
               uploaded_by_user_id AS "uploadedByUserId"
        FROM compliance_documents
        WHERE due_date = $1
+         AND COALESCE(uploaded_file_name, '') !~* '^TEST([ _-]|$)'
          AND status IN ('NOT_UPLOADED', 'REUPLOAD_REQUIRED', 'SUBMITTED', 'RESUBMITTED')`,
       [dateStr],
     );
@@ -1827,6 +1846,7 @@ export class BranchComplianceService {
     month?: number,
     quarter?: number,
     half?: number,
+    recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL',
   ): Promise<ComplianceDocumentEntity | null> {
     const qb = this.docRepo
       .createQueryBuilder('d')
@@ -1836,11 +1856,41 @@ export class BranchComplianceService {
       .andWhere('d.frequency = :frequency', { frequency })
       .andWhere('d.period_year = :year', { year });
 
+    // Use the same partition as lists and review queues: a test upload must
+    // never replace an actual filing for the same branch and period.
+    qb.andWhere(
+      `COALESCE(d.uploaded_file_name, '') ${recordScope === 'TEST' ? '~*' : '!~*'} :testMarker`,
+      { testMarker: '^TEST([ _-]|$)' },
+    );
+
     if (month) qb.andWhere('d.period_month = :month', { month });
     if (quarter) qb.andWhere('d.period_quarter = :quarter', { quarter });
     if (half) qb.andWhere('d.period_half = :half', { half });
 
     return qb.getOne();
+  }
+
+  private uploadRecordScope(
+    dto: UploadComplianceDocDto,
+    fileName: string,
+  ): 'ACTUAL' | 'TEST' {
+    const markedTest = /^TEST([ _-]|$)/i.test(fileName);
+    if (dto.recordScope === 'ACTUAL' && markedTest) {
+      throw new BadRequestException(
+        'This file is labelled TEST. Select Test evidence only before uploading it.',
+      );
+    }
+    // Preserve existing callers that already send explicitly TEST-named files.
+    return dto.recordScope || (markedTest ? 'TEST' : 'ACTUAL');
+  }
+
+  private labelTestUpload(
+    file: UploadedFile,
+    scope: 'ACTUAL' | 'TEST',
+  ): UploadedFile {
+    if (scope !== 'TEST' || /^TEST([ _-]|$)/i.test(file.originalname))
+      return file;
+    return { ...file, originalname: `TEST ONLY - ${file.originalname}` };
   }
 
   private async persistUpload(doc: ComplianceDocumentEntity, fileUrl: string) {

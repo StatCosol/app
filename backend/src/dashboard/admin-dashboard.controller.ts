@@ -767,6 +767,7 @@ export class AdminDashboardController {
             AND NOT EXISTS(
               SELECT 1 FROM compliance_documents cd
               WHERE cd.company_id = c.id
+                AND COALESCE(cd.uploaded_file_name, '') !~* '^TEST([ _-]|$)'
                 AND cd.uploaded_at >= $1
             )
         `,

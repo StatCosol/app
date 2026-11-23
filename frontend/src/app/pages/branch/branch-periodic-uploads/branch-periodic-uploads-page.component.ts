@@ -79,6 +79,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   selectedItem: ChecklistItem | null = null;
   timeline: SharedTimelineEvent[] = [];
   branchId = '';
+  recordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
 
   selectedFrequency = 'YEARLY';
   selectedYear = new Date().getFullYear();
@@ -207,6 +208,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     this.loading = true;
 
     this.complianceDoc.getChecklist({
+      recordScope: this.recordScope,
       branchId: this.branchId || undefined,
       year: this.selectedYear,
       frequency: this.selectedFrequency,
@@ -332,6 +334,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     this.uploading = true;
     const fd = new FormData();
     fd.append('file', this.selectedFile);
+    fd.append('recordScope', this.recordScope);
     fd.append('branchId', this.branchId);
     fd.append('returnCode', this.uploadTarget.returnCode);
     fd.append('periodYear', String(this.selectedYear));
@@ -609,7 +612,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   private scopeKey(): string {
-    return JSON.stringify([this.branchId, this.selectedFrequency, this.selectedYear,
+    return JSON.stringify([this.recordScope, this.branchId, this.selectedFrequency, this.selectedYear,
       this.selectedFrequency === 'QUARTERLY' ? this.selectedQuarter : null,
       this.selectedFrequency === 'HALF_YEARLY' ? this.selectedHalf : null]);
   }

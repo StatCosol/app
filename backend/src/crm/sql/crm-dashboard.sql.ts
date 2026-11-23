@@ -78,6 +78,7 @@ on_behalf_agg AS (
     COUNT(*) FILTER (WHERE d.acting_on_behalf = TRUE AND d.status IN ('SUBMITTED','RESUBMITTED')) AS on_behalf_pending
   FROM compliance_documents d
   JOIN crm_branches cb ON cb.branch_id = d.branch_id
+  WHERE COALESCE(d.uploaded_file_name, '') !~* '^TEST([ _-]|$)'
 )
 SELECT
   (SELECT COUNT(*) FROM crm_clients)                      AS assigned_clients_count,
