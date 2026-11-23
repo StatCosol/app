@@ -485,7 +485,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
       ['Status', this.statusLabel(reg.computedStatus)],
       ['Days Remaining', this.daysText(reg)],
       ['Document Completion %', String(this.documentCompletion(reg))],
-      ['Open Requests', String(this.selectedRequests.length)],
+      ['Open Requests', String(this.selectedRequests.filter(req => ['OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT'].includes(req.status)).length)],
       ['Closure Requests', String(this.selectedClosureRequests.length)],
       ['Amendment Requests', String(this.selectedAmendmentRequests.length)],
       ['Linked Alerts', String(this.selectedAlerts.length)],
@@ -515,6 +515,32 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
     a.href = url;
     a.download = `branch-registration-${(reg.registrationNumber || reg.id).replace(/[^a-zA-Z0-9-_]/g, '_')}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  exportRequests(): void {
+    if (this.loading || this.loadError || this.requestLoadError || this.requestHistoryLoading || this.requestSaving || !this.requests.length) {
+      this.toast.error('Refresh request history successfully before exporting requests.');
+      return;
+    }
+    const branchName = this.branchOptions.find(branch => branch.id === this.branchId)?.name || this.branchId;
+    const rows = [
+      ['Branch', 'Request', 'Action', 'Registration Type', 'Authority', 'Reference', 'Status', 'Stage', 'Priority', 'Created', 'Updated', 'Request Details'],
+      ...this.requests.map(req => [branchName, req.ticketRef, req.action, req.registrationType,
+        req.authority, req.referenceNumber, req.status, this.requestStageLabel(req.status), req.priority,
+        this.formatDate(req.createdAt), this.formatDate(req.updatedAt), req.notes]),
+    ];
+    const cell = (value: string) => {
+      const text = String(value ?? '');
+      const safe = /^[\s]*[=+@-]/.test(text) ? `'${text}` : text;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+    const blob = new Blob([rows.map(row => row.map(cell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `branch-registration-requests-${this.branchId.replace(/[^a-zA-Z0-9-_]/g, '_')}.csv`;
+    link.click();
     URL.revokeObjectURL(url);
   }
 
@@ -686,6 +712,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
     if (!branchId) return;
     // Keep a failed history read unavailable until a scoped retry succeeds.
     this.requestHistoryLoading = true;
+    this.cdr.markForCheck();
     this.requestsRequest = this.helpdeskService
       .listTickets({ branchId, category: 'COMPLIANCE' })
       .pipe(
