@@ -402,7 +402,7 @@ export class AdminDashboardController {
       // Real query: open helpdesk tickets
       const [openQueriesRow] = await this.dataSource
         .query(
-          `SELECT COUNT(*)::int AS n FROM helpdesk_tickets WHERE status IN ('OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT')`,
+          `SELECT COUNT(*)::int AS n FROM helpdesk_tickets WHERE is_test = FALSE AND status IN ('OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT')`,
         )
         .catch((e) => {
           this.logger.warn('helpdesk open count failed', e?.message);
@@ -413,7 +413,7 @@ export class AdminDashboardController {
       const [slaBreachesRow] = await this.dataSource
         .query(
           `SELECT COUNT(*)::int AS n FROM helpdesk_tickets
-         WHERE sla_due_at < NOW()
+         WHERE is_test = FALSE AND sla_due_at < NOW()
            AND status NOT IN ('RESOLVED', 'CLOSED')`,
         )
         .catch((e) => {
@@ -474,7 +474,7 @@ export class AdminDashboardController {
            COALESCE((SELECT COUNT(*)::int FROM helpdesk_tickets ht
              INNER JOIN clients hc ON hc.id = ht.client_id
              INNER JOIN client_assignments ha ON ha.client_id = hc.id AND ha.crm_user_id = u.id AND ha.status = 'ACTIVE'
-             WHERE ht.sla_due_at < NOW() AND ht.status NOT IN ('RESOLVED','CLOSED')
+             WHERE ht.is_test = FALSE AND ht.sla_due_at < NOW() AND ht.status NOT IN ('RESOLVED','CLOSED')
            ), 0) as "slaBreaches"
          FROM users u
          INNER JOIN roles r ON u.role_id = r.id

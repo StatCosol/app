@@ -18,6 +18,9 @@ export class HelpdeskTicketEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'boolean', name: 'is_test', default: false })
+  isTest: boolean;
+
   @Column({ type: 'varchar', length: 40 })
   category: string;
 

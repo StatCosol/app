@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsIn,
   IsOptional,
   IsString,
@@ -26,8 +27,15 @@ import { HelpdeskMessageEntity } from './entities/helpdesk-message.entity';
 import { HelpdeskMessageFileEntity } from './entities/helpdesk-message-file.entity';
 import { ReqUser } from '../access/access-scope.service';
 import { actualAuditRequestSql } from './actual-audit-request';
+import { actualRegistrationSql } from '../common/actual-records';
+import {
+  isRegistrationRequest,
+  requestScopeSql,
+  RegistrationActionDto,
+} from './registration-request-policy';
 
 export class CreateTicketDto {
+  @IsOptional() @IsBoolean() isTest?: boolean;
   @IsString() @MinLength(1) @MaxLength(40) category: string;
   @IsOptional() @IsString() @MaxLength(80) subCategory?: string | null;
   @IsOptional() @IsUUID() branchId?: string | null;
@@ -109,9 +117,14 @@ export class HelpdeskService {
       )
       .addSelect('assigneeUser.name', 'assigneeName');
 
+    qb.andWhere(requestScopeSql(q?.recordScope));
     if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
     if (q?.clientId) qb.andWhere('t.client_id = :cid', { cid: q.clientId });
     if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
+    if (q?.branchId)
+      qb.andWhere('t.branch_id = :requestBranch', {
+        requestBranch: q.branchId,
+      });
     if (q?.priority) qb.andWhere('t.priority = :pri', { pri: q.priority });
     if (q?.search) {
       qb.andWhere(
@@ -142,6 +155,7 @@ export class HelpdeskService {
       .addSelect('t.priority', 'priority')
       .addSelect('t.sla_due_at', 'slaDueAt')
       .addSelect('t.category', 'category')
+      .andWhere(requestScopeSql())
       .getRawMany();
 
     const now = Date.now();
@@ -235,7 +249,7 @@ export class HelpdeskService {
     }
     return this.saveTicketChange(t, {
       assignedToUserId: dto.assignedToUserId,
-      ...(t.status === 'OPEN' && dto.assignedToUserId
+      ...(t.status === 'OPEN' && dto.assignedToUserId && !t.isTest
         ? { status: 'IN_PROGRESS' }
         : {}),
     });
@@ -266,6 +280,7 @@ export class HelpdeskService {
       qb.andWhere(actualAuditRequestSql());
       if (q?.branchId)
         qb.andWhere('t.branch_id = :branchId', { branchId: q.branchId });
+      qb.andWhere(requestScopeSql(q?.recordScope));
       if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
       if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
       qb.orderBy('t.created_at', 'DESC');
@@ -284,6 +299,7 @@ export class HelpdeskService {
           '(t.assigned_to_user_id IS NULL OR t.assigned_to_user_id = :uid)',
           { uid: user.id },
         );
+      qb.andWhere(requestScopeSql(q?.recordScope));
       if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
       if (q?.clientId) qb.andWhere('t.client_id = :c', { c: q.clientId });
       if (q?.category) {
@@ -299,9 +315,14 @@ export class HelpdeskService {
     const qb = this.ticketRepo
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.client', 'c');
+    qb.andWhere(requestScopeSql(q?.recordScope));
     if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
     if (q?.clientId) qb.andWhere('t.client_id = :c', { c: q.clientId });
     if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
+    if (q?.branchId)
+      qb.andWhere('t.branch_id = :requestBranch', {
+        requestBranch: q.branchId,
+      });
     qb.orderBy('t.created_at', 'DESC');
     return qb.getMany();
   }
@@ -468,9 +489,14 @@ export class HelpdeskService {
       .createQueryBuilder('t')
       .where('t.client_id IN (:...ids)', { ids: clientIds })
       .andWhere(actualAuditRequestSql());
+    qb.andWhere(requestScopeSql(q?.recordScope));
     if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
     if (q?.clientId) qb.andWhere('t.client_id = :c', { c: q.clientId });
     if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
+    if (q?.branchId)
+      qb.andWhere('t.branch_id = :requestBranch', {
+        requestBranch: q.branchId,
+      });
     qb.orderBy('t.created_at', 'DESC');
     return qb.getMany();
   }
@@ -516,6 +542,51 @@ export class HelpdeskService {
     if (!(HELP_DESK_PRIORITY as readonly string[]).includes(priority)) {
       throw new BadRequestException('Invalid ticket priority');
     }
+    const isTest = dto.isTest === true;
+    const registration = isRegistrationRequest({
+      category,
+      subCategory: dto.subCategory,
+    });
+    if (isTest && !registration)
+      throw new BadRequestException(
+        'Test scope is supported for registration requests only',
+      );
+    if (registration) {
+      if (!dto.branchId)
+        throw new BadRequestException(
+          'A branch is required for registration requests',
+        );
+      const reference = dto.description
+        .match(/(?:^|\r?\n)Registration ID: *([^\r\n]+)/i)?.[1]
+        ?.trim();
+      if (
+        dto.subCategory !== 'REGISTRATION_APPLY' &&
+        (!reference || reference === 'NEW')
+      )
+        throw new BadRequestException(
+          'Select the registration for this request',
+        );
+      if (reference && reference !== 'NEW') {
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            reference,
+          )
+        )
+          throw new BadRequestException('Invalid registration reference');
+        const linked = await this.dataSource.query(
+          "SELECT r.id FROM branch_registrations r WHERE r.id=$1 AND r.client_id=$2 AND r.branch_id=$3 AND r.status <> 'DELETED' AND " +
+            (isTest ? 'NOT ' : '') +
+            '(' +
+            actualRegistrationSql('r') +
+            ')',
+          [reference, user.clientId, dto.branchId],
+        );
+        if (!linked.length)
+          throw new BadRequestException(
+            'Registration must belong to this branch and the same actual/test scope',
+          );
+      }
+    }
     const now = new Date();
     const hours =
       priority === 'CRITICAL'
@@ -527,6 +598,7 @@ export class HelpdeskService {
             : 72; // NORMAL = 72h
     const slaDue = new Date(now.getTime() + hours * 60 * 60 * 1000);
     const ticket = this.ticketRepo.create({
+      isTest,
       subCategory: dto.subCategory,
       branchId: dto.branchId,
       employeeRef: dto.employeeRef,
@@ -536,7 +608,7 @@ export class HelpdeskService {
       createdByUserId: user.id,
       status: 'OPEN',
       priority,
-      slaDueAt: slaDue,
+      slaDueAt: isTest ? null : slaDue,
     });
     return this.ticketRepo.save(ticket);
   }
@@ -576,6 +648,10 @@ export class HelpdeskService {
     } else if (!['ADMIN', 'CRM', 'PF_TEAM'].includes(user.roleCode)) {
       throw new ForbiddenException('Access denied');
     }
+    if (t.isTest && isRegistrationRequest(t))
+      throw new BadRequestException(
+        'Use registration review actions with remarks',
+      );
     // Scope rules:
     if (user.roleCode === 'CRM') {
       const ids = await this.crmAssignedClientIds(user.id);
@@ -588,6 +664,80 @@ export class HelpdeskService {
     }
     // ADMIN allowed unconditionally
     return this.saveTicketChange(t, { status: dto.status });
+  }
+
+  async registrationAction(
+    user: ReqUser,
+    ticketId: string,
+    dto: RegistrationActionDto,
+  ) {
+    if (!['CLIENT', 'CRM'].includes(user.roleCode))
+      throw new ForbiddenException('Registration review access required');
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(HelpdeskTicketEntity);
+      const ticket = await repo.findOne({
+        where: { id: ticketId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!ticket || !isRegistrationRequest(ticket))
+        throw new BadRequestException('Registration request not found');
+      if (user.roleCode === 'CLIENT')
+        await assertClientRecord(
+          manager,
+          user,
+          ticket.clientId,
+          ticket.branchId,
+        );
+      else if (
+        !(await this.crmAssignedClientIds(user.id)).includes(ticket.clientId)
+      )
+        throw new ForbiddenException('Not assigned to this client');
+      if (ticket.isTest !== (dto.recordScope === 'TEST'))
+        throw new ConflictException(
+          'Request scope changed. Reload the workspace.',
+        );
+      if (ticket.status !== dto.expectedStatus)
+        throw new ConflictException(
+          'Request changed. Reload before reviewing.',
+        );
+      const transition = {
+        REVIEW: { role: 'CRM', from: ['OPEN'], to: 'IN_PROGRESS' },
+        CORRECTION: {
+          role: 'CRM',
+          from: ['OPEN', 'IN_PROGRESS'],
+          to: 'AWAITING_CLIENT',
+        },
+        RESUBMIT: {
+          role: 'CLIENT',
+          from: ['AWAITING_CLIENT'],
+          to: 'IN_PROGRESS',
+        },
+        APPROVE: { role: 'CRM', from: ['IN_PROGRESS'], to: 'RESOLVED' },
+      }[dto.action];
+      if (
+        !transition ||
+        transition.role !== user.roleCode ||
+        !transition.from.includes(ticket.status)
+      )
+        throw new BadRequestException(
+          'Action is not available at this review stage',
+        );
+      const remarks = dto.remarks?.trim();
+      if (!remarks)
+        throw new BadRequestException(
+          'Review or correction remarks are required',
+        );
+      await manager.save(
+        HelpdeskMessageEntity,
+        manager.create(HelpdeskMessageEntity, {
+          ticketId,
+          senderUserId: user.id,
+          message: '[' + dto.action + '] ' + remarks,
+        }),
+      );
+      await repo.update(ticket.id, { status: transition.to });
+      return { ...ticket, status: transition.to };
+    });
   }
 
   private async saveTicketChange(
@@ -746,13 +896,22 @@ export class HelpdeskService {
       .createQueryBuilder('t')
       .where('t.created_by_user_id = :uid', { uid: user.id })
       .andWhere('t.client_id = :clientId', { clientId: user.clientId });
+    qb.andWhere(requestScopeSql(q?.recordScope));
     if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
     if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
+    if (q?.branchId)
+      qb.andWhere('t.branch_id = :requestBranch', {
+        requestBranch: q.branchId,
+      });
     qb.orderBy('t.created_at', 'DESC');
     return qb.getMany();
   }
 
   async essCreateTicket(user: ReqUser, dto: CreateTicketDto) {
+    if (dto.isTest)
+      throw new BadRequestException(
+        'Employee tickets do not support test scope',
+      );
     const category = String(dto.category || '').toUpperCase();
     const priority = String(dto.priority || 'NORMAL').toUpperCase();
     const allowedCategories = ['PF', 'ESI', 'PAYSLIP'];

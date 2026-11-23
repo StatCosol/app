@@ -1,3 +1,4 @@
+import { RegistrationRequestsComponent } from '../../../shared/registration-requests/registration-requests.component';
 import { AuditFilePreviewComponent, AuditFilePreview } from '../../../shared/files/components/audit-file-preview.component';
 import { IconComponent } from '../../../shared/ui/icon/icon.component';
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
@@ -27,7 +28,7 @@ interface RegForm {
 @Component({
   selector: 'app-crm-registrations',
   standalone: true,
-  imports: [AuditFilePreviewComponent, IconComponent, CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [RegistrationRequestsComponent, AuditFilePreviewComponent, IconComponent, CommonModule, FormsModule, ClientContextStripComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './crm-registrations.component.html',
   styles: [`

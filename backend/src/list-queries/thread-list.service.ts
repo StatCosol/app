@@ -96,7 +96,8 @@ export class ThreadListService {
       .getRepository(HelpdeskTicketEntity)
       .createQueryBuilder('hd')
       .leftJoinAndSelect('hd.client', 'client')
-      .leftJoinAndSelect('hd.branchEntity', 'branch');
+      .leftJoinAndSelect('hd.branchEntity', 'branch')
+      .andWhere('hd.is_test = FALSE');
 
     this.scope.applyToQb(qb, scopeResult, {
       clientPath: 'hd.clientId',

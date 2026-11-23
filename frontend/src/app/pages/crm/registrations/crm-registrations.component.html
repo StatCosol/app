@@ -7,7 +7,6 @@
     </div>
     <ui-client-context-strip [inline]="true"></ui-client-context-strip>
   </div>
-
   <div class="toolbar aligned-filter-controls">
     <select id="cr-record-scope" aria-label="Registration records" name="recordScope" [(ngModel)]="recordScope" (change)="load()" [disabled]="saving || !!deletingId">
       <option value="ACTUAL">Actual registrations</option>
@@ -33,6 +32,7 @@
     }
   </div>
   <p class="sub" role="status">{{ recordScope === 'TEST' ? 'Test evidence only — these counts are excluded from operational dashboards, expiry tracking and reminders. Documents are available for review.' : 'Actual registrations only — test evidence is excluded from these counts.' }}</p>
+  <app-registration-requests [branchId]="selectedBranchId" [clientId]="clientId" [reviewer]="true" />
   @if (loadError) {
     <div role="alert" class="note">{{ loadError }} <button type="button" class="btn secondary" (click)="load()" [disabled]="!selectedBranchId">Retry</button></div>
   }
