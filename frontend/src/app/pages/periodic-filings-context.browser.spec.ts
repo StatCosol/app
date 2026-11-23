@@ -31,6 +31,34 @@ async function setup() {
   return { f, c: f.componentInstance, api, files, toast, rows, root: f.nativeElement as HTMLElement };
 }
 
+for (const width of [390, 768, 1440]) it(`keeps a full filing checklist readable and its actions inside each card at ${width}px`, async () => {
+  await page.viewport(width, 800);
+  const { c, f, api, root } = await setup();
+  const rows = Array.from({ length: 15 }, (_, i) => item(`TEST-LONG-${i}`, true));
+  api.getChecklist.mockReturnValueOnce(of({ data: rows })); c.load(); f.detectChanges(); await f.whenStable();
+  const cards = Array.from(root.querySelectorAll<HTMLElement>('.list-row'));
+  expect(cards).toHaveLength(15);
+  for (const card of cards) {
+    const box = card.getBoundingClientRect();
+    expect(card.querySelector<HTMLElement>('.row-title')!.getBoundingClientRect().height).toBeGreaterThanOrEqual(12);
+    expect(card.querySelector<HTMLElement>('.row-sub')!.getBoundingClientRect().height).toBeGreaterThanOrEqual(12);
+    for (const child of Array.from(card.querySelectorAll<HTMLElement>('.row-main, .row-sub, .row-footer, .row-actions, button'))) {
+      const rect = child.getBoundingClientRect();
+      expect(rect.top).toBeGreaterThanOrEqual(box.top);
+      expect(rect.bottom).toBeLessThanOrEqual(box.bottom);
+    }
+  }
+  expect(root.scrollWidth).toBeLessThanOrEqual(width);
+});
+
+it('does not turn desktop filter widths into tall empty mobile rows', async () => {
+  await page.viewport(390, 800);
+  const { root } = await setup();
+  for (const field of Array.from(root.querySelectorAll<HTMLElement>('.filter-field'))) {
+    expect(field.getBoundingClientRect().height).toBeLessThan(100);
+  }
+});
+
 for (const width of [390, 768, 1440]) it(`does not present completed filings as pending deadlines at ${width}px`, async () => {
   await page.viewport(width, 900);
   const { c, f, api, root } = await setup();
