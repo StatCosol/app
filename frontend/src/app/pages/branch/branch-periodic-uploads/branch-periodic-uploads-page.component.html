@@ -377,11 +377,17 @@
         </button>
         <button type="button"
           class="compact-action btn-primary"
-          [disabled]="!selectedFile || uploading"
+          [disabled]="!selectedFile || uploading || loading || !!errorMessage || !uploadTarget || !canUpload(uploadTarget)"
           (click)="submitUpload()" title="Submit to CRM" aria-label="Submit to CRM" data-action-label="Submit to CRM" data-action-icon="send"><ui-icon name="send" [size]="20" /><span class="compact-action-label">
           {{ uploading ? 'Submitting...' : 'Submit to CRM' }}
         </span></button>
       </div>
+      @if (errorMessage) {
+        <p role="alert" class="text-sm text-red-700">The filing checklist could not be refreshed. Your draft is retained; retry the checklist before submitting.</p>
+        <button type="button" class="standard-action btn-secondary" aria-label="Retry filing checklist" (click)="load()">Retry checklist</button>
+      } @else if (!loading && (!uploadTarget || !canUpload(uploadTarget))) {
+        <p role="status" class="text-sm text-amber-800">This filing is no longer available for upload. Your unsaved file and comments are retained for reference.</p>
+      }
     </div>
 
     <div slot="footer"></div>
