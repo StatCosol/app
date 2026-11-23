@@ -89,6 +89,7 @@ describe('compliance document lifecycle', () => {
         dto.periodMonth,
         dto.periodQuarter,
         dto.periodHalf,
+        'ACTUAL',
       );
     },
   );
@@ -379,5 +380,70 @@ describe('branch roles without active mappings', () => {
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(service.updateCompanySettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('test filing upload isolation', () => {
+  const dto: any = {
+    branchId: 'branch-a',
+    companyId: 'company-a',
+    returnCode: 'PT',
+    periodYear: 2026,
+    frequency: 'YEARLY',
+    recordScope: 'TEST',
+  };
+  it.each(['uploadDocument', 'crmUploadOnBehalf'])(
+    '%s labels test evidence and looks up only test replacements',
+    async (method) => {
+      const { svc, find, saveFile } = setup(null, 'YEARLY');
+      const actor =
+        method === 'uploadDocument' ? user : { ...user, roleCode: 'CRM' };
+      const result = await (svc as any)[method](actor, dto, file);
+      expect(find.mock.calls[0][8]).toBe('TEST');
+      expect(result.uploadedFileName).toBe('TEST ONLY - return.pdf');
+      expect(
+        saveFile.mock.calls[0].some(
+          (arg: any) => arg?.originalname === 'TEST ONLY - return.pdf',
+        ),
+      ).toBe(true);
+    },
+  );
+  it.each(['uploadDocument', 'crmUploadOnBehalf'])(
+    '%s rejects a marked file in explicit actual scope before writing',
+    async (method) => {
+      const { svc, saveFile, repo } = setup(null, 'YEARLY');
+      await expect(
+        (svc as any)[method](
+          user,
+          { ...dto, recordScope: 'ACTUAL' },
+          { ...file, originalname: 'TEST-evidence.pdf' },
+        ),
+      ).rejects.toThrow('Select Test evidence only');
+      expect(saveFile).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    },
+  );
+  it('keeps legacy test callers in the test partition during correction', async () => {
+    const { svc, find } = setup(
+      {
+        id: 'test-doc',
+        version: 1,
+        status: 'REUPLOAD_REQUIRED',
+        isLocked: false,
+      },
+      'YEARLY',
+    );
+    const result = await svc.uploadDocument(
+      user,
+      { ...dto, recordScope: undefined },
+      { ...file, originalname: 'TEST-corrected.pdf' },
+    );
+    expect(find.mock.calls[0][8]).toBe('TEST');
+    expect(result).toMatchObject({
+      id: 'test-doc',
+      version: 2,
+      status: 'RESUBMITTED',
+      uploadedFileName: 'TEST-corrected.pdf',
+    });
   });
 });

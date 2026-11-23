@@ -155,6 +155,7 @@ jobs:
         run: |
           node scripts/verify-helpdesk-db.cjs
           node scripts/verify-registration-request-workflow.cjs
+          node scripts/verify-periodic-filing-test-isolation.cjs
       - name: Patched dependency runtime smoke
         run: node scripts/security-dependency-smoke.cjs
       - name: Billing transaction PostgreSQL regressions

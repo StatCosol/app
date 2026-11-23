@@ -20,7 +20,12 @@ function setup() {
   return { s, q };
 }
 describe('explicit synthetic compliance record separation', () => {
-  it.each(['listForBranch', 'listForCrmReview', 'listForClient'])(
+  it.each([
+    'listForBranch',
+    'listForCrmReview',
+    'listForClient',
+    'listForAuditor',
+  ])(
     '%s excludes explicit test files before pagination by default',
     async (method) => {
       const { s, q } = setup();
@@ -43,7 +48,12 @@ describe('explicit synthetic compliance record separation', () => {
       );
     },
   );
-  it.each(['listForBranch', 'listForCrmReview', 'listForClient'])(
+  it.each([
+    'listForBranch',
+    'listForCrmReview',
+    'listForClient',
+    'listForAuditor',
+  ])(
     '%s supports a separate test-only view without guessing by year',
     async (method) => {
       const { s, q } = setup();

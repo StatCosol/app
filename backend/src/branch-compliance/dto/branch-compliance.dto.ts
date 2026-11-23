@@ -13,6 +13,10 @@ import {
 } from 'class-validator';
 
 export class UploadComplianceDocDto {
+  @IsOptional()
+  @IsIn(['ACTUAL', 'TEST'])
+  recordScope?: 'ACTUAL' | 'TEST';
+
   @IsString()
   @IsNotEmpty()
   branchId: string;

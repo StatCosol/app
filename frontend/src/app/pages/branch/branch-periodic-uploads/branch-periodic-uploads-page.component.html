@@ -11,6 +11,13 @@
 }
 
   <div class="filter-bar">
+    <div class="filter-field">
+      <label for="bpup-record-scope">Records</label>
+      <select id="bpup-record-scope" name="recordScope" class="filter-select" [(ngModel)]="recordScope" (change)="load()">
+        <option value="ACTUAL">Actual filings</option>
+        <option value="TEST">Test evidence only</option>
+      </select>
+    </div>
     @if (showFrequencyTabs) {
 <div class="frequency-tabs">
       @for (f of frequencies; track f) {
@@ -81,6 +88,9 @@
     </div>
   </div>
 
+  @if (recordScope === 'TEST') {
+    <p role="status" class="submission-notice">TEST ONLY — uploads are labelled as test evidence and kept out of actual queues, dashboard counts and reminders. These counts show only the test checklist.</p>
+  }
   <div class="summary-grid">
     <div class="summary-card">
       <div class="summary-value">{{ totalItems }}</div>
@@ -299,7 +309,7 @@
 <ui-modal
    
     [isOpen]="showUploadModal"
-    [title]="'Upload: ' + (uploadTarget?.returnName || '')"
+    [title]="(recordScope === 'TEST' ? 'TEST upload: ' : 'Upload: ') + (uploadTarget?.returnName || '')"
     size="md"
     (closed)="closeUploadModal()">
 
@@ -315,7 +325,10 @@
 <span>H{{ selectedHalf }} </span>
 }
         {{ selectedYear }}<br>
-        <strong>Submission State:</strong> Submitted to CRM
+        <strong>Review destination:</strong> CRM — not submitted yet
+        @if (recordScope === 'TEST') {
+          <p class="mt-2 font-semibold">TEST ONLY — this file will be labelled as test evidence.</p>
+        }
       </div>
 
       <div
