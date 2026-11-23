@@ -475,6 +475,9 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   dueInLabel(item: ChecklistItem): string {
+    const status = this.statusOf(item);
+    if (status === 'APPROVED') return 'Approved — no upload pending';
+    if (status === 'NOT_APPLICABLE') return 'No upload required';
     const due = item.document?.dueDate || item.dueDate;
     if (!due) return item.dueDay ? `Due day ${item.dueDay}` : 'No due date';
     const now = new Date(); now.setHours(0, 0, 0, 0);

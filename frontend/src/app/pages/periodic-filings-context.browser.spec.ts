@@ -31,6 +31,25 @@ async function setup() {
   return { f, c: f.componentInstance, api, files, toast, rows, root: f.nativeElement as HTMLElement };
 }
 
+for (const width of [390, 768, 1440]) it(`does not present completed filings as pending deadlines at ${width}px`, async () => {
+  await page.viewport(width, 900);
+  const { c, f, api, root } = await setup();
+  const rows = ['APPROVED', 'NOT_APPLICABLE', 'REUPLOAD_REQUIRED'].map(status => ({
+    ...item(`TEST-${status}`, true),
+    document: { ...item(`TEST-${status}`, true).document!, status, isLocked: status === 'APPROVED', dueDate: '2000-01-01' },
+  }));
+  api.getChecklist.mockReturnValueOnce(of({ data: rows })); c.load(); f.detectChanges(); await f.whenStable();
+  const cards = Array.from(root.querySelectorAll('.list-row'));
+  expect(cards[0].querySelector('.row-due')?.textContent).toBe('Approved — no upload pending');
+  expect(cards[1].querySelector('.row-due')?.textContent).toBe('No upload required');
+  expect(cards[2].querySelector('.row-due')?.textContent).toContain('day(s) overdue');
+  expect(c.overdueCount).toBe(1);
+  expect(cards[0].textContent).toContain('DONE');
+  expect(cards[0].textContent).not.toContain('Resubmit');
+  expect(c.dueDateLabel(rows[0])).toBe('01/01/2000');
+  expect(root.scrollWidth).toBeLessThanOrEqual(width);
+});
+
 for (const width of [390, 768, 1440]) it(`preserves a newer upload draft when an earlier upload completes at ${width}px`, async () => {
   await page.viewport(width, 900);
   const { f, c, api, rows, root } = await setup();
