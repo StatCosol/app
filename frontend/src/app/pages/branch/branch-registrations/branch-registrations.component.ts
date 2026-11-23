@@ -797,7 +797,8 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
         authority: this.extractField(description, 'Authority'),
         referenceNumber: this.extractField(description, 'Reference Number'),
         targetExpiryDate: this.extractField(description, 'Target Expiry Date'),
-        notes: this.extractField(description, 'Notes'),
+        // Notes is the final field in the request payload and may span lines.
+        notes: description.match(/(?:^|\r?\n)Notes:[ \t]*([\s\S]*)$/i)?.[1]?.trim() || '',
         status: String(t?.status || 'OPEN'),
         priority: String(t?.priority || 'NORMAL'),
         assignedToUserId: t?.assignedToUserId ?? t?.assigned_to_user_id ?? null,

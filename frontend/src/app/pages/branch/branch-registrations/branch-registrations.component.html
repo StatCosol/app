@@ -91,7 +91,7 @@
               <p>Authority: {{ req.authority || '-' }} · Reference: {{ req.referenceNumber || '-' }}</p>
               <p>Created: {{ req.createdAt ? (req.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }} · Updated: {{ req.updatedAt ? (req.updatedAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
               <p>Priority: {{ req.priority }} · SLA: {{ requestSlaText(req) }}</p>
-              <p>Request details: {{ req.notes || 'No additional details' }}</p>
+              <p class="request-notes">Request details: {{ req.notes || 'No additional details' }}</p>
             </div>
           </details>
         }

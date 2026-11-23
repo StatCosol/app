@@ -102,3 +102,15 @@ it('reports only open linked requests as open while retaining completed request 
   expect(csv).toContain('"Open Requests","1"');
   expect(csv).toContain('Status=CLOSED');
 });
+
+it('preserves multiline request details in history and safely quotes them in exports', async () => {
+  const request = ticket();
+  request.description = request.description.replace('Synthetic request; no statutory submission', '=TEST ONLY, "quoted"\nSecond line of synthetic details');
+  const { c, root } = await setup([], [request]);
+  expect(root.querySelector('.request-notes')?.textContent).toContain('Second line of synthetic details');
+  const createUrl = vi.spyOn(URL, 'createObjectURL');
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  c.exportRequests();
+  const csv = await (createUrl.mock.calls[0][0] as Blob).text();
+  expect(csv).toContain(`"'=TEST ONLY, ""quoted""\nSecond line of synthetic details"`);
+});
