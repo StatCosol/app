@@ -35,8 +35,13 @@ export async function generateObservationsPdfBuffer(
     version: 'INTERNAL',
     stage: 'FINAL',
     updatedAt: new Date(),
-    executiveSummary:
+    // Observation reports render executiveSummary as their review scope.
+    executiveSummary: [
+      input.scopeNotice,
       'Working observation register for the identified audit scope. This export includes current observations and recorded evidence references. It is not a CRM-approved published final report.',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
     scope: input.scopeNotice || '',
     methodology: '',
     findings: '',
