@@ -41,18 +41,20 @@ afterEach(() => { vi.restoreAllMocks(); TestBed.resetTestingModule(); });
 
 describe.each([390, 768, 1440])('Isolated registration workflow at %ipx', width => {
   beforeEach(async () => page.viewport(width, 950));
-  it.each(['LegitX APPLY', 'BranchDesk APPLY', 'LegitX RENEW', 'BranchDesk RENEW'])('submits from %s, corrects, approves in CRM and exports the full history without actual rows', async portal => {
+  it.each(['LegitX APPLY', 'BranchDesk APPLY', 'LegitX RENEW', 'BranchDesk RENEW', 'LegitX AMEND', 'BranchDesk AMEND', 'LegitX CLOSE', 'BranchDesk CLOSE'])('submits from %s, corrects, approves in CRM and exports the full history without actual rows', async portal => {
     const h = apiFixture(); const ui = await setup(h.api);
     await ui.click('Open request review and corrections');
     expect(h.api.list).toHaveBeenLastCalledWith('synthetic-branch', 'ACTUAL', '');
     ui.c.scope = 'TEST'; ui.c.changeScope(); await ui.render();
-    const renewal = portal.endsWith('RENEW');
-    await ui.click(renewal ? 'Request renewal' : 'New application');
+    const action = portal.split(' ')[1] as 'APPLY' | 'RENEW' | 'AMEND' | 'CLOSE';
+    const renewal = action !== 'APPLY';
+    const name = ui.c.actionNames[action];
+    await ui.click(renewal ? 'Request ' + name : 'New application');
     if (renewal) { ui.c.chooseRenewal('synthetic-registration'); await ui.render(); }
     if (!renewal) await ui.fill('Registration type', 'Synthetic factory application');
-    await ui.fill('Authority', 'Synthetic authority'); await ui.fill('Application details', 'TEST ONLY ' + portal + '\nNo statutory submission');
-    await ui.click(renewal ? 'Submit renewal request' : 'Submit application');
-    if (renewal) expect(h.api.create.mock.calls[0][0]).toMatchObject({ action: 'RENEW', registrationId: 'synthetic-registration' });
+    await ui.fill('Authority', 'Synthetic authority'); await ui.fill(action === 'AMEND' ? 'Proposed changes and reason' : action === 'CLOSE' ? 'Closure reason and supporting details' : 'Application details', 'TEST ONLY ' + portal + '\nNo statutory submission');
+    await ui.click(renewal ? 'Submit ' + name + ' request' : 'Submit application');
+    if (renewal) expect(h.api.create.mock.calls[0][0]).toMatchObject({ action, registrationId: 'synthetic-registration' });
     expect(h.api.create.mock.calls[0][0].recordScope).toBe('TEST');
     expect(ui.root.textContent).toContain('1 test requests · 1 open');
     ui.fixture.componentRef.setInput('reviewer', true); await ui.render();
@@ -75,7 +77,7 @@ describe.each([390, 768, 1440])('Isolated registration workflow at %ipx', width 
       await ui.click('Export review report');
       const report = await (url.mock.calls.at(-1)![0] as Blob).text();
       expect(report).toContain('TEST ONLY — NOT AN ACTUAL REGISTRATION');
-      expect(report).toContain(renewal ? 'REGISTRATION_RENEW' : 'REGISTRATION_APPLY');
+      expect(report).toContain('REGISTRATION_' + action);
       if (renewal) expect(report).toContain('synthetic-registration');
       expect(report).toContain('[CORRECTION]'); expect(report).toContain('[RESUBMIT]'); expect(report).toContain('[APPROVE]');
       expect(report).toContain('Second line preserved'); expect(report).toContain('""reviewed""'); expect(report).toContain('Resolved');
@@ -131,6 +133,38 @@ describe('Registration async recovery', () => {
 });
 
 describe('Renewal selection and draft recovery', () => {
+  it('keeps each linked request draft and licence separate while switching actions', async () => {
+    const h = apiFixture(), ui = await setup(h.api); ui.c.toggle(); await ui.render();
+    h.api.renewalOptions.mockReturnValue(of([
+      { id: 'synthetic-registration', type: 'First licence', authority: 'Authority A', registrationNumber: 'TEST-A', expiryDate: '2029-12-31' },
+      { id: 'second-registration', type: 'Second licence', authority: 'Authority B', registrationNumber: 'TEST-B', expiryDate: '2029-12-31' },
+    ]));
+    ui.c.openCreate('RENEW'); ui.c.chooseRenewal('synthetic-registration'); ui.c.draft.notes = 'Renew first';
+    ui.c.openCreate('AMEND'); expect(ui.c.renewalId).toBe(''); expect(ui.c.renewalReady).toBe(false);
+    ui.c.chooseRenewal('second-registration'); ui.c.draft.notes = 'Amend second';
+    ui.c.openCreate('CLOSE'); expect(ui.c.renewalId).toBe(''); expect(ui.c.renewalReady).toBe(false);
+    ui.c.chooseRenewal('synthetic-registration'); ui.c.draft.notes = 'Close first request only';
+    for (const [action, id, notes] of [['RENEW', 'synthetic-registration', 'Renew first'], ['AMEND', 'second-registration', 'Amend second'], ['CLOSE', 'synthetic-registration', 'Close first request only']] as const) {
+      ui.c.openCreate(action); await ui.render();
+      expect(ui.c.renewalId).toBe(id); expect(ui.c.draft.notes).toBe(notes);
+      expect(ui.c.draft.registrationType).toBe(id === 'synthetic-registration' ? 'First licence' : 'Second licence');
+    }
+    const pending = new Subject<any[]>(); h.api.renewalOptions.mockReturnValueOnce(pending);
+    ui.c.openCreate('AMEND'); ui.c.openCreate('CLOSE'); pending.next([]); await ui.render();
+    expect(ui.c.renewalId).toBe('synthetic-registration'); expect(ui.c.draft.notes).toBe('Close first request only');
+    ui.c.scope = 'TEST'; ui.c.changeScope(); ui.c.openCreate('AMEND'); await ui.render();
+    expect(ui.c.renewalId).toBe(''); expect(ui.c.draft.notes).toBe('');
+  });
+  it.each(['AMEND', 'CLOSE'] as const)('blocks %s on lookup failure and preserves the draft for retry', async action => {
+    const h = apiFixture(), ui = await setup(h.api); ui.c.toggle(); await ui.render();
+    ui.c.openCreate(action); ui.c.chooseRenewal('synthetic-registration'); ui.c.draft.notes = 'Keep this test draft';
+    h.api.renewalOptions.mockReturnValueOnce(throwError(() => new Error('offline')));
+    ui.c.loadRenewalOptions(); await ui.render(); ui.c.create();
+    expect(h.api.create).not.toHaveBeenCalled(); expect(ui.c.draft.notes).toBe('Keep this test draft');
+    await ui.click('Retry registrations'); expect(ui.c.renewalReady).toBe(true);
+    h.api.create.mockReturnValueOnce(throwError(() => new Error('offline')));
+    ui.c.create(); await ui.render(); expect(ui.c.draft.notes).toBe('Keep this test draft'); expect(ui.c.renewalId).toBe('synthetic-registration');
+  });
   it('does not let a delayed renewal load erase an application draft', async () => {
     const h = apiFixture(), ui = await setup(h.api); ui.c.toggle(); await ui.render();
     const pending = new Subject<any[]>(); h.api.renewalOptions.mockReturnValueOnce(pending);

@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
 export type RequestScope = 'ACTUAL' | 'TEST';
+export type RegistrationRequestAction = 'APPLY' | 'RENEW' | 'AMEND' | 'CLOSE';
 export interface RenewalOption { id: string; type: string; authority: string | null; registrationNumber: string | null; expiryDate: string | null; }
 export type ReviewAction = 'REVIEW' | 'CORRECTION' | 'RESUBMIT' | 'APPROVE';
 export interface RegistrationTicket {
@@ -24,7 +25,7 @@ export class RegistrationRequestsApi {
     return this.http.get<RenewalOption[]>(`${this.base}/renewal-options`, { params: { branchId, recordScope } });
   }
   detail(id: string) { return this.http.get<RegistrationDetail>(`${this.base}/${id}`); }
-  create(body: { action?: 'APPLY' | 'RENEW'; registrationId?: string; branchId: string; recordScope: RequestScope; registrationType: string; authority: string; notes: string }) {
+  create(body: { action?: RegistrationRequestAction; registrationId?: string; branchId: string; recordScope: RequestScope; registrationType: string; authority: string; notes: string }) {
     return this.http.post<RegistrationTicket>(this.base, body);
   }
   action(ticket: RegistrationTicket, recordScope: RequestScope, action: ReviewAction, remarks: string) {

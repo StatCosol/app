@@ -338,86 +338,95 @@ describe('Registration renewal requests', () => {
       h.svc.registrationRenewalOptions(client, 'branch', 'ALL'),
     ).rejects.toThrow('Invalid request record scope');
   });
-  it('uses the selected licence identity and creates only an isolated review ticket', async () => {
-    const createTicket = jest.fn(async (_u, dto) => dto);
-    const options = jest.fn(async () => [
-      {
-        id: 'licence',
-        type: 'Saved factory licence',
-        authority: 'Saved authority',
-      },
-    ]);
-    const controller = new RegistrationRequestsController({
-      createTicket,
-      registrationRenewalOptions: options,
-    } as any);
-    const result: any = await controller.create(client, {
-      branchId: 'branch',
-      recordScope: 'TEST',
-      action: 'RENEW',
-      registrationId: 'licence',
-      registrationType: 'Incorrect client title',
-      authority: 'Incorrect client authority',
-      notes: 'Synthetic renewal',
-    });
-    expect(options).toHaveBeenCalledWith(client, 'branch', 'TEST');
-    expect(result).toMatchObject({
-      isTest: true,
-      subCategory: 'REGISTRATION_RENEW',
-    });
-    expect(result.description).toContain('Registration ID: licence');
-    expect(result.description).toContain('Saved factory licence');
-    expect(result.description).toContain('Saved authority');
-    expect(result.description).not.toContain('Incorrect client');
-  });
-  it('rejects missing and out-of-scope references before creation', async () => {
-    const createTicket = jest.fn();
-    const controller = new RegistrationRequestsController({
-      createTicket,
-      registrationRenewalOptions: async () => [],
-    } as any);
-    const dto: any = {
-      branchId: 'branch',
-      recordScope: 'TEST',
-      action: 'RENEW',
-      registrationType: 'Factory',
-      authority: 'Authority',
-      notes: 'Synthetic',
-    };
-    await expect(controller.create(client, dto)).rejects.toThrow(
-      'Select the registration',
-    );
-    await expect(
-      controller.create(client, { ...dto, registrationId: 'actual-record' }),
-    ).rejects.toThrow('same actual/test scope');
-    expect(createTicket).not.toHaveBeenCalled();
-  });
-  it('reviews, corrects, resubmits and approves a renewal without updating a licence', async () => {
-    const h = setup();
-    h.ticket.subCategory = 'REGISTRATION_RENEW';
-    await h.svc.registrationAction(crm, 'test', action('OPEN', 'REVIEW'));
-    await h.svc.registrationAction(
-      crm,
-      'test',
-      action('IN_PROGRESS', 'CORRECTION'),
-    );
-    await h.svc.registrationAction(
-      client,
-      'test',
-      action('AWAITING_CLIENT', 'RESUBMIT'),
-    );
-    await h.svc.registrationAction(
-      crm,
-      'test',
-      action('IN_PROGRESS', 'APPROVE'),
-    );
-    expect(h.ticket.status).toBe('RESOLVED');
-    expect(h.repo.update).toHaveBeenCalledTimes(4);
-    expect(h.manager.save).toHaveBeenCalledTimes(4);
-    expect(
-      h.manager.query.mock.calls.some(([sql]) =>
-        /UPDATE|INSERT|DELETE/i.test(sql.split('WHERE')[0]),
-      ),
-    ).toBe(false);
-  });
+  it.each(['RENEW', 'AMEND', 'CLOSE'] as const)(
+    'uses the selected licence identity for %s and creates only an isolated review ticket',
+    async (requestAction) => {
+      const createTicket = jest.fn(async (_u, dto) => dto);
+      const options = jest.fn(async () => [
+        {
+          id: 'licence',
+          type: 'Saved factory licence',
+          authority: 'Saved authority',
+        },
+      ]);
+      const controller = new RegistrationRequestsController({
+        createTicket,
+        registrationRenewalOptions: options,
+      } as any);
+      const result: any = await controller.create(client, {
+        branchId: 'branch',
+        recordScope: 'TEST',
+        action: requestAction,
+        registrationId: 'licence',
+        registrationType: 'Incorrect client title',
+        authority: 'Incorrect client authority',
+        notes: 'Synthetic renewal',
+      });
+      expect(options).toHaveBeenCalledWith(client, 'branch', 'TEST');
+      expect(result).toMatchObject({
+        isTest: true,
+        subCategory: `REGISTRATION_${requestAction}`,
+      });
+      expect(result.description).toContain('Registration ID: licence');
+      expect(result.description).toContain('Saved factory licence');
+      expect(result.description).toContain('Saved authority');
+      expect(result.description).not.toContain('Incorrect client');
+    },
+  );
+  it.each(['RENEW', 'AMEND', 'CLOSE'] as const)(
+    'rejects missing and out-of-scope references for %s before creation',
+    async (requestAction) => {
+      const createTicket = jest.fn();
+      const controller = new RegistrationRequestsController({
+        createTicket,
+        registrationRenewalOptions: async () => [],
+      } as any);
+      const dto: any = {
+        branchId: 'branch',
+        recordScope: 'TEST',
+        action: requestAction,
+        registrationType: 'Factory',
+        authority: 'Authority',
+        notes: 'Synthetic',
+      };
+      await expect(controller.create(client, dto)).rejects.toThrow(
+        'Select the registration',
+      );
+      await expect(
+        controller.create(client, { ...dto, registrationId: 'actual-record' }),
+      ).rejects.toThrow('same actual/test scope');
+      expect(createTicket).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['RENEW', 'AMEND', 'CLOSE'] as const)(
+    'reviews, corrects, resubmits and approves %s without updating a licence',
+    async (requestAction) => {
+      const h = setup();
+      h.ticket.subCategory = `REGISTRATION_${requestAction}`;
+      await h.svc.registrationAction(crm, 'test', action('OPEN', 'REVIEW'));
+      await h.svc.registrationAction(
+        crm,
+        'test',
+        action('IN_PROGRESS', 'CORRECTION'),
+      );
+      await h.svc.registrationAction(
+        client,
+        'test',
+        action('AWAITING_CLIENT', 'RESUBMIT'),
+      );
+      await h.svc.registrationAction(
+        crm,
+        'test',
+        action('IN_PROGRESS', 'APPROVE'),
+      );
+      expect(h.ticket.status).toBe('RESOLVED');
+      expect(h.repo.update).toHaveBeenCalledTimes(4);
+      expect(h.manager.save).toHaveBeenCalledTimes(4);
+      expect(
+        h.manager.query.mock.calls.some(([sql]) =>
+          /UPDATE|INSERT|DELETE/i.test(sql.split('WHERE')[0]),
+        ),
+      ).toBe(false);
+    },
+  );
 });

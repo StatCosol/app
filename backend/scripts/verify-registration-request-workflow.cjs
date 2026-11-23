@@ -117,11 +117,12 @@ async function main(poolSize) {
       assert.deepEqual((await controller.renewalOptions(user, { branchId: id(30), recordScope: 'ACTUAL' })).map(r => r.id), [id(70)]);
     }
     await assert.rejects(controller.renewalOptions(branch, { branchId: id(31), recordScope: 'TEST' }), /outside your scope/);
-    const renewalDto = { branchId: id(30), recordScope: 'TEST', action: 'RENEW', registrationId: id(71), registrationType: 'Untrusted title', authority: 'Untrusted authority', notes: 'TEST ONLY renewal request' };
+    for (const requestAction of ['RENEW', 'AMEND', 'CLOSE']) {
+    const renewalDto = { branchId: id(30), recordScope: 'TEST', action: requestAction, registrationId: id(71), registrationType: 'Untrusted title', authority: 'Untrusted authority', notes: 'TEST ONLY ' + requestAction + ' request' };
     await assert.rejects(controller.create(branch, { ...renewalDto, registrationId: id(70) }), /same actual.test scope/);
     const renewal = await controller.create(branch, renewalDto);
     assert.equal(renewal.slaDueAt, null);
-    assert.equal(renewal.subCategory, 'REGISTRATION_RENEW');
+    assert.equal(renewal.subCategory, 'REGISTRATION_' + requestAction);
     assert.match(renewal.description, /TEST ONLY licence/); assert.doesNotMatch(renewal.description, /Untrusted/);
     for (const [user, expectedStatus, action] of [[crm, 'OPEN', 'REVIEW'], [crm, 'IN_PROGRESS', 'CORRECTION'], [client, 'AWAITING_CLIENT', 'RESUBMIT'], [crm, 'IN_PROGRESS', 'APPROVE']]) {
       await controller.action(user, renewal.id, { expectedStatus, action, remarks: 'TEST ONLY renewal ' + action, recordScope: 'TEST' });
@@ -132,6 +133,8 @@ async function main(poolSize) {
     }
     assert.equal(JSON.stringify(await db.query('SELECT * FROM branch_registrations ORDER BY id')), licenceSnapshot);
     assert.deepEqual(await service.adminStats(), baseline);
+    assert.equal(JSON.stringify(await repo.findOneBy({ id: actual.id })), snapshot);
+    }
     const before = await messages.count({ where: { ticketId: second.id } });
     await db.exec(`CREATE FUNCTION reject_fixture_message() RETURNS trigger AS $$ BEGIN IF NEW.message LIKE '%force rollback%' THEN RAISE EXCEPTION 'synthetic failure'; END IF; RETURN NEW; END $$ LANGUAGE plpgsql;
       CREATE TRIGGER reject_fixture_message BEFORE INSERT ON helpdesk_messages FOR EACH ROW EXECUTE FUNCTION reject_fixture_message();`);
@@ -144,7 +147,7 @@ async function main(poolSize) {
     assert.equal(await messages.count({ where: { ticketId: second.id } }), 1);
     assert.equal(JSON.stringify(await repo.findOneBy({ id: actual.id })), snapshot);
     assert.deepEqual(await service.adminStats(), baseline);
-    console.log(`PASS (pool size ${poolSize}): registration application and renewal submission, correction, resubmission, approval, Client/Branch/CRM history, default queue isolation, unchanged actual row/counts and licence expiry dates, immutable classification, cross-tenant permissions, atomic rollback and concurrent review serialization. Disposable local fixtures only.`);
+    console.log(`PASS (pool size ${poolSize}): registration application, renewal, amendment and closure submission, correction, resubmission, approval, Client/Branch/CRM history, default queue isolation, unchanged actual row/counts and licence status/expiry dates, immutable classification, cross-tenant permissions, atomic rollback and concurrent review serialization. Disposable local fixtures only.`);
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();
