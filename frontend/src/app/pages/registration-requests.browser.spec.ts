@@ -8,10 +8,11 @@ import { RegistrationRequestsApi } from '../shared/registration-requests/registr
 function apiFixture() {
   const rows: any[] = [], messages: Record<string, any[]> = {};
   const api = {
+    renewalOptions: vi.fn(() => of([{ id: 'synthetic-registration', type: 'Synthetic factory licence', authority: 'Synthetic authority', registrationNumber: 'TEST-RENEW', expiryDate: '2026-10-31' }])),
     list: vi.fn((branch: string, scope: string) => of(rows.filter(r => r.branchId === branch && r.isTest === (scope === 'TEST')).map(r => ({ ...r })))),
     detail: vi.fn((id: string) => of({ ticket: { ...rows.find(r => r.id === id) }, messages: [...(messages[id] || [])] })),
     create: vi.fn((body: any) => {
-      const ticket = { id: 'synthetic-request', branchId: body.branchId, clientId: 'synthetic-client', isTest: body.recordScope === 'TEST', status: 'OPEN', createdAt: '2026-01-01T09:00:00Z', description: `Registration Type: TEST ONLY — ${body.registrationType}\nAuthority: ${body.authority}\nNotes: ${body.notes}` };
+      const ticket = { id: 'synthetic-request', branchId: body.branchId, clientId: 'synthetic-client', isTest: body.recordScope === 'TEST', status: 'OPEN', createdAt: '2026-01-01T09:00:00Z', subCategory: 'REGISTRATION_' + (body.action || 'APPLY'), description: `Registration ID: ${body.registrationId || 'NEW'}\nRegistration Type: TEST ONLY — ${body.registrationType}\nAuthority: ${body.authority}\nNotes: ${body.notes}` };
       rows.push(ticket); messages[ticket.id] = []; return of({ ...ticket });
     }),
     action: vi.fn((ticket: any, _scope: string, action: string, remarks: string) => {
@@ -40,14 +41,18 @@ afterEach(() => { vi.restoreAllMocks(); TestBed.resetTestingModule(); });
 
 describe.each([390, 768, 1440])('Isolated registration workflow at %ipx', width => {
   beforeEach(async () => page.viewport(width, 950));
-  it.each(['LegitX', 'BranchDesk'])('submits from %s, corrects, approves in CRM and exports the full history without actual rows', async portal => {
+  it.each(['LegitX APPLY', 'BranchDesk APPLY', 'LegitX RENEW', 'BranchDesk RENEW'])('submits from %s, corrects, approves in CRM and exports the full history without actual rows', async portal => {
     const h = apiFixture(); const ui = await setup(h.api);
     await ui.click('Open request review and corrections');
     expect(h.api.list).toHaveBeenLastCalledWith('synthetic-branch', 'ACTUAL', '');
     ui.c.scope = 'TEST'; ui.c.changeScope(); await ui.render();
-    await ui.click('New application');
-    await ui.fill('Registration type', 'Synthetic factory application'); await ui.fill('Authority', 'Synthetic authority'); await ui.fill('Application details', 'TEST ONLY ' + portal + '\nNo statutory submission');
-    await ui.click('Submit application');
+    const renewal = portal.endsWith('RENEW');
+    await ui.click(renewal ? 'Request renewal' : 'New application');
+    if (renewal) { ui.c.chooseRenewal('synthetic-registration'); await ui.render(); }
+    if (!renewal) await ui.fill('Registration type', 'Synthetic factory application');
+    await ui.fill('Authority', 'Synthetic authority'); await ui.fill('Application details', 'TEST ONLY ' + portal + '\nNo statutory submission');
+    await ui.click(renewal ? 'Submit renewal request' : 'Submit application');
+    if (renewal) expect(h.api.create.mock.calls[0][0]).toMatchObject({ action: 'RENEW', registrationId: 'synthetic-registration' });
     expect(h.api.create.mock.calls[0][0].recordScope).toBe('TEST');
     expect(ui.root.textContent).toContain('1 test requests · 1 open');
     ui.fixture.componentRef.setInput('reviewer', true); await ui.render();
@@ -70,6 +75,8 @@ describe.each([390, 768, 1440])('Isolated registration workflow at %ipx', width 
       await ui.click('Export review report');
       const report = await (url.mock.calls.at(-1)![0] as Blob).text();
       expect(report).toContain('TEST ONLY — NOT AN ACTUAL REGISTRATION');
+      expect(report).toContain(renewal ? 'REGISTRATION_RENEW' : 'REGISTRATION_APPLY');
+      if (renewal) expect(report).toContain('synthetic-registration');
       expect(report).toContain('[CORRECTION]'); expect(report).toContain('[RESUBMIT]'); expect(report).toContain('[APPROVE]');
       expect(report).toContain('Second line preserved'); expect(report).toContain('""reviewed""'); expect(report).toContain('Resolved');
       expect((download.mock.instances.at(-1) as HTMLAnchorElement)?.download).toContain('TEST');
@@ -120,5 +127,40 @@ describe('Registration async recovery', () => {
     ui.c.select({ id: 'pending' } as any); expect(ui.c.detailLoading).toBe(true);
     ui.c.load(); await ui.render(); expect(ui.c.detailLoading).toBe(false);
     pending.next({ ticket: { id: 'pending' }, messages: [] }); expect(ui.c.selected).toBeNull();
+  });
+});
+
+describe('Renewal selection and draft recovery', () => {
+  it('does not let a delayed renewal load erase an application draft', async () => {
+    const h = apiFixture(), ui = await setup(h.api); ui.c.toggle(); await ui.render();
+    const pending = new Subject<any[]>(); h.api.renewalOptions.mockReturnValueOnce(pending);
+    ui.c.openCreate('RENEW'); ui.c.openCreate('APPLY');
+    ui.c.draft = { registrationType: 'Unsaved application', authority: 'Authority', notes: 'Keep these details' };
+    pending.next([]); await ui.render();
+    expect(ui.c.draft.registrationType).toBe('Unsaved application');
+    expect(ui.c.draft.notes).toBe('Keep these details');
+  });
+  it('ignores delayed options after a branch or scope change', async () => {
+    const h = apiFixture(), ui = await setup(h.api); ui.c.toggle(); await ui.render();
+    const pending = new Subject<any[]>(); h.api.renewalOptions.mockReturnValueOnce(pending);
+    ui.c.openCreate('RENEW'); expect(ui.c.renewalReady).toBe(false);
+    ui.c.scope = 'TEST'; ui.c.changeScope(); await ui.render();
+    pending.next([{ id: 'actual-stale', type: 'Wrong scope' }]);
+    expect(ui.c.renewalOptions).toEqual([]); expect(ui.c.renewalId).toBe('');
+    const other = new Subject<any[]>(); h.api.renewalOptions.mockReturnValueOnce(other);
+    ui.c.openCreate('RENEW'); ui.fixture.componentRef.setInput('branchId', 'other'); await ui.render();
+    other.next([{ id: 'wrong-branch' }]); expect(ui.c.renewalOptions).toEqual([]);
+  });
+  it('preserves notes on failed lookups, retries and switching application/renewal drafts', async () => {
+    const h = apiFixture(), ui = await setup(h.api); ui.c.toggle(); await ui.render();
+    ui.c.openCreate('APPLY'); ui.c.draft = { registrationType: 'Application', authority: 'Authority', notes: 'Unsaved application' };
+    ui.c.openCreate('RENEW'); ui.c.chooseRenewal('synthetic-registration'); ui.c.draft.notes = 'Unsaved renewal';
+    h.api.renewalOptions.mockReturnValueOnce(throwError(() => new Error('offline'))); ui.c.loadRenewalOptions(); await ui.render();
+    expect(ui.c.renewalReady).toBe(false); ui.c.create(); expect(h.api.create).not.toHaveBeenCalled();
+    await ui.click('Retry registrations'); expect(ui.c.draft.notes).toBe('Unsaved renewal'); expect(ui.c.renewalReady).toBe(true);
+    ui.c.openCreate('APPLY'); expect(ui.c.draft.notes).toBe('Unsaved application');
+    ui.c.openCreate('RENEW'); expect(ui.c.draft.notes).toBe('Unsaved renewal');
+    h.api.renewalOptions.mockReturnValueOnce(of([])); ui.c.loadRenewalOptions(); await ui.render();
+    expect(ui.c.renewalReady).toBe(false); expect(ui.c.renewalId).toBe(''); expect(ui.c.draft.notes).toBe('Unsaved renewal');
   });
 });

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { RegistrationDetail, RegistrationRequestsApi, RegistrationTicket, RequestScope, ReviewAction } from './registration-requests.api';
+import { RegistrationDetail, RenewalOption, RegistrationRequestsApi, RegistrationTicket, RequestScope, ReviewAction } from './registration-requests.api';
 
 @Component({
   selector: 'app-registration-requests', standalone: true,
@@ -27,7 +27,14 @@ export class RegistrationRequestsComponent implements OnChanges, OnDestroy {
   notice = '';
   remarks = '';
   showCreate = false;
+  createAction: 'APPLY' | 'RENEW' = 'APPLY';
+  renewalId = '';
+  renewalOptions: RenewalOption[] = [];
+  renewalLoading = false;
+  renewalError = '';
+  private renewalVersion = 0;
   draft = { registrationType: '', authority: '', notes: '' };
+  private savedDrafts: Partial<Record<'APPLY' | 'RENEW', typeof this.draft>> = {};
   private version = 0;
   private detailVersion = 0;
   private destroyed = false;
@@ -40,6 +47,8 @@ export class RegistrationRequestsComponent implements OnChanges, OnDestroy {
   toggle() { this.expanded = !this.expanded; if (this.expanded) this.resetContext(); }
   changeScope() { this.resetContext(); }
   private resetContext() {
+    this.savedDrafts = {};
+    this.renewalVersion++; this.renewalOptions = []; this.renewalId = ''; this.renewalLoading = false; this.renewalError = ''; this.createAction = 'APPLY';
     this.version++; this.detailVersion++; this.rows = []; this.selected = null;
     this.remarks = ''; this.error = ''; this.detailError = ''; this.notice = '';
     this.showCreate = false; this.draft = { registrationType: '', authority: '', notes: '' };
@@ -112,15 +121,55 @@ export class RegistrationRequestsComponent implements OnChanges, OnDestroy {
       },
     });
   }
+  openCreate(action: 'APPLY' | 'RENEW') {
+    if (this.busy || this.loading || this.reviewer) return;
+    this.showCreate = !(this.showCreate && this.createAction === action);
+    if (this.createAction !== action) {
+      this.renewalVersion++; this.renewalLoading = false;
+      this.savedDrafts[this.createAction] = { ...this.draft };
+      this.draft = this.savedDrafts[action] || { registrationType: '', authority: '', notes: '' };
+    }
+    this.createAction = action;
+    if (this.showCreate && action === 'RENEW') this.loadRenewalOptions();
+  }
+  loadRenewalOptions() {
+    const version = ++this.renewalVersion, branch = this.branchId, scope = this.scope;
+    this.renewalLoading = true; this.renewalError = ''; this.cdr.markForCheck();
+    this.api.renewalOptions(branch, scope).pipe(takeUntil(this.destroy$)).subscribe({
+      next: rows => {
+        if (version !== this.renewalVersion || branch !== this.branchId || scope !== this.scope) return;
+        this.renewalOptions = rows; this.renewalLoading = false;
+        if (!rows.some(r => r.id === this.renewalId)) this.chooseRenewal('');
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (version !== this.renewalVersion || branch !== this.branchId || scope !== this.scope) return;
+        this.renewalOptions = []; this.renewalLoading = false;
+        this.renewalError = 'Registrations could not be loaded. Retry before submitting a renewal.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+  chooseRenewal(id: string) {
+    this.renewalId = id;
+    const row = this.renewalOptions.find(r => r.id === id);
+    this.draft.registrationType = row?.type || '';
+    this.draft.authority = row?.authority || '';
+  }
+  get renewalReady() {
+    return this.createAction !== 'RENEW' || (!this.renewalLoading && !this.renewalError && this.renewalOptions.some(r => r.id === this.renewalId));
+  }
   create() {
-    if (this.busy || this.loading || this.reviewer || !this.branchId || !Object.values(this.draft).every(v => v.trim())) return;
+    if (this.busy || this.loading || this.reviewer || !this.branchId || !this.renewalReady || !Object.values(this.draft).every(v => v.trim())) return;
     const context = this.version;
     this.busy = true; this.notice = ''; this.cdr.markForCheck();
-    this.api.create({ branchId: this.branchId, recordScope: this.scope, ...this.draft }).pipe(takeUntil(this.destroy$)).subscribe({
+    this.api.create({ branchId: this.branchId, recordScope: this.scope, ...this.draft, action: this.createAction, ...(this.createAction === 'RENEW' ? { registrationId: this.renewalId } : {}) }).pipe(takeUntil(this.destroy$)).subscribe({
       next: saved => {
         this.busy = false;
         if (context !== this.version) { if (!this.destroyed && this.expanded) this.load(); return; }
         this.rows = [saved, ...this.rows]; this.showCreate = false;
+        delete this.savedDrafts[this.createAction];
+        if (this.createAction === 'RENEW') this.renewalId = '';
         this.draft = { registrationType: '', authority: '', notes: '' };
         this.changed.emit(); this.select(saved); this.cdr.markForCheck();
       },
@@ -134,7 +183,7 @@ export class RegistrationRequestsComponent implements OnChanges, OnDestroy {
     const { ticket, messages } = this.selected;
     const rows = [
       ['Registration request review report', ticket.isTest ? 'TEST ONLY — NOT AN ACTUAL REGISTRATION' : 'ACTUAL REQUEST'],
-      ['Request ID', ticket.id], ['Branch ID', ticket.branchId], ['Status', this.label(ticket.status)],
+      ['Request type', ticket.subCategory], ['Request ID', ticket.id], ['Branch ID', ticket.branchId], ['Status', this.label(ticket.status)],
       ['Purpose', 'CRM request approval is not proof of statutory licence issuance.'],
       ['Submitted', ticket.createdAt], ['Original request', ticket.description],
       ['Date', 'Role', 'Name', 'Review / correction remarks'],

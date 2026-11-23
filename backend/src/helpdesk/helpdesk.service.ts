@@ -526,6 +526,21 @@ export class HelpdeskService {
     return t;
   }
 
+  async registrationRenewalOptions(
+    user: ReqUser,
+    branchId: string,
+    recordScope = 'ACTUAL',
+  ) {
+    requestScopeSql(recordScope);
+    await assertClientRecord(this.dataSource, user, user.clientId!, branchId);
+    return this.dataSource.query(
+      `SELECT r.id, r.type, r.authority, r.registration_number AS "registrationNumber", r.expiry_date AS "expiryDate"
+       FROM branch_registrations r WHERE r.client_id=$1 AND r.branch_id=$2 AND r.status <> 'DELETED'
+       AND ${recordScope === 'TEST' ? 'NOT ' : ''}(${actualRegistrationSql('r')}) ORDER BY r.type, r.id`,
+      [user.clientId, branchId],
+    );
+  }
+
   async clientCreateTicket(user: ReqUser, dto: CreateTicketDto) {
     await assertClientRecord(
       this.dataSource,

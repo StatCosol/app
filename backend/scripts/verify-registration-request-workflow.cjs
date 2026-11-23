@@ -109,6 +109,29 @@ async function main(poolSize) {
     await assert.rejects(linkedRequest(true, id(70)), /same actual.test scope/);
     await assert.rejects(linkedRequest(false, id(71)), /same actual.test scope/);
     const linked = await linkedRequest(true, id(71)); assert.equal(linked.isTest, true);
+    await db.exec('ALTER TABLE branch_registrations ADD COLUMN authority text, ADD COLUMN expiry_date date');
+    await db.query("UPDATE branch_registrations SET authority='Synthetic authority', expiry_date='2026-10-31' WHERE id=$1", [id(71)]);
+    const licenceSnapshot = JSON.stringify(await db.query('SELECT * FROM branch_registrations ORDER BY id'));
+    for (const user of [client, branch]) {
+      assert.deepEqual((await controller.renewalOptions(user, { branchId: id(30), recordScope: 'TEST' })).map(r => r.id), [id(71)]);
+      assert.deepEqual((await controller.renewalOptions(user, { branchId: id(30), recordScope: 'ACTUAL' })).map(r => r.id), [id(70)]);
+    }
+    await assert.rejects(controller.renewalOptions(branch, { branchId: id(31), recordScope: 'TEST' }), /outside your scope/);
+    const renewalDto = { branchId: id(30), recordScope: 'TEST', action: 'RENEW', registrationId: id(71), registrationType: 'Untrusted title', authority: 'Untrusted authority', notes: 'TEST ONLY renewal request' };
+    await assert.rejects(controller.create(branch, { ...renewalDto, registrationId: id(70) }), /same actual.test scope/);
+    const renewal = await controller.create(branch, renewalDto);
+    assert.equal(renewal.slaDueAt, null);
+    assert.equal(renewal.subCategory, 'REGISTRATION_RENEW');
+    assert.match(renewal.description, /TEST ONLY licence/); assert.doesNotMatch(renewal.description, /Untrusted/);
+    for (const [user, expectedStatus, action] of [[crm, 'OPEN', 'REVIEW'], [crm, 'IN_PROGRESS', 'CORRECTION'], [client, 'AWAITING_CLIENT', 'RESUBMIT'], [crm, 'IN_PROGRESS', 'APPROVE']]) {
+      await controller.action(user, renewal.id, { expectedStatus, action, remarks: 'TEST ONLY renewal ' + action, recordScope: 'TEST' });
+    }
+    for (const user of [client, branch, crm]) {
+      const report = await controller.detail(user, renewal.id);
+      assert.equal(report.ticket.status, 'RESOLVED'); assert.equal(report.messages.length, 4);
+    }
+    assert.equal(JSON.stringify(await db.query('SELECT * FROM branch_registrations ORDER BY id')), licenceSnapshot);
+    assert.deepEqual(await service.adminStats(), baseline);
     const before = await messages.count({ where: { ticketId: second.id } });
     await db.exec(`CREATE FUNCTION reject_fixture_message() RETURNS trigger AS $$ BEGIN IF NEW.message LIKE '%force rollback%' THEN RAISE EXCEPTION 'synthetic failure'; END IF; RETURN NEW; END $$ LANGUAGE plpgsql;
       CREATE TRIGGER reject_fixture_message BEFORE INSERT ON helpdesk_messages FOR EACH ROW EXECUTE FUNCTION reject_fixture_message();`);
@@ -121,7 +144,7 @@ async function main(poolSize) {
     assert.equal(await messages.count({ where: { ticketId: second.id } }), 1);
     assert.equal(JSON.stringify(await repo.findOneBy({ id: actual.id })), snapshot);
     assert.deepEqual(await service.adminStats(), baseline);
-    console.log(`PASS (pool size ${poolSize}): registration submission, correction, resubmission, approval, Client/Branch/CRM history, default queue isolation, unchanged actual row/counts, immutable classification, cross-tenant permissions, atomic rollback and concurrent review serialization. Disposable local fixtures only.`);
+    console.log(`PASS (pool size ${poolSize}): registration application and renewal submission, correction, resubmission, approval, Client/Branch/CRM history, default queue isolation, unchanged actual row/counts and licence expiry dates, immutable classification, cross-tenant permissions, atomic rollback and concurrent review serialization. Disposable local fixtures only.`);
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();
