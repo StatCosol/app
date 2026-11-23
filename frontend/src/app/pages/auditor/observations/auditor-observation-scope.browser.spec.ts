@@ -14,12 +14,13 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
 afterEach(()=>TestBed.resetTestingModule());
 async function setup(query:Record<string,string>={}) {
   const pending:Subject<any[]>[]=[];
+  const auditLists:Subject<any[]>[]=[];
   const exportResponse=new Subject<Blob>();
   const api={list:vi.fn(()=>{const response=new Subject<any[]>();pending.push(response);return response;}),listCategories:()=>of([]),exportAuditObservationsPdf:vi.fn(()=>exportResponse)};
   await TestBed.configureTestingModule({imports:[AuditorObservationsComponent],providers:[provideRouter([]),
     {provide:ActivatedRoute,useValue:{paramMap:of(convertToParamMap({})),queryParamMap:of(convertToParamMap(query))}},
     {provide:AuditorObservationsService,useValue:api},
-    {provide:AuditsService,useValue:{auditorListAllAudits:()=>of([])}},
+    {provide:AuditsService,useValue:{auditorListAllAudits:()=>{const result=new Subject<any[]>();auditLists.push(result);return result;}}},
     {provide:ToastService,useValue:{success:vi.fn(),warning:vi.fn(),error:vi.fn()}},
     {provide:ProtectedFileService,useValue:{open:()=>of(undefined)}},
   ]}).compileComponents();
@@ -27,8 +28,27 @@ async function setup(query:Record<string,string>={}) {
   const render=async()=>{fixture.changeDetectorRef.markForCheck();fixture.detectChanges();await Promise.resolve();fixture.detectChanges();};
   await render();
   const scope=async(value:string)=>{const element=fixture.nativeElement.querySelector('[aria-label="Correction record scope"]') as HTMLSelectElement;element.value=value;element.dispatchEvent(new Event('change'));await render();};
-  return {fixture,vm:fixture.componentInstance,api,pending,exportResponse,render,scope,root:fixture.nativeElement as HTMLElement};
+  return {fixture,vm:fixture.componentInstance,api,pending,auditLists,exportResponse,render,scope,root:fixture.nativeElement as HTMLElement};
 }
+it.each(['audit-list-first','findings-first'])('exports test findings on actual audits with %s responses',async order=>{
+  const t=await setup({recordScope:'TEST'});
+  const rows=['actual-a','actual-b'].map(id=>({id:'test-'+id,auditId:id,isTest:true,status:'CLOSED',observation:'TEST ONLY fixture',audit:{id,auditCode:id,client:{name:'Synthetic client'}}}));
+  if(order==='audit-list-first'){t.auditLists[0].next([]);t.auditLists[0].complete();}
+  t.pending[0].next(rows);t.pending[0].complete();
+  if(order==='findings-first'){t.auditLists[0].next([]);t.auditLists[0].complete();}
+  await t.render();
+  const select=t.root.querySelector('#ao-filter-audit-id') as HTMLSelectElement;
+  expect([...select.options].map(o=>o.value)).toContain('actual-a');
+  select.value='actual-a';select.dispatchEvent(new Event('change'));await t.render();
+  expect(t.api.list).toHaveBeenLastCalledWith('actual-a','TEST');
+  t.pending[1].next([rows[0]]);t.pending[1].complete();await t.render();
+  expect([...select.options].map(o=>o.value)).toContain('actual-b');
+  expect(t.vm.selectedAudit.id).toBe('actual-a');
+  (t.root.querySelector('[aria-label="Export PDF"]') as HTMLButtonElement).click();
+  expect(t.api.exportAuditObservationsPdf).toHaveBeenCalledWith('actual-a','TEST');
+  await t.scope('ACTUAL');
+  expect([...select.options].map(o=>o.value)).not.toContain('actual-a');
+});
 it('sends the same test scope to the list and PDF endpoints',()=>{
   TestBed.configureTestingModule({providers:[provideHttpClient(),provideHttpClientTesting(),AuditorObservationsService]});
   const http=TestBed.inject(HttpTestingController),service=TestBed.inject(AuditorObservationsService);

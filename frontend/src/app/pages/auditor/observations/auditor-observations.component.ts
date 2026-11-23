@@ -41,11 +41,15 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   loadError = '';
 
   readonly auditOptionLabel = auditOptionLabel;
+  private observationAudits: any[] = [];
+  get auditOptions(): any[] {
+    return [...new Map([...this.audits, ...this.observationAudits].map(a => [a.id, a])).values()];
+  }
   contextFor(row: any): any {
-    return this.audits.find(a => a.id === row?.auditId) || row?.audit || null;
+    return this.auditOptions.find(a => a.id === row?.auditId) || row?.audit || null;
   }
   get selectedAudit(): any {
-    return this.selected ? this.contextFor(this.selected) : this.audits.find(a => a.id === this.filterAuditId);
+    return this.selected ? this.contextFor(this.selected) : this.auditOptions.find(a => a.id === this.filterAuditId);
   }
   loading = true;
   busy = false;
@@ -475,6 +479,12 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows: any) => {
           this.observations = Array.isArray(rows) ? rows : [];
+          // An actual audit can contain a separately marked synthetic finding.
+          // Keep authorized audit contexts from this scope even after filtering to one audit.
+          this.observationAudits = [...new Map([
+            ...this.observationAudits,
+            ...this.observations.filter(row => row.audit?.id).map(row => row.audit),
+          ].map(audit => [audit.id, audit])).values()];
           const focused = this.filteredRows.find(row => row.id === retainId);
           if (focused) this.selectObservation(focused);
           else if (!this.focusedId && this.filteredRows.length) this.selectObservation(this.filteredRows[0]);
@@ -495,6 +505,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   private loadAudits(): void {
     const version = ++this.auditOptionsVersion;
     this.audits = [];
+    this.observationAudits = [];
     this.auditsApi
       .auditorListAllAudits(this.recordScope)
       .pipe(takeUntil(this.destroy$))

@@ -52,8 +52,8 @@
         Audit
         <select id="ao-filter-audit-id" name="filterAuditId" [(ngModel)]="filterAuditId" (ngModelChange)="changeAuditFilter()" [disabled]="busy">
           <option value="">All assigned audits</option>
-          @if (directAuditView) { <option [value]="filterAuditId">Selected audit — {{ filterAuditId }}</option> }
-          @for (audit of audits; track audit) {
+          @if (directAuditView && !selectedAudit) { <option [value]="filterAuditId">Selected audit — {{ filterAuditId }}</option> }
+          @for (audit of auditOptions; track audit.id) {
 <option [value]="audit.id">
             {{ auditOptionLabel(audit) }}
           </option>
