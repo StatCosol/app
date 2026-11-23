@@ -25,11 +25,13 @@ test('audit database regression failures block CI', () => {
 });
 
 test('helpdesk database regressions run against CI PostgreSQL and block failures', () => {
-  const step = ci.jobs.backend.steps.find(s => s.run === 'node scripts/verify-helpdesk-db.cjs');
+  const step = ci.jobs.backend.steps.find(s => s.run?.includes('node scripts/verify-helpdesk-db.cjs'));
   assert.ok(step);
   assert.notEqual(step['continue-on-error'], true);
   assert.equal(Number(step.env.AUDITXPERT_TEST_PORT), 5432);
   assert.equal(step.env.AUDITXPERT_TEST_USER, ci.jobs.backend.services.postgres.env.POSTGRES_USER);
+  assert.match(step.run, /node scripts\/verify-registration-request-workflow\.cjs/);
+  assert.doesNotMatch(step.run, /\|\|\s*true/);
 });
 
 test('billing transaction regressions run against CI PostgreSQL and block failures', () => {

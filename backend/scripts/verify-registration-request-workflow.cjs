@@ -13,7 +13,7 @@ const { RegistrationRequestsController } = require('../dist/src/helpdesk/registr
 const fs = require('node:fs');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-async function main() {
+async function main(poolSize) {
   const db = new PGlite();
   let ds;
   try {
@@ -24,6 +24,8 @@ async function main() {
       username: process.env.AUDITXPERT_TEST_USER || 'monthly_close_test',
       password: process.env.AUDITXPERT_TEST_PASSWORD, database: db.name,
       entities: [path.join(__dirname, '../dist/src/**/*.entity.js')], synchronize: false,
+      // Review transactions must not acquire a second pooled connection.
+      extra: { max: poolSize, connectionTimeoutMillis: 1000 },
     });
     await ds.initialize();
     const runner = ds.createQueryRunner();
@@ -119,10 +121,10 @@ async function main() {
     assert.equal(await messages.count({ where: { ticketId: second.id } }), 1);
     assert.equal(JSON.stringify(await repo.findOneBy({ id: actual.id })), snapshot);
     assert.deepEqual(await service.adminStats(), baseline);
-    console.log('PASS: registration submission, correction, resubmission, approval, Client/Branch/CRM history, default queue isolation, unchanged actual row/counts, immutable classification, cross-tenant permissions, atomic rollback and concurrent review serialization. Disposable local fixtures only.');
+    console.log(`PASS (pool size ${poolSize}): registration submission, correction, resubmission, approval, Client/Branch/CRM history, default queue isolation, unchanged actual row/counts, immutable classification, cross-tenant permissions, atomic rollback and concurrent review serialization. Disposable local fixtures only.`);
   } finally {
     if (ds?.isInitialized) await ds.destroy();
     await db.close();
   }
 }
-main().catch(error => { console.error(error); process.exitCode = 1; });
+main(1).then(() => main(2)).catch(error => { console.error(error); process.exitCode = 1; });

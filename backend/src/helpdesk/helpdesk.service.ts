@@ -21,7 +21,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In, IsNull } from 'typeorm';
+import { Repository, DataSource, EntityManager, In, IsNull } from 'typeorm';
 import { HelpdeskTicketEntity } from './entities/helpdesk-ticket.entity';
 import { HelpdeskMessageEntity } from './entities/helpdesk-message.entity';
 import { HelpdeskMessageFileEntity } from './entities/helpdesk-message-file.entity';
@@ -391,7 +391,9 @@ export class HelpdeskService {
     return this.listMessages(user, ticketId);
   }
 
-  private async findCrmAssignmentTable(): Promise<{
+  private async findCrmAssignmentTable(
+    connection: DataSource | EntityManager = this.dataSource,
+  ): Promise<{
     table: string;
     crmCol: string;
     clientCol: string;
@@ -426,13 +428,13 @@ export class HelpdeskService {
     ];
 
     for (const c of candidates) {
-      const exists = await this.dataSource.query(
+      const exists = await connection.query(
         `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1 LIMIT 1`,
         [c.table],
       );
       if (!exists?.length) continue;
 
-      const cols = await this.dataSource.query(
+      const cols = await connection.query(
         `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`,
         [c.table],
       );
@@ -457,8 +459,11 @@ export class HelpdeskService {
     return null;
   }
 
-  private async crmAssignedClientIds(crmUserId: string): Promise<string[]> {
-    const meta = await this.findCrmAssignmentTable();
+  private async crmAssignedClientIds(
+    crmUserId: string,
+    connection: DataSource | EntityManager = this.dataSource,
+  ): Promise<string[]> {
+    const meta = await this.findCrmAssignmentTable(connection);
     if (!meta) return [];
 
     const where: string[] = [`${meta.crmCol} = $1`];
@@ -475,7 +480,7 @@ export class HelpdeskService {
       WHERE ${where.join(' AND ')}
     `;
 
-    const rows = await this.dataSource.query(sql, params);
+    const rows = await connection.query(sql, params);
     return (rows || [])
       .map((r: { clientId: string }) => r.clientId)
       .filter(Boolean);
@@ -689,7 +694,9 @@ export class HelpdeskService {
           ticket.branchId,
         );
       else if (
-        !(await this.crmAssignedClientIds(user.id)).includes(ticket.clientId)
+        !(await this.crmAssignedClientIds(user.id, manager)).includes(
+          ticket.clientId,
+        )
       )
         throw new ForbiddenException('Not assigned to this client');
       if (ticket.isTest !== (dto.recordScope === 'TEST'))

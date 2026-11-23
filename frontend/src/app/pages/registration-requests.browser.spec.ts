@@ -2,8 +2,8 @@ import '@angular/compiler';
 import { TestBed } from '@angular/core/testing';
 import { page } from 'vitest/browser';
 import { of, Subject, throwError } from 'rxjs';
-import { RegistrationRequestsComponent } from './registration-requests.component';
-import { RegistrationRequestsApi } from './registration-requests.api';
+import { RegistrationRequestsComponent } from '../shared/registration-requests/registration-requests.component';
+import { RegistrationRequestsApi } from '../shared/registration-requests/registration-requests.api';
 
 function apiFixture() {
   const rows: any[] = [], messages: Record<string, any[]> = {};

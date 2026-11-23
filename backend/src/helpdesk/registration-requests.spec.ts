@@ -77,6 +77,25 @@ const action = (
 });
 
 describe('Registration request isolation and review', () => {
+  it('uses the transaction connection for CRM assignment discovery and lookup', async () => {
+    const h = setup();
+    (h.svc as any).crmAssignedClientIds.mockRestore();
+    h.ds.query = jest.fn(() => {
+      throw new Error('Unexpected second pool connection');
+    });
+    h.manager.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('information_schema.tables')) return [{ exists: 1 }];
+      if (sql.includes('information_schema.columns'))
+        return ['assigned_to_user_id', 'client_id', 'assignment_type'].map(
+          (column_name) => ({ column_name }),
+        );
+      return [{ clientId: 'client' }];
+    });
+    await h.svc.registrationAction(crm, 'test', action('OPEN', 'REVIEW'));
+    expect(h.ds.query).not.toHaveBeenCalled();
+    expect(h.manager.query).toHaveBeenCalledTimes(3);
+    expect(h.ticket.status).toBe('IN_PROGRESS');
+  });
   it('defaults to actual and rejects malformed or combined scopes', () => {
     expect(requestScopeSql()).toBe('t.is_test = FALSE');
     expect(requestScopeSql('TEST')).toBe('t.is_test = TRUE');
