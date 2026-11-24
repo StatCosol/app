@@ -28,7 +28,7 @@ async function main(){
   const dashboard = new LegitxDashboardService(adapter);
   const scope={month:9,year:2026,clientId:id(10),allowedBranchIds:resolved.allowedBranchIds};
   assert.equal((await dashboard.getBranchKpi(scope)).total,2);
-  await db.query('CREATE TABLE audits(client_id uuid,branch_id uuid,status text,due_date date,period_year int,period_code varchar(20),notes text,audit_code text)');
+  await db.query('CREATE TABLE audits(id uuid DEFAULT gen_random_uuid(),client_id uuid,branch_id uuid,status text,due_date date,period_year int,period_code varchar(20),notes text,audit_code text)');
   await db.query("INSERT INTO audits(client_id,branch_id,status,due_date,period_year,period_code) VALUES($1,$2,'COMPLETED',NULL,2026,'2026-09'),($1,$3,'PLANNED','2020-01-01',2026,'2026-09'),($1,$2,'COMPLETED',NULL,2025,'2025-09'),($4,$5,'COMPLETED',NULL,2026,'2026-09')",[id(10),id(1),id(2),id(20),id(3)]);
   await db.query("INSERT INTO audits(client_id,branch_id,status,period_year,period_code,notes) VALUES($1,$2,'COMPLETED',2026,'2026-09','TEST ONLY synthetic dashboard fixture')",[id(10),id(1)]);
   const audit=await dashboard.getAuditKpis(scope);
@@ -55,8 +55,12 @@ async function main(){
   const tasks=await status.getTasks({...scope,status:'OVERDUE',limit:1,offset:1});
   assert.equal(tasks.length,1);assert.equal(tasks[0].taskId,2);
   const all=await status.getTasks({...scope,status:'OVERDUE',limit:10});assert.equal(all.length,2);
-  await db.query('CREATE TABLE system_tasks(id uuid,module text,title text,description text,reference_id text,reference_type text,priority text,assigned_role text,assigned_user_id uuid,client_id uuid,branch_id uuid,contractor_id uuid,due_date date,status text,created_at timestamptz DEFAULT now())');
+  await db.query('CREATE TABLE system_tasks(id uuid,module text,title text,description text,reference_id uuid,reference_type text,priority text,assigned_role text,assigned_user_id uuid,client_id uuid,branch_id uuid,contractor_id uuid,due_date date,status text,created_at timestamptz DEFAULT now())');
   await db.query("INSERT INTO system_tasks(id,title,priority,assigned_role,client_id,branch_id,status) VALUES($1,'One','HIGH','BRANCH',$5,$6,'OPEN'),($2,'Two','HIGH','BRANCH',$5,$7,'OPEN'),($3,'Unassigned','HIGH','BRANCH',$5,$8,'OPEN'),($4,'Foreign','HIGH','BRANCH',$9,$10,'OPEN')",[id(51),id(52),id(53),id(54),id(10),id(1),id(2),id(4),id(20),id(3)]);
+  await db.query('CREATE TABLE audit_non_compliances(id uuid PRIMARY KEY,audit_id uuid,document_name text)');
+  await db.query("INSERT INTO audits(id,client_id,branch_id,notes) VALUES($1,$2,$3,'TEST ONLY audit correction')",[id(60),id(10),id(1)]);
+  await db.query("INSERT INTO audit_non_compliances VALUES($1,$2,'PF Challan')",[id(61),id(60)]);
+  await db.query("INSERT INTO system_tasks(id,title,priority,assigned_role,client_id,branch_id,status,reference_id,reference_type) VALUES($1,'Synthetic audit task','HIGH','BRANCH',$2,$3,'OPEN',$4,'AUDIT_NON_COMPLIANCE')",[id(62),id(10),id(1),id(61)]);
   const taskService = new (require('../dist/src/task-center/task-center.service').TaskCenterService)(source);
   const taskController = new (require('../dist/src/task-center/task-center.controller').TaskCenterController)(taskService,new OperationalScopeService(new AccessScopeService({}, {}, {}, {}, {})));
   assert.equal((await taskController.getMySummary(user)).total,2);
