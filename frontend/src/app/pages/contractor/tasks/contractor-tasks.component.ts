@@ -122,6 +122,9 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   selectedTaskDetail: any = null;
   detailError = '';
   private taskDetailSubscription?: Subscription;
+  private workSubscription?: Subscription;
+  private auditContextVersion = 0;
+  auditRecordScope: 'ACTUAL' | 'TEST' = 'ACTUAL';
   selectedTaskHistory: TimelineEvent[] = [];
   relatedReuploads: UnifiedWorkRow[] = [];
   auditNonCompliances: AuditNonComplianceRow[] = [];
@@ -650,7 +653,35 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  changeAuditScope(scope: 'ACTUAL' | 'TEST'): void {
+    if (this.loading || this.actionBusy || this.auditDocUploading || !['ACTUAL', 'TEST'].includes(scope)) return;
+    this.auditRecordScope = scope;
+    this.auditContextVersion++;
+    this.taskDetailSubscription?.unsubscribe();
+    this.allRows = [];
+    this.filteredRows = [];
+    this.selectedRow = null;
+    this.selectedTaskDetail = null;
+    this.auditNonCompliances = [];
+    this.auditUploadedDocs = [];
+    this.auditDocFile = null;
+    this.auditDocTitle = '';
+    this.auditDocType = '';
+    this.auditNcFiles = {};
+    this.auditUploadLockFrom = null;
+    this.auditUploadLockUntil = null;
+    this.detailError = '';
+    this.detailLoading = false;
+    this.auditUploadedDocsLoading = false;
+    this.load();
+  }
+
+  private currentAudit(id: string, version: number): boolean {
+    return this.auditContextVersion === version && this.selectedRow?.rowType === 'AUDIT' && this.selectedRow.id === id;
+  }
+
   load(): void {
+    this.workSubscription?.unsubscribe();
     this.loading = true;
     this.loadErrors = [];
     this.loadChecklist();
@@ -660,10 +691,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       return of(null);
     };
 
-    forkJoin({
-      tasks: this.api.getContractorTasks({}).pipe(catchError(() => failed('Tasks'))),
-      reuploads: this.api.contractorGetReuploadRequests({}).pipe(catchError(() => failed('Reupload requests'))),
-      audits: this.auditsApi.contractorListAudits({}).pipe(catchError(() => failed('Audits'))),
+    this.workSubscription = forkJoin({
+      tasks: this.auditRecordScope === 'TEST' ? of([]) : this.api.getContractorTasks({}).pipe(catchError(() => failed('Tasks'))),
+      reuploads: this.auditRecordScope === 'TEST' ? of([]) : this.api.contractorGetReuploadRequests({}).pipe(catchError(() => failed('Reupload requests'))),
+      audits: this.auditsApi.contractorListAudits({ recordScope: this.auditRecordScope }).pipe(catchError(() => failed('Audits'))),
       profile: this.contractorProfileApi.getContractorBranches().pipe(catchError(() => failed('Branches'))),
     })
       .pipe(
@@ -715,6 +746,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   applyFilters(): void {
+    if (this.auditRecordScope === 'TEST') this.typeFilter = 'AUDIT';
     const term = this.search.trim().toLowerCase();
 
     this.filteredRows = this.allRows.filter((row) => {
@@ -774,6 +806,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       !this.filteredRows.some((r) => this.sameRow(r, this.selectedRow!))
     ) {
       this.selectedRow = null;
+      this.auditContextVersion++;
       this.selectedTaskDetail = null;
       this.selectedTaskHistory = [];
       this.relatedReuploads = [];
@@ -786,6 +819,8 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   selectRow(row: UnifiedWorkRow): void {
+    if (this.auditDocUploading || this.actionBusy) return;
+    this.auditContextVersion++;
     this.taskDetailSubscription?.unsubscribe();
     this.detailError = '';
     this.selectedTaskDetail = null;
@@ -807,6 +842,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       this.selectedTaskDetail = null;
       this.relatedReuploads = [];
       this.selectedTaskHistory = [];
+      this.auditNonCompliances = [];
       this.auditDocActiveSection = '';
       this.auditDocType = '';
       this.auditDocTitle = '';
@@ -1043,6 +1079,8 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const auditId = this.selectedRow.id;
+    const version = this.auditContextVersion;
     this.actionBusy = true;
     this.auditsApi
       .contractorUploadCorrectedFile(ncId, file)
@@ -1055,9 +1093,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
+          if (!this.currentAudit(auditId, version)) return;
           this.toast.success('File uploaded', 'Corrected audit document uploaded.');
           delete this.auditNcFiles[ncId];
-          this.loadAuditNonCompliances(this.selectedRow!.id, true);
+          this.loadAuditNonCompliances(auditId, true);
           this.load();
         },
         error: (err: any) =>
@@ -1069,6 +1108,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   onAuditDocFileSelected(event: Event): void {
+    if (this.auditDocUploading) return;
     const file = (event.target as HTMLInputElement)?.files?.[0] || null;
     this.auditDocFile = file;
     if (file && !this.auditDocTitle) {
@@ -1078,6 +1118,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   useAuditDocTemplate(template: AuditDocTemplate): void {
+    if (this.auditDocUploading) return;
     this.auditDocType = template.docType;
     if (!this.auditDocTitle.trim()) {
       this.auditDocTitle = template.titleHint;
@@ -1113,12 +1154,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     }
 
     this.auditDocUploading = true;
+    const version = this.auditContextVersion;
     this.cdr.markForCheck();
     this.contractorProfileApi.uploadAuditDocument({
       auditId: row.id,
       branchId: resolvedBranchId,
       docType: this.auditDocType.trim(),
-      title: this.auditDocTitle.trim(),
+      title: this.auditRecordScope === 'TEST' ? `TEST ONLY ${this.auditDocTitle.trim()}` : this.auditDocTitle.trim(),
+      month: /^\d{4}-(0[1-9]|1[0-2])$/.test(row.periodCode || '') ? row.periodCode : undefined,
       file: this.auditDocFile,
     }).pipe(
       takeUntil(this.destroy$),
@@ -1128,6 +1171,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       }),
     ).subscribe({
       next: () => {
+        if (!this.currentAudit(row.id, version)) return;
         this.toast.success('Document uploaded', 'Audit document uploaded for review.');
         this.auditDocFile = null;
         this.auditDocType = '';
@@ -1293,18 +1337,21 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   private loadAuditNonCompliances(auditId: string, silent = false): void {
+    const version = this.auditContextVersion;
     this.detailLoading = !silent;
     this.auditsApi
       .contractorListNonCompliances()
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!this.currentAudit(auditId, version)) return;
           this.detailLoading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (rows) => {
+          if (!this.currentAudit(auditId, version)) return;
           const allRows = this.toArray(rows).map((row: any) =>
             this.mapAuditNcRow(row),
           );
@@ -1313,6 +1360,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           );
         },
         error: (err: any) => {
+          if (!this.currentAudit(auditId, version)) return;
           this.auditNonCompliances = [];
           this.toast.error(
             'Detail failed',
@@ -1323,6 +1371,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   private loadAuditUploadedDocs(auditId: string): void {
+    const version = this.auditContextVersion;
     this.auditUploadedDocsLoading = true;
     this.cdr.markForCheck();
     this.contractorProfileApi
@@ -1330,12 +1379,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
+          if (!this.currentAudit(auditId, version)) return;
           this.auditUploadedDocsLoading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (res: any) => {
+          if (!this.currentAudit(auditId, version)) return;
           const rows = this.toArray(res?.data ?? res);
           this.auditUploadedDocs = rows.map((d: any) => ({
             id: d.id,
@@ -1346,19 +1397,23 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           }));
         },
         error: () => {
+          if (!this.currentAudit(auditId, version)) return;
           this.auditUploadedDocs = [];
         },
       });
   }
 
   private loadAuditUploadLock(auditId: string): void {
+    const version = this.auditContextVersion;
     this.auditsApi.contractorGetUploadLock(auditId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
+        if (!this.currentAudit(auditId, version)) return;
         this.auditUploadLockFrom = res?.lockFrom ?? res?.uploadLockFrom ?? null;
         this.auditUploadLockUntil = res?.lockUntil ?? res?.uploadLockUntil ?? null;
         this.cdr.markForCheck();
       },
       error: () => {
+        if (!this.currentAudit(auditId, version)) return;
         this.auditUploadLockFrom = null;
         this.auditUploadLockUntil = null;
       },
@@ -1756,6 +1811,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     }
 
     const path = this.route.snapshot.routeConfig?.path || '';
+    if (path === 'audit-documents') this.typeFilter = 'AUDIT';
     if (path.includes('reupload-requests')) {
       this.typeFilter = 'REUPLOAD';
       this.statusFilter = 'OPEN';
