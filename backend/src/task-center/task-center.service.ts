@@ -1,4 +1,5 @@
 import { WorkQueryDto } from './work-query.dto';
+import { actualAuditSql } from '../common/actual-records';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { operationalDate, addCalendarDays } from '../common/operational-date';
@@ -158,6 +159,13 @@ export class TaskCenterService {
       params.assignedRoles !== undefined
         ? 't.assigned_role = ANY($1::text[])'
         : 't.assigned_role = $1',
+      `NOT EXISTS (
+        SELECT 1 FROM audit_non_compliances test_nc
+        JOIN audits test_audit ON test_audit.id = test_nc.audit_id
+        WHERE t.reference_type = 'AUDIT_NON_COMPLIANCE' AND test_nc.id = t.reference_id
+          AND (NOT ${actualAuditSql('test_audit')}
+            OR COALESCE(test_nc.document_name, '') ~* '^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)')
+      )`,
     ];
     const values: unknown[] = [params.assignedRoles ?? params.role];
     let idx = 2;

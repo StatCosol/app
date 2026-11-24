@@ -1,4 +1,9 @@
 import { AutomationScope, scopedRows } from '../automation-scope';
+import {
+  actualAuditSql,
+  isTestAudit,
+  isTestContractorDocument,
+} from '../../common/actual-records';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
@@ -38,6 +43,10 @@ export class NonComplianceEngineService {
       manager?.getRepository(AuditEntity) ?? this.auditRepo
     ).findOne({ where: { id: nc.auditId } });
     if (!audit) return;
+
+    // Synthetic corrections stay in the audit's Test view, not operational work.
+    if (isTestAudit(audit) || isTestContractorDocument(null, nc.documentName))
+      return;
 
     const dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
 
@@ -171,6 +180,8 @@ export class NonComplianceEngineService {
       this.dataSource,
       `SELECT nc.id, a.client_id, a.branch_id FROM audit_non_compliances nc
       JOIN audits a ON a.id=nc.audit_id WHERE nc.closed_at IS NULL
+      AND ${actualAuditSql('a')}
+      AND COALESCE(nc.document_name, '') !~* '^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)'
       AND nc.status IN ('NC_RAISED','AWAITING_REUPLOAD','REUPLOADED','REVERIFICATION_PENDING')`,
       [],
       scope,

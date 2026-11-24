@@ -105,6 +105,24 @@ describe('Audit document review scope and remarks', () => {
       expect.objectContaining({ branchName: 'Sample branch' }),
     );
   });
+  it.each([
+    [{ ...audit, notes: 'TEST ONLY isolated audit' }, 'PF Challan'],
+    [audit, 'TEST ONLY synthetic correction'],
+  ])(
+    'suppresses test rejection emails before recipient lookup',
+    async (testAudit, documentName) => {
+      const h = setup();
+      const sendAuditRejection = jest.fn();
+      (h.service as any).rejectionMail = { sendAuditRejection };
+      await (h.service as any).notifyAuditRejection(
+        testAudit,
+        documentName,
+        'Correction required',
+      );
+      expect(h.query).not.toHaveBeenCalled();
+      expect(sendAuditRejection).not.toHaveBeenCalled();
+    },
+  );
   it('stores linked document suggestions separately from manual checkpoint remarks', async () => {
     const { service, query, checklistRepo } = setup();
     query.mockResolvedValue([{ docType: 'PF_CHALLAN', fileName: 'pf.pdf' }]);

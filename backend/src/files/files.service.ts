@@ -48,6 +48,13 @@ export class FilesService {
       return;
     }
 
+    // Corrected audit files live in audit_resubmissions, not in the original
+    // document row. Resolve their audit and NC before applying access rules.
+    if (filePathVariants.some((p) => p.startsWith('audit-nc/'))) {
+      await this.assertAuditCorrectionInScope(user, filePathVariants);
+      return;
+    }
+
     // 1) contractor_documents
     const cd = await this.cdRepo.findOne({
       where: filePathVariants.map((p) => ({ filePath: p })),
@@ -356,6 +363,54 @@ export class FilesService {
       employeeColumn: 'employee_id',
     },
   ];
+
+  private async assertAuditCorrectionInScope(
+    user: ReqUser,
+    filePathVariants: string[],
+  ): Promise<void> {
+    const corrections = await this.cdRepo.manager.query(
+      `SELECT a.client_id AS "clientId", a.branch_id AS "branchId",
+              a.assigned_auditor_id AS "auditorId",
+              a.contractor_user_id AS "contractorId",
+              nc.requested_to_user_id AS "requestedToUserId"
+         FROM audit_resubmissions rs
+         JOIN audit_non_compliances nc
+           ON nc.id = rs.non_compliance_id AND nc.audit_id = rs.audit_id
+         JOIN audits a ON a.id = rs.audit_id
+        WHERE rs.file_path = ANY($1::text[]) LIMIT 1`,
+      [filePathVariants],
+    );
+    if (corrections[0]) {
+      const owner = corrections[0];
+      const userId = user.userId || user.id;
+      if (user.roleCode === 'ADMIN') return;
+      if (user.roleCode === 'AUDITOR') {
+        if (owner.auditorId !== userId) throw new ForbiddenException();
+        return;
+      }
+      if (user.roleCode === 'CONTRACTOR') {
+        if (owner.contractorId !== userId || owner.requestedToUserId !== userId)
+          throw new ForbiddenException();
+        return;
+      }
+      if (user.roleCode === 'CLIENT') {
+        await assertClientRecord(
+          this.cdRepo.manager.connection,
+          user,
+          owner.clientId,
+          owner.branchId,
+        );
+        return;
+      }
+      if (user.roleCode === 'CRM') {
+        await this.assertOwnerInScope(user, { ...owner, employeeId: null });
+        return;
+      }
+      throw new ForbiddenException();
+    }
+
+    throw new BadRequestException('File not registered in DB');
+  }
 
   private async findScopedOwner(filePathVariants: string[]): Promise<{
     clientId: string | null;

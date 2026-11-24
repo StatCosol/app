@@ -28,6 +28,7 @@ const {
   operationalDate,
   addCalendarDays,
 } = require('../dist/src/common/operational-date');
+const { AuditNonComplianceEntity } = require('../dist/src/audits/entities/audit-non-compliance.entity');
 const { AuditEntity } = require('../dist/src/audits/entities/audit.entity');
 const connection = {
   host: '127.0.0.1',
@@ -54,7 +55,7 @@ async function main() {
       synchronize: false,
     });
     await ds.initialize();
-    const entities = [UserEntity, ClientEntity, BranchEntity, SystemTaskEntity];
+    const entities = [UserEntity, ClientEntity, BranchEntity, SystemTaskEntity, AuditEntity, AuditNonComplianceEntity];
     const runner = ds.createQueryRunner();
     try {
       for (const entity of entities)

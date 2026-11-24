@@ -1,4 +1,8 @@
-import { actualContractorDocumentSql } from '../common/actual-records';
+import {
+  actualContractorDocumentSql,
+  actualAuditSql,
+  actualAuditObservationSql,
+} from '../common/actual-records';
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -675,7 +679,7 @@ export class ContractorDashboardService {
                        ELSE 0 END) AS "riskPoints"
        FROM audit_observations ao
        JOIN audits a ON a.id = ao.audit_id
-       WHERE a.client_id = $1
+       WHERE ${actualAuditSql('a')} AND ${actualAuditObservationSql('ao')} AND a.client_id = $1
          AND a.contractor_user_id = ANY($2)
          AND ao.created_at >= $3
          AND ao.created_at < $4
@@ -710,7 +714,7 @@ export class ContractorDashboardService {
                        ELSE 0 END) AS "riskPoints"
        FROM audit_observations ao
        JOIN audits a ON a.id = ao.audit_id
-       WHERE a.client_id = $1
+       WHERE ${actualAuditSql('a')} AND ${actualAuditObservationSql('ao')} AND a.client_id = $1
          AND a.contractor_user_id = $2
          AND ao.created_at >= $3
          AND ao.created_at < $4

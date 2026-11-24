@@ -1,5 +1,9 @@
 import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/payroll-document-reconciliation.service';
 import {
+  isTestAudit,
+  isTestContractorDocument,
+} from '../common/actual-records';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -672,6 +676,7 @@ export class AuditDocumentReviewService {
     docName: string,
     remarks: string | null | undefined,
   ): Promise<void> {
+    if (isTestAudit(audit) || isTestContractorDocument(null, docName)) return;
     try {
       if (!audit?.contractorUserId) return;
       const rows = await this.dataSource.query(

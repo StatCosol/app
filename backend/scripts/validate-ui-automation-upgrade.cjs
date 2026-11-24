@@ -9,8 +9,8 @@ async function verify(ds) {
   await ds.query(`CREATE TABLE clients(id uuid PRIMARY KEY, client_name text);
     CREATE TABLE employees(id uuid PRIMARY KEY, client_id uuid, employee_code text);
     CREATE TABLE client_branches(id uuid PRIMARY KEY,clientid uuid,branchname text);
-    CREATE TABLE audits(id uuid PRIMARY KEY,client_id uuid,branch_id uuid,assigned_auditor_id uuid);
-    CREATE TABLE audit_non_compliances(id uuid PRIMARY KEY,audit_id uuid);
+    CREATE TABLE audits(id uuid PRIMARY KEY,client_id uuid,branch_id uuid,assigned_auditor_id uuid,notes text,audit_code text);
+    CREATE TABLE audit_non_compliances(id uuid PRIMARY KEY,audit_id uuid,document_name text);
     CREATE TABLE system_tasks(id uuid PRIMARY KEY,module text,title text,description text,reference_id uuid,reference_type text,priority text,assigned_role text,assigned_user_id uuid,client_id uuid,branch_id uuid,contractor_id uuid,due_date date,status text,created_at timestamptz DEFAULT now());`);
   for (const n of [1,2]) { await ds.query('INSERT INTO clients VALUES($1,$2)',[id(n),`Synthetic ${n}`]); await ds.query('INSERT INTO employees VALUES($1,$2,$3)',[id(n+100),id(n),'SAME-CODE']); }
   const before = JSON.stringify(await ds.query('SELECT * FROM employees ORDER BY id'));
@@ -27,8 +27,8 @@ async function verify(ds) {
   await assert.rejects(policies.save(id(1),settings,id(50)),/Settings changed/);
   for (const n of [1,2]) {
     await ds.query('INSERT INTO client_branches VALUES($1,$2,$3)',[id(n+10),id(n),`Branch ${n}`]);
-    await ds.query('INSERT INTO audits VALUES($1,$2,$3,$4)',[id(n+20),id(n),id(n+10),id(n+50)]);
-    await ds.query('INSERT INTO audit_non_compliances VALUES($1,$2)',[id(n+30),id(n+20)]);
+    await ds.query('INSERT INTO audits(id,client_id,branch_id,assigned_auditor_id) VALUES($1,$2,$3,$4)',[id(n+20),id(n),id(n+10),id(n+50)]);
+    await ds.query('INSERT INTO audit_non_compliances(id,audit_id) VALUES($1,$2)',[id(n+30),id(n+20)]);
     await ds.query(`INSERT INTO system_tasks(id,module,title,reference_id,reference_type,priority,assigned_role,assigned_user_id,client_id,branch_id,status) VALUES($1,'AUDIT',$2,$3,'AUDIT_NON_COMPLIANCE','HIGH','AUDITOR',$4,$5,$6,'OPEN')`,[id(n+40),`Synthetic finding ${n}`,id(n+30),id(n+50),id(n),id(n+10)]);
   }
   const tasks = new TaskCenterService(ds);

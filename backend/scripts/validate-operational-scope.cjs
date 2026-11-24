@@ -8,6 +8,8 @@ const {SlaService}=require('../dist/src/sla/sla.service');
 const {SlaTaskEntity}=require('../dist/src/sla/entities/sla-task.entity');
 const {EscalationsService}=require('../dist/src/escalations/escalations.service');
 const {EscalationEntity}=require('../dist/src/escalations/entities/escalation.entity');
+const {AuditEntity}=require('../dist/src/audits/entities/audit.entity');
+const {AuditNonComplianceEntity}=require('../dist/src/audits/entities/audit-non-compliance.entity');
 const {SystemTaskEntity}=require('../dist/src/automation/entities/system-task.entity');
 const {TaskCenterController}=require('../dist/src/task-center/task-center.controller');
 const {TaskCenterService}=require('../dist/src/task-center/task-center.service');
@@ -20,7 +22,7 @@ async function main(){
  try{
   await admin.query(`CREATE SCHEMA "${schema}"`);
   ds=new DataSource({type:'postgres',...connection,username:connection.user,schema,extra:{options:`-c search_path=${schema},public`},entities:[path.join(__dirname,'../dist/src/**/*.entity.js')],synchronize:false});await ds.initialize();
-  const runner=ds.createQueryRunner();try{for(const entity of [SlaTaskEntity,EscalationEntity,SystemTaskEntity])await runner.createTable(Table.create(ds.getMetadata(entity),ds.driver),true);}finally{await runner.release();}
+  const runner=ds.createQueryRunner();try{for(const entity of [SlaTaskEntity,EscalationEntity,SystemTaskEntity,AuditEntity,AuditNonComplianceEntity])await runner.createTable(Table.create(ds.getMetadata(entity),ds.driver),true);}finally{await runner.release();}
   const access={getScope:async u=>u.roleCode==='ADMIN'?{level:'all'}:u.roleCode==='BRANCH_DESK'?{level:'branches',clientId:id(1),branchIds:u.branchIds}:{level:'clients',clientIds:[id(1)]},getCcoClientIds:async()=>[id(1)],assertClientAllowed:async()=>{},assertBranchAllowed:async()=>{},assertCcoClientAllowed:async()=>{},assertCcoBranchAllowed:async()=>{}};
   const scope=new OperationalScopeService(access),sr=ds.getRepository(SlaTaskEntity),er=ds.getRepository(EscalationEntity),tr=ds.getRepository(SystemTaskEntity);
   const sla=new SlaService(sr,scope),esc=new EscalationsService(er,scope);
