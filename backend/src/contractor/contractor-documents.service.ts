@@ -443,18 +443,34 @@ export class ContractorDocumentsService {
         /BANK|PAYMENT_PROOF|CONTRACTOR_BILL|INVOICE|CREDIT_NOTE|DEBIT_NOTE/i.test(
           String(doc.docType).replace(/[^a-z0-9]+/gi, '_'),
         );
+      const monthlyStatutory = [
+        'WAGE_REGISTER',
+        'MUSTER_ROLL',
+        'OT_REGISTER',
+        'PF_CHALLAN',
+        'ESI_CHALLAN',
+        'PT_CHALLAN',
+      ].includes(String(doc.docType).toUpperCase());
+      // New correction clients bind the file they reviewed. Standard monthly
+      // documents always require that binding, just like financial evidence.
+      const protectedCorrection =
+        financial ||
+        monthlyStatutory ||
+        dto?.expectedFilePath !== undefined ||
+        dto?.expectedStatus !== undefined ||
+        dto?.expectedReviewedAt !== undefined;
       const correctionNotes =
         typeof dto?.correctionNotes === 'string'
           ? dto.correctionNotes.trim()
           : '';
-      if (financial) {
-        if (
-          isTestContractorDocument(doc.fileName, doc.title) !==
-          isTestContractorDocument(file.originalname, dto.title ?? doc.title)
-        )
-          throw new BadRequestException(
-            'Keep test evidence separate: retain the TEST filename prefix for test corrections',
-          );
+      if (
+        isTestContractorDocument(doc.fileName, doc.title) !==
+        isTestContractorDocument(file.originalname, dto.title ?? doc.title)
+      )
+        throw new BadRequestException(
+          'Keep test evidence separate: retain the TEST filename prefix for test corrections',
+        );
+      if (protectedCorrection) {
         if (
           !dto?.expectedFilePath ||
           !dto.expectedStatus ||
@@ -481,7 +497,7 @@ export class ContractorDocumentsService {
           );
         if (doc.status !== 'REJECTED')
           throw new ConflictException(
-            'Only rejected bank or bill evidence can be corrected and resubmitted. Ask CRM to return it first.',
+            'Only rejected documents can be corrected and resubmitted. Ask CRM to return it first.',
           );
         if (correctionNotes.length < 10 || correctionNotes.length > 2000)
           throw new BadRequestException(
@@ -510,7 +526,7 @@ export class ContractorDocumentsService {
       doc.reviewNotes = null;
       doc.expiryDate = null;
       const updated = await repo.save(doc);
-      if (financial)
+      if (protectedCorrection)
         await manager.query(
           `INSERT INTO audit_logs(entity_type,entity_id,action,performed_by,snapshot) VALUES('CONTRACTOR_DOCUMENT',$1,'EVIDENCE_RESUBMITTED',$2,$3::jsonb)`,
           [

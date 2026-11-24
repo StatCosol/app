@@ -59,6 +59,92 @@ function setup(doc: any = original, linked = true) {
   return { c, docs, query, transaction, check };
 }
 describe('contractor rejected financial evidence corrections', () => {
+  const statutoryTypes = [
+    'WAGE_REGISTER',
+    'MUSTER_ROLL',
+    'OT_REGISTER',
+    'PF_CHALLAN',
+    'ESI_CHALLAN',
+    'PT_CHALLAN',
+  ];
+  it.each(statutoryTypes)(
+    'resubmits %s in place with previous review history and test scope intact',
+    async (docType) => {
+      const { c, docs, query } = setup({
+        ...original,
+        docType,
+        title: 'TEST ONLY statutory fixture',
+        fileName: 'TEST-ONLY-old.pdf',
+      });
+      const result = await c.contractorReupload(user, 'doc', body, {
+        ...file,
+        originalname: 'TEST-ONLY-corrected.pdf',
+      });
+      expect(result).toMatchObject({
+        id: 'doc',
+        status: 'PENDING_REVIEW',
+        fileName: 'TEST-ONLY-corrected.pdf',
+        docType,
+      });
+      expect(docs.save.mock.calls[0][0]).toMatchObject({
+        docMonth: original.docMonth,
+        branchId: original.branchId,
+        reviewedAt: null,
+        reviewNotes: null,
+      });
+      expect(JSON.parse(query.mock.calls[0][1][2])).toMatchObject({
+        previous: {
+          fileName: 'TEST-ONLY-old.pdf',
+          reviewNotes: original.reviewNotes,
+        },
+        correctionNotes: body.correctionNotes,
+      });
+    },
+  );
+  it.each(statutoryTypes)(
+    'requires a reviewed snapshot for %s',
+    async (docType) => {
+      const { c, docs } = setup({ ...original, docType });
+      await expect(c.contractorReupload(user, 'doc', {}, file)).rejects.toThrow(
+        'Reload the rejected evidence',
+      );
+      expect(docs.save).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['APPROVED', 'PENDING_REVIEW'])(
+    'cannot replace a %s statutory document',
+    async (status) => {
+      const { c, docs } = setup({ ...original, docType: 'PF_CHALLAN', status });
+      await expect(
+        c.contractorReupload(
+          user,
+          'doc',
+          { ...body, expectedStatus: status },
+          file,
+        ),
+      ).rejects.toThrow('Only rejected documents');
+      expect(docs.save).not.toHaveBeenCalled();
+    },
+  );
+  it('blocks a stale statutory correction and stripping its synthetic classification', async () => {
+    const { c, docs } = setup({
+      ...original,
+      docType: 'PF_CHALLAN',
+      fileName: 'TEST-ONLY-old.pdf',
+    });
+    await expect(c.contractorReupload(user, 'doc', body, file)).rejects.toThrow(
+      'Keep test evidence separate',
+    );
+    await expect(
+      c.contractorReupload(
+        user,
+        'doc',
+        { ...body, expectedFilePath: 'stale.pdf' },
+        { ...file, originalname: 'TEST-ONLY-new.pdf' },
+      ),
+    ).rejects.toThrow('evidence changed');
+    expect(docs.save).not.toHaveBeenCalled();
+  });
   it('keeps the same document, scope, wage month and type and atomically records both files and correction reason', async () => {
     const { c, docs, query, transaction, check } = setup();
     const result = await c.contractorReupload(user, 'doc', body, file);

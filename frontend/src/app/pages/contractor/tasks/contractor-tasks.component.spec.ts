@@ -24,7 +24,7 @@ describe('Contractor task links', () => {
       { getContractorBranches: () => of({ branches: [] }), getMonthlyDocChecklist, uploadMonthlyDoc, uploadAttendanceForPayroll } as unknown as Args[2],
       route as unknown as ActivatedRoute,
       { markForCheck: vi.fn() } as unknown as Args[4],
-      { error: vi.fn(), success: vi.fn() } as unknown as Args[5],
+      { error: vi.fn(), success: vi.fn(), info: vi.fn() } as unknown as Args[5],
     );
     return { component, route, getMonthlyDocChecklist, queryParamMap, getContractorTasks, contractorListAudits, uploadMonthlyDoc, uploadAttendanceForPayroll };
   }
@@ -157,6 +157,17 @@ describe('Contractor task links', () => {
     component.checklistUploadFile = new File(['synthetic fixture'], 'attendance.xlsx');
     return { item, file: component.checklistUploadFile };
   }
+
+  it('routes a rejected monthly document to correction without opening a duplicate upload', () => {
+    const { component, uploadMonthlyDoc } = setup();
+    const showType = vi.fn();
+    component.evidenceCorrections = { showType } as any;
+    component.openChecklistUpload({ id: 'pf', docType: 'PF_CHALLAN', branchId: 'branch', isRequired: true, uploaded: false,
+      uploadedDocs: [{ id: 'rejected', fileName: 'challan.pdf', status: 'REJECTED', uploadedAt: '', branchId: 'branch' }] });
+    expect(showType).toHaveBeenCalledWith('PF_CHALLAN');
+    expect(component.checklistUploadItem).toBeNull();
+    expect(uploadMonthlyDoc).not.toHaveBeenCalled();
+  });
 
   it('uses the submitted attendance file and period even after switching month and branch', () => {
     const { component, uploadMonthlyDoc, uploadAttendanceForPayroll } = setup();

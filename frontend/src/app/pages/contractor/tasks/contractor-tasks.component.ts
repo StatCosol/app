@@ -1467,9 +1467,9 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   openChecklistUpload(item: ChecklistItem): void {
-    if (item.uploadedDocs.some(doc => doc.status === 'REJECTED') && /BANK|PAYMENT_PROOF|CONTRACTOR_BILL|INVOICE|CREDIT_NOTE|DEBIT_NOTE/i.test(item.docType)) {
+    if (item.uploadedDocs[0]?.status === 'REJECTED') {
       this.evidenceCorrections?.showType(item.docType);
-      this.toast.info('Choose the rejected file', 'Use Bank proof and bill corrections below to resubmit the same document.');
+      this.toast.info('Choose the rejected file', 'Use Document corrections below to resubmit the same document and retain its review history.');
       return;
     }
     this.checklistEditorVersion++;

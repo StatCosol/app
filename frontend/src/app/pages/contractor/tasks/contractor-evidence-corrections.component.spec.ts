@@ -5,6 +5,20 @@ import { ContractorProfileApiService } from '../../../core/contractor-profile-ap
 const doc={id:'doc',docType:'BANK_PAYMENT_PROOF',fileName:'proof.xlsx',filePath:'old.xlsx',status:'REJECTED',reviewedAt:'2026-10-19T09:00:00Z',reviewNotes:'Correct reference'};
 function setup(){const api={getContractorDocuments:vi.fn(()=>of([doc])),resubmitEvidence:vi.fn(()=>of({status:'PENDING_REVIEW'}))};const c=new ContractorEvidenceCorrectionsComponent(api as any,{markForCheck:vi.fn()} as any);c.month='2026-05';c.branchId='branch';return {c,api};}
 describe('financial evidence corrections',()=>{
+ it('returns to actual records when a rejected actual checklist item opens corrections',()=>{
+  const {c}=setup();c.recordScope='TEST';c.selected={...doc,id:'test-selection'};
+  c.showType('PF_CHALLAN');expect(c.recordScope).toBe('ACTUAL');expect(c.search).toBe('PF_CHALLAN');expect(c.selected).toBeNull();
+ });
+ it.each(['WAGE_REGISTER','MUSTER_ROLL','OT_REGISTER','PF_CHALLAN','ESI_CHALLAN','PT_CHALLAN'])('loads and resubmits test %s without including it in actual records',docType=>{
+  const {c,api}=setup();
+  const statutory={...doc,id:'synthetic-statutory',docType,fileName:'TEST-ONLY-statutory.pdf',title:'TEST ONLY statutory correction'};
+  api.getContractorDocuments.mockReturnValue(of([doc,statutory]));
+  c.ngOnChanges();expect(c.filtered.map(d=>d.id)).toEqual(['doc']);
+  c.recordScope='TEST';expect(c.filtered.map(d=>d.id)).toEqual(['synthetic-statutory']);
+  c.select(c.filtered[0]);c.file=new File(['fixture'],'TEST-ONLY-corrected.pdf');c.notes='TEST ONLY corrected reference';c.submit();
+  expect(api.resubmitEvidence).toHaveBeenCalledWith(statutory,expect.any(File),'TEST ONLY corrected reference');
+  expect(c.message).toContain('Awaiting fresh CRM review');c.ngOnDestroy();
+ });
  it('keeps title-labelled legacy fixtures in test scope and genuine test certificates in actual scope',()=>{
   const {c}=setup();
   const legacy={...doc,id:'legacy',title:'SYNTHETIC TEST ONLY correction'};
