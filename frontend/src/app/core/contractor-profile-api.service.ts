@@ -52,6 +52,7 @@ export class ContractorProfileApiService {
 
   uploadAuditDocument(params: {
     auditId: string;
+    month?: string;
     branchId: string;
     docType: string;
     title: string;
@@ -60,6 +61,7 @@ export class ContractorProfileApiService {
     const form = new FormData();
     form.append('file', params.file);
     form.append('auditId', params.auditId);
+    if (params.month) form.append('month', params.month);
     form.append('branchId', params.branchId);
     form.append('docType', params.docType);
     form.append('title', params.title);

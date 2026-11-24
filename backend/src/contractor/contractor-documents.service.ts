@@ -1,4 +1,7 @@
-import { isTestContractorDocument } from '../common/actual-records';
+import {
+  isTestAudit,
+  isTestContractorDocument,
+} from '../common/actual-records';
 import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/payroll-document-reconciliation.service';
 import {
   BadRequestException,
@@ -80,7 +83,7 @@ export class ContractorDocumentsService {
     clientId: string;
     branchId: string;
     contractorUserId: string;
-  }): Promise<void> {
+  }): Promise<AuditEntity | null> {
     const { auditId, observationId, clientId, branchId, contractorUserId } =
       params;
     if (!auditId) {
@@ -89,11 +92,18 @@ export class ContractorDocumentsService {
           'observationId requires a matching auditId',
         );
       }
-      return;
+      return null;
     }
     const audit = await this.auditRepo.findOne({
       where: { id: auditId },
-      select: ['id', 'clientId', 'branchId', 'contractorUserId'],
+      select: [
+        'id',
+        'clientId',
+        'branchId',
+        'contractorUserId',
+        'notes',
+        'auditCode',
+      ],
     });
     if (!audit) throw new BadRequestException('Audit not found');
     if (audit.clientId !== clientId) {
@@ -117,6 +127,7 @@ export class ContractorDocumentsService {
         );
       }
     }
+    return audit;
   }
 
   /**
@@ -183,7 +194,7 @@ export class ContractorDocumentsService {
     }
 
     // Validate audit/observation scope before any further side-effects.
-    await this.assertAuditScope({
+    const audit = await this.assertAuditScope({
       auditId: dto.auditId ?? null,
       observationId: dto.observationId ?? null,
       clientId,
@@ -212,7 +223,12 @@ export class ContractorDocumentsService {
       clientId,
       branchId: dto.branchId,
       docType: dto.docType,
-      title: dto.title,
+      title:
+        audit &&
+        isTestAudit(audit) &&
+        !isTestContractorDocument(file.originalname, dto.title)
+          ? `TEST ONLY ${dto.title}`
+          : dto.title,
       auditId: dto.auditId ?? null,
       observationId: dto.observationId ?? null,
       docMonth,
