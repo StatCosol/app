@@ -101,7 +101,9 @@ describe('CRM separate audit queues', () => {
     const scopePanel = root.querySelector('[aria-label="Audit record scope"]') as HTMLElement;
     expect(scopePanel.scrollWidth).toBeLessThanOrEqual(scopePanel.clientWidth + 1);
     expect(scopePanel.getBoundingClientRect().width).toBeLessThanOrEqual(width);
-    expect(Array.from(root.querySelectorAll('button')).find(b => b.textContent?.includes('Schedule Audit'))?.disabled).toBe(true);
+    expect(Array.from(root.querySelectorAll('button')).find(b => b.textContent?.includes('Schedule Audit'))?.disabled).toBe(false);
+    expect(Array.from(root.querySelectorAll('button')).find(b => b.textContent?.includes('Auto-Generate'))?.disabled).toBe(true);
+    expect(root.textContent).toContain('New schedules are automatically marked TEST ONLY');
     fixture.destroy(); TestBed.resetTestingModule();
   });
 });
