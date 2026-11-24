@@ -174,6 +174,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   checklistUploadTitle = '';
   checklistUploadBranchId = '';
   checklistUploading = false;
+  private checklistEditorVersion = 0;
 
   // Checklist selectors (branch / month / year)
   checklistBranchId = '';
@@ -1400,6 +1401,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
 
   reloadChecklist(): void {
     // Reset upload form when context changes
+    this.checklistEditorVersion++;
     this.checklistUploadItem = null;
     this.checklistUploadFile = null;
     this.loadChecklist();
@@ -1465,11 +1467,13 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   openChecklistUpload(item: ChecklistItem): void {
-    if (item.uploadedDocs.some(doc => doc.status === 'REJECTED') && /BANK|PAYMENT_PROOF|CONTRACTOR_BILL|INVOICE|CREDIT_NOTE|DEBIT_NOTE/i.test(item.docType)) {
+    if (item.uploadedDocs[0]?.status === 'REJECTED') {
+      this.cancelChecklistUpload();
       this.evidenceCorrections?.showType(item.docType);
-      this.toast.info('Choose the rejected file', 'Use Bank proof and bill corrections below to resubmit the same document.');
+      this.toast.info('Choose the rejected file', 'Use Document corrections below to resubmit the same document and retain its review history.');
       return;
     }
+    this.checklistEditorVersion++;
     this.checklistUploadItem = item;
     this.checklistUploadFile = null;
     const mon = this.monthNames[this.checklistMonth - 1];
@@ -1489,22 +1493,28 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
 
   submitChecklistUpload(): void {
     if (
+      this.checklistUploading ||
       !this.checklistUploadItem ||
       !this.checklistUploadFile ||
       !this.checklistUploadBranchId.trim()
     ) {
       return;
     }
+    // Follow-up attendance processing must use the submitted document's context,
+    // even when the user changes period or opens another editor while it saves.
+    const submitted = {
+      docType: this.checklistUploadItem.docType,
+      branchId: this.checklistUploadBranchId,
+      title: this.checklistUploadTitle.trim(),
+      month: this.checklistMonthParam,
+      file: this.checklistUploadFile,
+    };
+    const editorVersion = this.checklistEditorVersion;
+    const scopeBranchId = this.checklistBranchId;
     this.checklistUploading = true;
     this.cdr.markForCheck();
     this.contractorProfileApi
-      .uploadMonthlyDoc({
-        docType: this.checklistUploadItem.docType,
-        branchId: this.checklistUploadBranchId,
-        title: this.checklistUploadTitle.trim(),
-        month: this.checklistMonthParam,
-        file: this.checklistUploadFile,
-      })
+      .uploadMonthlyDoc(submitted)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -1515,15 +1525,15 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res: any) => {
           const shouldGeneratePayroll = this.shouldGeneratePayrollFromUpload(
-            this.checklistUploadItem?.docType,
-            this.checklistUploadFile,
+            submitted.docType,
+            submitted.file,
           );
           if (shouldGeneratePayroll) {
             this.contractorProfileApi
               .uploadAttendanceForPayroll({
-                branchId: this.checklistUploadBranchId,
-                periodMonth: this.checklistMonthParam,
-                file: this.checklistUploadFile!,
+                branchId: submitted.branchId,
+                periodMonth: submitted.month,
+                file: submitted.file,
                 uploadId: res?.id ?? res?.data?.id ?? null,
               })
               .pipe(takeUntil(this.destroy$))
@@ -1543,9 +1553,13 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           } else {
             this.toast.success('Uploaded', 'Document uploaded successfully.');
           }
-          this.checklistUploadItem = null;
-          this.checklistUploadFile = null;
-          this.load();
+          if (editorVersion === this.checklistEditorVersion) {
+            this.checklistUploadItem = null;
+            this.checklistUploadFile = null;
+          }
+          if (submitted.month === this.checklistMonthParam && scopeBranchId === this.checklistBranchId) {
+            this.loadChecklist();
+          }
         },
         error: (err: any) =>
           this.toast.error(
@@ -1570,6 +1584,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   cancelChecklistUpload(): void {
+    this.checklistEditorVersion++;
     this.checklistUploadItem = null;
     this.checklistUploadFile = null;
     this.cdr.markForCheck();
