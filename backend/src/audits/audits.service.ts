@@ -393,6 +393,7 @@ export class AuditsService implements OnModuleInit {
       pageSize?: number | string;
       status?: string;
       year?: number | string;
+      recordScope?: 'ACTUAL' | 'TEST';
     },
   ) {
     return this.listingService.listForContractor(user, q);

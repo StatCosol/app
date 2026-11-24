@@ -9,6 +9,7 @@ import {
 import { DataSource, EntityManager } from 'typeorm';
 import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { AuditEntity } from './entities/audit.entity';
+import { actualAuditSql } from '../common/actual-records';
 import {
   ConfigureAuditEntryDto,
   ReviewAuditEntryDocumentDto,
@@ -483,7 +484,9 @@ export class StatutoryAuditEntryService {
       )
       .leftJoinAndSelect('a.branch', 'branch');
     if (user.roleCode === 'CONTRACTOR')
-      qb.where('a.contractorUserId=:uid', { uid: user.userId });
+      qb.where('a.contractorUserId=:uid', { uid: user.userId }).andWhere(
+        actualAuditSql('a'),
+      );
     else if (['CLIENT', 'BRANCH_DESK'].includes(user.roleCode)) {
       const scope = await this.access.getScope(user);
       if (!['client', 'branches'].includes(scope.level))
