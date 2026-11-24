@@ -15,16 +15,18 @@ describe('Contractor task links', () => {
     const getMonthlyDocChecklist = vi.fn((month: string): Observable<any> => of({ month, items: [] }));
     const getContractorTasks = vi.fn((): Observable<any> => of([]));
     const contractorListAudits = vi.fn((): Observable<any> => of([]));
+    const uploadMonthlyDoc = vi.fn((): Observable<any> => of({ id: 'test-upload' }));
+    const uploadAttendanceForPayroll = vi.fn(() => of({ total: 1 }));
     type Args = ConstructorParameters<typeof ContractorTasksComponent>;
     const component = new ContractorTasksComponent(
       { getContractorTasks, contractorGetReuploadRequests: () => of([]) } as unknown as Args[0],
       { contractorListAudits } as unknown as Args[1],
-      { getContractorBranches: () => of({ branches: [] }), getMonthlyDocChecklist } as unknown as Args[2],
+      { getContractorBranches: () => of({ branches: [] }), getMonthlyDocChecklist, uploadMonthlyDoc, uploadAttendanceForPayroll } as unknown as Args[2],
       route as unknown as ActivatedRoute,
       { markForCheck: vi.fn() } as unknown as Args[4],
-      { error: vi.fn() } as unknown as Args[5],
+      { error: vi.fn(), success: vi.fn() } as unknown as Args[5],
     );
-    return { component, route, getMonthlyDocChecklist, queryParamMap, getContractorTasks, contractorListAudits };
+    return { component, route, getMonthlyDocChecklist, queryParamMap, getContractorTasks, contractorListAudits, uploadMonthlyDoc, uploadAttendanceForPayroll };
   }
 
   it('loads the linked month and reloads when its query changes', () => {
@@ -143,6 +145,63 @@ describe('Contractor task links', () => {
     component.reloadChecklist();
     expect(component.checklistError).toBe(false);
     expect(component.monthlyChecklist).not.toBeNull();
+    component.ngOnDestroy();
+  });
+
+  function prepareUpload(component: ContractorTasksComponent, docType = 'MUSTER_ROLL') {
+    component.checklistYear = 2026;
+    component.checklistMonth = 1;
+    component.checklistBranchId = 'test-branch-a';
+    const item = { id: 'test-item', docType, branchId: 'test-branch-a', isRequired: true, uploaded: false, uploadedDocs: [] };
+    component.openChecklistUpload(item);
+    component.checklistUploadFile = new File(['synthetic fixture'], 'attendance.xlsx');
+    return { item, file: component.checklistUploadFile };
+  }
+
+  it('uses the submitted attendance file and period even after switching month and branch', () => {
+    const { component, uploadMonthlyDoc, uploadAttendanceForPayroll } = setup();
+    const response = new Subject<any>();
+    uploadMonthlyDoc.mockReturnValue(response);
+    const { file } = prepareUpload(component);
+    component.submitChecklistUpload();
+    component.checklistMonth = 2;
+    component.checklistBranchId = 'test-branch-b';
+    component.reloadChecklist();
+    response.next({ id: 'saved-document-a' });
+    response.complete();
+    expect(uploadAttendanceForPayroll).toHaveBeenCalledExactlyOnceWith({
+      branchId: 'test-branch-a', periodMonth: '2026-01', file, uploadId: 'saved-document-a',
+    });
+    expect(component.checklistMonthParam).toBe('2026-02');
+    expect(component.checklistBranchId).toBe('test-branch-b');
+    component.ngOnDestroy();
+  });
+
+  it('ignores a second submission while the document upload is pending', () => {
+    const { component, uploadMonthlyDoc } = setup();
+    uploadMonthlyDoc.mockReturnValue(new Subject());
+    prepareUpload(component, 'PF_CHALLAN');
+    component.submitChecklistUpload();
+    component.submitChecklistUpload();
+    expect(uploadMonthlyDoc).toHaveBeenCalledTimes(1);
+    component.ngOnDestroy();
+  });
+
+  it('keeps a newer upload draft when an earlier upload finishes', () => {
+    const { component, uploadMonthlyDoc } = setup();
+    const response = new Subject<any>();
+    uploadMonthlyDoc.mockReturnValue(response);
+    prepareUpload(component, 'PF_CHALLAN');
+    component.submitChecklistUpload();
+    component.cancelChecklistUpload();
+    const { item } = prepareUpload(component, 'ESI_CHALLAN');
+    component.checklistUploadTitle = 'New unsaved draft';
+    const file = component.checklistUploadFile;
+    response.next({ id: 'old-upload' });
+    response.complete();
+    expect(component.checklistUploadItem).toBe(item);
+    expect(component.checklistUploadTitle).toBe('New unsaved draft');
+    expect(component.checklistUploadFile).toBe(file);
     component.ngOnDestroy();
   });
 });

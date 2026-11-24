@@ -232,12 +232,13 @@
         <label class="filter-field">
           <span>Title</span>
           <input type="text" name="chkTitle" autocomplete="off"
+                 [disabled]="checklistUploading"
                  [(ngModel)]="checklistUploadTitle" />
         </label>
         @if (availableBranches.length > 0) {
 <label class="filter-field">
           <span>Branch <span class="text-red-500">*</span></span>
-          <select name="chkBranch" [(ngModel)]="checklistUploadBranchId">
+          <select name="chkBranch" [(ngModel)]="checklistUploadBranchId" [disabled]="checklistUploading">
             <option value="">Select branch…</option>
             @for (b of availableBranches; track b) {
 <option [value]="b.id">{{ b.name }}</option>
@@ -248,11 +249,12 @@
         <label class="filter-field">
           <span>File (PDF, PNG, JPG, XLSX)</span>
           <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx"
+                 [disabled]="checklistUploading"
                  (change)="onChecklistFileChange($event)" />
         </label>
       </div>
       <p class="checklist-upload-form__note">
-        CRM reviews uploaded documents. Excel attendance uploads generate a draft payroll version: submit it to CRM from Payroll Computation; an auditor verifies and locks approved payroll. Use employee_code and days_worked columns. Wage rates, overtime amounts and deductions must not be entered in the attendance upload.
+        CRM reviews uploaded documents. Excel attendance uploads are sent to the branch for approval before payroll is calculated. After branch approval, review the draft in Generated Payroll and submit it to CRM; an auditor verifies and locks approved payroll. Use employee_code and days_worked columns. Wage rates, overtime amounts and deductions must not be entered in the attendance upload.
       </p>
       <div class="checklist-upload-form__actions">
         <button
