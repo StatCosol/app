@@ -36,6 +36,24 @@ async function setup(){
 }
 describe.each([390,768,1440])('Contractor scheduling at %ipx',width=>{
   beforeEach(async()=>page.viewport(width,950));
+  it('opens from the Test queue and keeps an individual schedule isolated with blank or edited notes',async()=>{
+    const t=await setup();t.vm.showScheduleModal=false;t.vm.recordScope='TEST';await t.render();
+    const schedule=Array.from(t.root.querySelectorAll('ui-button button')).find(b=>b.textContent?.includes('Schedule Audit')) as HTMLButtonElement;
+    expect(schedule.disabled).toBe(false);
+    const auto=Array.from(t.root.querySelectorAll('ui-button button')).find(b=>b.textContent?.includes('Auto-Generate')) as HTMLButtonElement;
+    expect(auto.disabled).toBe(true);
+    schedule.click();await t.render();expect(t.vm.showScheduleModal).toBe(true);
+    expect((t.root.querySelector('#camp-record-scope') as HTMLSelectElement).disabled).toBe(true);
+    expect(t.root.textContent).toContain('every new audit in this assignment will be marked TEST ONLY');
+    Object.assign(t.vm.scheduleModel,{clientId:'client',branchId:'branch-a',contractorUserId:'vendor',assignedAuditorId:'auditor',periodCode:'2099-12',periodYear:2099,dueDate:'2099-12-31',notes:''});await t.render();
+    t.button().click();const first=t.http.expectOne(r=>r.url.endsWith('/crm/audits')&&r.method==='POST');
+    expect(first.request.body.notes).toMatch(/^TEST ONLY /);
+    first.flush({message:'Retry fixture'},{status:409,statusText:'Conflict'});await t.render();
+    t.vm.scheduleModel.notes='Edited explanation';await t.render();t.button().click();
+    const retry=t.http.expectOne(r=>r.url.endsWith('/crm/audits')&&r.method==='POST');
+    expect(retry.request.body.notes).toBe('TEST ONLY — Edited explanation');retry.flush({id:'test-created'});await t.render();
+    expect(t.vm.recordScope).toBe('TEST');expect(t.vm.refreshWorkspace).toHaveBeenCalledWith('test-created');
+  });
   it('requires a branch and contractor before posting and retains the draft on one inline error',async()=>{
     const t=await setup();
     expect(t.root.querySelector('label[for="camp-branch-id"]')?.textContent).toContain('*');
@@ -64,6 +82,10 @@ describe.each([390,768,1440])('Contractor scheduling at %ipx',width=>{
     t.button().click();t.http.expectOne(r=>r.method==='POST').flush({id:'synthetic-audit',auditCode:'TEST ONLY'});
     await t.render();expect(t.vm.showScheduleModal).toBe(false);
   });
+});
+it('does not mark an actual schedule as test data',async()=>{
+  const t=await setup();Object.assign(t.vm.scheduleModel,{branchId:'branch-a',contractorUserId:'vendor',notes:'Actual schedule'});await t.render();t.button().click();
+  const request=t.http.expectOne(r=>r.method==='POST');expect(request.request.body.notes).toBe('Actual schedule');request.flush({id:'actual-fixture'});
 });
 it('clears a previous contractor on branch changes and keeps non-contractor all-branch scheduling available',async()=>{
   const t=await setup();

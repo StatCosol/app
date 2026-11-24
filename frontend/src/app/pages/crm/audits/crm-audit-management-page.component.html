@@ -19,7 +19,7 @@
       <ui-button variant="secondary" size="sm" (clicked)="autoGenerateSchedules()" [disabled]="autoGenerating || recordScope === 'TEST'">
         {{ autoGenerating ? 'Generating…' : '⚡ Auto-Generate' }}
       </ui-button>
-      <ui-button variant="primary" size="sm" (clicked)="openScheduleModal()" [disabled]="recordScope === 'TEST'">
+      <ui-button variant="primary" size="sm" (clicked)="openScheduleModal()" [disabled]="loading || listBusy || scheduleSaving">
         + Schedule Audit
       </ui-button>
     </div>
@@ -28,14 +28,14 @@
   <div class="card mb-5 flex flex-wrap items-end gap-3" aria-label="Audit record scope">
     <div>
       <label class="filter-label" for="camp-record-scope">Records</label>
-      <select id="camp-record-scope" class="filter-input" [(ngModel)]="recordScope" (ngModelChange)="changeRecordScope()" [disabled]="loading || actionBusy || governanceBusy || scheduleSaving || autoGenerating">
+      <select id="camp-record-scope" class="filter-input" [(ngModel)]="recordScope" (ngModelChange)="changeRecordScope()" [disabled]="loading || actionBusy || governanceBusy || showScheduleModal || scheduleSaving || autoGenerating">
         <option value="ACTUAL">Actual audits</option>
         <option value="TEST">Test audits only</option>
       </select>
     </div>
     <p class="text-sm text-gray-600" role="status">
       @if (recordScope === 'TEST') {
-        Test audits only. Queue, totals and calendar show test records; actual closure totals are not included. Scheduling is available in Actual audits.
+        Test audits only. New schedules are automatically marked TEST ONLY and kept separate from actual audit queues, totals and calendars. Auto-Generate is available only for actual audits.
       } @else {
         Actual audits only. Labelled and verified legacy test audits are excluded from the queue, totals and calendar.
       }
@@ -490,6 +490,7 @@
   </div>
   <div class="modal-body">
     @if (!isAssignMode) {
+      @if (recordScope === 'TEST') { <p class="assign-mode-note" role="status">Test records selected: every new audit in this assignment will be marked TEST ONLY and excluded from normal audit counts.</p> }
       <label class="filter-label" for="camp-assignment-scope">Assignment coverage</label>
       <select id="camp-assignment-scope" class="filter-input" [(ngModel)]="clientWideSchedule" (ngModelChange)="onAssignmentScopeChange()" [disabled]="scheduleSaving">
         <option [ngValue]="false">Individual audit</option>
@@ -498,7 +499,6 @@
     }
     @if (clientWideSchedule && !isAssignMode) {
       <p class="assign-mode-note">Assign this client to one auditor for the selected period and audit type. Contractor Audit includes every active contractor assigned to each active branch. Other audit types create one audit per active branch. Preview the coverage, then confirm once; each branch and contractor keeps its own documents, findings and reports. Future branches or assignments require a new preview.</p>
-      @if (recordScope === 'TEST') { <p class="assign-mode-note">Test records selected: every new audit in this assignment will be marked TEST ONLY and excluded from normal audit counts.</p> }
     } @else if (isContractorSchedule && !isAssignMode) {
       <p class="assign-mode-note" id="contractor-schedule-help">Contractor Audit requires one branch and one contractor. For all branches or contractors, create a separate audit for each branch-contractor pair using Entire client coverage.</p>
     }

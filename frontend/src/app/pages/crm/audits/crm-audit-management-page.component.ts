@@ -662,9 +662,6 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     const preview = this.currentAssignmentPreview;
     if (preview && (!preview.canAssign || !preview.createCount)) return;
     delete payload['branchId']; delete payload['contractorUserId'];
-    if (this.recordScope === 'TEST' && !/^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)/i.test(payload['notes'] || '')) {
-      payload['notes'] = `TEST ONLY — ${payload['notes'] || 'Client-wide audit assignment'}`;
-    }
     if (preview) payload['previewToken'] = preview.previewToken;
     const key = this.assignmentDraftKey();
     this.scheduleSaving = true;
@@ -735,6 +732,12 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     if (this.scheduleModel.contractorUserId) payload['contractorUserId'] = this.scheduleModel.contractorUserId;
     if (this.scheduleModel.dueDate) payload['dueDate'] = this.scheduleModel.dueDate;
     if (this.scheduleModel.notes.trim()) payload['notes'] = this.scheduleModel.notes.trim();
+    // Both individual and client-wide CREATE paths must preserve test isolation,
+    // even when the user clears or replaces the visible notes.
+    if (!this.isAssignMode && this.recordScope === 'TEST' &&
+        !/^(TEST ONLY|SYNTHETIC TEST ONLY)([ _-]|$)/i.test(payload['notes'] || '')) {
+      payload['notes'] = `TEST ONLY — ${payload['notes'] || 'Audit scheduling verification'}`;
+    }
 
     if (this.clientWideSchedule && !this.isAssignMode) {
       this.saveClientAssignment(payload);

@@ -388,9 +388,14 @@ export class AuditListingService {
       year?: number | string;
       clientId?: string;
       branchId?: string;
+      recordScope?: 'ACTUAL' | 'TEST';
     },
   ) {
     this.assertContractor(user);
+    const recordScope = q?.recordScope || 'ACTUAL';
+    if (!['ACTUAL', 'TEST'].includes(recordScope)) {
+      throw new BadRequestException('Invalid audit record scope');
+    }
 
     const page = Math.max(1, Number(q?.page) || 1);
     const pageSize = Math.min(250, Math.max(1, Number(q?.pageSize) || 25));
@@ -420,7 +425,12 @@ export class AuditListingService {
           contractorAuditType: 'CONTRACTOR',
         },
       )
-      .andWhere('COALESCE(client.is_deleted, false) = false');
+      .andWhere('COALESCE(client.is_deleted, false) = false')
+      .andWhere(
+        recordScope === 'TEST'
+          ? `NOT ${actualAuditSql('a')}`
+          : actualAuditSql('a'),
+      );
 
     if (q.status) {
       qb.andWhere('a.status = :st', { st: q.status });
