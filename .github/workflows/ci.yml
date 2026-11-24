@@ -141,6 +141,7 @@ jobs:
           node scripts/verify-audit-follow-ups.cjs
           node scripts/verify-invoice-delivery.cjs
           node scripts/verify-audit-entry.cjs ./auditxpert-test-db.cjs
+          node scripts/verify-client-audit-assignment.cjs ./auditxpert-test-db.cjs
             node scripts/verify-audit-schedule-actions.cjs ./auditxpert-test-db.cjs
             node scripts/verify-audit-cancel-finalize-race.cjs
           node scripts/verify-auditor-dashboard.cjs ./auditxpert-test-db.cjs

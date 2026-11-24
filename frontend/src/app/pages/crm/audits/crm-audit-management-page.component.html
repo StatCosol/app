@@ -489,8 +489,18 @@
     <button type="button" class="compact-action close-btn" (click)="closeScheduleModal()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
   </div>
   <div class="modal-body">
-    @if (isContractorSchedule && !isAssignMode) {
-      <p class="assign-mode-note" id="contractor-schedule-help">Contractor Audit requires one branch and one contractor. For all branches or contractors, create a separate audit for each branch-contractor pair.</p>
+    @if (!isAssignMode) {
+      <label class="filter-label" for="camp-assignment-scope">Assignment coverage</label>
+      <select id="camp-assignment-scope" class="filter-input" [(ngModel)]="clientWideSchedule" (ngModelChange)="onAssignmentScopeChange()" [disabled]="scheduleSaving">
+        <option [ngValue]="false">Individual audit</option>
+        <option [ngValue]="true">Entire client — all branches</option>
+      </select>
+    }
+    @if (clientWideSchedule && !isAssignMode) {
+      <p class="assign-mode-note">Assign this client to one auditor for the selected period and audit type. Contractor Audit includes every active contractor assigned to each active branch. Other audit types create one audit per active branch. Preview the coverage, then confirm once; each branch and contractor keeps its own documents, findings and reports. Future branches or assignments require a new preview.</p>
+      @if (recordScope === 'TEST') { <p class="assign-mode-note">Test records selected: every new audit in this assignment will be marked TEST ONLY and excluded from normal audit counts.</p> }
+    } @else if (isContractorSchedule && !isAssignMode) {
+      <p class="assign-mode-note" id="contractor-schedule-help">Contractor Audit requires one branch and one contractor. For all branches or contractors, create a separate audit for each branch-contractor pair using Entire client coverage.</p>
     }
     @if (scheduleError) { <p class="assign-mode-note" role="alert">{{ scheduleError }}</p> }
     @if (isAssignMode) {
@@ -498,7 +508,7 @@
       Assignment mode: only auditor, due date, and notes can be updated.
     </div>
 }
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <fieldset [disabled]="scheduleSaving" class="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div>
         <label class="filter-label" for="camp-client-id">Client *</label>
         <select id="camp-client-id" name="clientId"
@@ -513,6 +523,7 @@
 }
         </select>
       </div>
+      @if (!clientWideSchedule || isAssignMode) {
       <div>
         <label class="filter-label" for="camp-branch-id">Branch{{ isContractorSchedule ? ' *' : '' }}</label>
         <select id="camp-branch-id" name="branchId" [(ngModel)]="scheduleModel.branchId" (ngModelChange)="onScheduleBranchChange()" class="filter-input" [disabled]="isAssignMode || scheduleSaving" [attr.aria-required]="isContractorSchedule" [attr.aria-describedby]="isContractorSchedule && !isAssignMode ? 'contractor-schedule-help' : null">
@@ -531,6 +542,7 @@
 }
         </select>
       </div>
+      }
       <div>
         <label class="filter-label" for="camp-assigned-auditor-id">Auditor *</label>
         <select id="camp-assigned-auditor-id" name="assignedAuditorId" [(ngModel)]="scheduleModel.assignedAuditorId" class="filter-input">
@@ -578,12 +590,29 @@
         <label class="filter-label" for="camp-notes">Notes</label>
         <textarea autocomplete="off" id="camp-notes" name="notes" [(ngModel)]="scheduleModel.notes" rows="3" class="filter-input"></textarea>
       </div>
-    </div>
+    </fieldset>
+    @if (currentAssignmentPreview; as coverage) {
+      <section class="assign-mode-note" aria-label="Client assignment coverage">
+        <h4>Coverage preview</h4>
+        <p>{{ coverage.branchCount }} active branches · {{ coverage.createCount }} audits to create · {{ coverage.existingCount }} already assigned to this auditor.</p>
+        <p>Existing audits and their reports will be preserved.</p>
+        @for (item of coverage.items; track item.branchId + ':' + item.contractorUserId) {
+          <p class="py-2 border-b break-words">{{ item.branchName }}{{ item.contractorName ? ' — ' + item.contractorName : '' }}:
+            {{ item.action === 'CREATE' ? 'New assignment' : item.action === 'EXISTING' ? 'Already assigned — keep existing audit' : 'Conflict — assigned to another auditor' }}</p>
+        }
+        @for (branch of coverage.uncoveredBranches; track branch.id) {
+          <p>{{ branch.name }}: no active contractors assigned; no contractor audit will be created.</p>
+        }
+        @if (coverage.blocking.length) { <p role="alert">Existing audits have incomplete branch/contractor scope: {{ coverage.blocking.join(', ') }}. Correct those assignments first.</p> }
+        @if (!coverage.items.length) { <p role="alert">No eligible branch/contractor assignments found.</p> }
+        @if (!coverage.canAssign && coverage.items.length && !coverage.blocking.length) { <p role="alert">Resolve conflicting assignments before continuing.</p> }
+      </section>
+    }
   </div>
   <div class="modal-actions">
     <ui-button variant="ghost" (clicked)="closeScheduleModal()" [disabled]="scheduleSaving">Cancel</ui-button>
-    <ui-button variant="primary" (clicked)="saveSchedule()" [loading]="scheduleSaving" [disabled]="contractorScheduleScopeIncomplete">
-      {{ scheduleMode === 'ASSIGN' ? 'Update Assignment' : 'Schedule' }}
+    <ui-button variant="primary" (clicked)="saveSchedule()" [loading]="scheduleSaving" [disabled]="contractorScheduleScopeIncomplete || !!(currentAssignmentPreview && (!currentAssignmentPreview.canAssign || !currentAssignmentPreview.createCount))">
+      {{ scheduleMode === 'ASSIGN' ? 'Update Assignment' : clientWideSchedule ? (currentAssignmentPreview ? 'Confirm client assignment' : 'Preview coverage') : 'Schedule' }}
     </ui-button>
   </div>
 </section>
