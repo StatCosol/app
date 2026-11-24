@@ -160,6 +160,7 @@ describe('Contractor task links', () => {
 
   it('routes a rejected monthly document to correction without opening a duplicate upload', () => {
     const { component, uploadMonthlyDoc } = setup();
+    prepareUpload(component, 'ESI_CHALLAN');
     const showType = vi.fn();
     component.evidenceCorrections = { showType } as any;
     component.openChecklistUpload({ id: 'pf', docType: 'PF_CHALLAN', branchId: 'branch', isRequired: true, uploaded: false,

@@ -1468,6 +1468,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
 
   openChecklistUpload(item: ChecklistItem): void {
     if (item.uploadedDocs[0]?.status === 'REJECTED') {
+      this.cancelChecklistUpload();
       this.evidenceCorrections?.showType(item.docType);
       this.toast.info('Choose the rejected file', 'Use Document corrections below to resubmit the same document and retain its review history.');
       return;
