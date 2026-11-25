@@ -10,6 +10,13 @@ export type ApplicabilityResult = {
   reason: string;
 };
 
+const FACTORY_ONLY_FAMILIES = new Set([
+  'FACTORY_ACT',
+  'FACTORIES_ACT',
+  'FACTORY',
+]);
+const ESTABLISHMENT_ONLY_FAMILIES = new Set(['SHOPS_ESTABLISHMENTS', 'S&E']);
+
 type ComplianceApplicabilityRule = {
   branch_category: string;
   state_code: string | null;
@@ -92,8 +99,16 @@ export class ComplianceApplicabilityService {
     branch: BranchEntity,
     compliance: ComplianceMasterEntity,
   ): Promise<ApplicabilityResult> {
-    const branchCategory = branch.branchType ?? BranchType.HO;
-    const stateCode = branch.stateCode ?? null;
+    // Rules and law families only distinguish factories from everything else
+    // (HO, office, shop, ...), matching CompliancesService.toBranchCategory.
+    const branchCategory =
+      String(branch.branchType || '').toUpperCase() ===
+      String(BranchType.FACTORY)
+        ? 'FACTORY'
+        : 'ESTABLISHMENT';
+    const stateCode = branch.stateCode
+      ? String(branch.stateCode).trim().toUpperCase()
+      : null;
     const headcount = Number(branch.headcount ?? 0);
 
     // 1) Rule table check first (compliance_applicability)
@@ -118,17 +133,21 @@ export class ComplianceApplicabilityService {
     const max =
       compliance.maxHeadcount == null ? null : Number(compliance.maxHeadcount);
     const stateScopeRaw = compliance.stateScope ?? null; // e.g. 'ALL' or comma list
-    const lawFamily = compliance.lawFamily ?? null; // e.g. 'FACTORY', 'S&E'
+    // The compliance master uses FACTORY_ACT / SHOPS_ESTABLISHMENTS; the
+    // older FACTORY / S&E spellings are still accepted.
+    const lawFamily = String(compliance.lawFamily ?? '').toUpperCase();
+    const factoryOnly = FACTORY_ONLY_FAMILIES.has(lawFamily);
+    const establishmentOnly = ESTABLISHMENT_ONLY_FAMILIES.has(lawFamily);
 
     // Branch type gate based on lawFamily
-    if (lawFamily === 'FACTORY' && branchCategory !== 'FACTORY') {
+    if (factoryOnly && branchCategory !== 'FACTORY') {
       return {
         isApplicable: false,
         source: 'MASTER',
         reason: 'Not applicable: compliance is FACTORY-only',
       };
     }
-    if (lawFamily === 'S&E' && branchCategory === 'FACTORY') {
+    if (establishmentOnly && branchCategory === 'FACTORY') {
       return {
         isApplicable: false,
         source: 'MASTER',
@@ -140,7 +159,7 @@ export class ComplianceApplicabilityService {
     if (stateScopeRaw && stateScopeRaw !== 'ALL' && stateCode) {
       const scopes = stateScopeRaw
         .split(',')
-        .map((s: string) => s.trim())
+        .map((s: string) => s.trim().toUpperCase())
         .filter(Boolean);
       if (scopes.length > 0 && !scopes.includes(stateCode)) {
         return {

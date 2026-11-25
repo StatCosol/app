@@ -431,8 +431,13 @@ export class UsersService implements OnModuleInit {
         throw new BadRequestException('Only one CEO user is allowed.');
     }
     if (roleCode === 'CCO') {
+      // Deleted CCOs (soft-deleted, email tagged #deleted#) free their seat.
       const existing = await this.usersRepo.count({
-        where: { roleId: await this.getRoleId('CCO') },
+        where: {
+          roleId: await this.getRoleId('CCO'),
+          deletedAt: IsNull(),
+          email: Not(Like('%#deleted#%')),
+        },
       });
       if (existing >= 5)
         throw new BadRequestException('Only five CCO users are allowed.');
@@ -723,6 +728,26 @@ export class UsersService implements OnModuleInit {
           'Branch users must be assigned to at least one branch',
         );
       }
+
+      // Check branch ownership before the login row exists, so a rejected
+      // request never leaves a user behind.
+      if (userType === 'BRANCH') {
+        const branchIds = dto.branchIds ?? [];
+        const branches = await this.branchesRepo.find({
+          where: {
+            id: In(branchIds),
+            clientId: dto.clientId,
+            isDeleted: false,
+            deletedAt: IsNull(),
+            isActive: true,
+          },
+        });
+        if (branches.length !== new Set(branchIds).size) {
+          throw new BadRequestException(
+            'One or more branches are invalid or not linked to the client',
+          );
+        }
+      }
     }
 
     const user = this.usersRepo.create({
@@ -755,28 +780,11 @@ export class UsersService implements OnModuleInit {
       userType === 'BRANCH' &&
       dto.branchIds?.length
     ) {
-      const branchIds = dto.branchIds;
-      const branches = await this.branchesRepo.find({
-        where: {
-          id: In(branchIds),
-          clientId: dto.clientId,
-          isDeleted: false,
-          deletedAt: IsNull(),
-          isActive: true,
-        },
-      });
-
-      if (branches.length !== branchIds.length) {
-        throw new BadRequestException(
-          'One or more branches are invalid or not linked to the client',
-        );
-      }
-
       await this.usersRepo
         .createQueryBuilder()
         .relation(UserEntity, 'branches')
         .of(saved.id)
-        .add(branchIds);
+        .add(Array.from(new Set(dto.branchIds)));
     }
 
     // Audit log for user creation
@@ -1020,6 +1028,41 @@ export class UsersService implements OnModuleInit {
     if (!role) throw new NotFoundException('Role not found for user');
     const roleCode = role.code;
 
+    await this.assertStatusChangeAllowed(
+      userId,
+      roleCode,
+      isActive,
+      currentUserId,
+    );
+
+    const previousStatus = user.isActive;
+    user.isActive = isActive;
+    await this.usersRepo.save(user);
+
+    // Audit log
+    await this.auditLogs.log({
+      entityType: 'USER',
+      entityId: userId,
+      action: 'STATUS_CHANGE',
+      performedBy: currentUserId ?? null,
+      performedRole: 'ADMIN',
+      beforeJson: { isActive: previousStatus },
+      afterJson: { isActive, roleCode, name: user.name },
+    });
+
+    return { message: 'User status updated' };
+  }
+
+  /**
+   * Rules for activating/deactivating a user, shared by the status endpoint
+   * and the admin portal edit so neither path can bypass them.
+   */
+  private async assertStatusChangeAllowed(
+    userId: string,
+    roleCode: string,
+    isActive: boolean,
+    currentUserId?: string,
+  ) {
     // Prevent changing status of ADMIN or CEO users entirely
     if (roleCode === 'ADMIN' || roleCode === 'CEO') {
       throw new BadRequestException(
@@ -1047,23 +1090,15 @@ export class UsersService implements OnModuleInit {
         );
       }
     }
+  }
 
-    const previousStatus = user.isActive;
-    user.isActive = isActive;
-    await this.usersRepo.save(user);
-
-    // Audit log
-    await this.auditLogs.log({
-      entityType: 'USER',
-      entityId: userId,
-      action: 'STATUS_CHANGE',
-      performedBy: currentUserId ?? null,
-      performedRole: 'ADMIN',
-      beforeJson: { isActive: previousStatus },
-      afterJson: { isActive, roleCode, name: user.name },
+  /** Reject an email already used by another live (not deleted) account. */
+  private async assertEmailAvailable(email: string, userId: string) {
+    const existing = await this.usersRepo.findOne({
+      where: { email, deletedAt: IsNull() },
     });
-
-    return { message: 'User status updated' };
+    if (existing && existing.id !== userId)
+      throw new BadRequestException('Email already exists');
   }
 
   /**
@@ -1092,8 +1127,15 @@ export class UsersService implements OnModuleInit {
       );
     }
 
+    // Capture before mutating, so the audit row keeps the old values.
+    const before = { name: user.name, email: user.email, mobile: user.mobile };
+
+    if (dto.email !== undefined) {
+      const email = dto.email.trim().toLowerCase();
+      if (email !== user.email) await this.assertEmailAvailable(email, userId);
+      user.email = email;
+    }
     if (dto.name !== undefined) user.name = dto.name;
-    if (dto.email !== undefined) user.email = dto.email.toLowerCase();
     if (dto.mobile !== undefined) user.mobile = dto.mobile ?? null;
 
     const saved = await this.usersRepo.save(user);
@@ -1105,7 +1147,7 @@ export class UsersService implements OnModuleInit {
       action: 'UPDATE',
       performedBy: currentUserId ?? null,
       performedRole: 'ADMIN',
-      beforeJson: { name: user.name, email: user.email, mobile: user.mobile },
+      beforeJson: before,
       afterJson: { name: saved.name, email: saved.email, mobile: saved.mobile },
     });
 
@@ -2155,7 +2197,9 @@ export class UsersService implements OnModuleInit {
     }
 
     if (dto.email !== undefined) {
-      user.email = dto.email.trim().toLowerCase();
+      const email = dto.email.trim().toLowerCase();
+      if (email !== user.email) await this.assertEmailAvailable(email, userId);
+      user.email = email;
     }
 
     if (dto.mobile !== undefined) {
@@ -2188,6 +2232,9 @@ export class UsersService implements OnModuleInit {
             'Create a Time Office user with an active company assignment',
           );
       }
+      // A role change must respect the same CEO/CCO limits as creation.
+      if (nextRole.code !== currentRoleCode)
+        await this.enforceLimits(nextRole.code);
       user.roleId = nextRole.id;
       user.role = nextRole.code;
     }
@@ -2197,7 +2244,13 @@ export class UsersService implements OnModuleInit {
       user.passwordHash = passwordHash;
     }
 
-    if (typeof dto.isActive === 'boolean') {
+    if (typeof dto.isActive === 'boolean' && dto.isActive !== user.isActive) {
+      await this.assertStatusChangeAllowed(
+        userId,
+        currentRoleCode ?? '',
+        dto.isActive,
+        currentUserId,
+      );
       user.isActive = dto.isActive;
     }
 

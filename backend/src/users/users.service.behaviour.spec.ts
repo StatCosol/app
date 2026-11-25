@@ -232,31 +232,27 @@ describe('UsersService account rules', () => {
       ).rejects.toThrow('Only five CCO users are allowed.');
     });
 
-    // KNOWN BUG: the CCO limit counts deleted and inactive CCOs, unlike the CEO
+    // Regression (fixed): the CCO limit counts deleted and inactive CCOs, unlike the CEO
     // limit. After five CCOs have ever existed, no replacement can be created.
-    // Remove `.failing` once enforceLimits filters CCOs like it filters CEOs.
-    it.failing(
-      'does not count deleted CCOs against the five-CCO cap',
-      async () => {
-        const ccos = Array.from({ length: 5 }, (_, i) =>
-          user('CCO', {
-            id: `cco-${i}`,
-            isActive: false,
-            deletedAt: new Date(),
-            email: `cco${i}@example.test#deleted#1`,
-          }),
-        );
-        const { service } = build({ users: ccos });
-        await expect(
-          service.createUser({
-            roleId: 'role-CCO',
-            name: 'Replacement CCO',
-            email: 'cco-new@example.test',
-            password: 'Synthetic@pass1',
-          } as any),
-        ).resolves.toMatchObject({ message: 'User created' });
-      },
-    );
+    it('does not count deleted CCOs against the five-CCO cap', async () => {
+      const ccos = Array.from({ length: 5 }, (_, i) =>
+        user('CCO', {
+          id: `cco-${i}`,
+          isActive: false,
+          deletedAt: new Date(),
+          email: `cco${i}@example.test#deleted#1`,
+        }),
+      );
+      const { service } = build({ users: ccos });
+      await expect(
+        service.createUser({
+          roleId: 'role-CCO',
+          name: 'Replacement CCO',
+          email: 'cco-new@example.test',
+          password: 'Synthetic@pass1',
+        } as any),
+      ).resolves.toMatchObject({ message: 'User created' });
+    });
 
     it.each(['CONTRACTOR', 'TIME_OFFICE_EXECUTIVE'])(
       'requires an active company for %s logins',
@@ -365,26 +361,23 @@ describe('UsersService account rules', () => {
       ).rejects.toThrow('at least one branch');
     });
 
-    // KNOWN BUG: branch ownership is checked after the user row is saved and
+    // Regression (fixed): branch ownership is checked after the user row is saved and
     // nothing is wrapped in a transaction, so a rejected request still leaves
-    // a live login behind with no branches. Remove `.failing` once fixed.
-    it.failing(
-      'does not leave a user behind when a branch is invalid',
-      async () => {
-        const { service, usersRepo } = build({ clients: [activeClient] });
-        await expect(
-          service.createUser({
-            roleId: 'role-CLIENT',
-            userType: 'BRANCH',
-            name: 'Branch',
-            email: 'b@example.test',
-            clientId: 'client-1',
-            branchIds: ['other-company-branch'],
-          } as any),
-        ).rejects.toThrow('invalid or not linked');
-        expect(usersRepo.rows).toHaveLength(0);
-      },
-    );
+    // a live login behind with no branches.
+    it('does not leave a user behind when a branch is invalid', async () => {
+      const { service, usersRepo } = build({ clients: [activeClient] });
+      await expect(
+        service.createUser({
+          roleId: 'role-CLIENT',
+          userType: 'BRANCH',
+          name: 'Branch',
+          email: 'b@example.test',
+          clientId: 'client-1',
+          branchIds: ['other-company-branch'],
+        } as any),
+      ).rejects.toThrow('invalid or not linked');
+      expect(usersRepo.rows).toHaveLength(0);
+    });
   });
 
   describe('status, edit and delete guard rails', () => {
@@ -436,26 +429,23 @@ describe('UsersService account rules', () => {
       ).rejects.toThrow('can only be edited by themselves');
     });
 
-    // KNOWN BUG: updateUser mutates the entity before building the audit row,
+    // Regression (fixed): updateUser mutates the entity before building the audit row,
     // so beforeJson always equals afterJson and the old values are lost.
-    it.failing(
-      'records the previous values in the edit audit row',
-      async () => {
-        const { service, auditLogs } = build({
-          users: [user('AUDITOR', { name: 'Old Name' })],
-        });
-        await service.updateUser('auditor-1', { name: 'New Name' }, 'admin-1');
-        expect(auditLogs.log).toHaveBeenCalledWith(
-          expect.objectContaining({
-            beforeJson: expect.objectContaining({ name: 'Old Name' }),
-          }),
-        );
-      },
-    );
+    it('records the previous values in the edit audit row', async () => {
+      const { service, auditLogs } = build({
+        users: [user('AUDITOR', { name: 'Old Name' })],
+      });
+      await service.updateUser('auditor-1', { name: 'New Name' }, 'admin-1');
+      expect(auditLogs.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          beforeJson: expect.objectContaining({ name: 'Old Name' }),
+        }),
+      );
+    });
 
-    // KNOWN BUG: changing a user's email does not check for an existing
+    // Regression (fixed): changing a user's email does not check for an existing
     // account with that email (createUser does).
-    it.failing('rejects an edit to an email already in use', async () => {
+    it('rejects an edit to an email already in use', async () => {
       const { service } = build({
         users: [user('AUDITOR'), user('CRM', { email: 'crm@example.test' })],
       });
@@ -526,27 +516,24 @@ describe('UsersService account rules', () => {
       );
     });
 
-    // KNOWN BUG: the portal edit changes role without enforceLimits, so an
+    // Regression (fixed): the portal edit changes role without enforceLimits, so an
     // admin can promote a second user to CEO (createUser forbids that).
-    it.failing('does not allow a second CEO via a role change', async () => {
+    it('does not allow a second CEO via a role change', async () => {
       const { service } = build({ users: [user('CEO'), user('AUDITOR')] });
       await expect(
         service.updateUserFromPortal('auditor-1', { role: 'CEO' }, 'admin-1'),
       ).rejects.toThrow('Only one CEO user is allowed.');
     });
 
-    // KNOWN BUG: isActive=false through the portal skips the checks that
+    // Regression (fixed): isActive=false through the portal skips the checks that
     // PATCH /admin/users/:id/status applies (CRM with live assignments).
-    it.failing(
-      'does not deactivate a CRM who still has assignments',
-      async () => {
-        const { service, dataSource } = build({ users: [user('CRM')] });
-        dataSource.query.mockResolvedValue([{ cnt: '3' }]);
-        await expect(
-          service.updateUserFromPortal('crm-1', { isActive: false }, 'admin-1'),
-        ).rejects.toThrow(/active client assignment/);
-      },
-    );
+    it('does not deactivate a CRM who still has assignments', async () => {
+      const { service, dataSource } = build({ users: [user('CRM')] });
+      dataSource.query.mockResolvedValue([{ cnt: '3' }]);
+      await expect(
+        service.updateUserFromPortal('crm-1', { isActive: false }, 'admin-1'),
+      ).rejects.toThrow(/active client assignment/);
+    });
   });
 
   describe('login and password', () => {

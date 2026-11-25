@@ -14,13 +14,16 @@ export function calcRotationDueOn(
   effectiveDateISO: string,
 ): string {
   const d = new Date(effectiveDateISO + 'T00:00:00Z');
-  const due = new Date(d);
-
-  if (assignmentType === 'CRM') {
-    due.setUTCFullYear(due.getUTCFullYear() + 1); // 12 months
-  } else {
-    due.setUTCMonth(due.getUTCMonth() + 4); // 4 months
-  }
+  const months = assignmentType === 'CRM' ? 12 : 4;
+  const target = d.getUTCMonth() + months;
+  const year = d.getUTCFullYear() + Math.floor(target / 12);
+  const month = target % 12;
+  // Clamp to the last day of the due month: 31 Oct + 4 months is 28/29 Feb,
+  // not 3 March (and 29 Feb + 12 months is 28 Feb).
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const due = new Date(
+    Date.UTC(year, month, Math.min(d.getUTCDate(), lastDay)),
+  );
 
   return due.toISOString().slice(0, 10); // YYYY-MM-DD
 }

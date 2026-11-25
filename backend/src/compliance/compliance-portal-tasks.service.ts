@@ -442,12 +442,10 @@ export class CompliancePortalTasksService {
       throw new ForbiddenException('Not your branch');
     }
 
-    if (!t.assignedToUserId) {
-      await this.tasks.update(
-        { id: taskIdNum },
-        { assignedToUserId: user.userId },
-      );
-    } else if (String(t.assignedToUserId) !== String(user.userId)) {
+    if (
+      t.assignedToUserId &&
+      String(t.assignedToUserId) !== String(user.userId)
+    ) {
       throw new ForbiddenException('Task assigned to another contractor');
     }
 
@@ -459,7 +457,14 @@ export class CompliancePortalTasksService {
       throw new BadRequestException('Cannot start this task');
     }
 
-    await this.tasks.update({ id: taskIdNum }, { status: 'IN_PROGRESS' });
+    // Claim an unassigned task only once it can actually be started.
+    await this.tasks.update(
+      { id: taskIdNum },
+      {
+        status: 'IN_PROGRESS',
+        ...(t.assignedToUserId ? {} : { assignedToUserId: user.userId }),
+      },
+    );
     return { status: 'IN_PROGRESS' };
   }
 
@@ -479,12 +484,10 @@ export class CompliancePortalTasksService {
       throw new ForbiddenException('Not your branch');
     }
 
-    if (!t.assignedToUserId) {
-      await this.tasks.update(
-        { id: taskIdNum },
-        { assignedToUserId: user.userId },
-      );
-    } else if (String(t.assignedToUserId) !== String(user.userId)) {
+    if (
+      t.assignedToUserId &&
+      String(t.assignedToUserId) !== String(user.userId)
+    ) {
       throw new ForbiddenException('Task assigned to another contractor');
     }
 
@@ -501,7 +504,14 @@ export class CompliancePortalTasksService {
     if (!allowed.includes(t.status))
       throw new BadRequestException('Cannot submit from current status');
 
-    await this.tasks.update({ id: taskIdNum }, { status: 'SUBMITTED' });
+    // Claim an unassigned task only when the submission goes through.
+    await this.tasks.update(
+      { id: taskIdNum },
+      {
+        status: 'SUBMITTED',
+        ...(t.assignedToUserId ? {} : { assignedToUserId: user.userId }),
+      },
+    );
 
     // Invalidate risk cache for this branch
     if (t.branchId)
