@@ -47,6 +47,10 @@ properties:
             value: '900'
           - name: AI_ENCRYPTION_KEY
             secretRef: ai-encryption-key
+          # Outbound email is off unless this is exactly 'true' (see
+          # EmailService). Without it, password reset emails are never sent.
+          - name: EMAIL_ENABLED
+            value: 'true'
           - name: SMTP_HOST
             value: smtp.zoho.in
           - name: SMTP_PORT
