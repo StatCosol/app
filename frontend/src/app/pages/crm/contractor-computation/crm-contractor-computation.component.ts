@@ -4,7 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { CrmService } from '../../../core/crm.service';
@@ -37,7 +37,6 @@ import {
         <ui-client-context-strip [inline]="true"></ui-client-context-strip>
       </ui-page-header>
 
-      <app-contractor-payroll-workflow [clientId]="clientId" [periodMonth]="periodMonth" />
       <div class="filters">
         @if (!lockedClientId) {
 <label>
@@ -64,6 +63,10 @@ import {
           </select>
         </label>
       </div>
+
+      @if (clientId) {
+        <app-contractor-payroll-workflow [clientId]="clientId" [periodMonth]="periodMonth" />
+      }
 
       @if (loading) {
 <ui-loading-spinner text="Loading computation rows..."></ui-loading-spinner>
@@ -152,6 +155,7 @@ import {
 })
 export class CrmContractorComputationComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private computationRequest?: Subscription;
   private readonly baseUrl = environment.apiBaseUrl || '';
 
   clients: any[] = [];
@@ -192,6 +196,7 @@ export class CrmContractorComputationComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.computationRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -205,15 +210,17 @@ export class CrmContractorComputationComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    this.computationRequest?.unsubscribe();
+    this.rows = [];
+    this.loading = false;
     if (!this.clientId) {
-      this.rows = [];
       return;
     }
     const params: Record<string, string> = { clientId: this.clientId };
     if (this.periodMonth) params['periodMonth'] = this.periodMonth;
     if (this.matchStatus) params['matchStatus'] = this.matchStatus;
     this.loading = true;
-    this.http
+    this.computationRequest = this.http
       .get<any>(`${this.baseUrl}/api/v1/crm/contractor-computation/mcd-computations`, { params })
       .pipe(finalize(() => (this.loading = false)), takeUntil(this.destroy$))
       .subscribe({
