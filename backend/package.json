@@ -128,6 +128,38 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": {
+        "statements": 48,
+        "branches": 37.5,
+        "functions": 35,
+        "lines": 48.5
+      },
+      "./src/users/": {
+        "statements": 46,
+        "branches": 42,
+        "functions": 30,
+        "lines": 48
+      },
+      "./src/admin/": {
+        "statements": 33,
+        "branches": 29,
+        "functions": 20,
+        "lines": 34
+      },
+      "./src/compliances/": {
+        "statements": 29,
+        "branches": 20,
+        "functions": 27,
+        "lines": 28
+      },
+      "./src/compliance/": {
+        "statements": 27,
+        "branches": 14,
+        "functions": 26,
+        "lines": 28
+      }
+    },
     "testEnvironment": "node",
     "transformIgnorePatterns": [
       "node_modules/(?!.*(?:htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities)/)"

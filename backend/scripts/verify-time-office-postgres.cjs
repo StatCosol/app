@@ -86,7 +86,8 @@ async function run() {
     await assert.rejects(()=>followups.send(user,{employeeId:unlinked,date:'2026-01-05',target:'BRANCH'}),/No active branch/);
     await require('./verify-time-office-auto-postgres.cjs')({db,company,branch,sender,managerUser,followups});
     await require('./verify-time-office-contractors.cjs')({db,service,user,company,branch,otherCompany,otherBranch});
-    console.log('PASS: PostgreSQL attendance, leaves, comp-off, tenant isolation, recipient routing, concurrent deduplication, correction recheck, holiday exclusions and missing-recipient handling.');
+    await require('./verify-time-office-http.cjs')({db,service,user,company,branch,otherCompany,otherBranch,sender,managerUser});
+    console.log('PASS: PostgreSQL attendance, leaves, comp-off, tenant isolation, recipient routing, concurrent deduplication, correction recheck, holiday exclusions, missing-recipient handling and the HTTP guard chain.');
   } finally {
     await db.query(`DROP SCHEMA "${schema}" CASCADE`);
     await db.destroy();
