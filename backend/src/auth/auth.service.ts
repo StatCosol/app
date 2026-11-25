@@ -29,11 +29,16 @@ import {
   SERVICE_MODULE_CODES,
 } from '../service-entitlements/service-entitlements.constants';
 
-// In-memory per-account login throttle (single-replica deployment).
-// Complements the IP-based ThrottlerGuard with a per-email lockout that
-// blunts low-and-slow credential-stuffing across rotating IPs.
-// Threshold: 5 failures within 15 min → locked for 15 min.
+// Per-account login lockout. Complements the IP-based ThrottlerGuard with a
+// per-email lockout that blunts low-and-slow credential-stuffing across
+// rotating IPs. Threshold: 5 failures within 15 min → locked for 15 min.
 // Resets on successful login.
+//
+// The state lives in Postgres (login_lockouts) so every backend replica sees
+// the same count and a deploy does not wipe it. With the old in-memory map
+// and up to 3 replicas, an attacker got up to 15 tries per window and a
+// fresh 5 after every restart. The in-memory functions below remain only as
+// a fallback if the table cannot be reached.
 const LOGIN_LOCK_MAX_FAILS = 5;
 const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
@@ -48,18 +53,22 @@ function getLockKey(email: string) {
   return (email || '').trim().toLowerCase();
 }
 
-function assertNotLocked(email: string) {
+function lockedError(lockedUntil: number) {
+  const mins = Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000));
+  return new UnauthorizedException(
+    `Account temporarily locked due to too many failed attempts. Try again in ~${mins} min.`,
+  );
+}
+
+function memoryAssertNotLocked(email: string) {
   const key = getLockKey(email);
   const state = loginAttempts.get(key);
   if (state && state.lockedUntil > Date.now()) {
-    const mins = Math.ceil((state.lockedUntil - Date.now()) / 60000);
-    throw new UnauthorizedException(
-      `Account temporarily locked due to too many failed attempts. Try again in ~${mins} min.`,
-    );
+    throw lockedError(state.lockedUntil);
   }
 }
 
-function recordLoginFailure(email: string) {
+function memoryRecordFailure(email: string) {
   const key = getLockKey(email);
   if (!key) return;
   const now = Date.now();
@@ -74,7 +83,7 @@ function recordLoginFailure(email: string) {
   }
 }
 
-function resetLoginAttempts(email: string) {
+function memoryReset(email: string) {
   loginAttempts.delete(getLockKey(email));
 }
 
@@ -100,6 +109,15 @@ export class AuthService implements OnModuleInit {
         CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family        ON refresh_tokens(family);
       `);
       this.logger.log('refresh_tokens table verified');
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS login_lockouts (
+          lock_key      VARCHAR(320) PRIMARY KEY,
+          fail_count    INTEGER      NOT NULL,
+          first_fail_at TIMESTAMPTZ  NOT NULL,
+          locked_until  TIMESTAMPTZ
+        );
+      `);
+      this.logger.log('login_lockouts table verified');
     } catch (err) {
       this.logger.error('Failed to ensure refresh_tokens table', err);
     }
@@ -121,9 +139,78 @@ export class AuthService implements OnModuleInit {
     private readonly config: ConfigService,
   ) {}
 
+  private async assertNotLocked(email: string): Promise<void> {
+    const key = getLockKey(email);
+    if (!key) return;
+    let rows: { locked_until: Date | string }[];
+    try {
+      rows = await this.dataSource.query(
+        `SELECT locked_until FROM login_lockouts
+          WHERE lock_key = $1 AND locked_until > now()`,
+        [key],
+      );
+    } catch (err) {
+      this.logger.warn(
+        `login lockout lookup fell back to memory: ${(err as Error)?.message ?? String(err)}`,
+      );
+      return memoryAssertNotLocked(key);
+    }
+    if (rows?.length) {
+      throw lockedError(new Date(rows[0].locked_until).getTime());
+    }
+  }
+
+  private async recordLoginFailure(email: string): Promise<void> {
+    const key = getLockKey(email);
+    if (!key) return;
+    const windowSec = LOGIN_LOCK_WINDOW_MS / 1000;
+    const lockSec = LOGIN_LOCK_DURATION_MS / 1000;
+    try {
+      // One atomic statement, so concurrent failures on different replicas
+      // are all counted.
+      await this.dataSource.query(
+        `INSERT INTO login_lockouts AS l (lock_key, fail_count, first_fail_at, locked_until)
+         VALUES ($1, 1, now(), NULL)
+         ON CONFLICT (lock_key) DO UPDATE SET
+           fail_count = CASE WHEN l.first_fail_at < now() - make_interval(secs => $2)
+                             THEN 1 ELSE l.fail_count + 1 END,
+           first_fail_at = CASE WHEN l.first_fail_at < now() - make_interval(secs => $2)
+                                THEN now() ELSE l.first_fail_at END,
+           locked_until = CASE
+             WHEN l.first_fail_at < now() - make_interval(secs => $2) THEN NULL
+             WHEN l.fail_count + 1 >= $3 THEN now() + make_interval(secs => $4)
+             ELSE l.locked_until END`,
+        [key, windowSec, LOGIN_LOCK_MAX_FAILS, lockSec],
+      );
+    } catch (err) {
+      this.logger.warn(
+        `login lockout write fell back to memory: ${(err as Error)?.message ?? String(err)}`,
+      );
+      memoryRecordFailure(key);
+    }
+  }
+
+  private async resetLoginAttempts(email: string): Promise<void> {
+    const key = getLockKey(email);
+    memoryReset(key);
+    try {
+      await this.dataSource.query(
+        `DELETE FROM login_lockouts
+          WHERE lock_key = $1
+             OR (first_fail_at < now() - interval '1 day'
+                 AND (locked_until IS NULL OR locked_until < now()))`,
+        [key],
+      );
+    } catch (err) {
+      this.logger.warn(
+        `login lockout reset failed: ${(err as Error)?.message ?? String(err)}`,
+      );
+    }
+  }
+
   async login(dto: LoginDto, ip?: string, userAgent?: string) {
     const email = (dto.email || '').trim().toLowerCase();
-    assertNotLocked(email);
+    await this.assertNotLocked(email);
 
     const user = await this.usersRepo
       .createQueryBuilder('u')
@@ -150,7 +237,7 @@ export class AuthService implements OnModuleInit {
       .getOne();
 
     if (!user) {
-      recordLoginFailure(email);
+      await this.recordLoginFailure(email);
       this.logLoginEvent(
         email,
         null,
@@ -166,7 +253,7 @@ export class AuthService implements OnModuleInit {
 
     // Block login for inactive or soft-deleted users
     if (!user.isActive || user.deletedAt) {
-      recordLoginFailure(email);
+      await this.recordLoginFailure(email);
       this.logLoginEvent(
         email,
         user.id,
@@ -183,7 +270,7 @@ export class AuthService implements OnModuleInit {
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isMatch) {
-      recordLoginFailure(email);
+      await this.recordLoginFailure(email);
       this.logLoginEvent(
         email,
         user.id,
@@ -197,7 +284,7 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    resetLoginAttempts(email);
+    await this.resetLoginAttempts(email);
 
     const role = await this.usersService.getRoleById(user.roleId);
 
@@ -278,7 +365,7 @@ export class AuthService implements OnModuleInit {
   async essLogin(dto: EssLoginDto) {
     const email = (dto.email || '').trim().toLowerCase();
     const companyCode = (dto.companyCode || '').trim().toUpperCase();
-    assertNotLocked(email);
+    await this.assertNotLocked(email);
 
     const user = await this.usersRepo
       .createQueryBuilder('u')
@@ -308,14 +395,14 @@ export class AuthService implements OnModuleInit {
 
     // Must be active + not deleted
     if (!user.isActive || user.deletedAt) {
-      recordLoginFailure(email);
+      await this.recordLoginFailure(email);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Verify password
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isMatch) {
-      recordLoginFailure(email);
+      await this.recordLoginFailure(email);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -349,13 +436,13 @@ export class AuthService implements OnModuleInit {
     const allowedCodes = new Set([clientCode, firstWord, initials]);
 
     if (!user.client || !allowedCodes.has(provided)) {
-      recordLoginFailure(email);
+      await this.recordLoginFailure(email);
       throw new UnauthorizedException(
         'Company code does not match your account',
       );
     }
 
-    resetLoginAttempts(email);
+    await this.resetLoginAttempts(email);
 
     const tokens = await this.issueTokens(user.id, role.code, user);
     const servicePackage = user.clientId

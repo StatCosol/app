@@ -203,8 +203,15 @@ export class StatutoryCalculatorService {
       //   If wage exceeds the threshold:
       //     - At the start of a period (April or October) the employee is removed
       //       from ESI for that entire period.
-      //     - Mid-period, ESI continues to be deducted on the threshold (capped)
-      //       until the period ends.
+      //     - Mid-period, an employee who was covered at the start of the
+      //       period stays covered and ESI is charged on ACTUAL wages (not
+      //       capped at the threshold) until the period ends.
+      //
+      // COMPLIANCE CONFIRMATION PENDING (2026-11): this used to cap the
+      // mid-period wage at the threshold (₹25,000 → ESI on ₹21,000). The ESI
+      // Act charges contributions on wages actually paid while the employee is
+      // covered, so the cap under-deducted. Confirm with the compliance team
+      // before relying on it; reverting is the single `else` branch below.
       const periodMonth = params.periodMonth;
       const isPeriodStart = periodMonth === 4 || periodMonth === 10;
       let effectiveEsiWage = esiWage;
@@ -212,9 +219,8 @@ export class StatutoryCalculatorService {
         if (isPeriodStart) {
           effectiveEsiWage = 0;
           esiDroppedAtPeriodStart = true;
-        } else {
-          effectiveEsiWage = threshold;
         }
+        // Mid-period: no cap, effectiveEsiWage stays at actual wages.
       }
 
       if (effectiveEsiWage > 0) {

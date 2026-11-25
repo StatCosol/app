@@ -749,13 +749,10 @@ async function bootstrap() {
         ALTER TABLE clients
           ADD COLUMN IF NOT EXISTS crm_on_behalf_enabled BOOLEAN NOT NULL DEFAULT true
       `);
-      // Enable for all existing clients (column may have been added with DEFAULT false)
-      await ds.query(`
-        UPDATE clients SET crm_on_behalf_enabled = true WHERE crm_on_behalf_enabled = false
-      `);
-      logger.log(
-        'Schema patch: clients.crm_on_behalf_enabled OK (all clients enabled)',
-      );
+      // No backfill UPDATE here. One ran on every boot and switched the
+      // setting back on for any client an Admin had turned it off for; the
+      // ADD COLUMN default above already enables it for existing rows.
+      logger.log('Schema patch: clients.crm_on_behalf_enabled OK');
     } catch (e: any) {
       logger.warn(
         `Schema patch clients.crm_on_behalf_enabled skipped: ${e?.message}`,

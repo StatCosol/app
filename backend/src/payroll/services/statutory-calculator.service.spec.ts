@@ -107,7 +107,8 @@ describe('StatutoryCalculatorService', () => {
       expect(values.ESI_ER).toBe(488); // ceil(3.25% of 15,000 = 487.5)
     });
 
-    it('caps ESI at the threshold mid-period when the wage exceeds it', () => {
+    // COMPLIANCE CONFIRMATION PENDING: actual wages, not the ₹21,000 cap.
+    it('charges ESI on actual wages mid-period when the wage exceeds the threshold', () => {
       const res = svc.compute({
         values: { BASIC: 25000 },
         setup: setup({ pfEnabled: false }),
@@ -115,8 +116,8 @@ describe('StatutoryCalculatorService', () => {
         periodMonth: 6, // mid-period
       });
       expect(res.values.ESI_WAGES).toBe(25000);
-      expect(res.values.ESI_EMP).toBe(158); // ceil(0.75% of 21,000 = 157.5)
-      expect(res.values.ESI_ER).toBe(683); // ceil(3.25% of 21,000 = 682.5)
+      expect(res.values.ESI_EMP).toBe(188); // ceil(0.75% of 25,000 = 187.5)
+      expect(res.values.ESI_ER).toBe(813); // ceil(3.25% of 25,000 = 812.5)
       expect(res.esiDroppedAtPeriodStart).toBeUndefined();
     });
 

@@ -263,6 +263,18 @@ export class PayrollApprovalService {
       );
     }
 
+    // Undoing an approval is a checker decision. A PAYROLL user (the maker)
+    // could otherwise revert a CCO-approved run alone, change it and resubmit.
+    if (
+      run.status === 'APPROVED' &&
+      user &&
+      !['CCO', 'ADMIN'].includes(String(user.roleCode))
+    ) {
+      throw new ForbiddenException(
+        'Only a CCO or Admin can revert an approved payroll run.',
+      );
+    }
+
     // Update only decision fields and only while the observed state still holds.
     // Saving the previously read entity could overwrite a competing submission
     // or unrelated run edits made while access checks were in flight.
