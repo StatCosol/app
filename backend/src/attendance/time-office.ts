@@ -18,6 +18,7 @@ import { ReqUser } from '../access/access-scope.service';
 
 export { timeOfficeFilters } from './time-office-filters';
 import { timeOfficeFilters } from './time-office-filters';
+import { contractorTimeOfficeAttendance } from './time-office-contractor.sql';
 
 @Injectable()
 export class TimeOfficeService {
@@ -35,13 +36,23 @@ export class TimeOfficeService {
       throw new ForbiddenException('Branch is not in your company');
     // Every joined source is tenant-scoped. The roster includes people without an attendance row.
     const roster = `SELECT e.id, e.employee_code, e.name, e.branch_id, COALESCE(b.branchname,'Unassigned branch') AS branch,
-      b.statecode FROM employees e LEFT JOIN client_branches b ON b.id=e.branch_id AND b.clientid=e.client_id
+      b.statecode, 'EMPLOYEE'::text AS worker_type, NULL::text AS contractor_name FROM employees e LEFT JOIN client_branches b ON b.id=e.branch_id AND b.clientid=e.client_id
       WHERE e.client_id=$1 AND (e.is_active=true OR e.date_of_exit >= ${f.view === 'leaves' ? "date_trunc('month',$2::date)::date" : '$2::date'})
       AND e.approval_status='APPROVED' AND (e.date_of_joining IS NULL OR e.date_of_joining <= ${f.view === 'leaves' ? "(date_trunc('month',$2::date)+interval '1 month - 1 day')::date" : '$2::date'})
       AND (e.date_of_exit IS NULL OR e.date_of_exit >= ${f.view === 'leaves' ? "date_trunc('month',$2::date)::date" : '$2::date'})
       AND ($3::uuid IS NULL OR e.branch_id=$3::uuid)
       AND ($4='' OR strpos(lower(e.name || ' ' || e.employee_code),lower($4))>0)`;
-    const attendance = `SELECT r.*, a.check_in, a.check_out, a.worked_hours, a.approval_status,
+    const contractorRoster = `SELECT e.id, e.employee_code, e.name, e.branch_id,
+      COALESCE(b.branchname,'Unassigned branch') AS branch, b.statecode, e.contractor_user_id,
+      COALESCE(u.name,'Contractor') AS contractor_name
+      FROM contractor_employees e JOIN client_branches b ON b.id=e.branch_id AND b.clientid=e.client_id AND b.isdeleted=false
+      LEFT JOIN users u ON u.id=e.contractor_user_id
+      WHERE e.client_id=$1 AND (e.is_active=true OR e.date_of_exit >= $2::date)
+      AND (e.date_of_joining IS NULL OR e.date_of_joining <= $2::date)
+      AND (e.date_of_exit IS NULL OR e.date_of_exit >= $2::date)
+      AND ($3::uuid IS NULL OR e.branch_id=$3::uuid)
+      AND ($4='' OR strpos(lower(e.name || ' ' || COALESCE(e.employee_code,'')),lower($4))>0)`;
+    const attendance = `SELECT r.*, a.check_in::text, a.check_out::text, a.worked_hours, a.approval_status::text,
       CASE WHEN a.id IS NOT NULL THEN a.status
         WHEN EXISTS (SELECT 1 FROM leave_applications l WHERE l.client_id=$1 AND l.employee_id=r.id
           AND l.status='APPROVED' AND $2::date BETWEEN l.from_date AND l.to_date) THEN 'ON_LEAVE'
@@ -52,7 +63,9 @@ export class TimeOfficeService {
         AND a.worked_hours IS NOT NULL AND a.worked_hours < $5::numeric THEN true ELSE false END AS short_hours,
       CASE WHEN a.status IN ('PRESENT','HALF_DAY') AND (a.check_in IS NULL OR a.check_out IS NULL)
         THEN true ELSE false END AS incomplete
-      FROM roster r LEFT JOIN attendance_records a ON a.employee_id=r.id AND a.client_id=$1 AND a.date=$2::date`;
+      FROM roster r LEFT JOIN attendance_records a ON a.employee_id=r.id AND a.client_id=$1 AND a.date=$2::date
+      WHERE $8::text <> 'CONTRACTOR' AND $9::uuid IS NULL
+      UNION ALL ${contractorTimeOfficeAttendance}`;
     const leaves = `SELECT r.*, l.id AS leave_id, l.leave_type, l.from_date::text, l.to_date::text, l.total_days, l.status
       FROM roster r JOIN leave_applications l ON l.employee_id=r.id AND l.client_id=$1
       WHERE l.from_date <= (date_trunc('month',$2::date)+interval '1 month - 1 day')::date
@@ -76,7 +89,8 @@ export class TimeOfficeService {
         : `($6::text IS NOT NULL)`;
     const summary =
       f.view === 'attendance'
-        ? `json_build_object('employees',count(*),'notMarked',count(*) FILTER (WHERE status='NOT_MARKED'),
+        ? `json_build_object('workers',count(*),'employees',count(*) FILTER (WHERE worker_type='EMPLOYEE'),
+          'contractorWorkers',count(*) FILTER (WHERE worker_type='CONTRACTOR'),'notMarked',count(*) FILTER (WHERE status='NOT_MARKED'),
           'shortHours',count(*) FILTER (WHERE short_hours),'incomplete',count(*) FILTER (WHERE incomplete),
           'onLeave',count(*) FILTER (WHERE status='ON_LEAVE'),'absent',count(*) FILTER (WHERE status='ABSENT'))`
         : f.view === 'leaves'
@@ -85,11 +99,12 @@ export class TimeOfficeService {
           : `json_build_object('employees',count(*),'availableDays',COALESCE(sum(available),0),'usedDays',COALESCE(sum(used),0))`;
     // Cast $5 even in non-attendance views so PostgreSQL can infer every parameter type.
     const [result] = await this.db.query(
-      `WITH roster AS (${roster}), data AS (${body}),
+      `WITH roster AS (${roster})${f.view === 'attendance' ? `, contractor_roster AS (${contractorRoster})` : ''}, data AS (${body}),
       filtered AS (SELECT * FROM data WHERE ${condition} AND $5::numeric > 0),
-      page AS (SELECT * FROM filtered ORDER BY branch,name,employee_code${f.view === 'leaves' ? ',from_date,leave_id' : ''} LIMIT 50 OFFSET $7)
+      page AS (SELECT * FROM filtered ORDER BY branch,name,employee_code,worker_type,id${f.view === 'leaves' ? ',from_date,leave_id' : ''} LIMIT 50 OFFSET $7)
       SELECT (SELECT COALESCE(json_agg(page),'[]'::json) FROM page) AS rows,
-        (SELECT count(*)::int FROM filtered) AS total, (SELECT ${summary} FROM data) AS summary`,
+        (SELECT count(*)::int FROM filtered) AS total, (SELECT ${summary} FROM data) AS summary
+        ${f.view === 'attendance' ? ", (SELECT COALESCE(json_agg(c ORDER BY c.name),'[]'::json) FROM (SELECT DISTINCT contractor_user_id AS id, contractor_name AS name FROM contractor_roster) c) AS contractors" : ''}`,
       [
         user.clientId,
         f.date,
@@ -98,9 +113,18 @@ export class TimeOfficeService {
         f.hours,
         f.issue,
         (f.page - 1) * 50,
+        ...(f.view === 'attendance' ? [f.workforce, f.contractor] : []),
       ],
     );
-    return { ...result, branches, page: f.page, pageSize: 50, date: f.date };
+    return {
+      ...result,
+      branches,
+      page: f.page,
+      pageSize: 50,
+      date: f.date,
+      workforce: f.view === 'attendance' ? f.workforce : 'EMPLOYEE',
+      contractor: f.contractor,
+    };
   }
 }
 

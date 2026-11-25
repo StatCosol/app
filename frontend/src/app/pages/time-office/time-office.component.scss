@@ -1,12 +1,13 @@
 :host {
   display: block;
   min-height: 100vh;
-  background: #f4f7fb;
+  background: #f5f7f4;
   color: #182b45;
   font-family: inherit;
 }
 main {
   max-width: 1500px;
+  width: 100%;
   margin: auto;
   padding: 32px;
 }
@@ -73,7 +74,7 @@ nav button {
 }
 nav button.active,
 .primary {
-  background: #163d59;
+  background: #183f34;
   color: white;
 }
 .filters {
@@ -220,4 +221,34 @@ footer div {
     align-items: start;
     flex-direction: column;
   }
+}
+
+.time-office-shell { display: flex; min-height: 100vh; }
+.workspace-main { flex: 1; min-width: 0; }
+.workspace-header { position: sticky; top: 0; z-index: 30; padding: 12px 24px; background: white; border-bottom: 1px solid #dce5df; }
+.account { margin-left: auto; min-width: 0; text-align: right; overflow-wrap: anywhere; }
+.sidebar-panel { flex: 0 0 240px; width: 240px; position: sticky; top: 0; height: 100dvh; padding: 24px 12px; display: flex; flex-direction: column; }
+.sidebar-brand { padding: 0 12px; }
+.sidebar-brand strong { font-size: 20px; color: #183c32; }
+.sidebar-brand p { font-size: 12px; }
+.sidebar-panel nav { flex-direction: column; gap: 6px; }
+.sidebar-panel nav button { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; min-height: 48px; border-radius: 9px; white-space: normal; }
+.sidebar-panel nav button.active { background: #183f34 !important; color: white !important; }
+.sidebar-panel nav button:not(.active):hover { background: #e5eddf; }
+.sidebar-footer { margin-top: auto; padding: 12px; font-size: 11px; text-align: center; }
+.standard-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; }
+.filters > label { flex: 1 1 170px; min-width: 0; }
+.filters input, .filters select { width: 100%; max-width: none; }
+.mobile-nav-button { display: none; }
+.navigation-overlay { position: fixed; inset: 0; z-index: 45; border: 0; border-radius: 0; background: #0006; }
+@media (max-width: 1023px) {
+  .sidebar-panel { position: fixed; left: 0; top: 0; z-index: 50; transform: translateX(-100%); transition: transform .2s; }
+  .sidebar-panel.mobile-open { transform: translateX(0); }
+  .mobile-nav-button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+  .sidebar-panel .mobile-nav-button { margin-top: 12px; }
+  .workspace-header { padding: 10px 12px; flex-wrap: wrap; gap: 12px; }
+  .account { flex-basis: 100%; order: 1; text-align: left; }
+}
+@media (max-width: 640px) {
+  .filters > label, .filters > button { flex-basis: 100%; width: 100%; }
 }

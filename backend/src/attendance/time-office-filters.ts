@@ -32,6 +32,20 @@ export function timeOfficeFilters(q: Record<string, string>) {
   if (!['attendance', 'leaves', 'coff'].includes(view))
     throw new BadRequestException('Invalid view');
   const issue = q.issue || '';
+  const workforce = q.workforce || 'ALL';
+  if (!['ALL', 'EMPLOYEE', 'CONTRACTOR'].includes(workforce))
+    throw new BadRequestException('Invalid workforce filter');
+  if (
+    q.contractor &&
+    !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(
+      q.contractor,
+    )
+  )
+    throw new BadRequestException('Invalid contractor');
+  if (q.contractor && (view !== 'attendance' || workforce === 'EMPLOYEE'))
+    throw new BadRequestException(
+      'Contractor selection requires contractor attendance',
+    );
   if (
     ![
       '',
@@ -49,6 +63,8 @@ export function timeOfficeFilters(q: Record<string, string>) {
     page,
     view,
     issue,
+    workforce,
+    contractor: q.contractor || null,
     branch: q.branch || null,
     search: (q.search || '').trim().slice(0, 100),
   };

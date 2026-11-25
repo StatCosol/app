@@ -22,6 +22,10 @@ async function run() {
       CREATE TABLE client_branches(id uuid PRIMARY KEY,clientid uuid,branchname text,statecode text,isdeleted boolean DEFAULT false);
       CREATE TABLE employees(id uuid PRIMARY KEY,client_id uuid,branch_id uuid,employee_code text,name text,
         is_active boolean DEFAULT true,approval_status text DEFAULT 'APPROVED',date_of_joining date,date_of_exit date);
+      CREATE TABLE contractor_employees(id uuid PRIMARY KEY,client_id uuid,branch_id uuid,contractor_user_id uuid,
+        employee_code text,name text,is_active boolean DEFAULT true,date_of_joining date,date_of_exit date);
+      CREATE TABLE contractor_biometric_punches(id uuid DEFAULT gen_random_uuid(),client_id uuid,branch_id uuid,
+        contractor_employee_id uuid,punch_time timestamptz,direction text,decision text);
       CREATE TABLE attendance_records(id uuid DEFAULT gen_random_uuid(),employee_id uuid,client_id uuid,date date,status text,
         check_in time,check_out time,worked_hours numeric,approval_status text);
       CREATE TABLE leave_applications(id uuid DEFAULT gen_random_uuid(),employee_id uuid,client_id uuid,from_date date,to_date date,
@@ -81,6 +85,7 @@ async function run() {
     await db.query(`DELETE FROM user_branches WHERE user_id=$1`,[managerUser]);
     await assert.rejects(()=>followups.send(user,{employeeId:unlinked,date:'2026-01-05',target:'BRANCH'}),/No active branch/);
     await require('./verify-time-office-auto-postgres.cjs')({db,company,branch,sender,managerUser,followups});
+    await require('./verify-time-office-contractors.cjs')({db,service,user,company,branch,otherCompany,otherBranch});
     console.log('PASS: PostgreSQL attendance, leaves, comp-off, tenant isolation, recipient routing, concurrent deduplication, correction recheck, holiday exclusions and missing-recipient handling.');
   } finally {
     await db.query(`DROP SCHEMA "${schema}" CASCADE`);
