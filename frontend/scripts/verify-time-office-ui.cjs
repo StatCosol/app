@@ -57,9 +57,15 @@ async function run(){
     await page.evaluate(()=>{const user=JSON.parse(sessionStorage.getItem('user'));user.roleCode='TIME_OFFICE_MANAGER';sessionStorage.setItem('user',JSON.stringify(user));});
     await click('Attendance');await click('Automatic follow-ups');await page.waitForSelector('input[name=enabled]');
     await page.click('input[name=enabled]');await click('Save settings');await page.waitForFunction(()=>document.body.innerText.includes('settings saved'));assert.equal(savedSettings[0].enabled,false);
-    await click('Attendance');await page.waitForSelector('table');
+    await click('Attendance');await page.waitForSelector('table');await page.waitForNetworkIdle();
     for(const width of [1440,768,390]){
-      await page.setViewport({width,height:950});await page.screenshot({path:path.join(output,`time-office-${width}.png`),fullPage:true});
+      await page.setViewport({width,height:950});
+      // Capture settled responsive layout, not an intermediate drawer animation.
+      await page.waitForFunction(()=>{
+        const panel=document.querySelector('.sidebar-panel');
+        return window.innerWidth>=1024 || (panel.inert && panel.getBoundingClientRect().right<=1);
+      });
+      await page.screenshot({path:path.join(output,`time-office-${width}.png`),fullPage:true});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'Page should fit viewport '+width);
     }
     assert.deepEqual(errors,[]);
