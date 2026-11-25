@@ -123,10 +123,14 @@ export class EsiGenerator {
       const esiWages = this.num(
         valMap.get('ESI_WAGES') ?? valMap.get('GROSS') ?? 0,
       );
-      if (esiWages > esiCeiling) continue;
-
       const esiEmp = this.num(valMap.get('ESI_EMP') ?? 0);
       const esiEr = this.num(valMap.get('ESI_ER') ?? 0);
+      // ESI_WAGES includes overtime, so a covered employee can be above the
+      // ceiling in a month with OT. If the run charged them ESI they must be
+      // in the return; leaving them out because of OT would drop them from
+      // ESI. Only an employee the run charged nothing is skipped by wage.
+      if (esiEmp + esiEr <= 0 && esiWages > esiCeiling) continue;
+
       const totalContrib = esiEmp + esiEr;
 
       const ncpDays = this.num(valMap.get('NCP_DAYS') ?? 0);

@@ -20,6 +20,7 @@ describe('Regular payroll from approved attendance', () => {
     basic?: number;
     esi?: boolean;
     holidayDoubleDays?: Record<string, number>;
+    otHours?: number;
   }) {
     const run = {
       id: 'run',
@@ -99,7 +100,12 @@ describe('Regular payroll from approved attendance', () => {
         // Salary supplied as an uploaded breakup so no structure is needed.
         find: jest
           .fn()
-          .mockResolvedValue([{ componentCode: 'BASIC', amount: basic }]),
+          .mockResolvedValue([
+            { componentCode: 'BASIC', amount: basic },
+            ...(opts.otHours
+              ? [{ componentCode: 'OT_HOURS', amount: opts.otHours }]
+              : []),
+          ]),
       },
       empRepo: {
         findOne: jest.fn().mockResolvedValue(master),
@@ -187,6 +193,25 @@ describe('Regular payroll from approved attendance', () => {
       { id: 'emp' },
       { esiApplicable: false },
     );
+    expect(svc.empRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('never removes anyone from ESI because of overtime', async () => {
+    // ₹20,000 basic + 20 OT hours (₹20,000 / 26 / 8 × 2 × 20 ≈ ₹3,846) in
+    // April, the start of a contribution period: wages with OT are above
+    // ₹21,000, regular wages are not.
+    const { svc, manager, values } = fixture({
+      present: 26,
+      basic: 20000,
+      esi: true,
+      month: 4,
+      otHours: 20,
+    });
+    await svc.processWithEngine('run');
+    expect(values().OT_AMOUNT).toBeGreaterThan(1000);
+    expect(values().ESI_WAGES).toBeGreaterThan(21000);
+    expect(values().ESI_EMP).toBeGreaterThan(0); // still charged, on OT too
+    expect(manager.update).not.toHaveBeenCalled();
     expect(svc.empRepo.update).not.toHaveBeenCalled();
   });
 });
