@@ -18,7 +18,7 @@ async function run(){
     await page.setViewport({width:1440,height:1000});
     await page.evaluateOnNewDocument(()=>{
       sessionStorage.setItem('accessToken','local-ui-test-token');
-      sessionStorage.setItem('user',JSON.stringify({id:'test-office',roleCode:'TIME_OFFICE_EXECUTIVE',name:'Test Time Office',clientName:'Test Company',clientId:'test-company',enabledModules:['EMPLOYEE_ATTENDANCE']}));
+      sessionStorage.setItem('user',JSON.stringify({id:'test-office',roleCode:'TIME_OFFICE_EXECUTIVE',name:'Test Time Office',clientName:'Test Company',clientLogoUrl:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><rect width="100" height="40" rx="6" fill="#183f34"/><text x="10" y="26" fill="white" font-size="16">TEST Logo</text></svg>'),clientId:'test-company',enabledModules:['EMPLOYEE_ATTENDANCE']}));
     });
     await page.setRequestInterception(true);
     page.on('request',async req=>{
@@ -41,6 +41,7 @@ async function run(){
     const base=`http://127.0.0.1:${server.address().port}/app`;
     await page.goto(base+'/time-office',{waitUntil:'networkidle0'});
     await page.waitForSelector('table tbody tr');
+    await page.waitForFunction(()=>document.querySelector('.client-logo')?.naturalWidth>0);
     assert((await page.$eval('body',e=>e.innerText)).includes('Missing Employee'));
     const click=async label=>{await page.evaluate(label=>{const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===label);if(!b)throw Error('Button missing: '+label);b.click();},label);};
     await click('Notify employee');await page.waitForFunction(()=>document.body.innerText.includes('In-app notification sent'));
