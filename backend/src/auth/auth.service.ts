@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   OnModuleInit,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -39,6 +40,9 @@ import {
 // and up to 3 replicas, an attacker got up to 15 tries per window and a
 // fresh 5 after every restart. The in-memory functions below remain only as
 // a fallback if the table cannot be reached.
+const PASSWORD_RESET_EMAIL_UNAVAILABLE =
+  'We could not send the password reset email right now. Please try again later or contact your administrator.';
+
 const LOGIN_LOCK_MAX_FAILS = 5;
 const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
@@ -666,6 +670,16 @@ export class AuthService implements OnModuleInit {
 
   async requestPasswordReset(dto: RequestPasswordResetDto) {
     const email = (dto.email || '').trim().toLowerCase();
+
+    // Checked before the user lookup so the answer is the same for every
+    // address and does not reveal which accounts exist.
+    if (!this.emailService.isEnabled()) {
+      this.logger.error(
+        'Password reset requested but EMAIL_ENABLED is not true; no email can be sent',
+      );
+      throw new ServiceUnavailableException(PASSWORD_RESET_EMAIL_UNAVAILABLE);
+    }
+
     const user = await this.usersRepo.findOne({ where: { email } });
 
     // Do not leak existence of the user; still return ok.
@@ -695,12 +709,21 @@ export class AuthService implements OnModuleInit {
       <p style="color:#888;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
     `;
 
-    await this.emailService.send(
+    const sent = await this.emailService.send(
       user.email,
       'Password Reset — StatCo Solutions',
       'Password Reset',
       bodyHtml,
     );
+
+    // EmailService.send never throws; it reports failure in its result. Tell
+    // the user instead of showing "email sent" when nothing went out.
+    if (!('ok' in sent) || !sent.ok) {
+      this.logger.error(
+        `Password reset email to user ${user.id} was not sent${'error' in sent && sent.error ? `: ${sent.error}` : ''}`,
+      );
+      throw new ServiceUnavailableException(PASSWORD_RESET_EMAIL_UNAVAILABLE);
+    }
 
     return { ok: true };
   }
@@ -726,6 +749,10 @@ export class AuthService implements OnModuleInit {
     );
     if (updated.affected === 0)
       throw new UnauthorizedException('Reset token has already been used');
+
+    // The user proved control of the mailbox, so lift any failed-login lockout;
+    // otherwise they could be blocked from signing in with the new password.
+    await this.resetLoginAttempts(user.email);
 
     // Notify admin users about the password change
     this.notifyAdminsOfPasswordReset(user).catch(() => {});

@@ -102,6 +102,11 @@ export class EmailService {
       this.transporters.values().next().value!;
   }
 
+  /** True when outbound email is switched on (EMAIL_ENABLED=true). */
+  isEnabled(): boolean {
+    return this.enabled;
+  }
+
   /**
    * Pick the transporter whose authenticated user matches the desired From
    * address. Falls back to the default transporter and rewrites `from` to the
