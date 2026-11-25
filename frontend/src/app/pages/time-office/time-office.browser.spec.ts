@@ -26,7 +26,7 @@ async function setup(profile = of({}), cachedUser: any = { name: 'Test Office', 
   const select = async (name: string, value: string) => { const el=root.querySelector(`[name="${name}"]`) as HTMLSelectElement; el.value=value; el.dispatchEvent(new Event('change')); await render(); };
   return {fixture,vm,http,root,render,select,auth};
 }
-describe.each([390,768,1440])('Time Office workforce at %ipx', width => {
+describe.each([390,768,1440,1872])('Time Office workforce at %ipx', width => {
   beforeEach(async () => page.viewport(width,950));
   it('shows contractor attendance, shared module presentation, correct active navigation and an accessible mobile drawer', async () => {
     const t=await setup();
@@ -37,6 +37,16 @@ describe.each([390,768,1440])('Time Office workforce at %ipx', width => {
     expect(clientLogo.getBoundingClientRect().height).toBe(40);
     expect(clientLogo.getBoundingClientRect().right).toBeLessThanOrEqual(width);
     expect(t.root.querySelectorAll('nav [aria-pressed="true"]')).toHaveLength(1);
+    for (const button of t.root.querySelectorAll('nav button:not(.active)')) {
+      expect(button.classList.contains('sidebar-item')).toBe(true);
+      expect(getComputedStyle(button).backgroundImage).toBe('none');
+      expect(getComputedStyle(button).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    }
+    const filters=t.root.querySelector('.filters')!;
+    expect(getComputedStyle(filters).gridTemplateColumns.split(' ')).toHaveLength(width<641?1:width<1280?2:4);
+    const show=filters.querySelector('[name="issue"]')!.getBoundingClientRect();
+    expect(show.width).toBeGreaterThan(210);
+    if(width>640) expect(Math.abs(filters.querySelector('button')!.getBoundingClientRect().bottom-show.bottom)).toBeLessThan(2);
     expect(t.root.querySelector('tbody')?.textContent).toContain('TEST ONLY Vendor');
     expect(t.root.querySelector('tbody')?.textContent).toContain('09:00:00');
     expect(t.root.querySelector('tbody')?.textContent).not.toContain('Notify employee');

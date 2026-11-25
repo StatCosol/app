@@ -78,9 +78,9 @@ nav button.active,
   color: white;
 }
 .filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
-  flex-wrap: wrap;
   align-items: end;
   background: white;
   border: 1px solid #e0e6ee;
@@ -234,15 +234,19 @@ footer div {
 .sidebar-brand strong { font-size: 20px; color: #183c32; }
 .sidebar-brand p { font-size: 12px; }
 .sidebar-panel nav { flex-direction: column; gap: 6px; }
-.sidebar-panel nav button { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; min-height: 48px; border-radius: 9px; white-space: normal; }
+.sidebar-panel nav button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; width: 100%; min-height: 48px; border-radius: 9px; white-space: normal; background: transparent; box-shadow: none; transform: none; }
 .sidebar-panel nav button.active { background: #183f34 !important; color: white !important; }
 .sidebar-panel nav button:not(.active):hover { background: #e5eddf; }
 .sidebar-footer { margin-top: auto; padding: 12px; font-size: 11px; text-align: center; }
 .standard-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; }
-.filters > label { flex: 1 1 170px; min-width: 0; }
+.filters > label { min-width: 0; }
+.filters > button { justify-self: start; }
 .filters input, .filters select { width: 100%; max-width: none; }
 .mobile-nav-button { display: none; }
 .navigation-overlay { position: fixed; inset: 0; z-index: 45; border: 0; border-radius: 0; background: #0006; }
+@media (max-width: 1279px) {
+  .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 1023px) {
   .sidebar-panel { position: fixed; left: 0; top: 0; z-index: 50; transform: translateX(-100%); transition: transform .2s; }
   .sidebar-panel.mobile-open { transform: translateX(0); }
@@ -252,5 +256,6 @@ footer div {
   .account { flex-basis: 100%; order: 1; text-align: left; }
 }
 @media (max-width: 640px) {
-  .filters > label, .filters > button { flex-basis: 100%; width: 100%; }
+  .filters { grid-template-columns: minmax(0, 1fr); }
+  .filters > label, .filters > button { width: 100%; }
 }

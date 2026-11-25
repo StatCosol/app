@@ -7,6 +7,7 @@
     @for (tab of tabs; track tab.id) {
       <button
         type="button"
+        class="sidebar-item"
         [class.active]="view === tab.id"
         [attr.aria-pressed]="view === tab.id"
         (click)="switchView(tab.id)"
@@ -53,7 +54,7 @@
         >Worker<input
           name="search"
           [(ngModel)]="search"
-          placeholder="Name or employee code"
+          placeholder="Name or code"
           maxlength="100"
       /></label>
       @if (view === 'attendance') {

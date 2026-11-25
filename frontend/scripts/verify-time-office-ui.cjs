@@ -32,7 +32,7 @@ async function run(){
         if(view==='leaves') Object.assign(row,{leave_type:'CL',from_date:'2026-01-05',to_date:'2026-01-05',total_days:1,status:'APPROVED'});
         if(view==='coff') Object.assign(row,{accrued:2,used:1,lapsed:0,available:1});
         const contractor={...row,id:'test-contractor-worker',name:'TEST ONLY Contractor worker',employee_code:'TEST-C001',worker_type:'CONTRACTOR',contractor_name:'TEST ONLY Vendor',status:'PRESENT',check_in:'09:00:00',check_out:'18:00:00',worked_hours:9,approval_status:'RECORDED'};
-        body={rows:view==='attendance'?[row,contractor]:[row],branches:[],contractors:[{id:'test-vendor',name:'TEST ONLY Vendor'}],summary:view==='attendance'?{workers:2,employees:1,contractorWorkers:1,notMarked:1}:{employees:1},total:view==='attendance'?2:1,pageSize:50,date:u.searchParams.get('date')};
+        body={rows:view==='attendance'?[row,contractor]:[row],branches:[],contractors:[{id:'test-vendor',name:'TEST ONLY Vendor'}],summary:view==='attendance'?{workers:2,employees:1,contractorWorkers:1,notMarked:1,shortHours:0,incomplete:0,onLeave:0,absent:0}:{employees:1},total:view==='attendance'?2:1,pageSize:50,date:u.searchParams.get('date')};
       }else if(u.pathname.endsWith('/notifications/inbox'))body={data:[{id:'test-thread',subject:'Missed attendance reminder',status:'OPEN',createdAt:'2026-01-05T12:00:00Z',assignedTo:{name:'Test employee'}}],total:1};
       else if(u.pathname.endsWith('/threads/test-thread'))body={thread:{id:'test-thread',subject:'Missed attendance reminder',status:'OPEN'},messages:[{id:1,message:'Please review your attendance.',from:{name:'Time Office'},createdAt:'2026-01-05T12:00:00Z'}]};
       else if(u.pathname.includes('/auth/me'))body={id:'test-office',roleCode:'TIME_OFFICE_EXECUTIVE',clientId:'test-company',enabledModules:['EMPLOYEE_ATTENDANCE']};
@@ -59,7 +59,7 @@ async function run(){
     await click('Attendance');await click('Automatic follow-ups');await page.waitForSelector('input[name=enabled]');
     await page.click('input[name=enabled]');await click('Save settings');await page.waitForFunction(()=>document.body.innerText.includes('settings saved'));assert.equal(savedSettings[0].enabled,false);
     await click('Attendance');await page.waitForSelector('table');await page.waitForNetworkIdle();
-    for(const width of [1440,768,390]){
+    for(const width of [1872,1440,768,390]){
       await page.setViewport({width,height:950});
       // Capture settled responsive layout, not an intermediate drawer animation.
       await page.waitForFunction(()=>{
@@ -67,6 +67,7 @@ async function run(){
         return window.innerWidth>=1024 || (panel.inert && panel.getBoundingClientRect().right<=1);
       });
       await page.screenshot({path:path.join(output,`time-office-${width}.png`),fullPage:true});
+      assert(await page.evaluate(()=>[...document.querySelectorAll('nav button:not(.active)')].every(b=>getComputedStyle(b).backgroundImage==='none'&&getComputedStyle(b).backgroundColor==='rgba(0, 0, 0, 0)')),'Inactive navigation must stay neutral');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'Page should fit viewport '+width);
     }
     assert.deepEqual(errors,[]);
