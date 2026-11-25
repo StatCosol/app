@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -78,6 +79,51 @@ export class AttendanceService {
     }
   }
 
+  /**
+   * Refuse attendance changes for a month whose payroll is already submitted
+   * or approved. Those runs were calculated from this attendance; changing it
+   * underneath them makes the payslip and the attendance register disagree.
+   * The run has to be rejected or reverted to draft first.
+   */
+  private async assertPayrollOpen(
+    clientId: string,
+    rows: { date: string; branchId: string | null }[],
+  ): Promise<void> {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      const [year, month] = String(row.date).slice(0, 7).split('-').map(Number);
+      if (!year || !month) continue;
+      const key = `${year}-${month}-${row.branchId ?? ''}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const locked: unknown[] = await this.ds.query(
+        `SELECT 1 FROM payroll_runs
+          WHERE client_id = $1 AND period_year = $2 AND period_month = $3
+            AND status IN ('SUBMITTED', 'APPROVED')
+            AND (branch_id IS NULL OR $4::uuid IS NULL OR branch_id = $4::uuid)
+          LIMIT 1`,
+        [clientId, year, month, row.branchId ?? null],
+      );
+      if (Array.isArray(locked) && locked.length) {
+        throw new ConflictException(
+          `Payroll for ${year}-${String(month).padStart(2, '0')} is already submitted or approved. Ask for the payroll run to be rejected or reverted to draft before changing its attendance.`,
+        );
+      }
+    }
+  }
+
+  private snapshot(record: AttendanceEntity) {
+    return {
+      status: record.status,
+      checkIn: record.checkIn,
+      checkOut: record.checkOut,
+      workedHours: record.workedHours,
+      overtimeHours: record.overtimeHours,
+      remarks: record.remarks,
+      approvalStatus: record.approvalStatus,
+    };
+  }
+
   private resetApproval(record: AttendanceEntity): void {
     record.approvalStatus = 'PENDING';
     record.approvedByUserId = null;
@@ -99,12 +145,16 @@ export class AttendanceService {
       remarks?: string;
     },
     allowedBranchIds: string[] | null = null,
+    actorUserId: string | null = null,
   ) {
     const emp = await this.empRepo.findOne({
       where: { id: body.employeeId, clientId },
     });
     if (!emp) throw new NotFoundException('Employee not found');
     this.assertBranchAllowed(emp.branchId, allowedBranchIds);
+    await this.assertPayrollOpen(clientId, [
+      { date: body.date, branchId: emp.branchId ?? null },
+    ]);
 
     const existing = await this.repo.findOne({
       where: { clientId, employeeId: body.employeeId, date: body.date },
@@ -112,6 +162,7 @@ export class AttendanceService {
 
     if (existing) {
       this.assertBranchAllowed(existing.branchId, allowedBranchIds);
+      const before = this.snapshot(existing);
       existing.status = body.status;
       if (body.checkIn !== undefined) existing.checkIn = body.checkIn;
       if (body.checkOut !== undefined) existing.checkOut = body.checkOut;
@@ -121,10 +172,25 @@ export class AttendanceService {
         existing.overtimeHours = String(body.overtimeHours);
       if (body.remarks !== undefined) existing.remarks = body.remarks;
       this.resetApproval(existing);
-      return this.repo.save(existing);
+      const saved = await this.repo.save(existing);
+      // Marking over an existing day is an edit and must leave the same trail
+      // as PUT /:id; without it this route was a way around the audit log.
+      await this.auditRepo.save(
+        this.auditRepo.create({
+          attendanceId: saved.id,
+          clientId: saved.clientId,
+          employeeId: saved.employeeId,
+          date: saved.date,
+          action: 'EDIT',
+          actorUserId,
+          beforeSnapshot: before,
+          afterSnapshot: this.snapshot(saved),
+        }),
+      );
+      return saved;
     }
 
-    return this.repo.save(
+    const created = await this.repo.save(
       this.repo.create({
         clientId,
         branchId: emp.branchId,
@@ -140,6 +206,19 @@ export class AttendanceService {
         source: 'MANUAL',
       }),
     );
+    await this.auditRepo.save(
+      this.auditRepo.create({
+        attendanceId: created.id,
+        clientId: created.clientId,
+        employeeId: created.employeeId,
+        date: created.date,
+        action: 'CREATE',
+        actorUserId,
+        beforeSnapshot: null,
+        afterSnapshot: this.snapshot(created),
+      }),
+    );
+    return created;
   }
 
   /** Bulk mark attendance for multiple employees on a date */
@@ -158,6 +237,7 @@ export class AttendanceService {
       }[];
     },
     allowedBranchIds: string[] | null = null,
+    actorUserId: string | null = null,
   ) {
     // Validate all entries before writing any — prevents partial saves when
     // a branch-scope or not-found error would otherwise leave earlier entries committed.
@@ -168,6 +248,9 @@ export class AttendanceService {
       if (!emp)
         throw new NotFoundException(`Employee ${entry.employeeId} not found`);
       this.assertBranchAllowed(emp.branchId, allowedBranchIds);
+      await this.assertPayrollOpen(clientId, [
+        { date: body.date, branchId: emp.branchId ?? null },
+      ]);
     }
 
     const results: { employeeId: string; status: string }[] = [];
@@ -176,6 +259,7 @@ export class AttendanceService {
         clientId,
         { ...entry, date: body.date },
         allowedBranchIds,
+        actorUserId,
       );
       results.push({ employeeId: entry.employeeId, status: 'saved' });
     }
@@ -799,6 +883,7 @@ export class AttendanceService {
     });
     if (!record) throw new NotFoundException('Attendance record not found');
     this.assertBranchAllowed(record.branchId, allowedBranchIds);
+    await this.assertPayrollOpen(clientId, [record]);
 
     const before = {
       status: record.status,
@@ -865,6 +950,7 @@ export class AttendanceService {
     records.forEach((record) =>
       this.assertBranchAllowed(record.branchId, allowedBranchIds),
     );
+    await this.assertPayrollOpen(clientId, records);
 
     const now = new Date();
     for (const rec of records) {
@@ -910,6 +996,7 @@ export class AttendanceService {
     records.forEach((record) =>
       this.assertBranchAllowed(record.branchId, allowedBranchIds),
     );
+    await this.assertPayrollOpen(clientId, records);
 
     const now = new Date();
     for (const rec of records) {
@@ -945,6 +1032,7 @@ export class AttendanceService {
     clientId: string,
     ids: string[],
     allowedBranchIds: string[] | null = null,
+    actorUserId: string | null = null,
   ) {
     const records = await this.repo.find({
       where: { clientId, id: In(ids) },
@@ -953,6 +1041,7 @@ export class AttendanceService {
     records.forEach((record) =>
       this.assertBranchAllowed(record.branchId, allowedBranchIds),
     );
+    await this.assertPayrollOpen(clientId, records);
 
     const recordIds = records.map((r) => r.id);
 
@@ -998,6 +1087,23 @@ export class AttendanceService {
         );
         retiredSourceLogs += Array.isArray(res) ? 0 : (res?.rowCount ?? 0);
       }
+
+      // The audit row is the only record left of a deleted day.
+      const auditRepo = manager.getRepository(AttendanceAuditLogEntity);
+      await auditRepo.save(
+        records.map((r) =>
+          auditRepo.create({
+            attendanceId: r.id,
+            clientId: r.clientId,
+            employeeId: r.employeeId,
+            date: r.date,
+            action: 'DELETE',
+            actorUserId,
+            beforeSnapshot: this.snapshot(r),
+            afterSnapshot: null,
+          }),
+        ),
+      );
 
       const punchDelete = await punchRepo.delete({
         clientId,

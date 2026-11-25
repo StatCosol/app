@@ -71,7 +71,7 @@ export class PayrollApprovalController {
 
   @ApiOperation({ summary: 'Revert' })
   @Post(':runId/revert')
-  @Roles('PAYROLL', 'ADMIN')
+  @Roles('PAYROLL', 'ADMIN', 'CCO')
   revert(
     @Param('runId', ParseUUIDPipe) runId: string,
     @CurrentUser() user: ReqUser,

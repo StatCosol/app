@@ -147,6 +147,16 @@ export class TdsCalculatorService {
       rebate87A = Math.min(taxBeforeCess, 12500);
     }
 
+    // Marginal relief on the new-regime rebate: just above ₹12,00,000 the tax
+    // may not exceed the income above ₹12,00,000. Without it ₹12,10,000 taxable
+    // owed ₹61,500 instead of ₹10,000.
+    if (regime === 'NEW' && taxableIncome > 1200000) {
+      const marginalCap = taxableIncome - 1200000;
+      if (taxBeforeCess > marginalCap) {
+        rebate87A = taxBeforeCess - marginalCap;
+      }
+    }
+
     const taxAfterRebate = Math.max(0, taxBeforeCess - rebate87A);
 
     // Health & Education Cess: 4%

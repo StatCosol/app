@@ -47,7 +47,10 @@ describe('AttendanceService', () => {
           provide: getRepositoryToken(AttendanceAuditLogEntity),
           useValue: mockRepo(),
         },
-        { provide: DataSource, useValue: {} },
+        {
+          provide: DataSource,
+          useValue: { query: jest.fn().mockResolvedValue([]) },
+        },
         { provide: BiometricService, useValue: biometricService },
       ],
     }).compile();
@@ -222,5 +225,139 @@ describe('AttendanceService', () => {
     await expect(
       service.approveRecords('client-1', ['att-1'], 'user-1', ['branch-1']),
     ).rejects.toThrow('outside your branch scope');
+  });
+
+  describe('manual changes: audit trail and payroll lock', () => {
+    const employee = {
+      id: 'emp-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      employeeCode: 'E001',
+    };
+    const record = () => ({
+      id: 'att-1',
+      clientId: 'client-1',
+      branchId: 'branch-1',
+      employeeId: 'emp-1',
+      date: '2026-05-28',
+      status: 'PRESENT',
+      approvalStatus: 'APPROVED',
+    });
+    let audit: jest.Mock;
+    let dsQuery: jest.Mock;
+
+    beforeEach(() => {
+      (service as any).empRepo.findOne = jest.fn().mockResolvedValue(employee);
+      (service as any).repo.save = jest.fn(async (row: any) => ({
+        id: 'att-new',
+        ...row,
+      }));
+      (service as any).repo.create = jest.fn((row: any) => row);
+      audit = jest.fn(async (row: any) => row);
+      (service as any).auditRepo.save = audit;
+      (service as any).auditRepo.create = jest.fn((row: any) => row);
+      dsQuery = (service as any).ds.query;
+    });
+
+    it('audits a mark that overwrites an existing day as an EDIT', async () => {
+      (service as any).repo.findOne = jest.fn().mockResolvedValue(record());
+      await service.markAttendance(
+        'client-1',
+        { employeeId: 'emp-1', date: '2026-05-28', status: 'ABSENT' },
+        null,
+        'user-9',
+      );
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'EDIT',
+          actorUserId: 'user-9',
+          beforeSnapshot: expect.objectContaining({ status: 'PRESENT' }),
+          afterSnapshot: expect.objectContaining({ status: 'ABSENT' }),
+        }),
+      );
+    });
+
+    it('audits a newly marked day as a CREATE', async () => {
+      (service as any).repo.findOne = jest.fn().mockResolvedValue(null);
+      await service.markAttendance(
+        'client-1',
+        { employeeId: 'emp-1', date: '2026-05-28', status: 'PRESENT' },
+        null,
+        'user-9',
+      );
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'CREATE', actorUserId: 'user-9' }),
+      );
+    });
+
+    it('writes a DELETE audit row for every deleted day', async () => {
+      (service as any).repo.find = jest.fn().mockResolvedValue([record()]);
+      const saveAudit = jest.fn();
+      const manager = {
+        getRepository: jest.fn(() => ({
+          find: jest.fn().mockResolvedValue([]),
+          delete: jest.fn().mockResolvedValue({ affected: 1 }),
+          create: (row: any) => row,
+          save: saveAudit,
+        })),
+        query: jest.fn(),
+      };
+      (service as any).ds.transaction = (fn: any) => fn(manager);
+      await service.deleteRecords('client-1', ['att-1'], null, 'user-9');
+      expect(saveAudit).toHaveBeenCalledWith([
+        expect.objectContaining({
+          attendanceId: 'att-1',
+          action: 'DELETE',
+          actorUserId: 'user-9',
+          beforeSnapshot: expect.objectContaining({ status: 'PRESENT' }),
+        }),
+      ]);
+    });
+
+    it.each([
+      [
+        'mark',
+        (svc: AttendanceService) =>
+          svc.markAttendance('client-1', {
+            employeeId: 'emp-1',
+            date: '2026-05-28',
+            status: 'ABSENT',
+          }),
+      ],
+      [
+        'edit',
+        (svc: AttendanceService) =>
+          svc.editRecord('client-1', 'att-1', { status: 'ABSENT' }),
+      ],
+      [
+        'approve',
+        (svc: AttendanceService) =>
+          svc.approveRecords('client-1', ['att-1'], 'user-9'),
+      ],
+      [
+        'reject',
+        (svc: AttendanceService) =>
+          svc.rejectRecords('client-1', ['att-1'], 'user-9', 'wrong'),
+      ],
+      [
+        'delete',
+        (svc: AttendanceService) => svc.deleteRecords('client-1', ['att-1']),
+      ],
+    ])(
+      "refuses to %s attendance once that month's payroll is submitted or approved",
+      async (_label, act) => {
+        (service as any).repo.findOne = jest.fn().mockResolvedValue(record());
+        (service as any).repo.find = jest.fn().mockResolvedValue([record()]);
+        dsQuery.mockResolvedValueOnce([{ '?column?': 1 }]);
+        await expect(act(service)).rejects.toThrow(
+          'Payroll for 2026-05 is already submitted or approved',
+        );
+        expect(dsQuery).toHaveBeenCalledWith(
+          expect.stringContaining("status IN ('SUBMITTED', 'APPROVED')"),
+          ['client-1', 2026, 5, 'branch-1'],
+        );
+        expect((service as any).repo.save).not.toHaveBeenCalled();
+      },
+    );
   });
 });

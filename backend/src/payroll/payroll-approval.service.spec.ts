@@ -142,4 +142,19 @@ describe('Payroll approval workflow invariants', () => {
     expect(state.title).toBe('Updated title');
     expect(state.approvedAt).toBeNull();
   });
+  it('does not let a PAYROLL user undo a CCO approval alone', async () => {
+    state.status = 'APPROVED';
+    await expect(
+      service.revertToDraft('run', { ...checker, roleCode: 'PAYROLL' } as any),
+    ).rejects.toThrow('Only a CCO or Admin');
+    expect(state.status).toBe('APPROVED');
+  });
+  it('still lets a PAYROLL user revert a rejected run to fix it', async () => {
+    state.status = 'REJECTED';
+    await service.revertToDraft('run', {
+      ...checker,
+      roleCode: 'PAYROLL',
+    } as any);
+    expect(state.status).toBe('DRAFT');
+  });
 });

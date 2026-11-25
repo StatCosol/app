@@ -82,4 +82,24 @@ describe('TdsCalculatorService', () => {
     expect(r.balanceTax).toBe(57500);
     expect(r.monthlyTds).toBe(11500);
   });
+
+  describe('new-regime marginal relief above ₹12,00,000', () => {
+    const svc = new TdsCalculatorService();
+    it('limits tax to the income above ₹12,00,000', () => {
+      const r = svc.calculate({ annualGross: 1285000, regime: 'NEW' });
+      expect(r.taxableIncome).toBe(1210000);
+      expect(r.netTaxAfterRebate).toBe(10400); // 10,000 + 4% cess
+      expect(r.monthlyTds).toBe(867);
+    });
+    it('stops applying once slab tax is lower than the excess', () => {
+      // ₹13,50,000 taxable: slab tax 82,500 < excess 1,50,000.
+      const r = svc.calculate({ annualGross: 1425000, regime: 'NEW' });
+      expect(r.rebate87A).toBe(0);
+      expect(r.totalTaxLiability).toBe(Math.ceil(82500 * 1.04));
+    });
+    it('keeps the full rebate at exactly ₹12,00,000', () => {
+      const r = svc.calculate({ annualGross: 1275000, regime: 'NEW' });
+      expect(r.totalTaxLiability).toBe(0);
+    });
+  });
 });

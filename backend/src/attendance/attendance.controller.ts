@@ -76,7 +76,12 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.markAttendance(clientId, body, this.branchScope(user));
+    return this.svc.markAttendance(
+      clientId,
+      body,
+      this.branchScope(user),
+      user?.userId ?? user?.id ?? null,
+    );
   }
 
   @ApiOperation({ summary: 'Bulk Mark' })
@@ -84,7 +89,12 @@ export class AttendanceController {
   bulkMark(@CurrentUser() user: ReqUser, @Body() body: BulkMarkAttendanceDto) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.bulkMark(clientId, body, this.branchScope(user));
+    return this.svc.bulkMark(
+      clientId,
+      body,
+      this.branchScope(user),
+      user?.userId ?? user?.id ?? null,
+    );
   }
 
   @ApiOperation({ summary: 'List' })
@@ -311,7 +321,12 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    return this.svc.deleteRecords(clientId, body.ids, this.branchScope(user));
+    return this.svc.deleteRecords(
+      clientId,
+      body.ids,
+      this.branchScope(user),
+      user?.userId ?? user?.id ?? null,
+    );
   }
 
   // ── Persisted Mismatches (Fix #1) ─────────────────────────
