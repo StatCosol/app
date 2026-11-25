@@ -52,7 +52,7 @@ describe('StatutoryCalculatorService', () => {
       expect(values.PF_EMP).toBe(1800); // 12% of capped 15,000
       expect(values.PF_ER).toBe(1800);
       expect(values.PF_EPS).toBe(1250); // ceil(8.33% of 15,000 = 1249.5)
-      expect(values.PF_DIFF).toBe(551); // ceil(1800 − 1249.5)
+      expect(values.PF_DIFF).toBe(550); // 1800 − 1250, so EPS + diff = ER
       expect(values.EPS_WAGES).toBe(15000);
     });
 
@@ -151,6 +151,89 @@ describe('StatutoryCalculatorService', () => {
       });
       expect(values.PF_EMP).toBe(0);
       expect(values.ESI_EMP).toBe(0);
+    });
+  });
+
+  describe('regressions from the 2026-11 payroll bug hunt', () => {
+    it('keeps EPS + EPF diff equal to the employer share for every wage', () => {
+      for (let basic = 1000; basic <= 15000; basic += 7) {
+        const { values } = svc.compute({
+          values: { BASIC: basic },
+          setup: setup(),
+          components: [comp('BASIC', { pf: true })],
+        });
+        expect(values.PF_EPS + values.PF_DIFF).toBe(values.PF_ER);
+      }
+    });
+
+    it('gives the whole employer share to EPF when EPS is excluded', () => {
+      const { values } = svc.compute({
+        values: { BASIC: 20000 },
+        setup: setup(),
+        components: [comp('BASIC', { pf: true })],
+        pfServiceStartDate: '2020-01-01',
+        basicAtPfStart: 20000,
+      });
+      expect(values.PF_EPS).toBe(0);
+      expect(values.PF_DIFF).toBe(values.PF_ER);
+    });
+
+    it('keeps the approved holiday double wage in GROSS and ESI wages', () => {
+      const { values } = svc.compute({
+        values: { BASIC: 15000, OT_AMOUNT: 1000, HOLIDAY_DBL_AMOUNT: 600 },
+        setup: setup(),
+        components: [comp('BASIC', { pf: true, esi: true })],
+        periodMonth: 7,
+      });
+      expect(values.GROSS).toBe(16600);
+      expect(values.ESI_WAGES).toBe(16600);
+      expect(values.PF_WAGES).toBe(15000); // PF excludes OT and holiday extra
+    });
+
+    it('does not count HOLIDAY_DBL_AMOUNT twice when it is a configured earning', () => {
+      const { values } = svc.compute({
+        values: { BASIC: 15000, HOLIDAY_DBL_AMOUNT: 600 },
+        setup: setup(),
+        components: [
+          comp('BASIC', { esi: true }),
+          comp('HOLIDAY_DBL_AMOUNT', { esi: true }),
+        ],
+      });
+      expect(values.GROSS).toBe(15600);
+    });
+
+    it('does not drop an employee from ESI at period start because of overtime', () => {
+      const result = svc.compute({
+        values: { BASIC: 20000, OT_AMOUNT: 1500 },
+        setup: setup(),
+        components: [comp('BASIC', { esi: true })],
+        periodMonth: 4,
+      });
+      expect(result.esiDroppedAtPeriodStart).toBeUndefined();
+      // Contribution is still due on the overtime.
+      expect(result.values.ESI_WAGES).toBe(21500);
+      expect(result.values.ESI_EMP).toBe(Math.ceil((21500 * 0.75) / 100));
+    });
+
+    it('still drops ESI at period start when regular wages exceed the ceiling', () => {
+      const result = svc.compute({
+        values: { BASIC: 22000 },
+        setup: setup(),
+        components: [comp('BASIC', { esi: true })],
+        periodMonth: 10,
+      });
+      expect(result.esiDroppedAtPeriodStart).toBe(true);
+      expect(result.values.ESI_EMP).toBe(0);
+    });
+
+    it('does not drop ESI for a zero-payable-days month', () => {
+      const result = svc.compute({
+        values: { BASIC: 30000, PAYABLE_DAYS: 0 },
+        setup: setup(),
+        components: [comp('BASIC', { esi: true })],
+        periodMonth: 4,
+      });
+      expect(result.esiDroppedAtPeriodStart).toBeUndefined();
     });
   });
 });
