@@ -226,7 +226,9 @@ footer div {
 .time-office-shell { display: flex; min-height: 100vh; }
 .workspace-main { flex: 1; min-width: 0; }
 .workspace-header { position: sticky; top: 0; z-index: 30; padding: 12px 24px; background: white; border-bottom: 1px solid #dce5df; }
-.account { margin-left: auto; min-width: 0; text-align: right; overflow-wrap: anywhere; }
+.account { margin-left: auto; min-width: 0; text-align: right; overflow-wrap: anywhere; display: flex; align-items: center; gap: 12px; }
+.account-text { min-width: 0; }
+.client-logo { max-width: 112px; height: 40px; object-fit: contain; flex-shrink: 0; }
 .sidebar-panel { flex: 0 0 240px; width: 240px; position: sticky; top: 0; height: 100dvh; padding: 24px 12px; display: flex; flex-direction: column; }
 .sidebar-brand { padding: 0 12px; }
 .sidebar-brand strong { font-size: 20px; color: #183c32; }

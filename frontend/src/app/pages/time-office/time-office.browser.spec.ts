@@ -6,14 +6,17 @@ import { provideRouter } from '@angular/router';
 import { page } from 'vitest/browser';
 import { AuthService } from '../../core/auth.service';
 import { TimeOfficeComponent } from './time-office.component';
+import { of, Subject } from 'rxjs';
 
 const url = '/api/v1/client/attendance/time-office';
+const logo = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><text x="4" y="26">TEST Logo</text></svg>');
 const row = { id: 'synthetic-worker', name: 'TEST ONLY Worker', employee_code: 'TEST001', worker_type: 'CONTRACTOR', contractor_name: 'TEST ONLY Vendor', branch: 'TEST ONLY Unit', status: 'PRESENT', check_in: '09:00:00', check_out: '15:00:00', worked_hours: 6, approval_status: 'RECORDED', short_hours: true };
 const data = (date: string, rows: any[] = [row]) => ({ date, rows, branches: [{ id: 'unit', name: 'TEST ONLY Unit' }], contractors: [{ id: 'vendor', name: 'TEST ONLY Vendor' }], summary: { workers: rows.length, employees: 0, contractorWorkers: rows.length }, total: rows.length, pageSize: 50 });
 afterEach(() => { TestBed.inject(HttpTestingController).verify(); TestBed.resetTestingModule(); vi.restoreAllMocks(); });
-async function setup() {
+async function setup(profile = of({}), cachedUser: any = { name: 'Test Office', clientName: 'TEST ONLY Company', clientLogoUrl: logo }) {
+  const auth = { getUser: vi.fn(() => cachedUser), authenticateUrl: vi.fn((url: string) => url), fetchMe: vi.fn(() => profile), logout: vi.fn() };
   await TestBed.configureTestingModule({imports: [TimeOfficeComponent], providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting(),
-    { provide: AuthService, useValue: { getUser: () => ({ name: 'Test Office', clientName: 'TEST ONLY Company' }), logout: vi.fn() } },
+    { provide: AuthService, useValue: auth },
   ]}).compileComponents();
   const fixture = TestBed.createComponent(TimeOfficeComponent), vm = fixture.componentInstance, http = TestBed.inject(HttpTestingController);
   const render = async () => { fixture.changeDetectorRef.markForCheck(); fixture.detectChanges(); await Promise.resolve(); fixture.changeDetectorRef.markForCheck(); fixture.detectChanges(); };
@@ -21,13 +24,18 @@ async function setup() {
   const first = http.expectOne(r => r.url.endsWith(url)); first.flush(data(first.request.params.get('date')!)); await render();
   const root = fixture.nativeElement as HTMLElement;
   const select = async (name: string, value: string) => { const el=root.querySelector(`[name="${name}"]`) as HTMLSelectElement; el.value=value; el.dispatchEvent(new Event('change')); await render(); };
-  return {fixture,vm,http,root,render,select};
+  return {fixture,vm,http,root,render,select,auth};
 }
 describe.each([390,768,1440])('Time Office workforce at %ipx', width => {
   beforeEach(async () => page.viewport(width,950));
   it('shows contractor attendance, shared module presentation, correct active navigation and an accessible mobile drawer', async () => {
     const t=await setup();
     expect(t.root.querySelector('ui-page-header h1')?.textContent).toContain('Workforce attendance');
+    const clientLogo = t.root.querySelector('.client-logo') as HTMLImageElement;
+    expect(clientLogo.src).toBe(logo);
+    expect(clientLogo.alt).toBe('TEST ONLY Company logo');
+    expect(clientLogo.getBoundingClientRect().height).toBe(40);
+    expect(clientLogo.getBoundingClientRect().right).toBeLessThanOrEqual(width);
     expect(t.root.querySelectorAll('nav [aria-pressed="true"]')).toHaveLength(1);
     expect(t.root.querySelector('tbody')?.textContent).toContain('TEST ONLY Vendor');
     expect(t.root.querySelector('tbody')?.textContent).toContain('09:00:00');
@@ -71,6 +79,20 @@ describe.each([390,768,1440])('Time Office workforce at %ipx', width => {
     expect(t.vm.data.rows).toEqual([]);expect(t.root.textContent).toContain('Synthetic read failed');
     t.vm.load();t.http.expectOne(r=>r.url.endsWith(url)).flush(data(t.vm.date));await t.render();expect(t.vm.filtersPending).toBe(false);
   });
+});
+it('refreshes client branding and hides failed logos without blocking attendance', async () => {
+  const profile = new Subject<any>();
+  const t = await setup(profile, { name: 'Test Office' });
+  expect(t.root.querySelector('.client-logo')).toBeNull();
+  t.auth.getUser.mockReturnValue({ name: 'Test Office', client: { name: 'TEST Refreshed Company', logoUrl: logo } });
+  profile.next({}); await t.render();
+  expect(t.auth.authenticateUrl).toHaveBeenCalledWith(logo);
+  expect(t.root.querySelector('.account')?.textContent).toContain('TEST Refreshed Company');
+  t.root.querySelector('.client-logo')!.dispatchEvent(new Event('error')); await t.render();
+  expect(t.root.querySelector('.client-logo')).toBeNull();
+  expect(t.root.querySelector('tbody')?.textContent).toContain('TEST ONLY Worker');
+  profile.error(new Error('Synthetic profile outage')); await t.render();
+  expect(t.vm.error).toBe('');
 });
 it('leaves and comp-off stay employee-only and navigation cancels pending attendance', async()=>{
   const t=await setup();t.vm.workforce='CONTRACTOR';t.vm.contractor='vendor';t.vm.load();const pending=t.http.expectOne(r=>r.url.endsWith(url));

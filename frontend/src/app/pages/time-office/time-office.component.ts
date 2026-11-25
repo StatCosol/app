@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -40,7 +40,10 @@ interface OfficeData {
 })
 export class TimeOfficeComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
-  readonly user = this.auth.getUser();
+  user = this.auth.getUser();
+  clientLogoUrl = '';
+  private readonly cdr = inject(ChangeDetectorRef);
+  private profileRequest?: Subscription;
   private readonly http = inject(HttpClient);
   private request?: Subscription;
   readonly today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -115,10 +118,22 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
   changeWorkforce() { this.contractor = ''; this.load(); }
   changeBranch() { this.contractor = ''; this.load(); }
   ngOnInit() {
+    this.refreshBranding();
+    this.profileRequest = this.auth.fetchMe().subscribe({
+      next: () => { this.refreshBranding(); this.cdr.markForCheck(); },
+      // A profile refresh failure must not prevent attendance review.
+      error: () => {},
+    });
     this.load();
+  }
+  private refreshBranding() {
+    this.user = this.auth.getUser();
+    const logo = this.user?.clientLogoUrl || this.user?.client?.logoUrl;
+    this.clientLogoUrl = logo ? this.auth.authenticateUrl(logo) : '';
   }
   ngOnDestroy() {
     this.request?.unsubscribe();
+    this.profileRequest?.unsubscribe();
   }
   switchView(view: string) {
     this.request?.unsubscribe();

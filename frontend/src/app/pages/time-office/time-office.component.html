@@ -21,7 +21,12 @@
     <header class="workspace-header">
       <button class="mobile-nav-button" aria-label="Open navigation" [attr.aria-expanded]="mobileOpen" (click)="mobileOpen=true"><ui-icon name="menu" [size]="22" /></button>
       <app-statco-wordmark />
-      <div class="account"><strong>{{ user?.clientName || 'Assigned company' }}</strong><small>{{ user?.name }}</small></div>
+      <div class="account">
+        @if (clientLogoUrl) {
+          <img class="client-logo" [src]="clientLogoUrl" [alt]="(user?.clientName || user?.client?.name || 'Client') + ' logo'" (error)="clientLogoUrl=''" />
+        }
+        <div class="account-text"><strong>{{ user?.clientName || user?.client?.name || 'Assigned company' }}</strong><small>{{ user?.name }}</small></div>
+      </div>
       <button type="button" class="standard-action" (click)="auth.logout()"><ui-icon name="logout" [size]="18" /><span>Sign out</span></button>
     </header>
 <main>
