@@ -1,16 +1,9 @@
-<main>
-  <header>
-    <div>
-      <span class="eyebrow">STATCO · TIME OFFICE</span>
-      <h1>Workforce attendance</h1>
-      <p>Review attendance, leaves and comp-off across your company’s branches.</p>
-    </div>
-    <div>
-      <p>{{ user?.clientName || 'Assigned company' }} · {{ user?.name }}</p>
-      <button type="button" (click)="auth.logout()">Sign out</button>
-    </div>
-  </header>
-  <nav aria-label="Time Office views">
+<div class="time-office-shell">
+  @if (mobileOpen) { <button class="navigation-overlay" aria-label="Dismiss navigation" (click)="mobileOpen=false"></button> }
+  <aside class="sidebar-panel" [class.mobile-open]="mobileOpen" [uiResponsiveNavigation]="mobileOpen" (navigationDismiss)="mobileOpen=false">
+    <div class="sidebar-brand"><strong>Time Office</strong><p>Workforce attendance</p></div>
+    <button class="mobile-nav-button" aria-label="Close navigation" (click)="mobileOpen=false"><ui-icon name="x-circle" [size]="20" /> Close</button>
+    <nav aria-label="Time Office views">
     @for (tab of tabs; track tab.id) {
       <button
         type="button"
@@ -18,22 +11,33 @@
         [attr.aria-pressed]="view === tab.id"
         (click)="switchView(tab.id)"
       >
-        {{ tab.label }}
+        <ui-icon [name]="tab.icon" [size]="20" /> <span>{{ tab.label }}</span>
       </button>
     }
-  </nav>
+    </nav>
+    <small class="sidebar-footer">Designed &amp; Developed by StatCo Solutions</small>
+  </aside>
+  <div class="workspace-main">
+    <header class="workspace-header">
+      <button class="mobile-nav-button" aria-label="Open navigation" [attr.aria-expanded]="mobileOpen" (click)="mobileOpen=true"><ui-icon name="menu" [size]="22" /></button>
+      <app-statco-wordmark />
+      <div class="account"><strong>{{ user?.clientName || 'Assigned company' }}</strong><small>{{ user?.name }}</small></div>
+      <button type="button" class="standard-action" (click)="auth.logout()"><ui-icon name="logout" [size]="18" /><span>Sign out</span></button>
+    </header>
+<main>
+  <ui-page-header [title]="pageTitle" [description]="pagePurpose" />
   @if (view === 'notifications') {
     <app-time-office-notifications />
   } @else if (view === 'automation') {
     <app-time-office-automation />
   } @else {
-    <form class="filters" (ngSubmit)="load()">
+    <form class="filters aligned-filter-controls" (ngSubmit)="load()">
       <label
         >{{ view === 'leaves' ? 'Date in reporting month' : 'Review date'
-        }}<input type="date" name="date" [(ngModel)]="date" [max]="today" required
+        }}<input type="date" name="date" [(ngModel)]="date" (ngModelChange)="load()" [max]="today" required
       /></label>
       <label
-        >Branch<select name="branch" [(ngModel)]="branch">
+        >Branch<select name="branch" [(ngModel)]="branch" (ngModelChange)="changeBranch()">
           <option value="">All branches</option>
           @for (b of data.branches; track b.id) {
             <option [value]="b.id">{{ b.name }}</option>
@@ -41,13 +45,22 @@
         </select></label
       >
       <label
-        >Employee<input
+        >Worker<input
           name="search"
           [(ngModel)]="search"
           placeholder="Name or employee code"
           maxlength="100"
       /></label>
       @if (view === 'attendance') {
+        <label>Workforce<select name="workforce" [(ngModel)]="workforce" (ngModelChange)="changeWorkforce()">
+          <option value="ALL">All workers</option><option value="EMPLOYEE">Client employees</option><option value="CONTRACTOR">Contractor workers</option>
+        </select></label>
+        @if (workforce !== 'EMPLOYEE') {
+          <label>Contractor<select name="contractor" [(ngModel)]="contractor" (ngModelChange)="load()">
+            <option value="">All contractors</option>
+            @for (c of data.contractors || []; track c.id) { <option [value]="c.id">{{ c.name }}</option> }
+          </select></label>
+        }
         <label
           >Review hours<input
             type="number"
@@ -59,8 +72,8 @@
             required
         /></label>
         <label
-          >Show<select name="issue" [(ngModel)]="issue">
-            <option value="">All employees</option>
+          >Show<select name="issue" [(ngModel)]="issue" (ngModelChange)="load()">
+            <option value="">All attendance statuses</option>
             <option value="NOT_MARKED">Attendance not marked</option>
             <option value="SHORT_HOURS">Below review hours</option>
             <option value="INCOMPLETE">Incomplete punches</option>
@@ -69,10 +82,13 @@
           </select></label
         >
       }
-      <button class="primary" type="submit" [disabled]="loading">
-        {{ loading ? 'Loading…' : 'Apply / refresh' }}
+      <button class="primary standard-action" type="submit" [disabled]="loading">
+        <ui-icon [name]="filtersPending ? 'funnel' : 'refresh'" [size]="18" /><span>{{ loading ? 'Loading…' : filtersPending ? 'Apply filters' : 'Refresh' }}</span>
       </button>
     </form>
+    @if (filtersPending && !loading && data.rows.length) {
+      <p class="note" role="status">Filters have changed. Apply filters to update the register and enable exports or follow-up actions.</p>
+    }
     @if (error) {
       <div class="error" role="alert">{{ error }}</div>
     }
@@ -81,10 +97,7 @@
     }
     <section class="cards" aria-label="Summary">
       @for (card of cards; track card.label) {
-        <article>
-          <span>{{ card.label }}</span
-          ><strong>{{ card.value | number: '1.0-2' }}</strong>
-        </article>
+        <ui-stat-card [label]="card.label" [value]="card.value" />
       }
     </section>
     <section class="records" [attr.aria-busy]="loading">
@@ -93,16 +106,16 @@
           <h2>
             {{
               view === 'attendance'
-                ? 'Daily employee register'
+                ? 'Daily workforce register'
                 : view === 'leaves'
                   ? 'Leave applications in selected month'
                   : 'Comp-off balances as of review date'
             }}
           </h2>
-          <p>{{ data.total }} records · {{ data.date || date }}</p>
+          <p>{{ data.total }} records · {{ data.date || date }} · {{ workforceLabel }}</p>
         </div>
-        <button type="button" (click)="exportPage()" [disabled]="loading || !data.rows.length">
-          Export this page
+        <button type="button" class="standard-action" (click)="exportPage()" [disabled]="loading || filtersPending || !data.rows.length">
+          <ui-icon name="download" [size]="18" /><span>Export this page</span>
         </button>
       </div>
       @if (view === 'attendance') {
@@ -111,6 +124,8 @@
           punches and recorded worked hours. Incomplete punches may include an ongoing shift. “Not
           marked” means no attendance record, approved leave or calendar holiday; check weekly offs
           before following up. Summary counts follow the branch and employee filters.
+          Contractor rows use accepted FaceDesk / biometric punches for the selected date in India time;
+          recorded punches are not payroll approval. Leave, comp-off and follow-up actions here apply to client employees.
         </p>
       }
       @if (view === 'coff') {
@@ -123,9 +138,10 @@
         <table>
           <thead>
             <tr>
-              <th>Employee</th>
+              <th>Worker</th>
               <th>Branch</th>
               @if (view === 'attendance') {
+                <th>Workforce / contractor</th>
                 <th>Status</th>
                 <th>Check-in</th>
                 <th>Check-out</th>
@@ -158,6 +174,7 @@
                 </td>
                 <td>{{ row['branch'] }}</td>
                 @if (view === 'attendance') {
+                  <td>{{ row['worker_type'] === 'CONTRACTOR' ? 'Contractor worker' : 'Client employee' }}<small>{{ row['contractor_name'] || '—' }}</small></td>
                   <td>
                     <span class="badge" [class.warning]="row['status'] === 'NOT_MARKED'">{{
                       label(row['status'])
@@ -179,17 +196,19 @@
                 }
                 @if (view === 'attendance') {
                   <td>
-                    @if (row['status'] === 'NOT_MARKED' || row['incomplete']) {
+                    @if (row['worker_type'] === 'CONTRACTOR') {
+                      <span>Contractor review</span>
+                    } @else if (row['status'] === 'NOT_MARKED' || row['incomplete']) {
                       <button
                         type="button"
-                        [disabled]="!!sending || loading"
+                        [disabled]="!!sending || loading || filtersPending"
                         (click)="followUp(row, 'EMPLOYEE')"
                       >
                         Notify employee
                       </button>
                       <button
                         type="button"
-                        [disabled]="!!sending || loading"
+                        [disabled]="!!sending || loading || filtersPending"
                         (click)="followUp(row, 'BRANCH')"
                       >
                         Escalate to branch
@@ -217,7 +236,7 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="8" class="empty">
+                <td [attr.colspan]="view === 'attendance' ? 10 : view === 'leaves' ? 7 : 6" class="empty">
                   {{
                     loading
                       ? 'Loading records…'
@@ -234,10 +253,12 @@
       <footer>
         <span>Page {{ page }} of {{ pages }} · Up to 50 records per page</span>
         <div>
-          <button (click)="turnPage(-1)" [disabled]="page <= 1 || loading">Previous</button
-          ><button (click)="turnPage(1)" [disabled]="page >= pages || loading">Next</button>
+          <button (click)="turnPage(-1)" [disabled]="page <= 1 || loading || filtersPending">Previous</button
+          ><button (click)="turnPage(1)" [disabled]="page >= pages || loading || filtersPending">Next</button>
         </div>
       </footer>
     </section>
   }
 </main>
+  </div>
+</div>

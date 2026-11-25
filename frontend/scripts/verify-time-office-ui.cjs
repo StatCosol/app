@@ -1,11 +1,12 @@
 const fs=require('node:fs'), path=require('node:path'), http=require('node:http'), assert=require('node:assert/strict');
 const puppeteer=require('puppeteer');
 const root=path.resolve(__dirname,'../dist/statco-frontend/browser');
+const output=process.env.UI_OUTPUT_DIR||path.join(__dirname,'../output/time-office');fs.mkdirSync(output,{recursive:true});
 const server=http.createServer((req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname.replace(/^\/app\//,'');
   let file=path.resolve(root,pathname);
   if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||fs.statSync(file).isDirectory()) file=path.join(root,'index.html');
-  res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':'application/octet-stream');
+  res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':file.endsWith('.svg')?'image/svg+xml':'application/octet-stream');
   res.end(fs.readFileSync(file));
 });
 async function run(){
@@ -27,10 +28,11 @@ async function run(){
       else if(u.pathname.endsWith('/time-office/automation')){const changes=req.method()==='PUT'?JSON.parse(req.postData()):null;if(changes)savedSettings.push(changes);body={enabled:changes?changes.enabled:true,weekly_off_days:changes?changes.weeklyOffDays:[0],starts_on:'2026-01-05',last_run_at:null,awaiting_correction:2,escalated:1,delivery_issues:0,issues:[]};}
       else if(u.pathname.endsWith('/time-office')){
         const view=u.searchParams.get('view');
-        const row={id:'test-employee',name:'Missing Employee',employee_code:'E001',branch:'Test Branch',status:'NOT_MARKED',incomplete:false};
+        const row={id:'test-employee',name:'Missing Employee',employee_code:'E001',branch:'Test Branch',worker_type:'EMPLOYEE',status:'NOT_MARKED',incomplete:false};
         if(view==='leaves') Object.assign(row,{leave_type:'CL',from_date:'2026-01-05',to_date:'2026-01-05',total_days:1,status:'APPROVED'});
         if(view==='coff') Object.assign(row,{accrued:2,used:1,lapsed:0,available:1});
-        body={rows:[row],branches:[],summary:{employees:1,notMarked:1},total:1,pageSize:50,date:'2026-01-05'};
+        const contractor={...row,id:'test-contractor-worker',name:'TEST ONLY Contractor worker',employee_code:'TEST-C001',worker_type:'CONTRACTOR',contractor_name:'TEST ONLY Vendor',status:'PRESENT',check_in:'09:00:00',check_out:'18:00:00',worked_hours:9,approval_status:'RECORDED'};
+        body={rows:view==='attendance'?[row,contractor]:[row],branches:[],contractors:[{id:'test-vendor',name:'TEST ONLY Vendor'}],summary:view==='attendance'?{workers:2,employees:1,contractorWorkers:1,notMarked:1}:{employees:1},total:view==='attendance'?2:1,pageSize:50,date:u.searchParams.get('date')};
       }else if(u.pathname.endsWith('/notifications/inbox'))body={data:[{id:'test-thread',subject:'Missed attendance reminder',status:'OPEN',createdAt:'2026-01-05T12:00:00Z',assignedTo:{name:'Test employee'}}],total:1};
       else if(u.pathname.endsWith('/threads/test-thread'))body={thread:{id:'test-thread',subject:'Missed attendance reminder',status:'OPEN'},messages:[{id:1,message:'Please review your attendance.',from:{name:'Time Office'},createdAt:'2026-01-05T12:00:00Z'}]};
       else if(u.pathname.includes('/auth/me'))body={id:'test-office',roleCode:'TIME_OFFICE_EXECUTIVE',clientId:'test-company',enabledModules:['EMPLOYEE_ATTENDANCE']};
@@ -42,7 +44,7 @@ async function run(){
     assert((await page.$eval('body',e=>e.innerText)).includes('Missing Employee'));
     const click=async label=>{await page.evaluate(label=>{const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===label);if(!b)throw Error('Button missing: '+label);b.click();},label);};
     await click('Notify employee');await page.waitForFunction(()=>document.body.innerText.includes('In-app notification sent'));
-    assert.equal(sent[0].target,'EMPLOYEE');assert.equal(sent[0].date,'2026-01-05');
+    assert.equal(sent[0].target,'EMPLOYEE');assert.equal(sent[0].date,await page.$eval('input[name=date]',e=>e.value));
     await click('Escalate to branch');await page.waitForFunction(()=>document.body.innerText.includes('In-app notification sent'));
     await page.waitForNetworkIdle();assert.equal(sent[1].target,'BRANCH');
     await click('Leaves');await page.waitForFunction(()=>document.body.innerText.includes('Leave applications in selected month'));
@@ -55,9 +57,17 @@ async function run(){
     await page.evaluate(()=>{const user=JSON.parse(sessionStorage.getItem('user'));user.roleCode='TIME_OFFICE_MANAGER';sessionStorage.setItem('user',JSON.stringify(user));});
     await click('Attendance');await click('Automatic follow-ups');await page.waitForSelector('input[name=enabled]');
     await page.click('input[name=enabled]');await click('Save settings');await page.waitForFunction(()=>document.body.innerText.includes('settings saved'));assert.equal(savedSettings[0].enabled,false);
-    await click('Attendance');await page.waitForSelector('table');
-    await page.setViewport({width:390,height:844});await page.screenshot({path:path.join(__dirname,'../time-office-mobile.png'),fullPage:true});
-    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'Page should fit mobile viewport');
+    await click('Attendance');await page.waitForSelector('table');await page.waitForNetworkIdle();
+    for(const width of [1440,768,390]){
+      await page.setViewport({width,height:950});
+      // Capture settled responsive layout, not an intermediate drawer animation.
+      await page.waitForFunction(()=>{
+        const panel=document.querySelector('.sidebar-panel');
+        return window.innerWidth>=1024 || (panel.inert && panel.getBoundingClientRect().right<=1);
+      });
+      await page.screenshot({path:path.join(output,`time-office-${width}.png`),fullPage:true});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'Page should fit viewport '+width);
+    }
     assert.deepEqual(errors,[]);
     console.log('PASS: production browser rendering, automatic settings, manager-only changes, employee reminder, branch escalation, notification reply and mobile layout (mock API fixtures).');
   }finally{await browser.close();server.close();}

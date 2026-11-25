@@ -7,11 +7,17 @@ import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import { TimeOfficeNotificationsComponent } from '../../shared/time-office-notifications.component';
 import { TimeOfficeAutomationComponent } from './time-office-automation.component';
+import { PageHeaderComponent, StatCardComponent, IconComponent } from '../../shared/ui';
+import { StatcoWordmarkComponent } from '../../shared/components/statco-wordmark/statco-wordmark.component';
+import { ResponsiveNavigationDirective } from '../../shared/directives/responsive-navigation.directive';
 
 interface OfficeData {
   date?: string;
+  workforce?: string;
+  contractor?: string;
   rows: Record<string, any>[];
   branches: { id: string; name: string }[];
+  contractors?: { id: string; name: string }[];
   summary: Record<string, number>;
   total: number;
   pageSize: number;
@@ -20,11 +26,14 @@ interface OfficeData {
 @Component({
   selector: 'app-time-office',
   standalone: true,
+  host: { class: 'workspace-ui' },
   imports: [
     CommonModule,
     FormsModule,
     TimeOfficeNotificationsComponent,
     TimeOfficeAutomationComponent,
+    PageHeaderComponent, StatCardComponent, IconComponent, StatcoWordmarkComponent,
+    ResponsiveNavigationDirective,
   ],
   templateUrl: './time-office.component.html',
   styleUrl: './time-office.component.scss',
@@ -37,6 +46,9 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
   readonly today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   date = this.today;
   branch = '';
+  workforce = 'ALL';
+  contractor = '';
+  mobileOpen = false;
   search = '';
   hours = 9;
   issue = '';
@@ -46,16 +58,19 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
   error = '';
   sending = '';
   notice = '';
+  private loadedFilters = '';
   data: OfficeData = { rows: [], branches: [], summary: {}, total: 0, pageSize: 50 };
   readonly tabs = [
-    { id: 'attendance', label: 'Attendance' },
-    { id: 'leaves', label: 'Leaves' },
-    { id: 'coff', label: 'Comp-off' },
-    { id: 'notifications', label: 'Notifications & escalations' },
-    { id: 'automation', label: 'Automatic follow-ups' },
+    { id: 'attendance', label: 'Attendance', icon: 'clock' },
+    { id: 'leaves', label: 'Leaves', icon: 'calendar' },
+    { id: 'coff', label: 'Comp-off', icon: 'clipboard' },
+    { id: 'notifications', label: 'Notifications & escalations', icon: 'envelope' },
+    { id: 'automation', label: 'Automatic follow-ups', icon: 'bolt' },
   ];
   readonly labels: Record<string, string> = {
     employees: 'Employees',
+    workers: 'Total workforce',
+    contractorWorkers: 'Contractor workers',
     notMarked: 'Attendance not marked',
     shortHours: 'Below review hours',
     incomplete: 'Incomplete punches',
@@ -76,6 +91,29 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
   get pages() {
     return Math.max(1, Math.ceil(this.data.total / this.data.pageSize));
   }
+  get workforceLabel() {
+    if (this.view !== 'attendance' || this.data.workforce === 'EMPLOYEE') return 'Client employees';
+    return this.data.contractor || this.data.workforce === 'CONTRACTOR' ? 'Contractor workers' : 'Employees and contractor workers';
+  }
+  get pageTitle() {
+    return this.view === 'attendance' ? 'Workforce attendance' : this.tabs.find(t => t.id === this.view)?.label || 'Time Office';
+  }
+  get pagePurpose() {
+    return ({ attendance: 'Review employee and contractor attendance by branch and date. Follow up on missing or incomplete employee punches.',
+      leaves: 'Review client employee leave applications for the selected month.',
+      coff: 'Review client employee comp-off balances as of the selected date.',
+      notifications: 'Track attendance reminders, replies and branch escalations.',
+      automation: 'Manage automatic employee attendance reminders and review delivery issues.',
+    } as Record<string, string>)[this.view];
+  }
+  private filters() {
+    return { date: this.date, branch: this.branch, search: this.search, hours: String(this.hours),
+      issue: this.issue, view: this.view, workforce: this.view === 'attendance' ? this.workforce : 'EMPLOYEE',
+      contractor: this.view === 'attendance' ? this.contractor : '' };
+  }
+  get filtersPending() { return !!this.loadedFilters && this.loadedFilters !== JSON.stringify(this.filters()); }
+  changeWorkforce() { this.contractor = ''; this.load(); }
+  changeBranch() { this.contractor = ''; this.load(); }
   ngOnInit() {
     this.load();
   }
@@ -83,13 +121,16 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
     this.request?.unsubscribe();
   }
   switchView(view: string) {
+    this.request?.unsubscribe();
+    this.loading = false;
+    this.mobileOpen = false;
     this.view = view;
     this.issue = '';
     this.notice = '';
     if (!['notifications', 'automation'].includes(view)) this.load();
   }
   followUp(row: Record<string, any>, target: 'EMPLOYEE' | 'BRANCH') {
-    if (this.sending || !this.data.date) return;
+    if (this.sending || !this.data.date || this.filtersPending || row['worker_type'] === 'CONTRACTOR') return;
     this.sending = row['id'];
     this.error = '';
     this.notice = '';
@@ -123,22 +164,25 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
     this.request?.unsubscribe();
     this.loading = true;
     this.error = '';
-    this.data = { ...this.data, rows: [], summary: {}, total: 0 };
+    this.notice = '';
+    this.data = { ...this.data, date: undefined, rows: [], summary: {}, total: 0 };
+    const filters = this.filters();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.date) || this.date > this.today || !Number.isFinite(this.hours) || this.hours <= 0 || this.hours > 24) {
+      this.loading = false;
+      this.error = 'Choose a valid review date and review hours between 0 and 24.';
+      return;
+    }
     this.request = this.http
       .get<OfficeData>(`${environment.apiBaseUrl}/api/v1/client/attendance/time-office`, {
         params: {
-          date: this.date,
-          branch: this.branch,
-          search: this.search,
-          hours: String(this.hours),
-          issue: this.issue,
-          view: this.view,
+          ...filters,
           page: String(this.page),
         },
       })
       .subscribe({
         next: (data) => {
           this.data = data;
+          this.loadedFilters = JSON.stringify(filters);
           this.loading = false;
         },
         error: (error) => {
@@ -153,6 +197,7 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
       });
   }
   turnPage(step: number) {
+    if (this.loading || this.filtersPending) return;
     this.page += step;
     this.load(false);
   }
@@ -160,12 +205,15 @@ export class TimeOfficeComponent implements OnInit, OnDestroy {
     return String(value ?? '—').replace(/_/g, ' ');
   }
   exportPage() {
+    if (this.loading || this.filtersPending || !this.data.rows.length) return;
     const columns =
       this.view === 'attendance'
         ? [
             'employee_code',
             'name',
             'branch',
+            'worker_type',
+            'contractor_name',
             'status',
             'check_in',
             'check_out',

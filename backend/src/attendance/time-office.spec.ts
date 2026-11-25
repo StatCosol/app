@@ -78,6 +78,10 @@ describe('Time Office access and filters', () => {
     { branch: 'invalid' },
     { view: 'users' },
     { issue: 'invalid' },
+    { workforce: 'UNKNOWN' },
+    { contractor: 'invalid' },
+    { contractor: branch, workforce: 'EMPLOYEE' },
+    { contractor: branch, view: 'coff' },
     { search: ['a', 'b'] },
   ])('rejects invalid filters %j', (q) => {
     expect(() => timeOfficeFilters(q as any)).toThrow(BadRequestException);
@@ -136,6 +140,7 @@ describe('Time Office access and filters', () => {
         9,
         '',
         50,
+        ...(view === 'attendance' ? ['ALL', null] : []),
       ]);
       expect(db.query.mock.calls[1][0]).not.toContain(search);
       expect(result).toMatchObject({ total: 0, page: 2, pageSize: 50 });
