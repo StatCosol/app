@@ -396,7 +396,9 @@ export class HolidayCalendarService {
       new Date(year, month, 0).getDate(),
     ).padStart(2, '0')}`;
     const rows = await this.ds.query(
-      `SELECT employee_id AS "employeeId", COUNT(*)::int AS days
+      // A half day worked on a holiday earns half a day's extra wage.
+      `SELECT employee_id AS "employeeId",
+              SUM(CASE WHEN status = 'HALF_DAY' THEN 0.5 ELSE 1 END)::numeric AS days
        FROM attendance_records
        WHERE client_id = $1 AND date BETWEEN $2::date AND $3::date
          AND status IN ('PRESENT', 'HALF_DAY')

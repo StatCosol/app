@@ -76,10 +76,27 @@ export class StatutoryCalculatorService {
     // rule it is folded into the earned GROSS (so PT/LWF slabs see the true
     // gross including overtime) and into the ESI wage base (per ESIC, ESI
     // is payable on overtime). PF wage explicitly excludes OT.
+    //
+    // HOLIDAY_DBL_AMOUNT (the extra day's wage HR approved for holiday work)
+    // is injected the same way and treated the same: it is paid, so it is in
+    // GROSS, and it is wages for ESI contribution. Overwriting GROSS without
+    // it silently dropped the approved double wage from net pay.
+    //
+    // Neither counts towards the ESI coverage threshold: ESIC excludes
+    // overtime when deciding whether an employee is covered, so a ₹20,000
+    // employee working ₹1,500 of overtime in April stays covered.
     const otAmountForEsi = Number(result['OT_AMOUNT'] ?? 0);
-    result['GROSS'] = gross + otAmountForEsi;
-    if (otAmountForEsi > 0) {
-      esiWage += otAmountForEsi;
+    const holidayDblAmount = components.some(
+      (c) => c.code === 'HOLIDAY_DBL_AMOUNT',
+    )
+      ? 0 // already summed as a configured earning above
+      : Number(result['HOLIDAY_DBL_AMOUNT'] ?? 0);
+    const extraEsiWages = otAmountForEsi + holidayDblAmount;
+    result['GROSS'] = gross + extraEsiWages;
+    let esiCoverageWageBase = esiWage;
+    const anyEsiComponentFlag = anyEsiFlagSet;
+    if (extraEsiWages > 0) {
+      esiWage += extraEsiWages;
       anyEsiFlagSet = true;
     }
 
@@ -89,6 +106,7 @@ export class StatutoryCalculatorService {
     if (payableDays === 0) {
       pfWage = 0;
       esiWage = 0;
+      esiCoverageWageBase = 0;
     }
 
     // ── PF ──
@@ -122,15 +140,18 @@ export class StatutoryCalculatorService {
         const epsContrib = epsExcluded ? 0 : (epsWage * 8.33) / 100;
 
         const totalErPf = (cappedPfWage * erRate) / 100;
-        const pfDiff = epsExcluded
-          ? totalErPf
-          : Math.max(0, totalErPf - epsContrib);
+        const pfEr = Math.ceil(totalErPf);
+        const pfEps = Math.min(pfEr, Math.ceil(epsContrib));
+        // The EPF difference is whatever of the rounded employer share is not
+        // EPS. Rounding it separately made EPS + diff exceed the employer
+        // share by ₹1 (₹15,000: 1250 + 551 vs 1800), which the ECR carries.
+        const pfDiff = epsExcluded ? pfEr : Math.max(0, pfEr - pfEps);
 
         result['PF_WAGES'] = pfWage;
         result['PF_EMP'] = Math.ceil(pfEmp);
-        result['PF_ER'] = Math.ceil(totalErPf);
-        result['PF_EPS'] = Math.ceil(epsContrib);
-        result['PF_DIFF'] = Math.ceil(pfDiff);
+        result['PF_ER'] = pfEr;
+        result['PF_EPS'] = pfEps;
+        result['PF_DIFF'] = pfDiff;
         result['EPS_WAGES'] = epsWage;
 
         // When the employee's registered gross (ACTUAL_GROSS) meets or exceeds the PF gross
@@ -168,6 +189,11 @@ export class StatutoryCalculatorService {
     let esiDroppedAtPeriodStart = false;
     if (setup.esiEnabled && empEsiApplicable !== false) {
       if (esiWage === 0 && !anyEsiFlagSet) esiWage = gross; // fallback only when no flags configured
+      // Coverage is judged on wages without overtime / holiday extra wage.
+      const coverageWage =
+        esiCoverageWageBase === 0 && !anyEsiComponentFlag
+          ? gross
+          : esiCoverageWageBase;
 
       const threshold = Number(setup.esiWageCeiling) || 21000;
       result['ESI_WAGES'] = esiWage;
@@ -182,7 +208,7 @@ export class StatutoryCalculatorService {
       const periodMonth = params.periodMonth;
       const isPeriodStart = periodMonth === 4 || periodMonth === 10;
       let effectiveEsiWage = esiWage;
-      if (esiWage > threshold) {
+      if (coverageWage > threshold) {
         if (isPeriodStart) {
           effectiveEsiWage = 0;
           esiDroppedAtPeriodStart = true;

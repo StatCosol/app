@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 
@@ -32,6 +37,7 @@ import { StatutoryCalculatorService } from '../services/statutory-calculator.ser
 import { StateStatutoryService } from '../services/state-statutory.service';
 import { TdsCalculatorService } from '../services/tds-calculator.service';
 import { AttendanceService } from '../../attendance/attendance.service';
+import { HolidayCalendarService } from '../../attendance/holiday-calendar.service';
 import { LeaveLedgerEntity } from '../../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
 import { LeavePolicyEntity } from '../../ess/entities/leave-policy.entity';
@@ -93,6 +99,10 @@ export class PayrollEngineService {
     private readonly leaveBalanceRepo: Repository<LeaveBalanceEntity>,
     @InjectRepository(LeavePolicyEntity)
     private readonly leavePolicyRepo: Repository<LeavePolicyEntity>,
+    // Optional so test modules that do not provide it still compile; without
+    // it holiday double-wage days are simply not loaded.
+    @Optional()
+    private readonly holidayCalendar?: HolidayCalendarService,
   ) {}
 
   async processWithEngine(runId: string): Promise<ProcessResult> {
@@ -193,6 +203,8 @@ export class PayrollEngineService {
       );
     }
 
+    const holidayDoubleDays = await this.loadHolidayDoubleWageDays(run);
+
     const errors: string[] = [];
     let processed = 0;
     // One state lookup per branch for the whole run.
@@ -210,6 +222,7 @@ export class PayrollEngineService {
           errors,
           att,
           branchStates,
+          emp.employeeId ? holidayDoubleDays.get(emp.employeeId) : undefined,
         );
         processed++;
       } catch (err) {
@@ -324,6 +337,8 @@ export class PayrollEngineService {
       );
     }
 
+    const holidayDoubleDays = await this.loadHolidayDoubleWageDays(run);
+
     const errors: string[] = [];
     let processed = 0;
     // One state lookup per branch for the whole run.
@@ -341,6 +356,7 @@ export class PayrollEngineService {
           errors,
           att,
           branchStates,
+          emp.employeeId ? holidayDoubleDays.get(emp.employeeId) : undefined,
         );
         processed++;
       } catch (err) {
@@ -885,6 +901,19 @@ export class PayrollEngineService {
 
   // ─── Private helpers ───────────────────────────────────────────────
 
+  /** HR-approved holiday double-wage days per employee for the run's month. */
+  private async loadHolidayDoubleWageDays(
+    run: PayrollRunEntity,
+  ): Promise<Map<string, number>> {
+    if (!this.holidayCalendar) return new Map();
+    const byEmployee = await this.holidayCalendar.getApprovedHolidayWorkDays(
+      run.clientId,
+      run.periodYear,
+      run.periodMonth,
+    );
+    return new Map(Object.entries(byEmployee));
+  }
+
   private async processEmployee(
     run: PayrollRunEntity,
     emp: PayrollRunEmployeeEntity,
@@ -901,6 +930,7 @@ export class PayrollEngineService {
       daysOnLeave: number;
     },
     branchStates?: Map<string, string>,
+    holidayDoubleDays?: number,
   ): Promise<void> {
     const qr = this.ds.createQueryRunner();
     await qr.connect();
@@ -937,6 +967,12 @@ export class PayrollEngineService {
         }
         values[row.componentCode] = Number(row.amount) || 0;
         uploadedCodes.add(row.componentCode);
+      }
+
+      // Holiday-work days HR approved for double wage. An uploaded or
+      // manually edited value wins, matching every other attendance input.
+      if (values['HOLIDAY_DBL_DAYS'] === undefined && holidayDoubleDays) {
+        values['HOLIDAY_DBL_DAYS'] = holidayDoubleDays;
       }
 
       // ── Seed attendance data (uploaded values take precedence) ──────────
@@ -1108,8 +1144,12 @@ export class PayrollEngineService {
         wageBasis === 'CALENDAR_DAYS' ? calendarDaysInMonth : 26;
       if (values['WORKED_DAYS'] === undefined) {
         // No attendance uploaded for this employee → 0, NOT a full month.
+        // Attendance from the system is authoritative even when it is 0 days
+        // present: `daysPresent || 26` turned an all-absent month into a full
+        // month. The full-month fallback is kept only for a sheet upload that
+        // carried no days-present figure at all.
         values['WORKED_DAYS'] = attendanceProvided
-          ? isIntern
+          ? isIntern || !attendanceUploaded
             ? Number(emp.daysPresent ?? 0)
             : emp.daysPresent || WORKING_DAYS_IN_MONTH
           : 0;
@@ -1130,8 +1170,7 @@ export class PayrollEngineService {
       // payroll_client_setup.el_accrual_divisor (e.g. 22 for some factories).
       const elDivisorRaw = Number(setup.elAccrualDivisor);
       const elDivisor = elDivisorRaw && elDivisorRaw > 0 ? elDivisorRaw : 20;
-      const workedDays =
-        values['WORKED_DAYS'] ?? (emp.daysPresent || WORKING_DAYS_IN_MONTH);
+      const workedDays = values['WORKED_DAYS'];
 
       const elAccrued = Math.round((workedDays / elDivisor) * 100) / 100;
       values['EL_ACCRUED'] = elAccrued;
@@ -1536,6 +1575,13 @@ export class PayrollEngineService {
       // ── Pro-rata: multiply earned salary components by payableDays / 26 ──
       // Default to 0 when missing so a blank attendance sheet does NOT silently
       // produce a full-month salary.
+      // Worked days + holidays + paid leave can exceed the wage divisor (a
+      // 31-day month has 27 working days under FIXED_26). Pro-rata must never
+      // pay more than the monthly rate; extra holiday work is paid separately
+      // through HOLIDAY_DBL_AMOUNT and overtime through OT_AMOUNT.
+      if (!isIntern && (values['PAYABLE_DAYS'] ?? 0) > WORKING_DAYS_IN_MONTH) {
+        values['PAYABLE_DAYS'] = WORKING_DAYS_IN_MONTH;
+      }
       const payableDays = values['PAYABLE_DAYS'] ?? 0;
       const proRataFactor = isIntern
         ? internProrationFactor(payableDays, WORKING_DAYS_IN_MONTH, daysInMonth)
@@ -1623,7 +1669,10 @@ export class PayrollEngineService {
       // of a period (April or October), persist the master flag so the employee
       // stays out of ESI for subsequent runs.
       if (statResult.esiDroppedAtPeriodStart && emp.employeeId) {
-        await this.empRepo.update(
+        // Same transaction as the run: a failed or rolled-back calculation
+        // must not leave the employee master changed.
+        await qr.manager.update(
+          EmployeeEntity,
           { id: emp.employeeId },
           { esiApplicable: false },
         );
