@@ -6,6 +6,7 @@ export function actionIconName(label: unknown): IconName {
   if (/^(download|export|print)/.test(text)) return text.startsWith('print') ? 'printer' : 'download';
   if (/^(upload|import|reupload)/.test(text)) return 'upload';
   if (/^(approve|verify|acknowledge|resolve|activate|complete|mark paid)/.test(text)) return 'check-circle';
+  if (/^(close|dismiss|cancel)\b/.test(text)) return 'x-mark';
   if (/^(reject|withdraw|deactivate)/.test(text)) return 'x-circle';
   if (/^(delete|remove)/.test(text)) return 'trash';
   if (/^(edit|update|revise)/.test(text)) return 'pencil';

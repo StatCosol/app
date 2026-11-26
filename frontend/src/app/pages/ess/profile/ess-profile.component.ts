@@ -186,7 +186,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
     .card-title {
       font-size: 14px;
       font-weight: 600;
-      color: #6b7280;
+      color: #5b6472;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: 16px;
@@ -203,7 +203,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       border-bottom: 1px solid #f9fafb;
       font-size: 14px;
     }
-    .label { color: #6b7280; }
+    .label { color: #5b6472; }
     .value { color: #111827; font-weight: 500; text-align: right; }
     @media (max-width: 640px) {
       .info-grid { grid-template-columns: 1fr; }

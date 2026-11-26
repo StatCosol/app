@@ -111,7 +111,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       text-align: left;
       padding: 8px 12px;
       font-weight: 600;
-      color: #6b7280;
+      color: #5b6472;
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.05em;

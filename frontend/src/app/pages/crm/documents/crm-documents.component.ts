@@ -181,14 +181,14 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
       padding: 14px 18px; text-align: center;
     }
     .kpi-value { display: block; font-size: 1.5rem; font-weight: 700; color: #111827; }
-    .kpi-label { font-size: 12px; color: #6b7280; }
-    .kpi-pending .kpi-value { color: #d97706; }
-    .kpi-approved .kpi-value { color: #059669; }
+    .kpi-label { font-size: 12px; color: #5b6472; }
+    .kpi-pending .kpi-value { color: #b45309; }
+    .kpi-approved .kpi-value { color: #047857; }
     .kpi-rejected .kpi-value { color: #dc2626; }
 
     .filter-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
     .search-wrapper { position: relative; flex: 1; }
-    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: #9ca3af; }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: #636b78; }
     .search-input {
       width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #d1d5db; border-radius: 8px;
       font-size: 14px; color: #111827; background: white;
@@ -198,7 +198,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
     .table-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; overflow-x: auto; }
     .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
     .data-table th {
-      text-align: left; padding: 10px 14px; font-weight: 600; color: #6b7280;
+      text-align: left; padding: 10px 14px; font-weight: 600; color: #5b6472;
       font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e5e7eb;
     }
     .data-table td { padding: 12px 14px; border-bottom: 1px solid #f3f4f6; color: #111827; vertical-align: middle; }
@@ -220,7 +220,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
     .btn-reject:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 50;
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 50;
       display: flex; align-items: center; justify-content: center;
     }
     .modal-card { background: white; border-radius: 12px; padding: 24px; width: 420px; max-width: 90vw; }

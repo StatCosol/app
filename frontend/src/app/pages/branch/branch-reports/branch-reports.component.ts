@@ -505,7 +505,7 @@ interface ReportItem {
       }
       .page-subtitle {
         font-size: 0.8125rem;
-        color: #64748b;
+        color: #5b6472;
         margin-top: 0.25rem;
       }
       .report-category {
@@ -514,7 +514,7 @@ interface ReportItem {
       .category-title {
         font-size: 0.875rem;
         font-weight: 600;
-        color: #64748b;
+        color: #5b6472;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-bottom: 0.75rem;
@@ -558,7 +558,7 @@ interface ReportItem {
       }
       .report-desc {
         font-size: 0.75rem;
-        color: #64748b;
+        color: #5b6472;
         margin-top: 0.125rem;
       }
       .report-drawer {

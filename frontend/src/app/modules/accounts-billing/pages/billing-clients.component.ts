@@ -86,11 +86,11 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
 
       <!-- Add/Edit Modal -->
       @if (showForm) {
-<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">{{ editClient ? 'Edit' : 'Add' }} Billing Client</h2>
-            <button (click)="showForm = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button (click)="showForm = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             @if (saveError) {
@@ -108,10 +108,6 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                 <input name="bc-trade-name" [(ngModel)]="form.tradeName" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Billing Email *</label>
-                <input name="bc-billing-email" [(ngModel)]="form.billingEmail" type="email" class="w-full px-3 py-2 border rounded-lg text-sm">
-              </div>
-              <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Contact Person</label>
                 <input name="bc-contact-person" [(ngModel)]="form.contactPerson" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
@@ -120,10 +116,14 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                 <input name="bc-mobile" [(ngModel)]="form.mobile" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
               <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Billing Email *</label>
+                <input name="bc-billing-email" [(ngModel)]="form.billingEmail" type="email" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">CC Email</label>
                 <input name="bc-cc-email" [(ngModel)]="form.ccEmail" placeholder="a@x.com,b@y.com" class="w-full px-3 py-2 border rounded-lg text-sm">
               </div>
-              <div>
+              <div class="col-span-2">
                 <label class="block text-xs font-medium text-slate-600 mb-1">BCC Email</label>
                 <input name="bc-bcc-email" [(ngModel)]="form.bccEmail" placeholder="a@x.com,b@y.com" class="w-full px-3 py-2 border rounded-lg text-sm">
                 <p class="mt-1 text-[11px] text-slate-500">Hidden from the client. CC recipients are visible to each other.</p>
@@ -136,7 +136,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                 <label class="block text-xs font-medium text-slate-600 mb-1">PAN</label>
                 <input name="bc-pan" [(ngModel)]="form.pan" class="w-full px-3 py-2 border rounded-lg text-sm" maxlength="10">
               </div>
-              <div>
+              <div class="col-span-2">
                 <label class="block text-xs font-medium text-slate-600 mb-1">State *</label>
                 <select name="bc-state-code" [(ngModel)]="form.stateCode" (change)="onStateChange()" class="w-full px-3 py-2 border rounded-lg text-sm">
                   <option value="">Select State</option>
@@ -145,6 +145,12 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
 }
                 </select>
               </div>
+              <div class="col-span-2">
+                <label class="block text-xs font-medium text-slate-600 mb-1">Billing Address *</label>
+                <textarea name="bc-billing-address" [(ngModel)]="form.billingAddress" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Default GST Rate %</label>
                 <input name="bc-gst-rate" [(ngModel)]="form.defaultGstRate" type="number" class="w-full px-3 py-2 border rounded-lg text-sm">
@@ -162,12 +168,8 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
                 </select>
               </div>
             </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1">Billing Address *</label>
-              <textarea name="bc-billing-address" [(ngModel)]="form.billingAddress" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
-            </div>
           </div>
-          <div class="p-6 border-t flex justify-end gap-3">
+          <div class="sticky bottom-0 bg-white p-6 border-t flex justify-end gap-3">
             <button (click)="showForm = false" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="onSave()" class="standard-action px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700"
                     [disabled]="saving">{{ saving ? 'Saving...' : 'Save' }}</button>

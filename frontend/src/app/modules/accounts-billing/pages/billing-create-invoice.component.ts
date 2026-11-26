@@ -167,7 +167,7 @@ const EDITABLE_STATUSES = new Set([
                   </td>
                   <td class="px-3 py-2 text-center">
                     @if (itemsArray.length > 1) {
-<button type="button" (click)="removeItem(i)" class="compact-action text-red-500 hover:text-red-700" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+<button type="button" (click)="removeItem(i)" class="compact-action text-red-500 hover:text-red-700" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
 }
                   </td>
                 </tr>

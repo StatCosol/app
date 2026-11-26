@@ -53,7 +53,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 <div class="import-dialog">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-semibold text-gray-900">Bulk Import Employees from Excel</h3>
-          <button (click)="showImportDialog = false" class="compact-action text-gray-400 hover:text-gray-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+          <button (click)="showImportDialog = false" class="compact-action text-gray-400 hover:text-gray-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
         </div>
         <p class="text-xs text-gray-500 mb-3">Download the template, fill in employee details, then upload the file.</p>
         <div class="flex items-end gap-3 flex-wrap aligned-filter-controls">
@@ -216,7 +216,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
     @media (pointer: coarse) { .employee-toolbar .search-input, .employee-toolbar .filter-select { height: 44px; } }
     @media (max-width: 640px) { .employee-toolbar { width: 100%; } .employee-toolbar .search-input { width: 100%; } }
     .page-title { font-size: 1.25rem; font-weight: 700; color: #1e293b; }
-    .page-subtitle { font-size: 0.8125rem; color: #64748b; margin-top: 0.25rem; }
+    .page-subtitle { font-size: 0.8125rem; color: #5b6472; margin-top: 0.25rem; }
     .search-input {
       padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.8125rem; width: 220px;
       &:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
@@ -244,10 +244,10 @@ import { ToastService } from '../../../shared/toast/toast.service';
     @media (max-width: 768px) { .summary-strip { grid-template-columns: repeat(2, 1fr); } }
     .summary-card { background: white; border-radius: 0.75rem; padding: 1rem; text-align: center; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
     .summary-value { display: block; font-size: 1.5rem; font-weight: 800; }
-    .summary-label { display: block; font-size: 0.6875rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.25rem; }
+    .summary-label { display: block; font-size: 0.6875rem; font-weight: 600; color: #5b6472; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.25rem; }
     .table-card { background: white; border-radius: 1rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
     .data-table { width: 100%; border-collapse: collapse; }
-    .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.6875rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; border-bottom: 2px solid #f1f5f9; }
+    .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.6875rem; font-weight: 600; color: #5b6472; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; border-bottom: 2px solid #f1f5f9; }
     .data-table td { padding: 0.75rem 1rem; font-size: 0.8125rem; border-bottom: 1px solid #f8fafc; }
     .data-row:hover { background: #f8fafc; }
     .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; flex-wrap: nowrap; min-width: 88px; }

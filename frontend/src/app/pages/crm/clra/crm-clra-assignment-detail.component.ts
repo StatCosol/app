@@ -293,7 +293,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
     </div>
 
     @if (showRegisterForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">Record Register Run</h3>
           <div class="grid grid-cols-1 gap-3">
@@ -335,7 +335,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
     }
 
     @if (showDeploymentForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">{{ deploymentForm.id ? 'Edit' : 'Add' }} Deployment</h3>
           <div class="grid grid-cols-1 gap-3">
@@ -381,7 +381,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
     }
 
     @if (showWagePeriodForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">Add Wage Period</h3>
           <div class="grid grid-cols-2 gap-3">
@@ -415,7 +415,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
     }
 
     @if (showAttendanceForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">{{ attendanceForm.existingId ? 'Edit' : 'Add' }} Attendance</h3>
           <div class="grid grid-cols-1 gap-3">
@@ -461,7 +461,7 @@ type DetailTab = 'deployments' | 'wage-periods' | 'attendance' | 'wages' | 'regi
     }
 
     @if (showWageForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">{{ wageForm.existingId ? 'Edit' : 'Add' }} Wage</h3>
           <div class="grid grid-cols-2 gap-3">

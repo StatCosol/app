@@ -16,7 +16,7 @@
 .kpi-card.kpi--ok { border-color: #bbf7d0; background: #f0fdf4; }
 .kpi-card.kpi--esc { border-color: #fecaca; background: #fef2f2; }
 .kpi-val { font-size: 1.25rem; font-weight: 700; color: #0f172a; display: block; }
-.kpi-lbl { font-size: 0.72rem; color: #64748b; }
+.kpi-lbl { font-size: 0.72rem; color: #5b6472; }
 
 .create-form {
   border: 1px solid #e2e8f0; border-radius: 0.75rem;
@@ -81,7 +81,7 @@ textarea.field { height: auto; resize: vertical; }
 .detail-head h3 { font-size: 0.9rem; font-weight: 700; color: #1e293b; }
 .close-btn {
   background: none; border: none; font-size: 1rem; cursor: pointer;
-  color: #94a3b8;
+  color: #636b78;
 }
 .detail-body {
   padding: 0.85rem 0.9rem; overflow-y: auto; max-height: 70vh;
@@ -89,7 +89,7 @@ textarea.field { height: auto; resize: vertical; }
 .meta-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
 }
-.meta-lbl { display: block; font-size: 0.68rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+.meta-lbl { display: block; font-size: 0.68rem; font-weight: 600; color: #636b78; text-transform: uppercase; }
 .meta-val { display: block; font-size: 0.8rem; color: #1e293b; }
 
 .mini-btn {

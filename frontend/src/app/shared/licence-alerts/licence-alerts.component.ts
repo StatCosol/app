@@ -190,7 +190,7 @@ export interface LicenceWarnings {
       .licence-number {
         display: block;
         font-size: 12px;
-        color: #64748b;
+        color: #5b6472;
         margin-top: 4px;
       }
       .headcount {

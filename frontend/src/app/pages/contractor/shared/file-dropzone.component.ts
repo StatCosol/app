@@ -37,13 +37,13 @@ import { CommonModule } from '@angular/common';
     .dz.drag{border-color:#2563eb;background:#eff6ff}
     .dz-inner{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
     .title{font-weight:700}
-    .sub{color:#6b7280;font-size:13px}
+    .sub{color:#5b6472;font-size:13px}
     .btn{display:inline-flex;align-items:center;gap:8px;background:#2563eb;color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
-    .hint{font-size:12px;color:#6b7280}
+    .hint{font-size:12px;color:#5b6472}
     .files{margin-top:12px;display:flex;flex-direction:column;gap:8px}
     .file{display:flex;align-items:center;gap:10px;border:1px solid #e5e7eb;border-radius:12px;padding:10px;background:#f9fafb}
     .name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .meta{color:#6b7280;font-size:12px}
+    .meta{color:#5b6472;font-size:12px}
     .link{background:transparent;border:0;color:#dc2626;font-weight:600;cursor:pointer}
   `]
 })

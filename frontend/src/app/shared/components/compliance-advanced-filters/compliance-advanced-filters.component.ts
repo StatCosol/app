@@ -108,7 +108,7 @@ export interface FilterDropdownOption {
       border-radius: 0.375rem;
       background: #f9fafb;
       cursor: pointer;
-      color: #6b7280;
+      color: #5b6472;
     }
     .reset-btn:hover { background: #f3f4f6; color: #111827; }
   `],

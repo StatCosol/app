@@ -219,7 +219,7 @@ import {
 
     .page-subtitle {
       font-size: 0.875rem;
-      color: #64748b;
+      color: #5b6472;
       margin-top: 4px;
     }
 
@@ -338,7 +338,7 @@ import {
     }
     .summary-label {
       font-size: 0.8rem;
-      color: #64748b;
+      color: #5b6472;
       font-weight: 500;
     }
 
@@ -373,7 +373,7 @@ import {
       text-align: left;
       padding: 10px 16px;
       font-weight: 600;
-      color: #64748b;
+      color: #5b6472;
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;

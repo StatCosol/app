@@ -121,7 +121,7 @@ h4 {
 
   .label {
     font-weight: 600;
-    color: #6b7280;
+    color: #5b6472;
   }
 
   .value {
@@ -151,7 +151,7 @@ h4 {
 .loading {
   padding: 20px;
   text-align: center;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .table-responsive {
@@ -198,7 +198,7 @@ h4 {
 .empty {
   padding: 40px;
   text-align: center;
-  color: #9ca3af;
+  color: #636b78;
   font-style: italic;
 }
 
@@ -217,7 +217,7 @@ h4 {
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.5);
 }
 
 .quote-modal {
@@ -234,7 +234,7 @@ h4 {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
-  p { margin: 0; color: #6b7280; font-size: 0.875rem; }
+  p { margin: 0; color: #5b6472; font-size: 0.875rem; }
 }
 
 .modal-close {
@@ -287,7 +287,7 @@ h4 {
 .vendor-badge { font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; }
 .vendor-badge--ok { background: #dcfce7; color: #166534; }
 .vendor-badge--bad { background: #fee2e2; color: #991b1b; }
-.vendor-details { font-size: 0.8rem; color: #6b7280; display: flex; flex-wrap: wrap; gap: 0 1rem; }
+.vendor-details { font-size: 0.8rem; color: #5b6472; display: flex; flex-wrap: wrap; gap: 0 1rem; }
 .vendor-warning { font-size: 0.8rem; color: #b45309; margin: 0.25rem 0; }
 .vendor-lines { overflow-x: auto; margin-top: 0.5rem; }
 .vendor-lines table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }

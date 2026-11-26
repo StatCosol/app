@@ -11,6 +11,7 @@ const ICON_PATHS: Record<string, string[]> = {
   'document-plus': ['M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M12 12v6m-3-3h6'],
   'folder-open': ['M3 7V5a2 2 0 012-2h5l2 3h7a2 2 0 012 2v2M3 7v13h15l4-10H7L3 20'],
   'chevron-down': ['M6 9l6 6 6-6'],
+  'x-mark': ['M6 18L18 6M6 6l12 12'],
   pause: ['M8 5v14M16 5v14'],
   play: ['M8 5l11 7-11 7V5z'],
   search: ['M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z'],

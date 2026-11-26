@@ -143,13 +143,13 @@ import {
       .summary { display: flex; gap: 0.75rem; margin: 0.75rem 0 1rem; }
       .summary div { border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.65rem 0.85rem; background: #fff; min-width: 110px; }
       .summary strong { display: block; color: #111827; font-size: 1.1rem; }
-      .summary span, .muted { color: #6b7280; font-size: 0.75rem; }
+      .summary span, .muted { color: #5b6472; font-size: 0.75rem; }
       .employee { font-weight: 700; color: #111827; }
       .status { display: inline-flex; border-radius: 999px; padding: 0.15rem 0.55rem; font-size: 0.68rem; font-weight: 800; background: #fee2e2; color: #991b1b; }
       .status.ok { background: #d1fae5; color: #065f46; }
       .status.bad { background: #fee2e2; color: #991b1b; }
       .reason { margin-top: 0.25rem; max-width: 260px; color: #b45309; font-size: 0.72rem; white-space: normal; }
-      .empty { padding: 1rem; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; }
+      .empty { padding: 1rem; border: 1px dashed #d1d5db; border-radius: 8px; color: #5b6472; }
     `,
   ],
 })

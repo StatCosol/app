@@ -369,7 +369,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
     }
     .header-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
     .header-name { font-size: 1.25rem; font-weight: 700; color: #111827; display: flex; align-items: center; }
-    .header-meta { font-size: 0.85rem; color: #6b7280; margin-top: 0.15rem; }
+    .header-meta { font-size: 0.85rem; color: #5b6472; margin-top: 0.15rem; }
     .header-actions { display: flex; gap: 0.5rem; }
 
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
@@ -379,10 +379,10 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
       border-radius: 0.5rem;
       padding: 1rem 1.25rem;
     }
-    .info-section-title { font-size: 0.8rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.75rem; }
+    .info-section-title { font-size: 0.8rem; font-weight: 600; color: #5b6472; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.75rem; }
     .info-rows { display: flex; flex-direction: column; gap: 0.5rem; }
     .info-row { display: flex; justify-content: space-between; font-size: 0.875rem; padding: 0.25rem 0; border-bottom: 1px solid #f9fafb; }
-    .info-label { color: #6b7280; }
+    .info-label { color: #5b6472; }
     .info-value { color: #111827; font-weight: 500; text-align: right; }
 
     @media (max-width: 640px) {
@@ -420,7 +420,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
     .ess-cred-label {
       font-size: 0.75rem;
       font-weight: 600;
-      color: #6b7280;
+      color: #5b6472;
       min-width: 64px;
     }
     .ess-cred-value {
@@ -436,7 +436,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
       border-radius: 0.375rem;
       padding: 0.25rem;
       cursor: pointer;
-      color: #6b7280;
+      color: #5b6472;
       transition: color 0.15s, border-color 0.15s;
     }
     .ess-copy-btn:hover {

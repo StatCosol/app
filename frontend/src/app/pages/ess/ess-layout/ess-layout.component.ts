@@ -29,7 +29,7 @@ interface NavItem {
 <div class="px-5 pt-6 pb-4 flex items-center gap-3" style="border-bottom: 1px solid rgba(255,255,255,.07)">
           <div>
             <span class="text-white font-bold text-xl tracking-tight">{{ companyName }}</span>
-            <span class="block text-white/40 text-[13px] font-medium">Employee Portal</span>
+            <span class="block text-white/70 text-[13px] font-medium">Employee Portal</span>
           </div>
         </div>
 }
@@ -182,7 +182,7 @@ interface NavItem {
       position: relative;
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; border-radius: 8px;
-      color: rgba(255,255,255,.55); font-size: 14px; font-weight: 500;
+      color: rgba(255, 255, 255, 0.72); font-size: 14px; font-weight: 500;
       text-decoration: none; white-space: nowrap;
       transition: background .15s, color .15s;
     }
@@ -224,7 +224,7 @@ interface NavItem {
     }
     .sb-foot-info { display: flex; flex-direction: column; }
     .sb-foot-name { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sb-foot-code { color: rgba(255,255,255,.4); font-size: 11px; }
+    .sb-foot-code { color: rgba(255, 255, 255, 0.72); font-size: 11px; }
     .sb-collapsed .sb-foot { display: none; }
 
     /* sidebar branding */
@@ -232,11 +232,11 @@ interface NavItem {
       padding: 10px 14px; text-align: center;
       border-top: 1px solid rgba(255,255,255,.07);
     }
-    .sb-branding-text { display: block; font-size: 9px; color: rgba(255,255,255,.3); line-height: 1.4; }
-    .sb-branding-link { display: block; font-size: 10px; color: rgba(255,255,255,.5); font-weight: 600; text-decoration: none; }
+    .sb-branding-text { display: block; font-size: 9px; color: rgba(255, 255, 255, 0.72); line-height: 1.4; }
+    .sb-branding-link { display: block; font-size: 10px; color: rgba(255, 255, 255, 0.72); font-weight: 600; text-decoration: none; }
     .sb-branding-link:hover { color: #a5b4fc; }
-    .sb-branding-url { display: block; font-size: 9px; color: rgba(255,255,255,.25); text-decoration: none; margin-top: 2px; }
-    .sb-branding-url:hover { color: rgba(255,255,255,.5); }
+    .sb-branding-url { display: block; font-size: 9px; color: rgba(255, 255, 255, 0.72); text-decoration: none; margin-top: 2px; }
+    .sb-branding-url:hover { color: rgba(255, 255, 255, 0.72); }
     .sb-collapsed .sb-branding { display: none; }
 
     /* ─── OVERLAY (mobile) ─────── */
@@ -265,7 +265,7 @@ interface NavItem {
     /* greeting + date */
     .tb-greeting { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
     .tb-greeting-text { font-size: 13px; font-weight: 600; color: #374151; }
-    .tb-date { font-size: 11px; color: #9ca3af; font-weight: 500; }
+    .tb-date { font-size: 11px; color: #636b78; font-weight: 500; }
 
     /* helpline */
     .tb-helpline { display: flex; flex-direction: column; gap: 2px; padding-left: 12px; border-left: 1px solid #e5e7eb; }
@@ -296,7 +296,7 @@ interface NavItem {
       color: #fff; font-size: 14px; font-weight: 700;
       display: grid; place-items: center;
     }
-    .tb-chev { width: 14px; height: 14px; color: #9ca3af; }
+    .tb-chev { width: 14px; height: 14px; color: #636b78; }
 
     /* dropdown */
     .dropdown {
@@ -311,7 +311,7 @@ interface NavItem {
       padding: 10px 12px 8px; border-bottom: 1px solid #f3f4f6;
     }
     .dd-header strong { display: block; font-size: 14px; color: #111827; }
-    .dd-header small { font-size: 12px; color: #6b7280; }
+    .dd-header small { font-size: 12px; color: #5b6472; }
     .dd-item {
       display: flex; align-items: center; gap: 8px;
       width: 100%; padding: 9px 12px; border-radius: 8px;

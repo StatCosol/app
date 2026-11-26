@@ -91,7 +91,7 @@ export class StatCardComponent {
   get descClass(): string {
     const colors: Record<StatCardColor, string> = {
       primary: 'text-brand-600/80',
-      success: 'text-emerald-600/80',
+      success: 'text-emerald-700',
       warning: 'text-amber-600/80',
       error: 'text-red-600/80',
       info: 'text-sky-600/80',

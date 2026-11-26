@@ -78,7 +78,7 @@
 .refresh-btn {
   padding: 0.5rem;
   border-radius: 0.5rem;
-  color: #64748b;
+  color: #5b6472;
   background: white;
   border: 1px solid #e2e8f0;
   cursor: pointer;
@@ -127,9 +127,9 @@
   flex-shrink: 0;
 }
 .kpi-body { flex: 1; min-width: 0; }
-.kpi-label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi-label { font-size: 0.75rem; font-weight: 600; color: #5b6472; text-transform: uppercase; letter-spacing: 0.04em; }
 .kpi-value { font-size: 1.75rem; font-weight: 800; color: #1e293b; line-height: 1.2; margin: 0.25rem 0; }
-.kpi-detail { font-size: 0.8125rem; color: #64748b; }
+.kpi-detail { font-size: 0.8125rem; color: #5b6472; }
 
 /* Status Grid */
 .status-grid {
@@ -164,7 +164,7 @@
   font-size: 0.875rem;
   font-weight: 700;
 }
-.status-note { font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; }
+.status-note { font-size: 0.75rem; color: #636b78; margin-top: 0.5rem; }
 
 .progress-bar {
   height: 8px;
@@ -236,7 +236,7 @@
   padding: 0.125rem 0.5rem;
   border-radius: 999px;
   background: #f1f5f9;
-  color: #64748b;
+  color: #5b6472;
 }
 
 /* Expiry Table */
@@ -254,7 +254,7 @@
   padding: 0.625rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
+  color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 2px solid #f1f5f9;

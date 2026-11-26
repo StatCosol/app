@@ -64,12 +64,12 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
       } @else {
         <div class="flex gap-2 mt-4">
           <button type="button" class="px-4 py-2 text-sm font-medium rounded-lg border"
-            [class.bg-rose-600]="tab === 'assignments'" [class.text-white]="tab === 'assignments'"
-            [class.border-rose-600]="tab === 'assignments'"
+            [class.bg-accent-700]="tab === 'assignments'" [class.text-white]="tab === 'assignments'"
+            [class.border-accent-700]="tab === 'assignments'"
             (click)="setTab('assignments')">Assignments</button>
           <button type="button" class="px-4 py-2 text-sm font-medium rounded-lg border"
-            [class.bg-rose-600]="tab === 'workers'" [class.text-white]="tab === 'workers'"
-            [class.border-rose-600]="tab === 'workers'"
+            [class.bg-accent-700]="tab === 'workers'" [class.text-white]="tab === 'workers'"
+            [class.border-accent-700]="tab === 'workers'"
             (click)="setTab('workers')">Workers</button>
         </div>
 
@@ -85,7 +85,7 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
             <ui-data-table [columns]="assignmentCols" [data]="assignments" emptyMessage="No CLRA assignments linked to your account.">
               <ng-template uiTableCell="pe" let-row>{{ row.peEstablishment?.peName || 'Establishment name unavailable' }}</ng-template>
               <ng-template uiTableCell="actions" let-row>
-                <button class="compact-action text-rose-700 hover:underline text-sm" (click)="selectAssignment(row)" title="Manage" aria-label="Manage" data-action-label="Manage" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></button>
+                <button class="compact-action text-accent-800 hover:underline text-sm" (click)="selectAssignment(row)" title="Manage" aria-label="Manage" data-action-label="Manage" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></button>
               </ng-template>
             </ui-data-table>
             @if (selectedAssignment) {
@@ -121,7 +121,7 @@ const WORKER_CATEGORIES = ['SKILLED', 'SEMI_SKILLED', 'UNSKILLED', 'HIGHLY_SKILL
     </div>
 
     @if (showWorkerForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeWorkerForm()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeWorkerForm()">
         <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">{{ workerForm.id ? 'Edit' : 'Add' }} Worker</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">

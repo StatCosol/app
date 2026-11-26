@@ -44,11 +44,11 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
       border: 1px solid #e5e7eb; text-align: center;
     }
     .kpi-value { font-size: 1.5rem; font-weight: 700; color: #1e293b; }
-    .kpi-label { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }
+    .kpi-label { font-size: 0.75rem; color: #5b6472; margin-top: 0.25rem; }
     .doc-table { width: 100%; border-collapse: collapse; }
     .doc-table th {
       text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600;
-      color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+      color: #5b6472; text-transform: uppercase; letter-spacing: 0.05em;
       background: #f8fafc; border-bottom: 1px solid #e5e7eb;
     }
     .doc-table td {
@@ -89,7 +89,7 @@ import { ProtectedFileService } from '../../../shared/files/services/protected-f
     }
     .tab-btn {
       padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.8125rem; font-weight: 500;
-      cursor: pointer; transition: all 0.2s; border: none; background: transparent; color: #64748b;
+      cursor: pointer; transition: all 0.2s; border: none; background: transparent; color: #5b6472;
     }
     .tab-btn.active { background: white; color: #0A1F44; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
     .remarks-textarea {

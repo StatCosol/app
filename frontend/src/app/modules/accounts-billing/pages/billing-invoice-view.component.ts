@@ -228,14 +228,14 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
       <!-- Payment Modal -->
       @if (showConversionModal) {
-<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <div>
               <h2 class="text-lg font-bold">Generate Tax Invoice</h2>
               <p class="text-xs text-slate-500 mt-1">From Proforma {{ invoice.invoiceNumber }}</p>
             </div>
-            <button (click)="showConversionModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button (click)="showConversionModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             <div>
@@ -279,11 +279,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
       <!-- Payment Modal -->
       @if (showPaymentModal) {
-<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Record Payment</h2>
-            <button (click)="showPaymentModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button (click)="showPaymentModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             <div>
@@ -334,11 +334,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
       <!-- Email Modal -->
       @if (showEmailModal) {
-<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold">Send Invoice Email</h2>
-            <button (click)="showEmailModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button (click)="showEmailModal = false" class="compact-action text-slate-400 hover:text-slate-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             <div>

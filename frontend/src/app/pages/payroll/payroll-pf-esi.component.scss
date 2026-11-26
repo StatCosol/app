@@ -35,7 +35,7 @@
 .page-head p {
   margin-top: 0.2rem;
   font-size: 0.82rem;
-  color: #6b7280;
+  color: #5b6472;
   max-width: 760px;
 }
 
@@ -51,7 +51,7 @@
   flex-direction: column;
   gap: 0.24rem;
   font-size: 0.72rem;
-  color: #6b7280;
+  color: #5b6472;
   font-weight: 600;
   margin-bottom: 0;
 }
@@ -80,7 +80,7 @@
   flex-direction: column;
   gap: 0.24rem;
   font-size: 0.72rem;
-  color: #6b7280;
+  color: #5b6472;
   font-weight: 600;
 }
 
@@ -126,7 +126,7 @@
 .summary-card .label {
   display: block;
   font-size: 0.68rem;
-  color: #6b7280;
+  color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -142,7 +142,7 @@
   display: block;
   margin-top: 0.12rem;
   font-size: 0.72rem;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .summary-card--good {
@@ -171,7 +171,7 @@
 
 .loader {
   border: 1px dashed #d1d5db;
-  color: #6b7280;
+  color: #5b6472;
   text-align: center;
 }
 
@@ -230,13 +230,13 @@
 
 .section-head span {
   font-size: 0.71rem;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .panel-note {
   margin: 0 0 0.58rem;
   font-size: 0.73rem;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .filter-row {
@@ -259,7 +259,7 @@
   flex-direction: column;
   gap: 0.24rem;
   font-size: 0.72rem;
-  color: #6b7280;
+  color: #5b6472;
   font-weight: 600;
 }
 
@@ -307,7 +307,7 @@ td {
 
 th {
   font-size: 0.68rem;
-  color: #6b7280;
+  color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 700;
@@ -324,7 +324,7 @@ tbody tr:hover {
 
 .minor {
   font-size: 0.7rem;
-  color: #6b7280;
+  color: #5b6472;
   margin-top: 0.15rem;
 }
 
@@ -338,7 +338,7 @@ tbody tr:hover {
   text-align: center;
   padding: 0.75rem;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .days {
@@ -446,7 +446,7 @@ input:focus {
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(2, 6, 23, 0.42);
+  background: rgba(15, 23, 42, 0.5);
   z-index: 45;
 }
 
@@ -497,7 +497,7 @@ input:focus {
 .kv span {
   display: block;
   font-size: 0.69rem;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .kv strong {
@@ -510,7 +510,7 @@ input:focus {
 .kv p {
   margin: 0.15rem 0 0;
   font-size: 0.72rem;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .kv.notice {

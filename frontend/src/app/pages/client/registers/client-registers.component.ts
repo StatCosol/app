@@ -288,9 +288,9 @@ type RegisterRow = {
     .table-wrap { overflow: auto; }
     table { width: 100%; min-width: 860px; border-collapse: collapse; }
     th, td { border-bottom: 1px solid #e5e7eb; text-align: left; padding: .55rem .5rem; vertical-align: middle; font-size: .82rem; color: #1f2937; }
-    th { color: #6b7280; text-transform: uppercase; letter-spacing: .02em; font-size: .72rem; font-weight: 700; }
+    th { color: #5b6472; text-transform: uppercase; letter-spacing: .02em; font-size: .72rem; font-weight: 700; }
     .title { font-weight: 600; color: #111827; }
-    .meta { color: #6b7280; font-size: .73rem; }
+    .meta { color: #5b6472; font-size: .73rem; }
     .source-badge { border-radius: 999px; border: 1px solid #d1d5db; padding: .12rem .55rem; font-size: .7rem; font-weight: 700; color: #4b5563; }
     .source-badge.generated { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
     .row-actions { display: flex; gap: .35rem; align-items: center; }

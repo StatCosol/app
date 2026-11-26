@@ -66,6 +66,7 @@
 :is(button, a).compact-action[data-action-icon='x-circle'],
 :is(button, a).compact-action[data-action-icon='trash'] { color: #dc2626 !important; }
 :is(button, a).compact-action[data-action-icon='user-minus'] { color: #dc2626 !important; }
+:is(button, a).compact-action[data-action-icon='x-mark'] { color: #4b5563 !important; }
 :is(button, a).compact-action:hover:not(:disabled) { background: #eff6ff !important; border-color: #93c5fd !important; }
 :is(button, a).compact-action:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
 :is(button, a).compact-action:disabled { opacity: .45; cursor: not-allowed; }

@@ -27,7 +27,7 @@
 
 .kpi span {
   font-size: 13px;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .card {
@@ -193,7 +193,7 @@ a.kpi-tile { cursor: pointer; }
 .kpi-tile__label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
+  color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -206,7 +206,7 @@ a.kpi-tile { cursor: pointer; }
 }
 .kpi-tile__detail {
   font-size: 0.8125rem;
-  color: #64748b;
+  color: #5b6472;
 }
 
 // Status row (compliance %, uploads, observations)
@@ -242,7 +242,7 @@ a.kpi-tile { cursor: pointer; }
   font-size: 0.875rem;
   font-weight: 700;
 }
-.status-tile__note { font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; }
+.status-tile__note { font-size: 0.75rem; color: #636b78; margin-top: 0.5rem; }
 .status-tile__bar {
   height: 8px;
   background: #f1f5f9;

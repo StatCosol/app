@@ -243,7 +243,7 @@ import {
       .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
       :host ::ng-deep table { table-layout: auto !important; }
       .filter-bar { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; flex-wrap: wrap; }
-      .total-badge { font-size: 0.8rem; color: #6b7280; margin-bottom: 0.5rem; }
+      .total-badge { font-size: 0.8rem; color: #5b6472; margin-bottom: 0.5rem; }
       :host ::ng-deep tbody td:last-child {
         overflow: hidden !important;
         text-overflow: clip !important;

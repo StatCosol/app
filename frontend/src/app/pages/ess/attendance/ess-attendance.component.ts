@@ -456,7 +456,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
     `
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
       .stat { padding: 14px 16px; }
-      .lbl { font-size: 12px; color: #6b7280; }
+      .lbl { font-size: 12px; color: #5b6472; }
       .val { font-size: 24px; font-weight: 700; color: #111827; margin-top: 2px; }
       .input-sm { border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.875rem; min-width: 140px; }
       .btn-primary { background: #1d4ed8; color: #fff; border: none; border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 600; }
@@ -491,7 +491,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .checkin-left { flex: 1; min-width: 260px; }
       .checkin-right { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 16px; }
       .checkin-status-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-      .checkin-date-block .text-xs { color: #94a3b8; }
+      .checkin-date-block .text-xs { color: #636b78; }
       .checkin-date-block .text-lg { color: #f1f5f9; }
       .checkin-live-time { display: flex; align-items: center; gap: 8px; }
       .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
@@ -500,12 +500,12 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .time-box { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 16px; text-align: center; min-width: 90px; }
       .time-box.done { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); }
       .time-box.worked { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); }
-      .time-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+      .time-label { font-size: 10px; color: #636b78; text-transform: uppercase; letter-spacing: 0.05em; }
       .time-val { font-size: 18px; font-weight: 700; color: #f1f5f9; margin-top: 2px; }
-      .time-arrow { font-size: 18px; color: #64748b; }
+      .time-arrow { font-size: 18px; color: #5b6472; }
 
       /* ── Capture Method ── */
-      .capture-method-section label.text-xs { color: #94a3b8; }
+      .capture-method-section label.text-xs { color: #636b78; }
       .capture-options { display: flex; gap: 8px; flex-wrap: wrap; }
       .capture-opt {
         display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -576,7 +576,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       }
       .onsite-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
       .visit-timeline { margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; }
-      .visit-timeline-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 8px; }
+      .visit-timeline-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #636b78; margin-bottom: 8px; }
       .visit-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
       .visit-badge {
         font-size: 10px; font-weight: 800; border-radius: 6px; padding: 2px 7px;
@@ -587,7 +587,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .visit-time { font-variant-numeric: tabular-nums; color: #e2e8f0; font-weight: 600; min-width: 74px; }
       .visit-loc { color: #93c5fd; text-decoration: none; font-size: 12px; }
       .visit-loc:hover { text-decoration: underline; color: #bfdbfe; }
-      .visit-loc-none { color: #64748b; font-size: 12px; }
+      .visit-loc-none { color: #5b6472; font-size: 12px; }
 
       /* ── OT / Comp-Off Panel ── */
       .ot-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 20px; }
@@ -596,13 +596,13 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .badge-coff { background: #dcfce7; color: #15803d; }
       .badge-ot { background: #dbeafe; color: #1e40af; }
       .ot-stat { background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 10px; padding: 10px 14px; }
-      .ot-stat-label { font-size: 11px; color: #6b7280; }
+      .ot-stat-label { font-size: 11px; color: #5b6472; }
       .ot-stat-value { font-size: 22px; font-weight: 700; margin-top: 2px; }
       .coff-balance-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
       .coff-lbl { font-size: 13px; font-weight: 600; color: #374151; }
       .coff-val { font-size: 16px; font-weight: 700; }
       .coff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-      .coff-table th { text-align: left; padding: 6px 10px; background: #f9fafb; color: #6b7280; font-weight: 600; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #e5e7eb; }
+      .coff-table th { text-align: left; padding: 6px 10px; background: #f9fafb; color: #5b6472; font-weight: 600; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #e5e7eb; }
       .coff-table td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; }
       .tag-accrual { background: #dcfce7; color: #15803d; }
       .tag-used { background: #fef3c7; color: #92400e; }
@@ -610,7 +610,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
 
       /* ── Modal ── */
       .modal-overlay {
-        position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex;
+        position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: flex;
         align-items: center; justify-content: center; z-index: 1000;
       }
       .modal-box {

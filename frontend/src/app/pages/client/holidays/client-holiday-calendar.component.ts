@@ -195,7 +195,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
     .page { max-width: 1100px; margin: 0 auto; }
     .header { margin-bottom: 12px; }
     .title { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-    .sub { margin: 4px 0 0; font-size: 12px; color: #64748b; max-width: 780px; }
+    .sub { margin: 4px 0 0; font-size: 12px; color: #5b6472; max-width: 780px; }
     .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
     .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
     .field { display: flex; flex-direction: column; gap: 6px; }
@@ -205,7 +205,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
     .ctrl.narrow { min-width: 90px; width: 90px; }
     .inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .chk { font-size: 13px; color: #374151; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
-    .hint { font-size: 11px; color: #94a3b8; }
+    .hint { font-size: 11px; color: #636b78; }
     .btn { background: #1d4ed8; color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
     .btn:disabled { opacity: .55; cursor: not-allowed; }
     .btn.ghost { background: #f8fafc; color: #334155; border: 1px solid #d1d5db; }
@@ -213,10 +213,10 @@ interface BranchOpt { value: string; label: string; state: string | null; }
     .listHead h2 { font-size: 15px; font-weight: 700; color: #0f172a; margin: 0; }
     .tableWrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { text-align: left; padding: 8px 10px; background: #f8fafc; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #e5e7eb; }
+    th { text-align: left; padding: 8px 10px; background: #f8fafc; color: #5b6472; font-weight: 600; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #e5e7eb; }
     td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #1f2937; }
     td.strong { font-weight: 600; color: #0f172a; }
-    .muted { color: #94a3b8; font-size: 13px; padding: 8px 2px; }
+    .muted { color: #636b78; font-size: 13px; padding: 8px 2px; }
     .link-danger { background: none; border: none; color: #b91c1c; font-weight: 600; font-size: 12px; cursor: pointer; padding: 0; }
     .link-danger:hover { text-decoration: underline; }
     .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; }

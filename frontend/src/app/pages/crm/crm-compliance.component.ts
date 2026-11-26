@@ -155,7 +155,7 @@ type ComplianceTab = 'ALL' | 'OVERDUE' | 'PENDING' | 'APPROVED';
 
       .page-header p {
         margin: 0;
-        color: #64748b;
+        color: #5b6472;
       }
 
       .primary-btn,
@@ -205,7 +205,7 @@ type ComplianceTab = 'ALL' | 'OVERDUE' | 'PENDING' | 'APPROVED';
 
       .stat-label {
         display: block;
-        color: #64748b;
+        color: #5b6472;
         font-size: 13px;
         margin-bottom: 6px;
       }

@@ -14,7 +14,7 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 <div class="fixed inset-0 z-50 overflow-y-auto" uiDialogFocus (uiDialogEscape)="onEscapeKey()" role="dialog" aria-modal="true" [attr.aria-labelledby]="title ? 'modal-title-' + modalUid : null">
       <!-- Backdrop -->
       <div
-        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"
         (click)="closeOnBackdrop && close()">
       </div>
 

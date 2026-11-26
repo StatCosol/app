@@ -71,7 +71,7 @@
 
 /* ── Loading ── */
 .loading {
-  color: #94a3b8;
+  color: #636b78;
   font-size: 13px;
   padding: 12px 0;
 }
@@ -94,7 +94,7 @@ th {
   padding: 12px 14px;
   border-bottom: 2px solid #f1f5f9;
   font-size: 11px;
-  color: #64748b;
+  color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   text-align: left;
@@ -114,7 +114,7 @@ td {
 
 .date-cell {
   white-space: nowrap;
-  color: #64748b;
+  color: #5b6472;
   font-size: 12px;
 }
 
@@ -130,8 +130,8 @@ td {
   font-size: 14px;
 
   &.HIGH    { color: #dc2626; }
-  &.MEDIUM  { color: #d97706; }
-  &.LOW     { color: #16a34a; }
+  &.MEDIUM  { color: #b45309; }
+  &.LOW     { color: #15803d; }
 }
 
 .severity-tag {
@@ -233,7 +233,7 @@ td {
 .empty {
   text-align: center;
   padding: 48px 16px;
-  color: #94a3b8;
+  color: #636b78;
 }
 
 .empty-icon {

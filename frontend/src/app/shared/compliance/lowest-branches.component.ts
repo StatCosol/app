@@ -61,10 +61,10 @@ import { ClientBranchesService } from '../../core/client-branches.service';
     .lb-title{font-size:15px;font-weight:800;color:#0f172a;margin:0;}
     .lb-month{border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:12px;background:#fff;}
     .lb-tbl{width:100%;border-collapse:collapse;}
-    .lb-tbl th{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;text-align:left;border-bottom:2px solid #f1f5f9;background:#f8fafc;}
+    .lb-tbl th{font-size:11px;color:#5b6472;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;text-align:left;border-bottom:2px solid #f1f5f9;background:#f8fafc;}
     .lb-tbl td{padding:8px 10px;font-size:13px;color:#0f172a;border-bottom:1px solid #f8fafc;}
     .lb-pct{font-weight:900;font-size:14px;}
-    .lb-muted{color:#94a3b8;font-size:12px;}
+    .lb-muted{color:#636b78;font-size:12px;}
   `]
 })
 export class LowestBranchesComponent implements OnInit {

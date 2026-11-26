@@ -129,7 +129,7 @@ interface FormState extends UpsertWagePayload {
     <!-- Add/Edit Modal -->
     @if (showForm) {
 <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
       (click)="cancelForm()">
       <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
         (click)="$event.stopPropagation()">

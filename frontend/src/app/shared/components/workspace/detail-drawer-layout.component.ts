@@ -7,7 +7,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
   imports: [],
   template: `
     @if (open) {
-<div class="fixed inset-0 z-[1100] bg-slate-900/40" (click)="close.emit()">
+<div class="fixed inset-0 z-[1100] bg-slate-900/50" (click)="close.emit()">
       <aside class="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl border-l border-gray-200 flex flex-col" (click)="$event.stopPropagation()">
         <header class="p-4 border-b border-gray-200 flex items-start justify-between gap-2">
           <div>

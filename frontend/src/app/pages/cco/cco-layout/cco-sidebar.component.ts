@@ -28,7 +28,7 @@ interface SidebarItem {
     @if (mobileOpen) {
 <div
 
-      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+      class="sidebar-overlay fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
 }
@@ -44,7 +44,7 @@ interface SidebarItem {
 <div class="px-5 pt-6 pb-4 flex items-center gap-3">
         <div>
           <span class="text-white font-bold text-xl tracking-tight">CCO</span>
-          <span class="block text-white/40 text-[13px] font-medium">Chief Compliance Officer</span>
+          <span class="block text-white/70 text-[13px] font-medium">Chief Compliance Officer</span>
         </div>
       </div>
 }
@@ -69,7 +69,7 @@ interface SidebarItem {
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
         <button type="button" aria-label="Close navigation"
           (click)="mobileOpen = false; mobileOpenChange.emit(false)"
-          class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors"
+          class="p-1.5 rounded-lg text-white/70 hover:text-white/70 hover:bg-white/8 transition-colors"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -140,8 +140,8 @@ interface SidebarItem {
       <!-- Version footer -->
       @if (!collapsed) {
 <div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
-        <div class="text-[10px] text-white/35">CCO v1.0</div>
-        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <div class="text-[10px] text-white/70">CCO v1.0</div>
+        <div class="text-[10px] text-white/75 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
 }

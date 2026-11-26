@@ -361,25 +361,25 @@ interface UnifiedApprovalItem {
     input, select, textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: .5rem .6rem; font-size: .84rem; }
     .ageing-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; margin-top: .65rem; }
     .age-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: .45rem .55rem; background: #f8fafc; }
-    .age-card .k { color: #6b7280; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
+    .age-card .k { color: #5b6472; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
     .age-card .v { color: #111827; font-size: 1.1rem; font-weight: 700; line-height: 1.1; margin-top: .2rem; }
     .age-card.danger { border-color: #fecaca; background: #fef2f2; }
     .age-card.danger .v { color: #991b1b; }
     .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .65rem; gap: .5rem; }
     .section-head h3 { margin: 0; font-size: 1rem; font-weight: 700; color: #111827; }
-    .muted { color: #6b7280; font-size: .75rem; }
+    .muted { color: #5b6472; font-size: .75rem; }
     .queue-list { display: flex; flex-direction: column; gap: .55rem; max-height: 68vh; overflow: auto; }
     .queue-row { text-align: left; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; padding: .65rem; }
     .queue-row.selected { border-color: #93c5fd; background: #eff6ff; }
     .row-top { display: flex; align-items: center; gap: .45rem; }
-    .row-meta { display: flex; justify-content: space-between; gap: .45rem; margin-top: .3rem; color: #6b7280; font-size: .74rem; }
+    .row-meta { display: flex; justify-content: space-between; gap: .45rem; margin-top: .3rem; color: #5b6472; font-size: .74rem; }
     .type-chip { border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; font-size: .68rem; font-weight: 700; border-radius: 999px; padding: .1rem .45rem; }
     .type-chip.nom { border-color: #fbcfe8; background: #fdf2f8; color: #be185d; }
     .emp { font-weight: 600; color: #111827; font-size: .82rem; flex: 1; }
     .ageing { font-size: .72rem; font-weight: 700; color: #374151; border: 1px solid #e5e7eb; border-radius: 999px; padding: .05rem .45rem; }
     .ageing-high { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
     .detail-head { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; margin-bottom: .7rem; }
-    .label { color: #6b7280; font-size: .73rem; }
+    .label { color: #5b6472; font-size: .73rem; }
     .value { color: #111827; font-size: .83rem; font-weight: 600; }
     .compare-grid { display: grid; grid-template-columns: 1fr; gap: .65rem; margin-bottom: .75rem; }
     .compare-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: .6rem; }
@@ -388,10 +388,10 @@ interface UnifiedApprovalItem {
     .item-line { font-size: .78rem; color: #1f2937; margin-bottom: .22rem; }
     .compare-table-head,
     .compare-table-row { display: grid; grid-template-columns: 180px 1fr 1fr; gap: .55rem; align-items: center; }
-    .compare-table-head { color: #6b7280; font-size: .72rem; font-weight: 700; text-transform: uppercase; margin-bottom: .3rem; }
+    .compare-table-head { color: #5b6472; font-size: .72rem; font-weight: 700; text-transform: uppercase; margin-bottom: .3rem; }
     .compare-table-row { border-top: 1px solid #f1f5f9; padding: .32rem 0; font-size: .78rem; color: #1f2937; }
     .compare-table-row .f { color: #4b5563; font-weight: 600; }
-    .pending-after { color: #6b7280; font-style: italic; }
+    .pending-after { color: #5b6472; font-style: italic; }
     .field { margin-bottom: .6rem; }
     .field em { color: #dc2626; font-style: normal; }
     .inline-actions { display: flex; gap: .45rem; margin-bottom: .75rem; flex-wrap: wrap; }
@@ -400,7 +400,7 @@ interface UnifiedApprovalItem {
     .dot { width: .58rem; height: .58rem; border-radius: 999px; background: #2563eb; margin-top: .3rem; flex-shrink: 0; }
     .reject-dot { background: #dc2626; }
     .event { font-size: .79rem; color: #111827; font-weight: 600; }
-    .time { font-size: .72rem; color: #6b7280; }
+    .time { font-size: .72rem; color: #5b6472; }
     .note { font-size: .75rem; color: #374151; margin-top: .1rem; }
     .mt-2 { margin-top: .6rem; }
     @media (max-width: 980px) {

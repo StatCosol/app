@@ -20,7 +20,7 @@ import { ToastService } from './toast.service';
       >
         <div class="toast-header">
           <strong>{{ toast.title }}</strong>
-          <button type="button" class="compact-action toast-close" (click)="remove(toast.id)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+          <button type="button" class="compact-action toast-close" (click)="remove(toast.id)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
         </div>
         <div class="toast-body">{{ toast.message }}</div>
       </div>

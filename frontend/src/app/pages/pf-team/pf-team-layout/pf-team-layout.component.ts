@@ -123,7 +123,7 @@ interface NavItem {
     .sb-logo { color: #60a5fa; flex-shrink: 0; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(96,165,250,.12); }
     .sb-brand-text { overflow: hidden; transition: opacity .2s; }
     .sb-brand-text strong { display: block; color: #fff; font-size: 14px; font-weight: 700; }
-    .sb-brand-text small { color: rgba(255,255,255,.4); font-size: 11px; }
+    .sb-brand-text small { color: rgba(255, 255, 255, 0.72); font-size: 11px; }
     .sb-collapsed .sb-brand-text { opacity: 0; width: 0; }
 
     .sb-toggle {
@@ -143,7 +143,7 @@ interface NavItem {
       position: relative;
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; border-radius: 8px;
-      color: rgba(255,255,255,.55); font-size: 14px; font-weight: 500;
+      color: rgba(255, 255, 255, 0.72); font-size: 14px; font-weight: 500;
       text-decoration: none; white-space: nowrap;
       transition: background .15s, color .15s;
     }
@@ -172,9 +172,9 @@ interface NavItem {
     }
     .sb-foot-info { display: flex; flex-direction: column; }
     .sb-foot-name { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sb-foot-role { color: rgba(255,255,255,.4); font-size: 11px; }
+    .sb-foot-role { color: rgba(255, 255, 255, 0.72); font-size: 11px; }
     .sb-foot-branding { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
-    .sb-foot-branding-text { color: rgba(255,255,255,.55); font-size: 10px; font-weight: 500; }
+    .sb-foot-branding-text { color: rgba(255, 255, 255, 0.72); font-size: 10px; font-weight: 500; }
     .sb-foot-branding-url { color: rgba(110,231,183,.85); font-size: 10px; text-decoration: none; }
     .sb-foot-branding-url:hover { color: rgba(167,243,208,1); text-decoration: underline; }
     .sb-collapsed .sb-foot { display: none; }
@@ -207,7 +207,7 @@ interface NavItem {
       color: #fff; font-size: 14px; font-weight: 700;
       display: grid; place-items: center;
     }
-    .tb-chev { width: 14px; height: 14px; color: #9ca3af; }
+    .tb-chev { width: 14px; height: 14px; color: #636b78; }
 
     .dropdown {
       position: absolute; right: 0; top: calc(100% + 6px);
@@ -217,7 +217,7 @@ interface NavItem {
     }
     .dd-header { padding: 10px 12px 8px; border-bottom: 1px solid #f3f4f6; }
     .dd-header strong { display: block; font-size: 14px; color: #111827; }
-    .dd-header small { font-size: 12px; color: #6b7280; }
+    .dd-header small { font-size: 12px; color: #5b6472; }
     .dd-item {
       display: flex; align-items: center; gap: 8px;
       width: 100%; padding: 9px 12px; border-radius: 8px;

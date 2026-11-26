@@ -97,19 +97,19 @@ interface ClientOption {
   styles: [`
     .page { max-width: 960px; margin: 0 auto; }
     .head h1 { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-    .head p { margin: 4px 0 14px; font-size: 12px; color: #64748b; }
+    .head p { margin: 4px 0 14px; font-size: 12px; color: #5b6472; }
     .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-    label { display: block; font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 6px; }
+    label { display: block; font-size: 12px; color: #5b6472; font-weight: 600; margin-bottom: 6px; }
     .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-size: 13px; background: #fff; min-width: 280px; flex: 1; }
     .btn { border: 1px solid #0f172a; border-radius: 10px; padding: 10px 14px; font-size: 13px; background: #0f172a; color: #fff; cursor: pointer; white-space: nowrap; }
     .btn:disabled { opacity: .5; cursor: not-allowed; }
     .quick { margin-top: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .quick-label { font-size: 12px; color: #64748b; font-weight: 600; }
+    .quick-label { font-size: 12px; color: #5b6472; font-weight: 600; }
     .chip { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 999px; padding: 5px 10px; font-size: 12px; color: #0f172a; cursor: pointer; }
     .chip:hover { background: #eef2ff; border-color: #c7d2fe; }
-    .muted { color: #64748b; font-size: 13px; padding: 12px 0; }
-    .empty { border: 1px dashed #d1d5db; border-radius: 10px; padding: 18px; color: #6b7280; text-align: center; }
+    .muted { color: #5b6472; font-size: 13px; padding: 12px 0; }
+    .empty { border: 1px dashed #d1d5db; border-radius: 10px; padding: 18px; color: #5b6472; text-align: center; }
   `],
 })
 export class CrmRegistrationsLandingComponent implements OnInit, OnDestroy {

@@ -301,7 +301,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
     @if (formOpen()) {
 <div
 
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
       (click)="closeForm()"
     >
       <div
@@ -315,7 +315,7 @@ const DEPT_COLORS: Record<ClientContactDepartment, string> = {
           <button
             class="compact-action text-gray-400 hover:text-gray-700"
             (click)="closeForm()"
-           type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+           type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
         </div>
 
         <div class="space-y-3">
