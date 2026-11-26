@@ -3,6 +3,35 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
+ * The payslip's "Other Earnings" row: everything in GROSS that has no row of
+ * its own. GROSS already includes overtime (OT_AMOUNT) and the approved
+ * holiday double wage (HOLIDAY_DBL_AMOUNT), so the gross-residual already
+ * contains them and must not have OT added again. Only an explicit
+ * OTHER_EARNINGS amount needs OT and holiday wages added to it, because those
+ * have no row of their own.
+ */
+export function payslipOtherEarnings(v: {
+  gross: number;
+  basic: number;
+  hra: number;
+  others: number;
+  attBonus: number;
+  otherEarningsExplicit: number;
+  otAmount: number;
+  holidayDblAmount: number;
+}): { amount: number; notes: string[] } {
+  const amount =
+    v.otherEarningsExplicit > 0
+      ? v.otherEarningsExplicit + v.otAmount + v.holidayDblAmount
+      : Math.max(0, v.gross - v.basic - v.hra - v.others - v.attBonus);
+  const parts: string[] = [];
+  if (v.otAmount > 0) parts.push('OT');
+  if (v.holidayDblAmount > 0) parts.push('holiday');
+  const notes = parts.length ? [`incl. ${parts.join(', ')}`] : [];
+  return { amount, notes };
+}
+
+/**
  * Loads a client logo file and returns a Buffer suitable for PDFKit doc.image().
  * Handles SVG files that wrap embedded JPEG/PNG base64 data.
  * Returns null if the file doesn't exist or can't be parsed.
@@ -267,16 +296,23 @@ export async function generatePayslipPdfBuffer(
       const otherEarningsExplicit = cv['OTHER_EARNINGS'] ?? 0;
       const arrearAttBonus = cv['ARREAR_ATT_BONUS'] ?? 0;
       const otAmount = cv['OT_AMOUNT'] ?? 0;
-      // Show OT pay as part of "Other Earnings" rather than a separate row.
-      const otherEarningsBase =
-        otherEarningsExplicit > 0
-          ? otherEarningsExplicit
-          : Math.max(0, gross - basic - hra - others - attBonus);
-      const otherEarningsRow = otherEarningsBase + otAmount;
+      // OT and holiday wages are shown inside "Other Earnings"; GROSS
+      // already includes both, so they are never added on top of it.
+      const otherEarnings = payslipOtherEarnings({
+        gross,
+        basic,
+        hra,
+        others,
+        attBonus,
+        otherEarningsExplicit,
+        otAmount,
+        holidayDblAmount: cv['HOLIDAY_DBL_AMOUNT'] ?? 0,
+      });
+      const otherEarningsRow = otherEarnings.amount;
       const otherEarningsNoteParts: string[] = [];
       if (input.header.otherEarningsNote)
         otherEarningsNoteParts.push(input.header.otherEarningsNote);
-      if (otAmount > 0) otherEarningsNoteParts.push('incl. OT');
+      otherEarningsNoteParts.push(...otherEarnings.notes);
       const otherEarningsLabel = otherEarningsNoteParts.length
         ? `Other Earnings (${otherEarningsNoteParts.join(', ')})`
         : 'Other Earnings';
@@ -293,7 +329,7 @@ export async function generatePayslipPdfBuffer(
         : 'Other Deductions';
       const totalDeduction =
         pfAmt + esiAmt + ptAmt + lwfAmt + pfErFromEmpAmt + otherDeductions;
-      const netPay = cv['NET_PAY'] ?? gross + otAmount - totalDeduction;
+      const netPay = cv['NET_PAY'] ?? gross - totalDeduction;
 
       // ── Draw Table ──
       const tableX = startX;
@@ -430,7 +466,7 @@ export async function generatePayslipPdfBuffer(
       // Gross / Total Deduction
       drawRow(
         'Gross',
-        formatCurrency(gross + otAmount),
+        formatCurrency(gross),
         'Total Deduction',
         formatCurrency(totalDeduction),
         tY,
