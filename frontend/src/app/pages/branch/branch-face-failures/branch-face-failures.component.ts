@@ -502,7 +502,7 @@ const REASONS: { value: string; label: string }[] = [
           <div class="flex items-center gap-2">
             <button type="button" class="compact-action ui-btn-secondary text-xs"
 
-                    (click)="copyLink()" title="Copy link" aria-label="Copy link" data-action-label="Copy link" data-action-icon="document"><ui-icon name="document" [size]="20" /><span class="compact-action-label">
+                    (click)="copyLink()" title="Copy link" aria-label="Copy link" data-action-label="Copy link" data-action-icon="clipboard"><ui-icon name="clipboard" [size]="20" /><span class="compact-action-label">
               {{ copiedLink ? 'Link copied' : 'Copy link' }}
             </span></button>
             <button type="button" class="compact-action ui-btn-secondary text-xs"

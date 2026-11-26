@@ -49,6 +49,7 @@ import { ValidationMessagesComponent } from '../../ui/validation-messages/valida
               class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
             />
             <button type="button" (click)="showCurrent = !showCurrent"
+              [attr.aria-label]="showCurrent ? 'Hide password' : 'Show password'"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
               @if (!showCurrent) {
 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -75,6 +76,7 @@ import { ValidationMessagesComponent } from '../../ui/validation-messages/valida
               class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
             />
             <button type="button" (click)="showNew = !showNew"
+              [attr.aria-label]="showNew ? 'Hide password' : 'Show password'"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
               @if (!showNew) {
 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -101,6 +103,7 @@ import { ValidationMessagesComponent } from '../../ui/validation-messages/valida
               class="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
             />
             <button type="button" (click)="showConfirm = !showConfirm"
+              [attr.aria-label]="showConfirm ? 'Hide password' : 'Show password'"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
               @if (!showConfirm) {
 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>

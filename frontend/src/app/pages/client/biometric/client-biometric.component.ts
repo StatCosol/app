@@ -110,7 +110,7 @@ interface BranchOption { id: string; name: string }
                   <button class="text-xs text-brand-600 hover:underline mr-3" (click)="toggleEnabled(d)">
                     {{ d.enabled ? 'Disable' : 'Enable' }}
                   </button>
-                  <button class="compact-action text-xs text-brand-600 hover:underline mr-3" (click)="openRotate(d)" title="Rotate Token" aria-label="Rotate Token" data-action-label="Rotate Token" data-action-icon="cog"><ui-icon name="cog" [size]="20" /></button>
+                  <button class="compact-action text-xs text-brand-600 hover:underline mr-3" (click)="openRotate(d)" title="Rotate Token" aria-label="Rotate Token" data-action-label="Rotate Token" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /></button>
                   <button class="compact-action text-xs text-red-600 hover:underline" (click)="remove(d)" title="Delete" aria-label="Delete" data-action-label="Delete" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
                 </td>
               </tr>

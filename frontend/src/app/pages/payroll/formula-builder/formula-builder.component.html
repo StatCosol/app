@@ -103,7 +103,7 @@
             @if (holder.current.values.length > 2) {
 <button type="button" class="compact-action fb-mini-btn"
 
-                    (click)="removeValue(holder.current, i)" title="remove" aria-label="remove" data-action-label="remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
+                    (click)="removeValue(holder.current, i)" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
           </div>
           <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.values[i] } }"></ng-container>
@@ -141,7 +141,7 @@
         @if (holder.current.subtract.length > 1) {
 <button type="button" class="compact-action fb-mini-btn"
 
-                (click)="removeSubtract(holder.current, i)" title="remove" aria-label="remove" data-action-label="remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
+                (click)="removeSubtract(holder.current, i)" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
       </div>
 }

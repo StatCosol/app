@@ -120,7 +120,7 @@ interface ReportOption {
             (click)="load()"
             [disabled]="loading"
             class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
-           title="Generate Report" aria-label="Generate Report" data-action-label="Generate Report" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+           title="Generate Report" aria-label="Generate Report" data-action-label="Generate Report" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span class="compact-action-label">
             {{ loading ? 'Generating...' : 'Generate Report' }}
           </span></button>
           </div>

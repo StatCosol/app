@@ -114,7 +114,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <button (click)="approve()" [disabled]="submitting" class="compact-action appraisal-action appraisal-action--primary" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
           }
           @if (canSendBack) {
-          <button (click)="sendBack()" [disabled]="submitting" class="compact-action appraisal-action text-amber-600" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+          <button (click)="sendBack()" [disabled]="submitting" class="compact-action appraisal-action text-amber-600" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
           }
           @if (canApprove) {
           <button (click)="reject()" [disabled]="submitting" class="compact-action appraisal-action text-red-600" title="Reject" aria-label="Reject" data-action-label="Reject" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>

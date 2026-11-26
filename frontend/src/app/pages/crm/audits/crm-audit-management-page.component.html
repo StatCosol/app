@@ -425,7 +425,7 @@
             class="compact-action status-action-btn"
            
             [disabled]="governanceBusy"
-            (click)="sendBackReport()" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+            (click)="sendBackReport()" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
 }
           @if (!latestReportStatus?.held && (latestReportStatus?.status === 'SUBMITTED' || latestReportStatus?.status === 'APPROVED')) {
 <button type="button"

@@ -65,7 +65,7 @@
         Status
         <select id="ao-filter-status" name="filterStatus" [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
           @for (status of statusOptions; track status) {
-<option [value]="status">{{ status === 'NEEDS_ACTION' ? 'Needs action' : (status || 'All') }}</option>
+<option [value]="status">{{ status ? statusOptionLabel(status) : 'All' }}</option>
 }
         </select>
       </label>

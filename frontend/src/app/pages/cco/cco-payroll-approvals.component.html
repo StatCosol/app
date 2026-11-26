@@ -29,7 +29,7 @@
         Status
         <select [(ngModel)]="runStatusFilter" (change)="loadRuns()">
           @for (s of runStatusOptions; track s) {
-<option [value]="s">{{ s }}</option>
+<option [value]="s">{{ statusLabel(s) }}</option>
 }
         </select>
       </label>
@@ -39,7 +39,7 @@
         Status
         <select [(ngModel)]="statusFilter" (change)="load()">
           @for (s of statusOptions; track s) {
-<option [value]="s">{{ s }}</option>
+<option [value]="s">{{ statusLabel(s) }}</option>
 }
         </select>
       </label>
@@ -91,7 +91,7 @@
     <article class="card list-pane">
       <header class="section-head">
         <div>
-          <h2>{{ runStatusFilter }} payroll runs</h2>
+          <h2>{{ statusLabel(runStatusFilter) }} payroll runs</h2>
           <p>Payroll runs submitted for CCO maker-checker approval</p>
         </div>
         <span>{{ runs.length }} rows</span>

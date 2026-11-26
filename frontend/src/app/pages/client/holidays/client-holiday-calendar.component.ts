@@ -54,7 +54,7 @@ interface BranchOpt { value: string; label: string; state: string | null; }
                   <option [value]="b.value">{{ b.label }}</option>
                 }
               </select>
-              <button class="compact-action btn" [disabled]="applying" (click)="applyMonthNow()" title="Apply to month" aria-label="Apply to month" data-action-label="Apply to month" data-action-icon="search"><ui-icon name="search" [size]="20" /><span class="compact-action-label">
+              <button class="compact-action btn" [disabled]="applying" (click)="applyMonthNow()" title="Apply to month" aria-label="Apply to month" data-action-label="Apply to month" data-action-icon="calendar"><ui-icon name="calendar" [size]="20" /><span class="compact-action-label">
                 {{ applying ? 'Applying…' : 'Apply to month' }}
               </span></button>
             </div>
