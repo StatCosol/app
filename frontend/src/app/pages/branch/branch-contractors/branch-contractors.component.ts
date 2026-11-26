@@ -309,9 +309,9 @@ export class BranchContractorsComponent implements OnInit, OnDestroy {
   }
 
   getUploadColor(): string {
-    if (this.overallPercent >= 80) return '#10b981';
-    if (this.overallPercent >= 60) return '#f59e0b';
-    return '#ef4444';
+    if (this.overallPercent >= 80) return '#047857';
+    if (this.overallPercent >= 60) return '#b45309';
+    return '#b91c1c';
   }
 
   getUploadBg(): string {
@@ -321,9 +321,9 @@ export class BranchContractorsComponent implements OnInit, OnDestroy {
   }
 
   getBarColor(pct: number): string {
-    if (pct >= 80) return '#10b981';
-    if (pct >= 50) return '#f59e0b';
-    return '#ef4444';
+    if (pct >= 80) return '#047857';
+    if (pct >= 50) return '#b45309';
+    return '#b91c1c';
   }
 
   ngOnDestroy(): void {

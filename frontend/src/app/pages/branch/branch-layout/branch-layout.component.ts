@@ -98,7 +98,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 
                 <!-- User avatar + name -->
                 <div class="hidden sm:flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-50 transition-colors cursor-default">
-                  <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <div class="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center flex-shrink-0 shadow-sm">
                     <span class="text-sm font-bold text-white">{{ userInitial }}</span>
                   </div>
                   <div class="hidden lg:block leading-tight">

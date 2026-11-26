@@ -15,7 +15,7 @@ import { AuthService } from '../../../core/auth.service';
   template: `
     <div class="flex min-h-screen">
       <button
-        class="lg:hidden fixed bottom-6 right-6 z-50 p-3 text-white rounded-full shadow-xl bg-emerald-600 hover:bg-emerald-700"
+        class="lg:hidden fixed bottom-6 right-6 z-50 p-3 text-white rounded-full shadow-xl bg-emerald-700 hover:bg-emerald-800"
         (click)="mobileOpen = true"
         aria-label="Open menu"
       >

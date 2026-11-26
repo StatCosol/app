@@ -96,7 +96,7 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
 
           <div class="flex gap-3">
             <button (click)="onApprove()" [disabled]="submitting"
-                    class="compact-action bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium
+                    class="compact-action bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium
                            hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /><span class="compact-action-label">
               {{ submitting ? 'Processing...' : 'Approve' }}
             </span></button>

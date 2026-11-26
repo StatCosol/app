@@ -120,7 +120,7 @@ const EDITABLE_STATUSES = new Set([
         <div class="bg-white rounded-xl border p-6 space-y-4">
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold text-slate-700">Line Items</h2>
-            <button type="button" (click)="addItem()" class="compact-action px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700" title="Add Item" aria-label="Add Item" data-action-label="Add Item" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
+            <button type="button" (click)="addItem()" class="compact-action px-3 py-1.5 bg-green-700 text-white rounded-lg text-xs hover:bg-green-800" title="Add Item" aria-label="Add Item" data-action-label="Add Item" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
           </div>
 
           <div class="overflow-x-auto">

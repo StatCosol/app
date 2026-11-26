@@ -17,7 +17,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
     <div class="accounts-shell">
       <!-- Mobile menu toggle -->
       <button
-        class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80 bg-emerald-600"
+        class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80 bg-emerald-700"
         (click)="mobileOpen = true" aria-label="Open navigation" [attr.aria-expanded]="mobileOpen"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -182,16 +182,16 @@ export class CeoDashboardComponent implements OnInit {
 
   complianceColor = computed(() => {
     const rate = this.governance().overallComplianceRate;
-    if (rate >= 80) return '#10b981';
-    if (rate >= 60) return '#f59e0b';
-    return '#ef4444';
+    if (rate >= 80) return '#047857';
+    if (rate >= 60) return '#b45309';
+    return '#b91c1c';
   });
 
   auditCompletionColor = computed(() => {
     const rate = this.governance().auditCompletionRate90d;
-    if (rate >= 80) return '#10b981';
-    if (rate >= 60) return '#f59e0b';
-    return '#ef4444';
+    if (rate >= 80) return '#047857';
+    if (rate >= 60) return '#b45309';
+    return '#b91c1c';
   });
 
   goToApprovals() {
@@ -276,15 +276,15 @@ export class CeoDashboardComponent implements OnInit {
   }
 
   getTrendColor(rate: number): string {
-    if (rate >= 80) return '#10b981';
-    if (rate >= 60) return '#f59e0b';
-    return '#ef4444';
+    if (rate >= 80) return '#047857';
+    if (rate >= 60) return '#b45309';
+    return '#b91c1c';
   }
 
   getRiskColor(score: number): string {
-    if (score >= 60) return '#ef4444';
-    if (score >= 30) return '#f59e0b';
-    return '#10b981';
+    if (score >= 60) return '#b91c1c';
+    if (score >= 30) return '#b45309';
+    return '#047857';
   }
 
   /** Export dashboard summary as CSV */

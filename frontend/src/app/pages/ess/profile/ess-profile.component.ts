@@ -24,7 +24,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             Cancel
           </button>
           <button (click)="saveEdit()" [disabled]="saving"
-            class="standard-action px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
+            class="standard-action px-4 py-2 text-sm font-medium text-white bg-green-700 rounded-lg hover:bg-green-800 transition disabled:opacity-50">
             {{ saving ? 'Saving...' : 'Save Changes' }}
           </button>
         }

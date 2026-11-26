@@ -180,7 +180,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           </div>
           <div class="flex items-end">
             <button (click)="submitUpload()" [disabled]="uploading"
-              class="compact-action inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
+              class="compact-action inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-700 rounded-lg hover:bg-green-800 disabled:opacity-50" title="Upload" aria-label="Upload" data-action-label="Upload" data-action-icon="upload"><ui-icon name="upload" [size]="20" /><span class="compact-action-label">
               {{ uploading ? 'Uploading...' : 'Upload' }}
             </span></button>
           </div>

@@ -231,7 +231,7 @@
                   @if (!d.status || d.status==='PENDING' || d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
 <button
                     type="button"
-                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-700 rounded-md hover:bg-green-800"
                     [disabled]="reviewingDocId === d.id"
                     (click)="reviewDoc(d,'APPROVED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /><span class="compact-action-label">
                     {{ reviewingDocId === d.id ? '...' : 'Approve' }}
@@ -431,7 +431,7 @@
                   @if (cd.status==='SUBMITTED' || cd.status==='RESUBMITTED') {
 <button
                     type="button"
-                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-700 rounded-md hover:bg-green-800"
                     [disabled]="reviewingCompDocId === cd.id"
                     (click)="reviewComplianceDoc(cd,'APPROVED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /><span class="compact-action-label">
                     {{ reviewingCompDocId === cd.id ? '...' : 'Approve' }}
@@ -867,7 +867,7 @@
                   @if (!d.status || d.status==='PENDING' || d.status==='UPLOADED' || d.status==='PENDING_REVIEW') {
 <button
                     type="button"
-                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    class="compact-action inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-700 rounded-md hover:bg-green-800"
                     [disabled]="reviewingDocId === d.id"
                     (click)="reviewDoc(d,'APPROVED')" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }

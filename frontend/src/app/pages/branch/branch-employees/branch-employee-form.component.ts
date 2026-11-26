@@ -343,7 +343,7 @@ import {
       }
       .form-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
       .toggle-link {
-        background: none; border: none; color: #6366f1; font-size: 0.75rem;
+        background: none; border: none; color: #4f46e5; font-size: 0.75rem;
         cursor: pointer; padding: 0.15rem 0 0; text-align: left;
       }
       .toggle-link:hover { text-decoration: underline; }

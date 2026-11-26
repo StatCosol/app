@@ -263,15 +263,15 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   }
 
   getComplianceColor(): string {
-    if (this.compliancePercent >= 80) return '#10b981';
-    if (this.compliancePercent >= 60) return '#f59e0b';
-    return '#ef4444';
+    if (this.compliancePercent >= 80) return '#047857';
+    if (this.compliancePercent >= 60) return '#b45309';
+    return '#b91c1c';
   }
 
   getUploadColor(): string {
-    if (this.documentUploadPercent >= 80) return '#10b981';
-    if (this.documentUploadPercent >= 60) return '#f59e0b';
-    return '#ef4444';
+    if (this.documentUploadPercent >= 80) return '#047857';
+    if (this.documentUploadPercent >= 60) return '#b45309';
+    return '#b91c1c';
   }
 
   onMonthChange(): void {
@@ -279,9 +279,9 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   }
 
   getVendorScoreColor(score: number): string {
-    if (score >= 85) return '#10b981';
-    if (score >= 70) return '#f59e0b';
-    return '#ef4444';
+    if (score >= 85) return '#047857';
+    if (score >= 70) return '#b45309';
+    return '#b91c1c';
   }
 
   getVendorScoreBg(score: number): string {
