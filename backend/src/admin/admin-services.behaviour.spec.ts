@@ -230,9 +230,9 @@ describe('calcRotationDueOn', () => {
     expect(calcRotationDueOn('AUDITOR', '2026-01-15')).toBe('2026-05-15');
   });
 
-  // KNOWN BUG: month arithmetic overflows at month end. An auditor assigned
+  // Regression (fixed): month arithmetic overflows at month end. An auditor assigned
   // on 31 Oct is due "31 Feb", which JavaScript rolls to 3 March.
-  it.failing('keeps a month-end auditor rotation inside the due month', () => {
+  it('keeps a month-end auditor rotation inside the due month', () => {
     expect(calcRotationDueOn('AUDITOR', '2026-10-31')).toBe('2027-02-28');
   });
 });

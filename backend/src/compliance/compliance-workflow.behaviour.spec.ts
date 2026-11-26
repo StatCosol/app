@@ -286,28 +286,24 @@ describe('ComplianceReuploadService', () => {
       ]);
     });
 
-    // KNOWN BUG: items are saved one by one, so when a later document is
+    // Regression (fixed): items are saved one by one, so when a later document is
     // invalid the call fails but the earlier requests have already been
-    // created (and the auditor sees an error). Remove `.failing` once the
-    // batch is validated up front or run in a transaction.
-    it.failing(
-      'creates nothing when any document in the batch is invalid',
-      async () => {
-        const { service, requests } = setup({
-          tasks: [{ id: 5, clientId: 'client-1' }],
-        });
-        await expect(
-          service.createReuploadRequestsFromAuditor(auditor, {
-            taskId: '5',
-            items: [
-              { docId: '11', remarks: 'ok' },
-              { docId: '99', remarks: 'bad' },
-            ],
-          }),
-        ).rejects.toThrow(BadRequestException);
-        expect(requests.rows).toHaveLength(0);
-      },
-    );
+    // created (and the auditor sees an error).
+    it('creates nothing when any document in the batch is invalid', async () => {
+      const { service, requests } = setup({
+        tasks: [{ id: 5, clientId: 'client-1' }],
+      });
+      await expect(
+        service.createReuploadRequestsFromAuditor(auditor, {
+          taskId: '5',
+          items: [
+            { docId: '11', remarks: 'ok' },
+            { docId: '99', remarks: 'bad' },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(requests.rows).toHaveLength(0);
+    });
   });
 });
 
@@ -316,7 +312,7 @@ describe('CompliancePortalTasksService contractor transitions', () => {
     task: any,
     opts: { evidenceCount?: number; branchIds?: string[]; role?: string } = {},
   ) {
-    const tasks = memoryRepo([task]);
+    const tasks = memoryRepo([{ ...task }]);
     const users = {
       findOne: jest.fn(async (o: any) =>
         o.where.id === 'con-1'
@@ -405,10 +401,10 @@ describe('CompliancePortalTasksService contractor transitions', () => {
     },
   );
 
-  // KNOWN BUG: the task is claimed before the status check, so a contractor
+  // Regression (fixed): the task is claimed before the status check, so a contractor
   // who tries to start an already-approved, unassigned task becomes its
-  // assignee even though the call fails. Remove `.failing` once fixed.
-  it.failing('does not claim a task it refuses to start', async () => {
+  // assignee even though the call fails.
+  it('does not claim a task it refuses to start', async () => {
     const { service, tasks } = setup({ ...base, status: 'APPROVED' });
     await expect(
       service.contractorSetInProgress(contractor, '1'),

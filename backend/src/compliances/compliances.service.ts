@@ -273,11 +273,17 @@ export class CompliancesService {
 
     const rules = await this.applicabilityRepo.find({
       where: [
-        {
-          isActive: true,
-          branchCategory: profile.branchCategory,
-          stateCode: profile.stateCode ?? undefined,
-        },
+        // A branch with no state only gets state-agnostic rules. Passing
+        // `stateCode: undefined` would drop the filter and match every state.
+        ...(profile.stateCode
+          ? [
+              {
+                isActive: true,
+                branchCategory: profile.branchCategory,
+                stateCode: profile.stateCode,
+              },
+            ]
+          : []),
         {
           isActive: true,
           branchCategory: profile.branchCategory,

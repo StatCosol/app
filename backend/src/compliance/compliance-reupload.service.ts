@@ -690,19 +690,22 @@ export class ComplianceReuploadService {
       String(task.clientId),
     );
 
-    const created: DocumentReuploadRequest[] = [];
+    // Validate every document first, so an invalid item creates nothing
+    // rather than leaving the earlier items' requests behind.
     for (const item of dto.items) {
-      const evidenceId = Number(item.docId);
-
-      // Verify evidence belongs to this task
       const evidence = await this.evidence.findOne({
-        where: { id: evidenceId, taskId: taskIdNum },
+        where: { id: Number(item.docId), taskId: taskIdNum },
       });
       if (!evidence) {
         throw new BadRequestException(
           `Evidence #${item.docId} not found for task #${dto.taskId}`,
         );
       }
+    }
+
+    const created: DocumentReuploadRequest[] = [];
+    for (const item of dto.items) {
+      const evidenceId = Number(item.docId);
 
       const deadline = new Date();
       deadline.setDate(deadline.getDate() + 7); // 7-day SLA

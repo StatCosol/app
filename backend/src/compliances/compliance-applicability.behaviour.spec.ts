@@ -165,38 +165,31 @@ describe('ComplianceApplicabilityService.recomputeForBranch (runs on branch crea
     expect(big.decision('m-large')?.isApplicable).toBe(true);
   });
 
-  // KNOWN BUG: this service gates on law families 'FACTORY' and 'S&E', but the
+  // Regression (fixed): this service gates on law families 'FACTORY' and 'S&E', but the
   // compliance master (and CompliancesService, and the Admin UI) use
   // 'FACTORY_ACT' and 'SHOPS_ESTABLISHMENTS'. Every newly created shop/office
   // branch is therefore marked as needing the Factories Act and Code on OSH,
   // and every factory as needing the Shops & Establishments Act.
-  // Remove `.failing` once the two vocabularies agree.
-  it.failing(
-    'does not mark the Factories Act applicable to a shop',
-    async () => {
-      const { service, decision } = setup(branch({ branchType: 'SHOP' }), [
-        FACTORIES_ACT,
-      ]);
-      await service.recomputeForBranch('branch-1');
-      expect(decision('m-factory')?.isApplicable).toBe(false);
-    },
-  );
+  it('does not mark the Factories Act applicable to a shop', async () => {
+    const { service, decision } = setup(branch({ branchType: 'SHOP' }), [
+      FACTORIES_ACT,
+    ]);
+    await service.recomputeForBranch('branch-1');
+    expect(decision('m-factory')?.isApplicable).toBe(false);
+  });
 
-  it.failing(
-    'does not mark the Shops & Establishments Act applicable to a factory',
-    async () => {
-      const { service, decision } = setup(branch({ branchType: 'FACTORY' }), [
-        SHOPS_ACT,
-      ]);
-      await service.recomputeForBranch('branch-1');
-      expect(decision('m-shops')?.isApplicable).toBe(false);
-    },
-  );
+  it('does not mark the Shops & Establishments Act applicable to a factory', async () => {
+    const { service, decision } = setup(branch({ branchType: 'FACTORY' }), [
+      SHOPS_ACT,
+    ]);
+    await service.recomputeForBranch('branch-1');
+    expect(decision('m-shops')?.isApplicable).toBe(false);
+  });
 
-  // KNOWN BUG: the rule lookup passes the raw branch type (HO, OFFICE, SHOP…)
+  // Regression (fixed): the rule lookup passes the raw branch type (HO, OFFICE, SHOP…)
   // as branch_category, but rules only use FACTORY / ESTABLISHMENT, so no
   // ESTABLISHMENT rule ever matches a non-factory branch.
-  it.failing('matches ESTABLISHMENT rules for an office branch', async () => {
+  it('matches ESTABLISHMENT rules for an office branch', async () => {
     const { service, ds } = setup(branch({ branchType: 'OFFICE' }), [
       CODE_ON_WAGES,
     ]);
@@ -405,22 +398,19 @@ describe('CompliancesService', () => {
       expect(managerOps[1][1].map((r: any) => r.complianceId)).toEqual(['a']);
     });
 
-    // KNOWN BUG: for a branch with no state, the first rule filter becomes
+    // Regression (fixed): for a branch with no state, the first rule filter becomes
     // `stateCode: undefined`, which TypeORM drops, so rules for every state are
     // applied to the branch. It should only use state-agnostic rules.
-    it.failing(
-      'does not apply other states’ rules to a branch with no state',
-      async () => {
-        const { service, applicabilityRepo } = setup({
-          branch: { stateCode: null as any },
-        });
-        await service.recomputeBranchComplianceApplicability('branch-1');
-        const where = (applicabilityRepo.find.mock.calls[0] as any)[0].where;
-        for (const clause of where) {
-          expect(clause.stateCode).toEqual(IsNull());
-        }
-      },
-    );
+    it('does not apply other states’ rules to a branch with no state', async () => {
+      const { service, applicabilityRepo } = setup({
+        branch: { stateCode: null as any },
+      });
+      await service.recomputeBranchComplianceApplicability('branch-1');
+      const where = (applicabilityRepo.find.mock.calls[0] as any)[0].where;
+      for (const clause of where) {
+        expect(clause.stateCode).toEqual(IsNull());
+      }
+    });
   });
 
   describe('listCrmComplianceWorklist', () => {
