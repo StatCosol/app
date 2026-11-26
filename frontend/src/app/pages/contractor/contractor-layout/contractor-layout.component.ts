@@ -45,11 +45,11 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 <app-statco-wordmark></app-statco-wordmark>
                 <!-- Contact links (xl+) -->
                 <div class="hidden xl:flex flex-col items-start gap-0.5 ml-4 text-[11px] text-gray-400 border-l border-gray-100 pl-4">
-                  <a href="mailto:compliance@statcosol.com" class="flex items-center gap-1 hover:text-rose-600 transition-colors">
+                  <a href="mailto:compliance@statcosol.com" class="flex items-center gap-1 hover:text-accent-700 transition-colors">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     compliance&#64;statcosol.com
                   </a>
-                  <a href="tel:+919000607839" class="flex items-center gap-1 hover:text-rose-600 transition-colors">
+                  <a href="tel:+919000607839" class="flex items-center gap-1 hover:text-accent-700 transition-colors">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
                     +91 9000607839
                   </a>
@@ -74,7 +74,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
                 <button
                   (click)="goToNotifications()"
                   title="Notifications"
-                  class="relative p-2 rounded-xl text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                  class="relative p-2 rounded-xl text-gray-500 hover:text-accent-700 hover:bg-accent-50 transition-all"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
@@ -85,7 +85,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
                 <button
                   (click)="goToSupport()"
                   title="Support"
-                  class="hidden sm:flex p-2 rounded-xl text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                  class="hidden sm:flex p-2 rounded-xl text-gray-500 hover:text-accent-700 hover:bg-accent-50 transition-all"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
@@ -97,7 +97,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
 
                 <!-- User avatar + name -->
                 <div class="hidden sm:flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-50 transition-colors cursor-default">
-                  <div class="w-8 h-8 rounded-full bg-rose-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <div class="w-8 h-8 rounded-full bg-accent-700 flex items-center justify-center flex-shrink-0 shadow-sm">
                     <span class="text-sm font-bold text-white">{{ userInitial }}</span>
                   </div>
                   <div class="hidden lg:block leading-tight">
@@ -127,7 +127,7 @@ import { StatcoWordmarkComponent } from '../../../shared/components/statco-wordm
         <app-news-ticker></app-news-ticker>
 
         <!-- Page content -->
-        <main class="flex-1 bg-gradient-to-br from-slate-50 via-rose-50/30 to-slate-50">
+        <main class="flex-1 bg-gradient-to-br from-slate-50 via-accent-50/30 to-slate-50">
           <div class="contractor-content">
             <app-workspace-tools></app-workspace-tools><app-portal-page-purpose></app-portal-page-purpose><router-outlet></router-outlet>
           </div>

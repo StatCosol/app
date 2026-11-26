@@ -406,7 +406,7 @@ interface AttendanceIssue {
       }
       .summary-card h4 {
         margin: 0 0 0.3rem;
-        color: #6b7280;
+        color: #5b6472;
         font-size: 0.76rem;
         text-transform: uppercase;
         letter-spacing: 0.02em;
@@ -419,7 +419,7 @@ interface AttendanceIssue {
       }
       .summary-card p {
         margin: 0.3rem 0 0;
-        color: #6b7280;
+        color: #5b6472;
         font-size: 0.74rem;
       }
       .grid-layout {
@@ -442,7 +442,7 @@ interface AttendanceIssue {
       }
       .section-head span {
         font-size: 0.78rem;
-        color: #6b7280;
+        color: #5b6472;
       }
       .head-actions {
         display: flex;
@@ -478,7 +478,7 @@ interface AttendanceIssue {
         color: #1f2937;
       }
       th {
-        color: #6b7280;
+        color: #5b6472;
         text-transform: uppercase;
         letter-spacing: 0.02em;
         font-size: 0.72rem;
@@ -535,7 +535,7 @@ interface AttendanceIssue {
       .action-footer p {
         margin: 0;
         font-size: 0.8rem;
-        color: #6b7280;
+        color: #5b6472;
       }
       small {
         color: #047857;

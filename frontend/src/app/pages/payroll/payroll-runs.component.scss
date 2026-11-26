@@ -116,7 +116,7 @@
 .field label {
   display: block;
   font-size: 0.7rem;
-  color: #64748b;
+  color: #5b6472;
   font-weight: 600;
   margin-bottom: 0.2rem;
 }
@@ -152,7 +152,7 @@
 
 .label {
   font-size: 0.72rem;
-  color: #64748b;
+  color: #5b6472;
   font-weight: 600;
 }
 
@@ -192,7 +192,7 @@
 
 .panel-head span {
   font-size: 0.7rem;
-  color: #64748b;
+  color: #5b6472;
 }
 
 .table-wrap {
@@ -209,7 +209,7 @@
 .data-table th {
   text-align: left;
   font-size: 0.68rem;
-  color: #64748b;
+  color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   background: #f8fafc;
@@ -277,7 +277,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 0.6rem;
   background: #f8fafc;
-  color: #64748b;
+  color: #5b6472;
   font-size: 0.69rem;
   font-weight: 700;
   padding: 0.45rem 0.5rem;
@@ -324,7 +324,7 @@
 }
 
 .mini-label {
-  color: #64748b;
+  color: #5b6472;
   font-size: 0.68rem;
   font-weight: 600;
 }
@@ -405,7 +405,7 @@
 
 .emp-preview-search-meta {
   font-size: 0.7rem;
-  color: #6b7280;
+  color: #5b6472;
 }
 
 .lv-search {
@@ -426,7 +426,7 @@
 }
 .lv-search-meta {
   font-size: 0.7rem;
-  color: #6b7280;
+  color: #5b6472;
 }
 .lv-bulk-spacer { flex: 1 1 auto; }
 .lv-bulk-label {
@@ -495,7 +495,7 @@
 
 .add-emp-empty {
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: #636b78;
   text-align: center;
   padding: 0.6rem 0;
 }
@@ -524,7 +524,7 @@
 
 .add-emp-code {
   font-size: 0.65rem;
-  color: #64748b;
+  color: #5b6472;
 }
 
 .add-emp-upload-section {
@@ -562,7 +562,7 @@
 
 .add-emp-upload-hint {
   font-size: 0.65rem;
-  color: #64748b;
+  color: #5b6472;
   margin-bottom: 0.35rem;
 }
 
@@ -590,7 +590,7 @@
   text-align: center;
   font-size: 0.68rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: #636b78;
   margin: 0.5rem 0;
   position: relative;
 
@@ -628,7 +628,7 @@
 
 .import-hint {
   font-size: 0.68rem;
-  color: #64748b;
+  color: #5b6472;
   margin-bottom: 0.4rem;
 }
 
@@ -661,7 +661,7 @@
 
 .preview-label {
   font-size: 0.67rem;
-  color: #64748b;
+  color: #5b6472;
   font-weight: 600;
 }
 
@@ -758,7 +758,7 @@
 
 .bucket-label {
   font-size: 0.67rem;
-  color: #64748b;
+  color: #5b6472;
   font-weight: 600;
 }
 
@@ -832,7 +832,7 @@
 .history-time {
   margin-top: 0.08rem;
   font-size: 0.67rem;
-  color: #64748b;
+  color: #5b6472;
 }
 
 .history-kind {
@@ -851,7 +851,7 @@
 .muted {
   margin-top: 0.1rem;
   font-size: 0.66rem;
-  color: #64748b;
+  color: #5b6472;
 }
 
 @media (max-width: 1120px) {
@@ -897,7 +897,7 @@
 .btn-cancel-edit { background: #e2e8f0; color: #0f172a; }
 .btn-save-edit { background: #0284c7; color: #fff; }
 .btn-save-edit:disabled, .btn-cancel-edit:disabled { opacity: 0.5; cursor: not-allowed; }
-.edit-emp-hint { font-size: 0.6rem; color: #64748b; font-style: italic; }
+.edit-emp-hint { font-size: 0.6rem; color: #5b6472; font-style: italic; }
 
 .btn-row-check { font-size: 0.65rem; padding: 0.18rem 0.6rem; border: 1px solid #0284c7; background: #e0f2fe; color: #0369a1; border-radius: 0.3rem; cursor: pointer; margin-left: 0.3rem; }
 .btn-row-check:hover { background: #bae6fd; }
@@ -944,7 +944,7 @@
 .payheet-table tbody tr:hover td { background: #f8fafc; }
 .payheet-table tbody tr:hover .sticky-col { background: #f8fafc; }
 .payheet-table tbody tr:hover td.strong { background: #fef3c7; }
-.payheet-table .muted { font-size: 0.65rem; color: #64748b; font-weight: 400; }
+.payheet-table .muted { font-size: 0.65rem; color: #5b6472; font-weight: 400; }
 .payheet-table td.id-stack { font-size: 0.66rem; line-height: 1.15; text-align: left; min-width: 96px; }
 .payheet-table td.id-stack .muted { display: block; margin-top: 0.1rem; }
 

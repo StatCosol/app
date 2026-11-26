@@ -26,7 +26,7 @@ interface SidebarItem {
     @if (mobileOpen) {
 <div
 
-      class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+      class="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
 }
@@ -41,7 +41,7 @@ interface SidebarItem {
 <div class="px-5 pt-6 pb-4 flex items-center gap-3">
         <div>
           <span class="text-white font-bold text-xl tracking-tight">CEO</span>
-          <span class="block text-white/40 text-[13px] font-medium">Executive Dashboard</span>
+          <span class="block text-white/70 text-[13px] font-medium">Executive Dashboard</span>
         </div>
       </div>
 }
@@ -66,7 +66,7 @@ interface SidebarItem {
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
         <button
           (click)="mobileOpen = false; mobileOpenChange.emit(false)"
-          class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors"
+          class="p-1.5 rounded-lg text-white/70 hover:text-white/70 hover:bg-white/8 transition-colors"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -136,8 +136,8 @@ interface SidebarItem {
       <!-- Version footer -->
       @if (!collapsed) {
 <div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
-        <div class="text-[10px] text-white/35">CEO v1.0</div>
-        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <div class="text-[10px] text-white/70">CEO v1.0</div>
+        <div class="text-[10px] text-white/75 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
 }
@@ -528,7 +528,7 @@ export class CeoSidebarComponent implements OnChanges, OnDestroy {
       { label: 'Sales Follow-ups', route: '/ceo/followups', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
       { label: 'Receivables', route: '/ceo/receivables', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
       { label: 'Registers', route: '/ceo/registers', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
-      { label: 'Executive Reports', route: '/ceo/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
+      { label: 'Executive Reports', route: '/ceo/reports', icon: this.svg('M8 13v-1m4 1v-3m4 3V8M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z') },
       { label: 'Notifications', route: '/ceo/notifications', icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
       { label: 'Profile', route: '/ceo/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
     ];
@@ -570,7 +570,7 @@ export class CeoSidebarComponent implements OnChanges, OnDestroy {
         label: 'Intelligence',
         expanded: false,
         items: [
-          { label: 'Executive Reports', route: '/ceo/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
+          { label: 'Executive Reports', route: '/ceo/reports', icon: this.svg('M8 13v-1m4 1v-3m4 3V8M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z') },
         ],
       },
       {

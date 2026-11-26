@@ -442,7 +442,7 @@ canvas {
   }
 
   .page-header .subtitle {
-    @apply text-sm text-gray-500 mt-1;
+    @apply text-sm text-gray-600 mt-1;
   }
 
   .nav-actions {
@@ -542,7 +542,7 @@ canvas {
 
   input::placeholder,
   textarea::placeholder {
-    @apply text-gray-400;
+    @apply text-gray-600;
   }
 
   label {
@@ -730,7 +730,7 @@ canvas {
   }
 
   .stat-label {
-    @apply text-sm font-semibold text-gray-500 uppercase tracking-wide;
+    @apply text-sm font-semibold text-gray-600 uppercase tracking-wide;
   }
 
   .stat-value {
@@ -746,11 +746,11 @@ canvas {
   }
 
   .stat-change.positive {
-    @apply text-green-600;
+    @apply text-green-700;
   }
 
   .stat-change.negative {
-    @apply text-red-600;
+    @apply text-red-700;
   }
 
   /* ===========================
@@ -795,7 +795,7 @@ canvas {
   }
 
   .btn-icon {
-    @apply p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all;
+    @apply p-2 rounded-xl text-gray-600 hover:text-gray-700 hover:bg-gray-100 transition-all;
   }
 
   /* ===========================
@@ -814,7 +814,7 @@ canvas {
   }
 
   .section-subtitle {
-    @apply text-sm text-gray-500 mt-0.5;
+    @apply text-sm text-gray-600 mt-0.5;
   }
 
   /* ===========================
@@ -833,7 +833,7 @@ canvas {
   }
 
   .empty-state-description {
-    @apply text-sm text-gray-500 max-w-sm mx-auto;
+    @apply text-sm text-gray-600 max-w-sm mx-auto;
   }
 
   /* ===========================
@@ -1540,3 +1540,35 @@ svg {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* =========================
+   Readable text colours (WCAG AA, 4.5:1)
+   The 400/500 greys and the 500/600 status hues fall below 4.5:1 on white,
+   on the cream workspace (#f5f7f2) and on their own -50 badge tints. These
+   overrides keep the same hue one step darker. Hover/focus variants keep
+   their own (more specific) colours.
+   ========================= */
+.text-gray-400, .text-slate-400 { color: #636b78; }
+.text-gray-500, .text-slate-500 { color: #5b6472; }
+.text-amber-500, .text-amber-600, .text-yellow-500, .text-yellow-600 { color: #b45309; }
+.text-orange-500, .text-orange-600 { color: #c2410c; }
+.text-green-500, .text-green-600 { color: #15803d; }
+.text-emerald-500, .text-emerald-600, .text-teal-600 { color: #047857; }
+.text-red-500, .text-red-600, .text-rose-500, .text-rose-600 { color: #b91c1c; }
+.text-pink-500 { color: #be185d; }
+.text-sky-600 { color: #0369a1; }
+
+/* =========================
+   One modal look
+   Hand-built modals share the backdrop (slate-900/50, set per template), and
+   their titles and corners follow the shared ui-modal: 18px/600 titles and
+   16px corners, regardless of portal-level heading sizes.
+   ========================= */
+:is([role="dialog"], [role="alertdialog"], .fixed.inset-0, .modal-backdrop, .modal-overlay) h2,
+:is(.modal-card, .modal-box, .modal-panel, .modal-content, .modal-header, .modal-head) > h3:first-child,
+.modal-title {
+  font-size: 1.125rem !important;
+  line-height: 1.5rem !important;
+  font-weight: 600 !important;
+}
+:is(.modal-card, .modal-box, .modal-panel, .modal-content) { border-radius: 1rem; }

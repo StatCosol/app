@@ -77,7 +77,7 @@ add('crm', {
   'monthly-close': ['Monthly client readiness review', 'Check the selected client, branch and period for outstanding work before completing the monthly review.'],
   'clients': ['Client and branch workspace', 'Select an assigned client to review its branches, contractors and service configuration. Confirm the client before editing records.'],
   'helpdesk': ['Client queries and support', 'Review incoming queries, record responses and track resolution with the supporting information for each request.'],
-  'compliance-tracker': ['Monitor compliance across clients', 'Compare completed, pending and overdue obligations. Use Compliance Tasks to work on individual requirements and Document Review Center to review uploads.'],
+  'compliance-tracker': ['Monitor compliance across clients', 'Compare completed, pending and overdue obligations. Use Compliance Tasks to work on individual requirements and Document Review Centre to review uploads.'],
   'compliance/tasks': ['Work on compliance obligations', 'Select the client, branch and period, then review the requirement, assigned owner and supporting evidence for each task.'],
   'returns': ['Manage return filings', 'Review filing obligations, submission details and acknowledgement evidence for the selected client, branch and period.'],
   'registrations': ['Manage registrations and licences', 'Review registration details and certificates for assigned clients. Check validity dates and open renewal work when required.'],

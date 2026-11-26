@@ -30,7 +30,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <div><span class="text-gray-500">Name:</span> <span class="font-medium ml-1">{{ appraisal.employee_name }}</span></div>
           <div><span class="text-gray-500">Department:</span> <span class="font-medium ml-1">{{ appraisal.department || '—' }}</span></div>
           <div><span class="text-gray-500">Designation:</span> <span class="font-medium ml-1">{{ appraisal.designation || '—' }}</span></div>
-          <div><span class="text-gray-500">DOJ:</span> <span class="font-medium ml-1">{{ appraisal.date_of_joining | date:'dd/MM/yyyy' }}</span></div>
+          <div><span class="text-gray-500">Date of Joining:</span> <span class="font-medium ml-1">{{ appraisal.date_of_joining | date:'dd/MM/yyyy' }}</span></div>
           <div><span class="text-gray-500">Branch:</span> <span class="font-medium ml-1">{{ appraisal.branch_name || '—' }}</span></div>
           <div><span class="text-gray-500">Review Period:</span> <span class="font-medium ml-1">{{ appraisal.review_period_from | date:'dd/MM/yyyy' }} — {{ appraisal.review_period_to | date:'dd/MM/yyyy' }}</span></div>
           <div>

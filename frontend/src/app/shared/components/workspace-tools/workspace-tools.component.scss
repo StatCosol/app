@@ -20,6 +20,6 @@ input { width: 100%; min-height: 48px; border: 1px solid #94a3b8; border-radius:
 .module-finder__results { display: grid; gap: 6px; max-height: 330px; overflow-y: auto; }
 .module-finder__results button { width: 100%; justify-content: space-between; text-align: left; min-height: 50px; border: 0; border-bottom: 1px solid #e4ece8; border-radius: 4px; }
 .module-finder__results button:hover { background: #edf6ef; color: #116653; }
-footer { padding-top: 16px; margin-top: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; }
+footer { padding-top: 16px; margin-top: 16px; border-top: 1px solid #e2e8f0; color: #5b6472; font-size: 12px; }
 :focus-visible { outline: 3px solid #167c67; outline-offset: 3px; }
 @media (max-width: 640px) { .workspace-tools { align-items: flex-start; flex-direction: column; } .workspace-tools__actions { width: 100%; } .workspace-tools__actions button { flex: 1; min-height: 44px; } kbd { display: none; } .module-finder { padding: 18px; margin-top: 24px; } }

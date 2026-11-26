@@ -112,7 +112,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <div class="modal-panel" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h2 class="text-lg font-semibold">{{ editId ? 'Edit Nomination' : resubmitId ? 'Edit &amp; Resubmit' : 'Add Nomination' }}</h2>
-            <button (click)="closeForm()" class="compact-action text-gray-400 hover:text-gray-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button (click)="closeForm()" class="compact-action text-gray-400 hover:text-gray-600" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
           </div>
           <div class="modal-body space-y-4">
             <div class="grid grid-cols-2 gap-4">
@@ -296,7 +296,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       padding: 3px 8px;
       border-radius: 999px;
     }
-    .status-DRAFT { background: #f3f4f6; color: #6b7280; }
+    .status-DRAFT { background: #f3f4f6; color: #5b6472; }
     .status-SUBMITTED { background: #fef3c7; color: #b45309; }
     .status-APPROVED { background: #dcfce7; color: #15803d; }
     .status-REJECTED { background: #fee2e2; color: #b91c1c; }
@@ -356,7 +356,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.4);
+      background: rgba(15, 23, 42, 0.5);
       z-index: 50;
       display: flex;
       align-items: center;

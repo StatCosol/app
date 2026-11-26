@@ -154,11 +154,11 @@ const SKILLS: Array<[string, string]> = [
     .filters { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; align-items: end; }
     label { display: grid; gap: 0.35rem; color: #374151; font-size: 0.85rem; font-weight: 700; }
     select, input { min-width: 180px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0.55rem 0.7rem; background: #fff; }
-    .empty { padding: 1rem; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; }
+    .empty { padding: 1rem; border: 1px dashed #d1d5db; border-radius: 8px; color: #5b6472; }
     .note { color: #4b5563; font-size: 0.85rem; }
     .group { margin: 1.25rem 0; }
     .group h3 { font-size: 1rem; font-weight: 800; color: #111827; margin-bottom: 0.5rem; }
-    .group h3 small { color: #6b7280; font-weight: 500; margin-left: 0.5rem; }
+    .group h3 small { color: #5b6472; font-weight: 500; margin-left: 0.5rem; }
     .table-wrap { overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th { text-align: left; background: #f9fafb; color: #374151; padding: 0.55rem 0.6rem; white-space: nowrap; border-bottom: 1px solid #e5e7eb; }
@@ -167,7 +167,7 @@ const SKILLS: Array<[string, string]> = [
     tbody tr:not(.detail):hover { background: #f9fafb; }
     .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .strong { font-weight: 800; color: #111827; }
-    .muted { color: #6b7280; font-size: 0.75rem; }
+    .muted { color: #5b6472; font-size: 0.75rem; }
     .best { background: #f0fdf4; }
     .tag { margin-left: 0.4rem; font-size: 0.65rem; font-weight: 800; color: #166534; background: #dcfce7; border-radius: 999px; padding: 0.1rem 0.45rem; }
     .chip { display: inline-block; margin: 0 0.25rem 0.25rem 0; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 0.1rem 0.5rem; white-space: nowrap; }
@@ -176,7 +176,7 @@ const SKILLS: Array<[string, string]> = [
     .chip--ok { background: #dcfce7; color: #166534; }
     .detail td { background: #fafafa; }
     .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; }
-    .detail h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 0.5rem 0 0.25rem; }
+    .detail h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #5b6472; margin: 0.5rem 0 0.25rem; }
     .detail p { display: flex; justify-content: space-between; gap: 1rem; margin: 0.15rem 0; font-size: 0.8rem; }
     .detail p.error { color: #b91c1c; display: block; }
     .detail p.warn { color: #b45309; display: block; }

@@ -162,9 +162,9 @@ interface LoadResult {
   styles: [`
     .page { padding: 24px; max-width: 1500px; margin: 0 auto; color: #0f172a; }
     .hero { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
-    .eyebrow { margin: 0 0 4px; text-transform: uppercase; letter-spacing: .12em; color: #64748b; font-size: 12px; font-weight: 800; }
+    .eyebrow { margin: 0 0 4px; text-transform: uppercase; letter-spacing: .12em; color: #5b6472; font-size: 12px; font-weight: 800; }
     h1 { margin: 0; font-size: 28px; line-height: 1.15; }
-    .subtitle { margin: 8px 0 0; color: #64748b; max-width: 780px; }
+    .subtitle { margin: 8px 0 0; color: #5b6472; max-width: 780px; }
     .btn { border: 0; border-radius: 10px; padding: 10px 14px; background: #0f172a; color: #fff; font-weight: 800; cursor: pointer; }
     .btn.secondary { background: #e2e8f0; color: #0f172a; align-self: end; }
     .btn:disabled { opacity: .6; cursor: not-allowed; }
@@ -174,7 +174,7 @@ interface LoadResult {
     .summary { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
     .summary div { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; }
     .summary strong { display: block; font-size: 20px; }
-    .summary span, small { color: #64748b; font-size: 12px; }
+    .summary span, small { color: #5b6472; font-size: 12px; }
     .table-card { overflow: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; }
     table { width: 100%; border-collapse: collapse; min-width: 1180px; }
     th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; font-size: 13px; }
@@ -184,9 +184,9 @@ interface LoadResult {
     .pill { display: inline-flex; border-radius: 999px; padding: 4px 8px; background: #fee2e2; color: #991b1b; font-size: 11px; font-weight: 900; }
     .pill.ok { background: #dcfce7; color: #166534; }
     .reason { margin-top: 6px; color: #b45309; max-width: 260px; white-space: normal; }
-    .state { padding: 18px; border: 1px dashed #cbd5e1; border-radius: 14px; color: #64748b; background: #fff; }
+    .state { padding: 18px; border: 1px dashed #cbd5e1; border-radius: 14px; color: #5b6472; background: #fff; }
     .state.error { border-color: #fecaca; color: #991b1b; background: #fef2f2; }
-    .empty { text-align: center; color: #64748b; padding: 30px; }
+    .empty { text-align: center; color: #5b6472; padding: 30px; }
     @media (max-width: 900px) { .hero { display: block; } .summary { grid-template-columns: 1fr; } }
   `],
 })

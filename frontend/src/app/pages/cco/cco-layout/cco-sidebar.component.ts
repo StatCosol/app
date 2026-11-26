@@ -28,7 +28,7 @@ interface SidebarItem {
     @if (mobileOpen) {
 <div
 
-      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+      class="sidebar-overlay fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
 }
@@ -44,7 +44,7 @@ interface SidebarItem {
 <div class="px-5 pt-6 pb-4 flex items-center gap-3">
         <div>
           <span class="text-white font-bold text-xl tracking-tight">CCO</span>
-          <span class="block text-white/40 text-[13px] font-medium">Chief Compliance Officer</span>
+          <span class="block text-white/70 text-[13px] font-medium">Chief Compliance Officer</span>
         </div>
       </div>
 }
@@ -69,7 +69,7 @@ interface SidebarItem {
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
         <button type="button" aria-label="Close navigation"
           (click)="mobileOpen = false; mobileOpenChange.emit(false)"
-          class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors"
+          class="p-1.5 rounded-lg text-white/70 hover:text-white/70 hover:bg-white/8 transition-colors"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -140,8 +140,8 @@ interface SidebarItem {
       <!-- Version footer -->
       @if (!collapsed) {
 <div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
-        <div class="text-[10px] text-white/35">CCO v1.0</div>
-        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <div class="text-[10px] text-white/70">CCO v1.0</div>
+        <div class="text-[10px] text-white/75 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
 }
@@ -530,7 +530,7 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
       { label: 'Approvals', route: '/cco/approvals', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
       { label: 'Service Packages', route: '/cco/service-package-approvals', icon: this.svg('M12 3l8 4v5c0 5-3.5 9.74-8 11-4.5-1.26-8-6-8-11V7l8-4zm-3 9l2 2 4-4') },
       { label: 'Audit Action Approvals', route: '/cco/audit-action-approvals', icon: this.svg('M9 12l2 2 4-4M5 3h14v18H5z') },
-      { label: 'Payroll Approvals', route: '/cco/payroll-approvals', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
+      { label: 'Payroll Approvals', route: '/cco/payroll-approvals', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
       { label: 'Oversight', route: '/cco/oversight', icon: this.svg('M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z') },
       { label: 'CRMs Under Me', route: '/cco/crms-under-me', icon: this.svg('M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z') },
       { label: 'CRM Performance', route: '/cco/crm-performance', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
@@ -562,7 +562,7 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
           { label: 'Approvals', route: '/cco/approvals', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
           { label: 'Service Packages', route: '/cco/service-package-approvals', icon: this.svg('M12 3l8 4v5c0 5-3.5 9.74-8 11-4.5-1.26-8-6-8-11V7l8-4zm-3 9l2 2 4-4') },
           { label: 'Audit Action Approvals', route: '/cco/audit-action-approvals', icon: this.svg('M9 12l2 2 4-4M5 3h14v18H5z') },
-      { label: 'Payroll Approvals', route: '/cco/payroll-approvals', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
+      { label: 'Payroll Approvals', route: '/cco/payroll-approvals', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Oversight', route: '/cco/oversight', icon: this.svg('M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z') },
           { label: 'Escalations', route: '/cco/escalations', icon: this.svg('M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Risk Heatmap', route: '/cco/risk-heatmap', icon: this.svg('M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z') },

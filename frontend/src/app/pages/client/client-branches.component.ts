@@ -118,7 +118,7 @@ interface Branch {
   styles: [
     `
       .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
-      .total-badge { font-size: 0.8rem; color: #6b7280; margin-bottom: 0.5rem; }
+      .total-badge { font-size: 0.8rem; color: #5b6472; margin-bottom: 0.5rem; }
     `,
   ],
 })

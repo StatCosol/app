@@ -158,7 +158,7 @@
           <h3>Branch Quotation</h3>
           <p>{{ quoteUploadFor.name }} · {{ quoteUploadFor.client?.clientName || quoteUploadFor.clientName }}</p>
         </div>
-        <button type="button" class="compact-action modal-close" (click)="closeQuoteUpload()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+        <button type="button" class="compact-action modal-close" (click)="closeQuoteUpload()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
       </div>
 
       <fieldset [disabled]="quoteUploading" class="quote-editor">

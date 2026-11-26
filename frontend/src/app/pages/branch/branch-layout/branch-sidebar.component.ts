@@ -31,7 +31,7 @@ interface SidebarItem {
     @if (mobileOpen) {
 <div
 
-      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+      class="sidebar-overlay fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="closeMobile()"
     ></div>
 }
@@ -53,19 +53,19 @@ interface SidebarItem {
           </div>
           <div>
             <span class="text-white font-bold text-[17px] tracking-tight">BranchDesk</span>
-            <span class="block text-white/40 text-[11px] font-medium">Compliance Execution Portal</span>
+            <span class="block text-white/70 text-[11px] font-medium">Compliance Execution Portal</span>
           </div>
         </div>
         <!-- Sidebar search filter -->
         <div class="mt-3 relative">
-          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/70 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
           </svg>
           <input
             type="text"
             placeholder="Search navigation…" aria-label="Search navigation"
             [(ngModel)]="searchTerm"
-            class="sidebar-search w-full pl-8 pr-3 py-1.5 text-[12px] bg-white/8 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/12 focus:border-white/20 transition-all"
+            class="sidebar-search w-full pl-8 pr-3 py-1.5 text-[12px] bg-white/8 border border-white/10 rounded-lg text-white placeholder:text-white/70 focus:outline-none focus:bg-white/12 focus:border-white/20 transition-all"
           />
         </div>
       </div>
@@ -94,7 +94,7 @@ interface SidebarItem {
 
       <!-- Mobile close button -->
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
-        <button type="button" aria-label="Close navigation" (click)="closeMobile()" class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors">
+        <button type="button" aria-label="Close navigation" (click)="closeMobile()" class="p-1.5 rounded-lg text-white/70 hover:text-white/70 hover:bg-white/8 transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -226,8 +226,8 @@ interface SidebarItem {
       <!-- Version footer -->
       @if (!collapsed) {
 <div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
-        <div class="text-[10px] text-white/35">BranchDesk v1.0</div>
-        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <div class="text-[10px] text-white/70">BranchDesk v1.0</div>
+        <div class="text-[10px] text-white/75 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
 }
@@ -488,7 +488,7 @@ interface SidebarItem {
       border: 1px solid rgba(255,255,255,0.10) !important;
       color: #e2e8f0;
     }
-    .sidebar-search::placeholder { color: rgba(255,255,255,0.28); }
+    .sidebar-search::placeholder { color: rgba(255, 255, 255, 0.72); }
     .sidebar-search:focus {
       background: rgba(255,255,255,0.10) !important;
       border-color: rgba(16,185,129,0.40) !important;
@@ -750,18 +750,18 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         expanded: false,
         children: [
           { label: 'Compliance Dashboard', route: '/branch/compliance/status',       icon: this.svg('M3 13h4v8H3v-8zm7-5h4v13h-4V8zm7-5h4v18h-4V3z') },
-          { label: 'Monthly Compliance',   route: '/branch/compliance/monthly',      icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Monthly Compliance',   route: '/branch/compliance/monthly',      icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Periodic Uploads',     route: '/branch/uploads',                 icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
           { label: 'Compliance Items',     route: '/branch/compliance-items',        icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Compliance Calendar',  route: '/branch/calendar',                icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Registrations',        route: '/branch/registrations',           icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Safety',              route: '/branch/safety',                  icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
-          { label: 'Audits & Evidence', route: '/branch/audits', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+          { label: 'Audits & Evidence', route: '/branch/audits', icon: this.svg('M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Audit Observations',   route: '/branch/audits/observations',     icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
           { label: 'Audit Documents', route: '/branch/audit-documents', icon: this.svg('M12 4v12m-4-4l4 4 4-4M4 17v3h16v-3') },
           { label: 'Review / Reupload',    route: '/branch/compliance-docs',         icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Unit Documents',       route: '/branch/unit-documents',          icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
-          { label: 'Document Repository',            route: '/branch/documents',               icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+          { label: 'Document Repository',            route: '/branch/documents',               icon: this.svg('M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z') },
           { label: 'Notices',              route: '/branch/notices',                 icon: this.svg('M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z') },
         ],
       },
@@ -773,13 +773,13 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         children: [
           { label: 'Interns', route: '/branch/interns', icon: this.svg('M12 3L2 8l10 5 10-5-10-5M5 10v7l7 4 7-4v-7') },
           { label: 'Employees',         route: '/branch/employees',          icon: this.svg('M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z') },
-          { label: 'Attendance Review', route: '/branch/attendance', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
+          { label: 'Attendance Review', route: '/branch/attendance', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Mark Attendance',   route: '/branch/attendance/mark',  icon: this.svg('M12 4v16m8-8H4') },
           { label: 'Daily Attendance',  route: '/branch/attendance/daily', icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Contractor Attendance', route: '/branch/attendance/contractor', icon: this.svg('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z') },
           { label: 'FaceDesk Enrollment', route: '/branch/facedesk-enrollment', icon: this.svg('M9 12a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H2zm15-3l2 2 4-4') },
           { label: 'Face Failures',     route: '/branch/face-failures',     icon: this.svg('M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z') },
-          { label: 'Contractors',       route: '/branch/contractors',        icon: this.svg('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z') },
+          { label: 'Contractors',       route: '/branch/contractors',        icon: this.svg('M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2') },
           { label: 'Contractor Payroll', route: '/branch/contractor-payroll', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-6h2a2 2 0 012 2v4a2 2 0 01-2 2h-2') },
         ],
       },
@@ -790,7 +790,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         expanded: false,
         children: [
           { label: 'Payroll',       route: '/branch/payroll',     icon: this.svg('M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z') },
-          { label: 'Registers Download', route: '/branch/registers', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+          { label: 'Registers Download', route: '/branch/registers', icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4') },
           { label: 'Branch CTC',    route: '/branch/branch-ctc',  icon: this.svg('M9 7h6m-5 4h4m-3 4h2M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z') },
         ],
       },
@@ -801,7 +801,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         expanded: false,
         children: [
           { label: 'Dashboard',    route: '/branch/appraisal-dashboard', icon: this.svg('M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z') },
-          { label: 'Appraisals',   route: '/branch/appraisals',          icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
+          { label: 'Appraisals',   route: '/branch/appraisals',          icon: this.svg('M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z') },
           { label: 'Cycles',       route: '/branch/appraisal-cycles',    icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
         ],
       },

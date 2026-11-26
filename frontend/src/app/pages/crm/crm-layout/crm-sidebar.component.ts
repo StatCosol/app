@@ -30,7 +30,7 @@ interface SidebarItem {
     @if (mobileOpen) {
 <div
 
-      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+      class="sidebar-overlay fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
 }
@@ -46,7 +46,7 @@ interface SidebarItem {
 <div class="px-5 pt-6 pb-4 flex items-center gap-3">
         <div>
           <span class="text-white font-bold text-xl tracking-tight">CRM</span>
-          <span class="block text-white/40 text-[13px] font-medium">Client Relationship Mgmt</span>
+          <span class="block text-white/70 text-[13px] font-medium">Client Relationship Mgmt</span>
         </div>
       </div>
 }
@@ -71,7 +71,7 @@ interface SidebarItem {
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
         <button type="button" aria-label="Close navigation"
           (click)="mobileOpen = false; mobileOpenChange.emit(false)"
-          class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors"
+          class="p-1.5 rounded-lg text-white/70 hover:text-white/70 hover:bg-white/8 transition-colors"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -146,8 +146,8 @@ interface SidebarItem {
       <!-- Version footer -->
       @if (!collapsed) {
 <div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
-        <div class="text-[10px] text-white/35">CRM v1.0</div>
-        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <div class="text-[10px] text-white/70">CRM v1.0</div>
+        <div class="text-[10px] text-white/75 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
 }
@@ -556,14 +556,14 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
         expanded: false,
         items: [
           { label: 'Compliance Tracker', route: '/crm/compliance-tracker', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
-          { label: 'Compliance Tasks', route: '/crm/compliance/tasks', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
+          { label: 'Compliance Tasks', route: '/crm/compliance/tasks', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01') },
           { label: 'Returns / Filings', route: '/crm/returns', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
-          { label: 'Registrations & Licenses', route: '/crm/registrations', icon: this.svg('M9 12h6m-6 4h6M9 8h2M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
-          { label: 'Document Review Center', route: '/crm/branch-docs-review', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Registrations & Licences', route: '/crm/registrations', icon: this.svg('M9 12h6m-6 4h6M9 8h2M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Document Review Centre', route: '/crm/branch-docs-review', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Compliance Calendar', route: '/crm/calendar', icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'SLA Tracker', route: '/crm/sla', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Escalations', route: '/crm/escalations', icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
-          { label: 'Expiry & Renewals', route: '/crm/expiry-tasks', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
+          { label: 'Expiry & Renewals', route: '/crm/expiry-tasks', icon: this.svg('M6 2h12M6 22h12M7 2v4a5 5 0 005 5 5 5 0 005-5V2M7 22v-4a5 5 0 015-5 5 5 0 015 5v4') },
           { label: 'Renewals Workspace', route: '/crm/renewals', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
           { label: 'Amendments', route: '/crm/amendments', icon: this.svg('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z') },
           { label: 'Notices', route: '/crm/notices', icon: this.svg('M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z') },

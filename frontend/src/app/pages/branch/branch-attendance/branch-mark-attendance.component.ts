@@ -282,12 +282,12 @@ const STANDARD_HOURS = 9;
     .page { max-width: 1280px; margin: 0 auto; padding: 16px; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
     .head h1 { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-    .head p { margin: 4px 0 0; font-size: 12px; color: #64748b; max-width: 720px; }
+    .head p { margin: 4px 0 0; font-size: 12px; color: #5b6472; max-width: 720px; }
     .head-actions { display: flex; gap: 8px; }
     .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); margin-bottom: 12px; }
     .no-pad { padding: 0; overflow: hidden; }
     .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-    .toolbar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #64748b; font-weight: 600; }
+    .toolbar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5b6472; font-weight: 600; }
     .toolbar input, .toolbar select { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; font-size: 13px; min-width: 160px; background: #fff; }
     .month-picker { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; font-size: 13px; background: #fff; color: #0f172a; }
     .toolbar-actions { display: flex; gap: 8px; margin-left: auto; }
@@ -297,11 +297,11 @@ const STANDARD_HOURS = 9;
     .btn.ghost { background: #f8fafc; }
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 12px; }
     .stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; }
-    .stat .k { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+    .stat .k { font-size: 11px; color: #5b6472; text-transform: uppercase; font-weight: 600; }
     .stat .v { font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 2px; }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    thead th { background: #f8fafc; text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
+    thead th { background: #f8fafc; text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; color: #5b6472; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
     tbody td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     tbody tr.dirty td { background: #fffbeb; }
     tbody tr.absent td { background: #fef2f2; }
@@ -310,11 +310,11 @@ const STANDARD_HOURS = 9;
     .num { text-align: right; font-variant-numeric: tabular-nums; }
     .ot .warn { color: #b45309; font-weight: 700; }
     .emp strong { display: block; color: #0f172a; }
-    .emp small { color: #64748b; font-size: 11px; }
+    .emp small { color: #5b6472; font-size: 11px; }
     tbody input, tbody select { border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 8px; font-size: 13px; width: 100%; max-width: 180px; background: #fff; }
-    tbody input:disabled { background: #f1f5f9; color: #94a3b8; }
-    .muted.center { text-align: center; padding: 24px; color: #64748b; }
-    .empty { border: 1px dashed #d1d5db; border-radius: 10px; padding: 24px; color: #6b7280; text-align: center; background: #fff; }
+    tbody input:disabled { background: #f1f5f9; color: #636b78; }
+    .muted.center { text-align: center; padding: 24px; color: #5b6472; }
+    .empty { border: 1px dashed #d1d5db; border-radius: 10px; padding: 24px; color: #5b6472; text-align: center; background: #fff; }
   `],
 })
 export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {

@@ -28,7 +28,7 @@ import {
     @if (open) {
 <div class="fixed inset-0 flex items-center justify-center" style="z-index: 9999;">
       <!-- Backdrop -->
-      <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" (click)="cancel()"></div>
+      <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" (click)="cancel()"></div>
 
       <!-- Dialog -->
       <div

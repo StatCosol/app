@@ -29,7 +29,7 @@ interface NavItem {
 <div class="px-5 pt-6 pb-4 flex items-center gap-3" style="border-bottom: 1px solid rgba(255,255,255,.07)">
           <div>
             <span class="text-white font-bold text-xl tracking-tight">{{ companyName }}</span>
-            <span class="block text-white/40 text-[13px] font-medium">Employee Portal</span>
+            <span class="block text-white/70 text-[13px] font-medium">Employee Portal</span>
           </div>
         </div>
 }
@@ -106,7 +106,7 @@ interface NavItem {
             </div>
             <div class="tb-hl-row">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="tb-hl-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
-              <a href="mailto:it_admin&#64;statcosol.com" class="tb-hl-val">it_admin&#64;statcosol.com</a>
+              <a href="mailto:compliance&#64;statcosol.com" class="tb-hl-val">compliance&#64;statcosol.com</a>
             </div>
           </div>
 
@@ -182,7 +182,7 @@ interface NavItem {
       position: relative;
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; border-radius: 8px;
-      color: rgba(255,255,255,.55); font-size: 14px; font-weight: 500;
+      color: rgba(255, 255, 255, 0.72); font-size: 14px; font-weight: 500;
       text-decoration: none; white-space: nowrap;
       transition: background .15s, color .15s;
     }
@@ -224,7 +224,7 @@ interface NavItem {
     }
     .sb-foot-info { display: flex; flex-direction: column; }
     .sb-foot-name { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sb-foot-code { color: rgba(255,255,255,.4); font-size: 11px; }
+    .sb-foot-code { color: rgba(255, 255, 255, 0.72); font-size: 11px; }
     .sb-collapsed .sb-foot { display: none; }
 
     /* sidebar branding */
@@ -232,11 +232,11 @@ interface NavItem {
       padding: 10px 14px; text-align: center;
       border-top: 1px solid rgba(255,255,255,.07);
     }
-    .sb-branding-text { display: block; font-size: 9px; color: rgba(255,255,255,.3); line-height: 1.4; }
-    .sb-branding-link { display: block; font-size: 10px; color: rgba(255,255,255,.5); font-weight: 600; text-decoration: none; }
+    .sb-branding-text { display: block; font-size: 9px; color: rgba(255, 255, 255, 0.72); line-height: 1.4; }
+    .sb-branding-link { display: block; font-size: 10px; color: rgba(255, 255, 255, 0.72); font-weight: 600; text-decoration: none; }
     .sb-branding-link:hover { color: #a5b4fc; }
-    .sb-branding-url { display: block; font-size: 9px; color: rgba(255,255,255,.25); text-decoration: none; margin-top: 2px; }
-    .sb-branding-url:hover { color: rgba(255,255,255,.5); }
+    .sb-branding-url { display: block; font-size: 9px; color: rgba(255, 255, 255, 0.72); text-decoration: none; margin-top: 2px; }
+    .sb-branding-url:hover { color: rgba(255, 255, 255, 0.72); }
     .sb-collapsed .sb-branding { display: none; }
 
     /* ─── OVERLAY (mobile) ─────── */
@@ -265,7 +265,7 @@ interface NavItem {
     /* greeting + date */
     .tb-greeting { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
     .tb-greeting-text { font-size: 13px; font-weight: 600; color: #374151; }
-    .tb-date { font-size: 11px; color: #9ca3af; font-weight: 500; }
+    .tb-date { font-size: 11px; color: #636b78; font-weight: 500; }
 
     /* helpline */
     .tb-helpline { display: flex; flex-direction: column; gap: 2px; padding-left: 12px; border-left: 1px solid #e5e7eb; }
@@ -296,7 +296,7 @@ interface NavItem {
       color: #fff; font-size: 14px; font-weight: 700;
       display: grid; place-items: center;
     }
-    .tb-chev { width: 14px; height: 14px; color: #9ca3af; }
+    .tb-chev { width: 14px; height: 14px; color: #636b78; }
 
     /* dropdown */
     .dropdown {
@@ -311,7 +311,7 @@ interface NavItem {
       padding: 10px 12px 8px; border-bottom: 1px solid #f3f4f6;
     }
     .dd-header strong { display: block; font-size: 14px; color: #111827; }
-    .dd-header small { font-size: 12px; color: #6b7280; }
+    .dd-header small { font-size: 12px; color: #5b6472; }
     .dd-item {
       display: flex; align-items: center; gap: 8px;
       width: 100%; padding: 9px 12px; border-radius: 8px;
@@ -437,6 +437,7 @@ export class EssLayoutComponent implements OnInit, OnDestroy {
     documents: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v4.125A2.625 2.625 0 0116.875 21H7.125A2.625 2.625 0 014.5 18.375V5.625A2.625 2.625 0 017.125 3h5.379a2.625 2.625 0 011.856.769l4.371 4.371a2.625 2.625 0 01.769 1.856V14.25zM13.5 3v4.5a1.5 1.5 0 001.5 1.5h4.5"/></svg>',
     payslips: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>',
     helpdesk: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z"/></svg>',
+    notifications: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>',
     appraisals: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>',
   };
 
@@ -473,7 +474,7 @@ export class EssLayoutComponent implements OnInit, OnDestroy {
       { label: 'Documents',   route: '/ess/documents',   icon: s('documents') },
       { label: 'Payslips',    route: '/ess/payslips',    icon: s('payslips') },
       { label: 'Helpdesk',    route: '/ess/helpdesk',    icon: s('helpdesk') },
-      { label: 'Notifications', route: '/ess/notifications', icon: s('helpdesk') },
+      { label: 'Notifications', route: '/ess/notifications', icon: s('notifications') },
       { label: 'Appraisals',  route: '/ess/appraisals',  icon: s('appraisals') },
     ];
   }

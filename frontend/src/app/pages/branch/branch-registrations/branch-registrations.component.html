@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <h1>Branch Registrations Workspace</h1>
-      <p>Track licenses, renewal due alerts, and raise apply/amend/renew/closure requests.</p>
+      <p>Track licences, renewal due alerts, and raise apply/amend/renew/closure requests.</p>
     </div>
     <button type="button" class="compact-action btn btn-primary" (click)="openRequestModal('APPLY')" title="New Registration Request" aria-label="New Registration Request" data-action-label="New Registration Request" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
   </header>
@@ -498,7 +498,7 @@
 <section class="modal-panel">
   <header>
     <h3>Actual Registration Request Wizard</h3>
-    <button type="button" (click)="closeRequestModal()" class="compact-action" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+    <button type="button" (click)="closeRequestModal()" class="compact-action" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
   </header>
 
   <div class="stepper">
@@ -535,7 +535,7 @@
     @if (requestModel.action === 'APPLY') {
 <label>
       Registration Type
-      <input autocomplete="off" id="br-registration-type" name="registrationType" type="text" [(ngModel)]="requestModel.registrationType" placeholder="Example: Factory License" />
+      <input autocomplete="off" id="br-registration-type" name="registrationType" type="text" [(ngModel)]="requestModel.registrationType" placeholder="Example: Factory Licence" />
     </label>
 }
   </div>
@@ -566,7 +566,7 @@
 <div class="modal-body">
     <div class="doc-check-grid">
       <label><input autocomplete="off" id="br-authority-form" name="authorityForm" type="checkbox" [(ngModel)]="requestModel.documents.authorityForm" /> Authority form ready</label>
-      <label><input autocomplete="off" id="br-previous-license" name="previousLicense" type="checkbox" [(ngModel)]="requestModel.documents.previousLicense" /> Previous license available</label>
+      <label><input autocomplete="off" id="br-previous-license" name="previousLicense" type="checkbox" [(ngModel)]="requestModel.documents.previousLicense" /> Previous licence available</label>
       <label><input autocomplete="off" id="br-identity-proof" name="identityProof" type="checkbox" [(ngModel)]="requestModel.documents.identityProof" /> Identity proof ready</label>
       <label><input autocomplete="off" id="br-amendment-proof" name="amendmentProof" type="checkbox" [(ngModel)]="requestModel.documents.amendmentProof" /> Amendment/closure proof ready</label>
     </div>

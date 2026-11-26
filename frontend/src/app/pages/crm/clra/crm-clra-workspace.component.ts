@@ -190,7 +190,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
     </div>
 
     @if (showPeForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">{{ peForm.id ? 'Edit' : 'Add' }} PE Establishment</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -240,7 +240,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
     }
 
     @if (showContractorForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">{{ contractorForm.id ? 'Edit' : 'Add' }} Contractor</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -298,7 +298,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
     }
 
     @if (showWorkerForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">{{ workerForm.id ? 'Edit' : 'Add' }} Worker</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -337,7 +337,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
               <input type="text" [(ngModel)]="workerForm.uan" class="w-full rounded-lg border-gray-300" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">ESI No.</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">ESIC IP Number</label>
               <input type="text" [(ngModel)]="workerForm.esiNo" class="w-full rounded-lg border-gray-300" />
             </div>
             <div>
@@ -358,7 +358,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
     }
 
     @if (showAssignmentForm) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="closeForms()">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeForms()">
         <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-semibold mb-4">{{ assignmentForm.id ? 'Edit' : 'Add' }} Assignment</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">

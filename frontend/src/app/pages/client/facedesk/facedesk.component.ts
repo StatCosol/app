@@ -642,19 +642,19 @@ type Tab =
     .tab-bar { display: flex; gap: 0; border-bottom: 1px solid #e5e7eb; margin: 0 0 1.25rem; flex-wrap: wrap; }
     .tab-search { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 0; }
     .tab-search input.inp { width: 300px; max-width: 100%; margin: 0; min-height: 40px; }
-    .search-count { font-size: 12px; color: #64748b; white-space: nowrap; }
+    .search-count { font-size: 12px; color: #5b6472; white-space: nowrap; }
     @media (max-width: 640px) {
       .tab-search { flex: 1 1 100%; margin-left: 0; }
       .tab-search input.inp { flex: 1; width: 100%; min-width: 0; font-size: 16px; }
     }
-    .tab-btn { padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: #6b7280; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+    .tab-btn { padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: #5b6472; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
     .tab-btn:hover { color: #111827; }
     .tab-btn.active { color: #4f46e5; border-bottom-color: #4f46e5; }
     .badge { margin-left: 4px; background: #fef3c7; color: #92400e; border-radius: 9999px; padding: 0 6px; font-size: 0.7rem; font-weight: 600; }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; }
     .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
     .card .num { font-size: 1.75rem; font-weight: 700; color: #111827; }
-    .card .lbl { font-size: 0.75rem; color: #6b7280; margin-top: 2px; }
+    .card .lbl { font-size: 0.75rem; color: #5b6472; margin-top: 2px; }
     .tbl { width: 100%; font-size: 0.875rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 0.5rem; border-collapse: collapse; }
     .tbl th { text-align: left; padding: 0.5rem 0.75rem; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; }
     .tbl td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f3f4f6; }
@@ -664,7 +664,7 @@ type Tab =
     .pill.amber { background: #fef3c7; color: #92400e; }
     .link { font-size: 0.75rem; margin-left: 0.6rem; background: none; border: none; cursor: pointer; }
     .compare-link { margin-left: 0; margin-right: 0.6rem; color: #4f46e5; font-weight: 600; }
-    .link.green { color: #047857; } .link.red { color: #dc2626; } .link.gray { color: #6b7280; }
+    .link.green { color: #047857; } .link.red { color: #dc2626; } .link.gray { color: #5b6472; }
     .btn { padding: 0.4rem 0.9rem; border: 1px solid #d1d5db; border-radius: 0.5rem; background: #fff; font-size: 0.875rem; cursor: pointer; }
     .btn.primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
     .inp { display: block; padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; }

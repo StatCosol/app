@@ -82,10 +82,10 @@ interface CalendarDay {
     .cal-widget { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
     .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .cal-title { font-weight: 700; font-size: 14px; color: #0f172a; }
-    .cal-nav { background: none; border: none; font-size: 16px; cursor: pointer; color: #64748b; padding: 4px 8px; border-radius: 6px; }
+    .cal-nav { background: none; border: none; font-size: 16px; cursor: pointer; color: #5b6472; padding: 4px 8px; border-radius: 6px; }
     .cal-nav:hover { background: #f1f5f9; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
-    .cal-dow { font-size: 10px; font-weight: 600; color: #94a3b8; padding: 4px 0; }
+    .cal-dow { font-size: 10px; font-weight: 600; color: #636b78; padding: 4px 0; }
     .cal-day { position: relative; padding: 6px 2px; font-size: 12px; cursor: pointer; border-radius: 6px; min-height: 32px; display: flex; flex-direction: column; align-items: center; }
     .cal-day:hover { background: #f8fafc; }
     .cal-day--today { background: #eff6ff; font-weight: 700; }
@@ -97,11 +97,11 @@ interface CalendarDay {
     .cal-dot--amber { background: #f59e0b; }
     .cal-dot--green { background: #10b981; }
     .cal-detail { margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-    .cal-detail-date { font-size: 11px; color: #64748b; margin-bottom: 6px; font-weight: 600; }
+    .cal-detail-date { font-size: 11px; color: #5b6472; margin-bottom: 6px; font-weight: 600; }
     .cal-item { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px; }
     .cal-item-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
     .cal-item-title { color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-    .cal-item-status { color: #64748b; }
+    .cal-item-status { color: #5b6472; }
   `],
 })
 export class ComplianceCalendarWidgetComponent implements OnChanges {

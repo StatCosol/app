@@ -328,7 +328,7 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
       this.toStatutoryRow('ESI', 'ESI Code / Documents', docs, (t) =>
         t.includes('esi') || t.includes('insurance'),
       ),
-      this.toStatutoryRow('LABOUR_LICENSE', 'Labour License', docs, (t) =>
+      this.toStatutoryRow('LABOUR_LICENSE', 'Labour Licence', docs, (t) =>
         t.includes('license') || t.includes('licence') || t.includes('labour'),
       ),
     ];

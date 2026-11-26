@@ -38,7 +38,7 @@ interface UploadedDoc {
     .page { max-width: 1280px; margin: 0 auto; }
     .head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
     .title { font-size: 18px; font-weight: 800; margin: 0; color: #0f172a; }
-    .sub { margin-top: 4px; color: #64748b; font-size: 12px; }
+    .sub { margin-top: 4px; color: #5b6472; font-size: 12px; }
     .controls { display: flex; gap: 10px; flex-wrap: wrap; }
     input, select { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; background: #fff; font-size: 13px; }
     .card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -51,7 +51,7 @@ interface UploadedDoc {
     .item { padding: 14px 18px; border-bottom: 1px solid #f1f5f9; }
     .item:last-child { border-bottom: none; }
     .item-name { font-weight: 800; font-size: 13px; color: #0f172a; }
-    .item-meta { color: #64748b; font-size: 11px; margin-top: 2px; }
+    .item-meta { color: #5b6472; font-size: 11px; margin-top: 2px; }
     .item-focus { background: #fffbeb; }
     .badge { display: inline-flex; padding: 3px 8px; border-radius: 999px; font-weight: 800; font-size: 11px; }
     .LOW { background: #dcfce7; color: #166534; }
@@ -62,12 +62,12 @@ interface UploadedDoc {
     .doc-chip { display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; border: 1px solid #bbf7d0;
                 border-radius: 8px; padding: 4px 10px; font-size: 12px; color: #166534; font-weight: 600; }
     .doc-chip button { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 14px; font-weight: 800; line-height: 1; }
-    .muted { color: #94a3b8; font-size: 12px; }
+    .muted { color: #636b78; font-size: 12px; }
     .progress-bar { height: 6px; background: #f1f5f9; border-radius: 999px; overflow: hidden; margin-bottom: 16px; }
     .progress-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
     .progress-fill.green { background: #22c55e; }
     .progress-fill.amber { background: #f59e0b; }
-    .empty-state { padding: 40px; text-align: center; color: #94a3b8; font-size: 13px; }
+    .empty-state { padding: 40px; text-align: center; color: #636b78; font-size: 13px; }
     @media (max-width: 900px) { .card-grid { grid-template-columns: 1fr; } }
   `]
 })

@@ -39,7 +39,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           <div><span class="text-gray-500">Branch:</span> <span class="font-medium ml-1">{{ appraisal.branch_name || '—' }}</span></div>
           <div><span class="text-gray-500">Department:</span> <span class="font-medium ml-1">{{ appraisal.department || '—' }}</span></div>
           <div><span class="text-gray-500">Designation:</span> <span class="font-medium ml-1">{{ appraisal.designation || '—' }}</span></div>
-          <div><span class="text-gray-500">DOJ:</span> <span class="font-medium ml-1">{{ appraisal.date_of_joining | date:'dd/MM/yyyy' }}</span></div>
+          <div><span class="text-gray-500">Date of Joining:</span> <span class="font-medium ml-1">{{ appraisal.date_of_joining | date:'dd/MM/yyyy' }}</span></div>
           <div><span class="text-gray-500">CTC:</span> <span class="font-medium ml-1">{{ (appraisal.ctc !== null && appraisal.ctc !== undefined) ? (appraisal.ctc | number:'1.0-0') : '-' }}</span></div>
           <div><span class="text-gray-500">Score:</span> <span class="font-semibold ml-1 text-brand-600">{{ appraisal.totalScore ?? '—' }}</span></div>
           <div><span class="text-gray-500">Rating:</span> <span class="font-semibold ml-1">{{ appraisal.finalRatingLabel ?? '—' }}</span></div>

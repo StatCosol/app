@@ -188,11 +188,11 @@
 
   <!-- Not Applicable Modal -->
   @if (showNaModal) {
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
         <h3 class="text-lg font-semibold text-gray-900">Mark as Not Applicable</h3>
-        <button type="button" class="compact-action text-gray-400 hover:text-gray-600" (click)="closeNaModal()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+        <button type="button" class="compact-action text-gray-400 hover:text-gray-600" (click)="closeNaModal()" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
       </div>
       <div class="px-6 py-5 space-y-4">
         <p class="text-sm text-gray-600">

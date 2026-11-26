@@ -54,15 +54,15 @@ interface VendorNcRow {
         @if (publishedAt) {
 
           <div class="kv-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;">
-            <div><span style="font-size:11px;color:#64748b;">Published</span><strong style="display:block;">{{ formatDate(publishedAt) }}</strong></div>
-            <div><span style="font-size:11px;color:#64748b;">Closure Window</span><strong style="display:block;">{{ vendorWindowDays || '-' }} day(s)</strong></div>
-            <div><span style="font-size:11px;color:#64748b;">Total NCs</span><strong style="display:block;">{{ counts.total || 0 }}</strong></div>
-            <div><span style="font-size:11px;color:#64748b;">Open</span><strong style="display:block;">{{ counts.open || 0 }}</strong></div>
-            <div><span style="font-size:11px;color:#64748b;color:#b91c1c;">Overdue</span><strong style="display:block;color:#b91c1c;">{{ counts.overdue || 0 }}</strong></div>
+            <div><span style="font-size:11px;color:#5b6472;">Published</span><strong style="display:block;">{{ formatDate(publishedAt) }}</strong></div>
+            <div><span style="font-size:11px;color:#5b6472;">Closure Window</span><strong style="display:block;">{{ vendorWindowDays || '-' }} day(s)</strong></div>
+            <div><span style="font-size:11px;color:#5b6472;">Total NCs</span><strong style="display:block;">{{ counts.total || 0 }}</strong></div>
+            <div><span style="font-size:11px;color:#5b6472;">Open</span><strong style="display:block;">{{ counts.open || 0 }}</strong></div>
+            <div><span style="font-size:11px;color:#5b6472;color:#b91c1c;">Overdue</span><strong style="display:block;color:#b91c1c;">{{ counts.overdue || 0 }}</strong></div>
           </div>
 
           @if (!items.length) {
-<div style="padding:18px;text-align:center;color:#64748b;">No non-compliances visible.</div>
+<div style="padding:18px;text-align:center;color:#5b6472;">No non-compliances visible.</div>
 }
 
           @for (nc of items; track trackById($index, nc)) {
@@ -71,7 +71,7 @@ interface VendorNcRow {
               <div style="flex:1;min-width:0;overflow-wrap:anywhere;">
                 <strong style="font-size:13px;">{{ nc.documentName || 'Document' }}</strong>
                 <div style="font-size:12px;color:#475569;margin-top:4px;">{{ nc.remark || '-' }}</div>
-                <div style="margin-top:6px;font-size:11px;color:#64748b;">
+                <div style="margin-top:6px;font-size:11px;color:#5b6472;">
                   Status: <strong>{{ nc.status.replaceAll('_', ' ') }}</strong> &middot; Deadline:
                   <strong [style.color]="nc.isOverdue ? '#b91c1c' : '#0f172a'">{{ formatDate(nc.vendorWindowUntil) }}</strong>
                   @if (nc.isOverdue) {
@@ -98,11 +98,11 @@ interface VendorNcRow {
     .page-wrap { padding: 16px; max-width: 1100px; margin: 0 auto; }
     .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
     .page-head h1 { margin: 0 0 4px; font-size: 20px; }
-    .page-head p { margin: 0; color: #64748b; font-size: 13px; }
+    .page-head p { margin: 0; color: #5b6472; font-size: 13px; }
     .btn { border-radius: 6px; border: 1px solid transparent; cursor: pointer; font-weight: 500; }
     .btn-primary { background: #2563eb; color: white; border-color: #2563eb; }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .loader { padding: 14px; text-align: center; color: #64748b; }
+    .loader { padding: 14px; text-align: center; color: #5b6472; }
   `],
 })
 export class VendorAuditNcsComponent implements OnInit, OnDestroy {

@@ -92,7 +92,7 @@ const REASONS: { value: string; label: string }[] = [
                       title="Filter the dashboard to the 24h window of this alert"
                       (click)="investigateAlert(a)">Investigate</button>
               <button type="button" class="compact-action text-rose-400 hover:text-rose-700 text-lg leading-none"
-                      (click)="dismissAlert(a.id)" title="Dismiss this alert" aria-label="Dismiss this alert" data-action-label="Dismiss this alert" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+                      (click)="dismissAlert(a.id)" title="Dismiss this alert" aria-label="Dismiss this alert" data-action-label="Dismiss this alert" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
             </div>
           </li>
 }

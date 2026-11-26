@@ -35,7 +35,7 @@ interface RegForm {
     .page { max-width: 1280px; margin: 0 auto; }
     .header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
     .title { font-size: 18px; font-weight: 700; color:#0f172a; margin:0; }
-    .sub { margin:4px 0 0; font-size: 12px; color:#64748b; }
+    .sub { margin:4px 0 0; font-size: 12px; color:#5b6472; }
     .toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
     select, input { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size: 13px; background:#fff; }
     .btn { border: 1px solid #e2e8f0; border-radius: 8px; padding:7px 10px; font-size: 12px; background:#0f172a; color:#fff; cursor:pointer; white-space:nowrap; }
@@ -47,15 +47,15 @@ interface RegForm {
     .strip { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin: 12px 0 14px; }
     .card { background:#fff; border:1px solid #f1f5f9; border-radius:14px; padding:14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
     .value { font-size: 22px; font-weight: 800; }
-    .label { font-size: 11px; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-top:4px; font-weight:600; }
+    .label { font-size: 11px; color:#5b6472; text-transform:uppercase; letter-spacing:.04em; margin-top:4px; font-weight:600; }
 
     .tableWrap { background:#fff; border:1px solid #f1f5f9; border-radius:16px; overflow-x:auto; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
     table { width:100%; border-collapse:collapse; min-width:960px; }
-    th { text-align:left; background:#f8fafc; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding:10px 10px; border-bottom:2px solid #f1f5f9; white-space:nowrap; }
+    th { text-align:left; background:#f8fafc; color:#5b6472; font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding:10px 10px; border-bottom:2px solid #f1f5f9; white-space:nowrap; }
     td { padding:10px 10px; border-bottom:1px solid #f8fafc; font-size: 13px; color:#0f172a; vertical-align:middle; }
     td.actions-cell { white-space:nowrap; }
     tr:hover td { background:#f8fafc; }
-    .muted { color:#64748b; font-size:12px; }
+    .muted { color:#5b6472; font-size:12px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; }
 
     .badge { display:inline-flex; padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px; }
@@ -68,8 +68,8 @@ interface RegForm {
     .drawerTitle { font-weight:800; color:#0f172a; }
     .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
     @media(max-width: 900px){ .strip{grid-template-columns:repeat(2,1fr);} .grid{grid-template-columns:1fr;} }
-    label { font-size: 12px; color:#64748b; font-weight:600; display:block; margin: 0 0 6px; }
-    .note { margin-top:12px; font-size:12px; color:#64748b; background:#eff6ff; border:1px solid #dbeafe; padding:10px 12px; border-radius:12px; }
+    label { font-size: 12px; color:#5b6472; font-weight:600; display:block; margin: 0 0 6px; }
+    .note { margin-top:12px; font-size:12px; color:#5b6472; background:#eff6ff; border:1px solid #dbeafe; padding:10px 12px; border-radius:12px; }
   `]
 })
 export class CrmRegistrationsComponent implements OnInit, OnDestroy {

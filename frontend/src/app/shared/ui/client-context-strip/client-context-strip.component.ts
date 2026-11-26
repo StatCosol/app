@@ -133,7 +133,7 @@ export interface ContextBadge {
       white-space: nowrap;
     }
     .badge-label {
-      color: #6b7280;
+      color: #5b6472;
     }
     @media (max-width: 640px) {
       .client-context-strip {

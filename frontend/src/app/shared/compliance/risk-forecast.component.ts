@@ -22,7 +22,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
         Expected inspection probability for {{ forecast.nextMonth }}
       </div>
 
-      <div style="margin-top:10px;font-size:12px;color:#64748b;">
+      <div style="margin-top:10px;font-size:12px;color:#5b6472;">
         Trend slope: {{ forecast.drivers.trendSlope }}% |
         Overdue SLA: {{ forecast.drivers.overdueSla }} |
         Expiring Reg: {{ forecast.drivers.expiringRegistrations ? 'Yes' : 'No' }}

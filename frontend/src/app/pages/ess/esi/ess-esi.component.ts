@@ -23,7 +23,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <h2 class="card-title">ESI Information</h2>
         <div class="info-grid">
           <div class="info-item">
-            <span class="info-label">ESI IP Number</span>
+            <span class="info-label">ESIC IP Number</span>
             <span class="info-value highlight">{{ statutory.esi.ipNumber || 'Not assigned' }}</span>
           </div>
           <div class="info-item">
@@ -133,9 +133,9 @@ import { PageHeaderComponent } from '../../../shared/ui';
       gap: 16px;
     }
     .info-item { display: flex; flex-direction: column; gap: 2px; }
-    .info-label { font-size: 12px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+    .info-label { font-size: 12px; font-weight: 500; color: #5b6472; text-transform: uppercase; letter-spacing: 0.05em; }
     .info-value { font-size: 15px; color: #111827; }
-    .info-value.highlight { font-weight: 700; color: #059669; font-size: 16px; }
+    .info-value.highlight { font-weight: 700; color: #047857; font-size: 16px; }
 
     .status-badge {
       display: inline-block;
@@ -157,7 +157,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       text-align: left;
       padding: 8px 12px;
       font-weight: 600;
-      color: #6b7280;
+      color: #5b6472;
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.05em;

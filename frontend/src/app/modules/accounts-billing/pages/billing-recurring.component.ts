@@ -104,11 +104,11 @@ interface RecurringConfig {
 
       <!-- Modal -->
       @if (showForm) {
-<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+<div class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
         <div class="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="px-6 py-4 border-b flex justify-between items-center">
             <h2 class="text-lg font-bold">{{ editing ? 'Edit' : 'Add' }} Recurring Invoice</h2>
-            <button (click)="closeForm()" class="compact-action text-slate-400 hover:text-slate-700 text-2xl leading-none" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button (click)="closeForm()" class="compact-action text-slate-400 hover:text-slate-700 text-2xl leading-none" type="button" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
           </div>
           <div class="p-6 space-y-4">
             @if (saveError) {

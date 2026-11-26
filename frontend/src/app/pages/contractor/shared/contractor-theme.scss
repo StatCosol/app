@@ -123,7 +123,7 @@
     }
     &--inactive {
       background: #f3f4f6;
-      color: #9ca3af;
+      color: #636b78;
     }
     &--done {
       background: linear-gradient(135deg, #059669 0%, #10b981 100%);
@@ -194,11 +194,11 @@
 
   &__meta {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: #5b6472;
   }
 
   &__check {
-    color: #059669;
+    color: #047857;
     flex-shrink: 0;
   }
 }
@@ -222,7 +222,7 @@
     cursor: pointer;
     border: none;
     background: transparent;
-    color: #6b7280;
+    color: #5b6472;
 
     &:hover { color: #374151; }
 
@@ -306,7 +306,7 @@
 
   &__date {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: #5b6472;
     margin-bottom: 0.25rem;
   }
 

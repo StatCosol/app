@@ -71,7 +71,7 @@
           </p>
           <p class="text-xs text-green-600 mt-1">Copy this password now; it will not be shown again.</p>
         </div>
-        <button type="button" (click)="masterUserResetResult = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+        <button type="button" (click)="masterUserResetResult = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
       </div>
     </div>
 }
@@ -344,7 +344,7 @@
               </p>
               <p class="text-xs text-green-600 mt-1">Save these credentials now; the password will not be shown again.</p>
             </div>
-            <button type="button" (click)="createdMasterUser = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button type="button" (click)="createdMasterUser = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
           </div>
         </div>
 }
@@ -905,7 +905,7 @@
           </p>
           <p class="text-xs text-green-600 mt-1">{{ createdBranchUser.linkedExisting ? 'The existing password is unchanged. This login can now access all of its assigned units.' : 'Save these credentials now; the password will not be shown again.' }}</p>
         </div>
-        <button type="button" (click)="createdBranchUser = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+        <button type="button" (click)="createdBranchUser = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
       </div>
     </div>
 }
@@ -1014,7 +1014,7 @@
         <div><strong>New password:</strong> <span class="font-mono select-all">{{ branchUserResetResult.newPassword }}</span></div>
         <p class="text-xs text-green-600 mt-1">Copy this password now; it will not be shown again. Share it securely with the user.</p>
       </div>
-      <button type="button" (click)="branchUserResetResult = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+      <button type="button" (click)="branchUserResetResult = null" class="compact-action text-green-600 hover:text-green-800 text-lg font-bold" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
     </div>
 }
 

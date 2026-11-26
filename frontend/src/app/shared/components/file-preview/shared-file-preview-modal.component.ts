@@ -25,7 +25,7 @@ import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
 ],
   template: `
     @if (open) {
-<div class="fixed inset-0 z-[1200] bg-slate-900/60 flex items-center justify-center p-4" (click)="closed.emit()">
+<div class="fixed inset-0 z-[1200] bg-slate-900/50 flex items-center justify-center p-4" (click)="closed.emit()">
       <div role="dialog" aria-modal="true" aria-label="File preview" uiDialogFocus (uiDialogEscape)="closed.emit()" class="file-preview-panel w-full max-w-5xl rounded-xl bg-white border border-gray-200 shadow-2xl overflow-hidden" (click)="$event.stopPropagation()">
         <ui-file-metadata-header [file]="file"></ui-file-metadata-header>
 

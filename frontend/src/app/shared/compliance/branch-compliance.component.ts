@@ -26,14 +26,14 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
     .page{max-width:1280px;margin:0 auto;}
     .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
     .title{font-size:18px;font-weight:800;margin:0;color:#0f172a;}
-    .sub{margin-top:4px;color:#64748b;font-size:12px;}
+    .sub{margin-top:4px;color:#5b6472;font-size:12px;}
     .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
     input,select{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff;font-size:13px;}
     .cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:12px 0;}
     .cards.upload-cards{grid-template-columns:repeat(4,minmax(0,1fr));}
     @media(max-width:900px){.cards.upload-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
     .card{background:#fff;border:1px solid #f1f5f9;border-radius:16px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
-    .k{color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+    .k{color:#5b6472;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
     .v{margin-top:8px;font-size:20px;font-weight:900;color:#0f172a;}
     /* overflow was hidden, which clipped rows once the list grew; auto still
        clips to the rounded corners but lets them scroll inside the card. */
@@ -43,7 +43,7 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
     .table-row:hover{background:#f8fafc;}
     .table-row--selected{background:#eff6ff;}
     table{width:100%;border-collapse:collapse;}
-    th{background:#f8fafc;border-bottom:2px solid #f1f5f9;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;padding:12px 14px;text-align:left;}
+    th{background:#f8fafc;border-bottom:2px solid #f1f5f9;font-size:11px;color:#5b6472;text-transform:uppercase;letter-spacing:.04em;padding:12px 14px;text-align:left;}
     td{border-bottom:1px solid #f8fafc;padding:12px 14px;font-size:13px;color:#0f172a;vertical-align:top;}
     .badge{display:inline-flex;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;}
     .signal{display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;border:1px solid transparent;white-space:nowrap;}
@@ -59,16 +59,16 @@ type ScheduleSignal = 'UPCOMING' | 'OPEN_WINDOW' | 'DUE_SOON' | 'OVERDUE' | 'SCH
     .INFO{background:#e0f2fe;color:#075985;}
     .btn{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;background:#0f172a;color:#fff;cursor:pointer;font-weight:800;font-size:12px;}
     .btn2{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;background:#fff;color:#0f172a;cursor:pointer;font-weight:800;font-size:12px;}
-    .muted{color:#94a3b8;font-size:12px;}
+    .muted{color:#636b78;font-size:12px;}
     .error-banner{background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px 18px;margin:12px 0;color:#991b1b;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
     .detail-panel{margin-top:12px;background:#fff;border:1px solid #f1f5f9;border-radius:16px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
     .detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
     .detail-title{font-size:16px;font-weight:800;color:#0f172a;}
-    .detail-sub{margin-top:4px;color:#64748b;font-size:12px;}
+    .detail-sub{margin-top:4px;color:#5b6472;font-size:12px;}
     .detail-copy{margin-top:12px;color:#334155;font-size:13px;line-height:1.6;}
     .detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px;}
     .detail-tile{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;}
-    .detail-tile-label{display:block;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+    .detail-tile-label{display:block;color:#5b6472;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
     .detail-tile-value{display:block;margin-top:6px;color:#0f172a;font-size:14px;font-weight:700;}
     .detail-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
     @media(max-width:900px){.cards{grid-template-columns:repeat(2,minmax(0,1fr));}.detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}

@@ -352,7 +352,7 @@ const ATTENDANCE_STATUSES = [
       input, select, textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: .5rem .65rem; font-size: .84rem; }
       .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; }
       .stat-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: .55rem .7rem; background: #f8fafc; }
-      .stat-k { color: #6b7280; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
+      .stat-k { color: #5b6472; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
       .stat-v { color: #111827; font-size: 1.2rem; font-weight: 700; line-height: 1.1; margin-top: .15rem; }
       .stat-card.pending { border-color: #fcd34d; background: #fffbeb; }
       .stat-card.pending .stat-v { color: #92400e; }
@@ -362,13 +362,13 @@ const ATTENDANCE_STATUSES = [
       .stat-card.rejected .stat-v { color: #991b1b; }
       .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; }
       .section-head h3 { margin: 0; font-size: 1rem; font-weight: 700; color: #111827; }
-      .muted { color: #6b7280; font-size: .78rem; }
+      .muted { color: #5b6472; font-size: .78rem; }
       .bulk-bar { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; padding-bottom: .65rem; margin-bottom: .65rem; border-bottom: 1px solid #e5e7eb; }
       .bulk-bar span { font-weight: 600; color: #111827; font-size: .84rem; }
       .table-wrap { overflow: auto; }
       table { width: 100%; min-width: 1120px; border-collapse: collapse; }
       th, td { border-bottom: 1px solid #e5e7eb; text-align: left; padding: .5rem .45rem; font-size: .8rem; color: #1f2937; }
-      th { color: #6b7280; text-transform: uppercase; letter-spacing: .02em; font-size: .7rem; font-weight: 700; white-space: nowrap; }
+      th { color: #5b6472; text-transform: uppercase; letter-spacing: .02em; font-size: .7rem; font-weight: 700; white-space: nowrap; }
       .col-check { width: 36px; text-align: center; }
       .col-check input { width: auto; margin: 0; }
       .emp-name { font-weight: 600; color: #111827; white-space: nowrap; }
@@ -378,7 +378,7 @@ const ATTENDANCE_STATUSES = [
       .att-chip[data-status=HALF_DAY] { border-color: #fcd34d; color: #92400e; background: #fffbeb; }
       .att-chip[data-status=ON_LEAVE] { border-color: #93c5fd; color: #1e40af; background: #eff6ff; }
       .att-chip[data-status=HOLIDAY] { border-color: #c4b5fd; color: #5b21b6; background: #f5f3ff; }
-      .att-chip[data-status=WEEK_OFF] { border-color: #d1d5db; color: #6b7280; background: #f3f4f6; }
+      .att-chip[data-status=WEEK_OFF] { border-color: #d1d5db; color: #5b6472; background: #f3f4f6; }
       .source-chip { font-size: .7rem; font-weight: 600; color: #4b5563; }
       .source-chip.self { color: #0369a1; }
       .location-cell { font-size: .72rem; white-space: nowrap; }
@@ -391,7 +391,7 @@ const ATTENDANCE_STATUSES = [
       .punch-out .punch-tag { background: #fee2e2; color: #b91c1c; }
       .punch-time { font-variant-numeric: tabular-nums; color: #374151; }
       .punch-map { color: #0369a1; font-weight: 600; }
-      .punch-nomap { color: #9ca3af; }
+      .punch-nomap { color: #636b78; }
       .approval-chip { border: 1px solid #d1d5db; background: #f9fafb; color: #374151; border-radius: 999px; font-size: .68rem; font-weight: 700; padding: .1rem .5rem; white-space: nowrap; }
       .approval-chip[data-approval=PENDING] { border-color: #fcd34d; color: #92400e; background: #fffbeb; }
       .approval-chip[data-approval=APPROVED] { border-color: #86efac; color: #166534; background: #f0fdf4; }
@@ -411,7 +411,7 @@ const ATTENDANCE_STATUSES = [
       .act-edit:hover:not(:disabled) { background: #f9fafb; border-color: #d1d5db; }
       .act-delete { background: #fff; color: #b91c1c; border-color: #fecaca; }
       .act-delete:hover:not(:disabled) { background: #fef2f2; border-color: #fca5a5; }
-      .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+      .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
       .modal-card { background: #fff; border-radius: 16px; padding: 1.2rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
       .modal-card h3 { margin: 0 0 .3rem; font-size: 1rem; color: #111827; }
       .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }

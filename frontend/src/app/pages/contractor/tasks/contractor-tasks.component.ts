@@ -266,11 +266,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   readonly auditDocTemplates: AuditDocTemplate[] = [
     // Section I – License Details (always required)
     {
-      section: 'I. License Details',
-      label: 'CLRA License',
+      section: 'I. Licence Details',
+      label: 'CLRA Licence',
       docType: 'CLRA_LICENSE',
-      titleHint: 'CLRA License – Validity & Workcentre Address',
-      helpText: 'Valid CLRA license showing validity period and workcentre address.',
+      titleHint: 'CLRA Licence – Validity & Workcentre Address',
+      helpText: 'Valid CLRA licence showing validity period and workcentre address.',
     },
     // Section II – Agreement (always required)
     {

@@ -53,9 +53,9 @@
   @apply bg-white border border-gray-200 rounded-2xl p-4 shadow-card;
 }
 
-.mini-kpi-label { @apply text-xs text-slate-500; }
+.mini-kpi-label { @apply text-xs text-slate-600; }
 .mini-kpi-value { @apply text-xl font-semibold text-slate-900; }
-.mini-kpi-sub { @apply text-xs text-slate-500 mt-2; }
+.mini-kpi-sub { @apply text-xs text-slate-600 mt-2; }
 
 .kpi-pill {
   @apply inline-block text-xs uppercase tracking-wider px-2.5 py-1.5 rounded-full mb-2 font-semibold;
@@ -66,7 +66,7 @@
 }
 
 .kpi-value { @apply text-3xl font-bold text-slate-900 leading-tight; }
-.kpi-sub { @apply text-sm text-gray-500; }
+.kpi-sub { @apply text-sm text-gray-600; }
 .kpi-grid { @apply grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-3; }
 
 /* Tables (shared base) */
@@ -84,7 +84,7 @@
 .risk-overview-table {
   @apply text-sm;
   th, td { @apply py-2.5 px-3; }
-  th { @apply font-semibold text-gray-500 uppercase text-xs tracking-wider; }
+  th { @apply font-semibold text-gray-600 uppercase text-xs tracking-wider; }
 }
 
 /* Panels */
@@ -97,7 +97,7 @@
 }
 
 .panel-header { display: flex; @apply items-center justify-between px-5 pt-4; }
-.panel-eyebrow { @apply text-xs tracking-wider uppercase text-gray-400; }
+.panel-eyebrow { @apply text-xs tracking-wider uppercase text-gray-600; }
 .panel-title { @apply text-lg font-bold text-slate-900; }
 .panel-body { @apply px-4 pb-5 pt-3; canvas { @apply w-full block mx-auto; } }
 
@@ -109,9 +109,9 @@
 .queue-list { @apply max-h-56 overflow-auto; }
 .queue-row { @apply grid grid-cols-[1fr_auto_auto] items-center gap-2.5 px-3 py-2.5 border-t border-gray-200; }
 .queue-title { @apply font-semibold text-gray-900; }
-.queue-meta { @apply text-xs text-gray-500; }
+.queue-meta { @apply text-xs text-gray-600; }
 .queue-badge { @apply px-2.5 py-1.5 rounded-xl text-xs font-bold uppercase; }
-.queue-empty { @apply px-3 py-2.5 text-gray-400 text-sm; }
+.queue-empty { @apply px-3 py-2.5 text-gray-600 text-sm; }
 
 /* Badges (consolidated base) */
 .badge-yes, .badge-no, .badge-low, .badge-medium, .badge-high {
@@ -143,18 +143,18 @@
 .alert-error { @apply bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm font-medium; }
 
 /* Modal (component-specific) */
-.modal-overlay { @apply fixed inset-0 z-50 flex items-center justify-center p-4; background: rgba(0, 0, 0, 0.45); }
+.modal-overlay { @apply fixed inset-0 z-50 flex items-center justify-center p-4; background: rgba(15, 23, 42, 0.5); }
 .modal-content { display: flex; flex-direction: column; @apply bg-white rounded-2xl shadow-modal max-w-3xl w-full max-h-[85vh] overflow-hidden; }
 .modal-header { display: flex; @apply items-center justify-between px-5 py-4 border-b border-gray-200; }
 .modal-title { @apply text-lg font-bold text-slate-900; }
-.modal-close { @apply bg-transparent border-none text-2xl text-gray-400 cursor-pointer p-1 rounded-lg transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700; }
+.modal-close { @apply bg-transparent border-none text-2xl text-gray-600 cursor-pointer p-1 rounded-lg transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700; }
 .modal-body { @apply px-5 py-4 overflow-y-auto flex-1; }
 
 /* AI Risk Section */
 .ai-risk-section { @apply bg-white border border-gray-200 rounded-2xl p-5 shadow-card; }
 .ai-risk-section__header { @apply mb-1; }
 .ai-risk-section__title { @apply text-lg font-bold text-slate-900; }
-.ai-risk-section__sub { @apply text-sm text-gray-500; }
+.ai-risk-section__sub { @apply text-sm text-gray-600; }
 .ai-risk-icon { display: flex; @apply items-center justify-center w-9 h-9 bg-brand-100 text-brand-600 rounded-xl; }
 
 .risk-overview-row { @apply transition-colors duration-150; }

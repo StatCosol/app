@@ -18,7 +18,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
     .page-container { max-width: 1280px; margin: 0 auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; }
     .page-title { font-size: 1.2rem; font-weight: 800; color: #111827; margin: 0; }
-    .page-subtitle { font-size: 0.82rem; color: #6b7280; margin-top: 0.25rem; }
+    .page-subtitle { font-size: 0.82rem; color: #5b6472; margin-top: 0.25rem; }
     .header-action-btn {
       display: inline-flex;
       align-items: center;

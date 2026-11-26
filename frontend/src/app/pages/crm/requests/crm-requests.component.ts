@@ -38,8 +38,8 @@ import { PageHeaderComponent } from '../../../shared/ui';
         </button>
       </div>
       <p *ngIf="queue === 'requests'" class="text-sm text-slate-600 mb-3">
-        License and audit-response requests from your assigned clients. Closing a request records
-        completion of the conversation; update the related license or audit record separately.
+        Licence and audit-response requests from your assigned clients. Closing a request records
+        completion of the conversation; update the related licence or audit record separately.
       </p>
       <app-thread-layout
         *ngIf="queue === 'requests'"

@@ -181,7 +181,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <div class="info-rows">
                 <div class="info-row"><span class="info-label">Name as per Aadhaar</span><span class="info-value">{{ emp.name }}</span></div>
                 <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ emp.gender || '-' }}</span></div>
-                <div class="info-row"><span class="info-label">DOB as per Aadhaar</span><span class="info-value">{{ emp.dateOfBirth || '-' }}</span></div>
+                <div class="info-row"><span class="info-label">Date of Birth (as per Aadhaar)</span><span class="info-value">{{ emp.dateOfBirth || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">Father's Name</span><span class="info-value">{{ emp.fatherName || '-' }}</span></div>
               </div>
             </div>
@@ -200,7 +200,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 <div class="info-row"><span class="info-label">Aadhaar</span><span class="info-value">{{ emp.aadhaar || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">PAN</span><span class="info-value">{{ emp.pan || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">UAN</span><span class="info-value">{{ emp.uan || '-' }}</span></div>
-                <div class="info-row"><span class="info-label">ESIC Number</span><span class="info-value">{{ emp.esic || '-' }}</span></div>
+                <div class="info-row"><span class="info-label">ESIC IP Number</span><span class="info-value">{{ emp.esic || '-' }}</span></div>
               </div>
             </div>
 
@@ -565,7 +565,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
       }
       .header-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
       .header-name { font-size: 1.25rem; font-weight: 700; color: #111827; display: flex; align-items: center; }
-      .header-meta { font-size: 0.85rem; color: #6b7280; margin-top: 0.15rem; }
+      .header-meta { font-size: 0.85rem; color: #5b6472; margin-top: 0.15rem; }
       .header-actions { display: flex; gap: 0.5rem; }
 
       .tab-bar {
@@ -578,7 +578,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
         padding: 0.6rem 1.25rem;
         font-size: 0.875rem;
         font-weight: 500;
-        color: #6b7280;
+        color: #5b6472;
         border-bottom: 2px solid transparent;
         cursor: pointer;
         margin-bottom: -2px;
@@ -598,10 +598,10 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
         border-radius: 0.5rem;
         padding: 1rem 1.25rem;
       }
-      .info-section-title { font-size: 0.8rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.75rem; }
+      .info-section-title { font-size: 0.8rem; font-weight: 600; color: #5b6472; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.75rem; }
       .info-rows { display: flex; flex-direction: column; gap: 0.5rem; }
       .info-row { display: flex; justify-content: space-between; font-size: 0.875rem; padding: 0.25rem 0; border-bottom: 1px solid #f9fafb; }
-      .info-label { color: #6b7280; }
+      .info-label { color: #5b6472; }
       .info-value { color: #111827; font-weight: 500; text-align: right; }
 
       .nom-card {
@@ -707,7 +707,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
       .ess-cred-label {
         font-size: 0.75rem;
         font-weight: 600;
-        color: #6b7280;
+        color: #5b6472;
         min-width: 64px;
       }
       .ess-cred-value {
@@ -723,7 +723,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
         border-radius: 0.375rem;
         padding: 0.25rem;
         cursor: pointer;
-        color: #6b7280;
+        color: #5b6472;
         transition: color 0.15s, border-color 0.15s;
       }
       .ess-copy-btn:hover {

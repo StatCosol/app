@@ -15,7 +15,7 @@
 
   <!-- Phase 4: Publish preliminary findings dialog -->
   @if (showPreliminaryDialog) {
-<div class="modal-backdrop fixed inset-0 bg-slate-900/45 flex items-center justify-center z-[1000]" (click)="closePreliminaryDialog()">
+<div class="modal-backdrop fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[1000]" (click)="closePreliminaryDialog()">
     <div class="modal-card card max-w-[480px] w-[92%] p-5" (click)="$event.stopPropagation()">
       <h3 class="mb-2 text-base font-semibold">Publish Preliminary Findings</h3>
       <p class="mb-3 text-xs text-slate-500">All open non-compliances on this audit will be sent to the vendor (contractor / branch) with a closure window. The audit moves to <strong>Correction Pending</strong>.</p>

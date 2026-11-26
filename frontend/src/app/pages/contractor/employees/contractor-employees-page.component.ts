@@ -143,7 +143,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
         </div>
         <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p class="text-xs text-gray-500 font-medium mb-1">Female</p>
-          <p class="text-2xl font-bold text-rose-500">{{ femaleCount }}</p>
+          <p class="text-2xl font-bold text-accent-600">{{ femaleCount }}</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p class="text-xs text-gray-500 font-medium mb-1">Inactive</p>
@@ -160,7 +160,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
            
             [(ngModel)]="selectedBranchId"
             (change)="onBranchChange()"
-            class="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-rose-400 focus:border-rose-400"
+            class="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent-400 focus:border-accent-400"
           >
             <option value="">All Branches</option>
             @for (b of availableBranches; track b) {
@@ -178,7 +178,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
               [(ngModel)]="searchTerm"
               (input)="applyFilters()"
               placeholder="Search by name or employee ID…"
-              class="workspace-search pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-400 focus:border-rose-400 w-52"
+              class="workspace-search pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-accent-400 focus:border-accent-400 w-52"
             />
           </div>
           <!-- Status filter -->
@@ -272,7 +272,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
 <tr class="hover:bg-gray-50 transition-colors">
                 <td class="px-4 py-3">
                   <div class="font-medium text-sm text-gray-900">{{ emp.name }}</div>
-                  <div class="text-xs text-gray-500 font-mono mt-0.5">Employee ID: {{ emp.employeeCode || 'Not assigned' }}</div>
+                  <div class="text-xs text-gray-500 font-mono mt-0.5">Employee Code: {{ emp.employeeCode || 'Not assigned' }}</div>
                   @if (emp.phone) {
 <div class="text-xs text-gray-400 mt-0.5">{{ emp.phone }}</div>
 }
@@ -432,7 +432,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
               name="branchId"
               required
               [disabled]="!!editingId"
-              class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+              class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm disabled:bg-gray-100 disabled:text-gray-500"
             >
               <option value="">Select branch…</option>
               @for (b of availableBranches; track b) {
@@ -461,7 +461,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                   required
                   minlength="2"
                   placeholder="e.g. Ravi Kumar"
-                  class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                  class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   [class.border-red-400]="empForm.submitted && !form.name"
                 />
               </div>
@@ -471,7 +471,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                   <select
                     [(ngModel)]="form.gender"
                     name="gender"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   >
                     <option value="">Select…</option>
                     <option value="M">Male</option>
@@ -485,7 +485,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     type="date"
                     [(ngModel)]="form.dateOfBirth"
                     name="dateOfBirth"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
               </div>
@@ -496,7 +496,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                   [(ngModel)]="form.fatherName"
                   name="fatherName"
                   placeholder="e.g. Suresh Kumar"
-                  class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                  class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                 />
               </div>
             </div>
@@ -514,7 +514,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     [(ngModel)]="form.phone"
                     name="phone"
                     placeholder="+919876543210"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
                 <div>
@@ -524,7 +524,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     [(ngModel)]="form.email"
                     name="email"
                     placeholder="worker@example.com"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
               </div>
@@ -543,7 +543,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     [(ngModel)]="form.designation"
                     name="designation"
                     placeholder="e.g. Helper"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
                 <div>
@@ -553,7 +553,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     [(ngModel)]="form.department"
                     name="department"
                     placeholder="e.g. Production"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
               </div>
@@ -563,7 +563,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                   type="date"
                   [(ngModel)]="form.dateOfJoining"
                   name="dateOfJoining"
-                  class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                  class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                 />
               </div>
               <div>
@@ -573,7 +573,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                   [(ngModel)]="form.punchCode"
                   name="punchCode"
                   placeholder="e.g. 1047"
-                  class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                  class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                 />
                 <p class="mt-1 text-xs text-gray-500">
                   The User ID the biometric machine created when this worker was enrolled.
@@ -590,7 +590,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     [(ngModel)]="form.skillCategory"
                     name="skillCategory"
                     required
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   >
                     <option value="">Select skill…</option>
                     @for (s of skillOptions; track s) {
@@ -607,7 +607,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     [(ngModel)]="form.monthlySalary"
                     name="monthlySalary"
                     placeholder="e.g. 12000"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
               </div>
@@ -617,7 +617,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     type="checkbox"
                     [(ngModel)]="form.pfApplicable"
                     name="pfApplicable"
-                    class="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                    class="rounded border-gray-300 text-accent-700 focus:ring-accent-600"
                   />
                   <span class="text-sm text-gray-700">PF Applicable</span>
                 </label>
@@ -626,7 +626,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     type="checkbox"
                     [(ngModel)]="form.esiApplicable"
                     name="esiApplicable"
-                    class="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                    class="rounded border-gray-300 text-accent-700 focus:ring-accent-600"
                   />
                   <span class="text-sm text-gray-700">ESI Applicable</span>
                 </label>
@@ -651,7 +651,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     name="aadhaar"
                     maxlength="16"
                     placeholder="12-digit number"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
                 <div>
@@ -662,7 +662,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     name="pan"
                     maxlength="10"
                     placeholder="ABCDE1234F"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm uppercase"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm uppercase"
                   />
                 </div>
               </div>
@@ -674,17 +674,17 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                     [(ngModel)]="form.uan"
                     name="uan"
                     placeholder="12-digit UAN"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">ESIC No.</label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">ESIC IP Number</label>
                   <input
                     type="text"
                     [(ngModel)]="form.esic"
                     name="esic"
                     placeholder="ESIC number"
-                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                    class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
                   />
                 </div>
               </div>
@@ -703,7 +703,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
             <button
               type="submit"
               [disabled]="saving || !form.name.trim()"
-              class="standard-action flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+              class="standard-action flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-accent-700 hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
             >
               @if (saving) {
 <span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -747,7 +747,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
         </p>
 
         <div class="flex flex-wrap gap-3 items-center mb-4 aligned-filter-controls">
-          <button type="button" (click)="downloadTemplate()" class="compact-action text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200" title="Download Template" aria-label="Download Template" data-action-label="Download Template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
+          <button type="button" (click)="downloadTemplate()" class="compact-action text-xs font-medium text-accent-800 bg-accent-50 hover:bg-accent-100 px-3 py-1.5 rounded-lg border border-accent-200" title="Download Template" aria-label="Download Template" data-action-label="Download Template" data-action-icon="download"><ui-icon name="download" [size]="20" /></button>
           <label class="text-xs text-gray-600">
             Default Branch:
             <select [(ngModel)]="bulkBranchId" (ngModelChange)="revalidateBulkBranch()" [disabled]="bulkUploading" class="ml-2 text-xs border border-gray-200 rounded px-2 py-1">
@@ -848,7 +848,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
             type="button"
             (click)="submitBulk()"
             [disabled]="bulkPreview.length === 0 || bulkUploading || bulkValidCount === 0"
-            class="flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-lg"
+            class="flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-accent-700 hover:bg-accent-800 disabled:opacity-50 rounded-lg"
           >
             @if (bulkUploading) {
 <span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -882,7 +882,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
             type="text"
             [(ngModel)]="exitReason"
             placeholder="e.g. Contract ended"
-            class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+            class="w-full rounded-lg border-gray-300 focus:ring-accent-600 focus:border-accent-600 text-sm"
           />
         </div>
         <div class="flex gap-3">
@@ -1321,7 +1321,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   genderClass(gender: string): string {
     const g = (gender || '').toLowerCase();
     if (g === 'm' || g === 'male') return 'bg-brand-50 text-brand-700';
-    if (g === 'f' || g === 'female') return 'bg-rose-50 text-rose-700';
+    if (g === 'f' || g === 'female') return 'bg-accent-50 text-accent-800';
     return 'bg-gray-50 text-gray-500';
   }
 

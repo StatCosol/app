@@ -49,8 +49,8 @@
   :is(button,a).btn-outline-primary:not(.compact-action):not(.ui-icon-action) {
     background: #fff; color: var(--portal-primary); border-color: var(--portal-primary);
   }
-  :is(button,a).compact-action:not([data-action-icon="x-circle"]):not([data-action-icon="trash"]):not([data-action-icon="user-minus"]),
-  ui-button .ui-icon-action:not([data-action-icon="x-circle"]):not([data-action-icon="trash"]):not([data-action-icon="user-minus"]) {
+  :is(button,a).compact-action:not([data-action-icon="x-circle"]):not([data-action-icon="trash"]):not([data-action-icon="user-minus"]):not([data-action-icon="x-mark"]),
+  ui-button .ui-icon-action:not([data-action-icon="x-circle"]):not([data-action-icon="trash"]):not([data-action-icon="user-minus"]):not([data-action-icon="x-mark"]) {
     color: var(--portal-primary) !important; border-color: var(--portal-border) !important;
   }
   :is(.compact-action,.ui-icon-action):hover:not(:disabled) {

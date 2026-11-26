@@ -8,12 +8,12 @@ import { portalPagePurpose } from './portal-page-purpose';
   standalone: true,
   imports: [WorkspaceNavigationComponent],
   template: `@if (guide; as purpose) {
-    <aside aria-label="Page purpose"><strong>{{ purpose.title }}</strong><p>{{ purpose.purpose }}</p></aside>
+    <aside aria-label="Page purpose"><strong class="sr-only">{{ purpose.title }}: </strong><p>{{ purpose.purpose }}</p></aside>
   }<app-workspace-navigation></app-workspace-navigation>`,
   styles: [`:host { display: block; min-width: 0; }
-    aside { padding: 1rem; margin-bottom: 1rem; border: 1px solid #dce8de; border-left: 4px solid #176954; border-radius: .5rem; background: #f3f8f2; color: #244c40; overflow-wrap: anywhere; }
-    strong { display: block; font-size: .95rem; line-height: 1.5; }
-    p { margin: .35rem 0 0; font-size: .875rem; line-height: 1.65; }
+    aside { padding: .5rem .75rem; margin-bottom: .75rem; border-left: 3px solid #b6cc9b; color: #3f5b50; overflow-wrap: anywhere; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    p { margin: 0; font-size: .875rem; line-height: 1.6; }
   `],
 })
 export class PortalPagePurposeComponent {

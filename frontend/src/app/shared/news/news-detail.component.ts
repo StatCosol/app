@@ -401,7 +401,7 @@ import { ProtectedFileService } from '../files/services/protected-file.service';
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 500;
-      color: #64748b;
+      color: #5b6472;
       background: #f1f5f9;
     }
     .date-chip--sm { font-size: 0.6875rem; padding: 3px 8px; }

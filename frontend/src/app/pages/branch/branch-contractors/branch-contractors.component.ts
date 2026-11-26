@@ -170,22 +170,22 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
     .page-container { max-width: 1280px; margin: 0 auto; }
     .page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
     .page-title { font-size: 1.25rem; font-weight: 700; color: #1e293b; }
-    .page-subtitle { font-size: 0.8125rem; color: #64748b; margin-top: 0.25rem; }
+    .page-subtitle { font-size: 0.8125rem; color: #5b6472; margin-top: 0.25rem; }
     .month-picker { padding: 0.375rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.8125rem; color: #334155; background: white; cursor: pointer; }
     .overall-card { background: white; border-radius: 1rem; padding: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 1.25rem; }
     .table-card { background: white; border-radius: 1rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
     .approval-card { background: white; border-radius: 1rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; margin-top: 1.25rem; }
     .approval-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
     .approval-title { font-size: 0.95rem; font-weight: 700; color: #1e293b; }
-    .approval-subtitle { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }
+    .approval-subtitle { font-size: 0.75rem; color: #5b6472; margin-top: 0.25rem; }
     .refresh-btn { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.75rem; font-weight: 600; color: #334155; background: white; }
     .refresh-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-    .empty-approvals { padding: 1rem; font-size: 0.8125rem; color: #64748b; }
+    .empty-approvals { padding: 1rem; font-size: 0.8125rem; color: #5b6472; }
     .approve-btn, .reject-btn { font-size: 0.75rem; font-weight: 700; background: transparent; border: 0; cursor: pointer; }
     .approve-btn { color: #047857; margin-right: 0.75rem; }
     .reject-btn { color: #b91c1c; }
     .data-table { width: 100%; border-collapse: collapse; }
-    .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.6875rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; border-bottom: 2px solid #f1f5f9; }
+    .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.6875rem; font-weight: 600; color: #5b6472; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; border-bottom: 2px solid #f1f5f9; }
     .data-table td { padding: 0.75rem 1rem; font-size: 0.8125rem; border-bottom: 1px solid #f8fafc; }
     .data-row:hover { background: #f8fafc; }
     .badge { display: inline-flex; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }

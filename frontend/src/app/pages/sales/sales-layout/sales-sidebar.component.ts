@@ -15,7 +15,7 @@ interface NavItem {
   template: `
     @if (mobileOpen) {
 <div
-         class="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm"
+         class="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm"
          (click)="closeMobile()"></div>
 }
 
@@ -29,7 +29,7 @@ interface NavItem {
         @if (!collapsed) {
 <div>
           <div class="text-white font-bold tracking-tight">Sales</div>
-          <div class="text-white/40 text-[11px]">Business Development</div>
+          <div class="text-white/70 text-[11px]">Business Development</div>
         </div>
 }
       </div>
@@ -65,8 +65,8 @@ interface NavItem {
 
       @if (!collapsed) {
 <div class="px-4 py-3 border-t border-white/10 text-center">
-        <div class="text-[10px] text-white/40">Sales v1.0</div>
-        <div class="text-[10px] text-white/55">StatCo Solutions</div>
+        <div class="text-[10px] text-white/70">Sales v1.0</div>
+        <div class="text-[10px] text-white/75">StatCo Solutions</div>
       </div>
 }
     </aside>

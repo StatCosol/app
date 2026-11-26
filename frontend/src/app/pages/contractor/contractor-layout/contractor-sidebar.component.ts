@@ -30,7 +30,7 @@ interface SidebarItem {
     @if (mobileOpen) {
 <div
 
-      class="sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+      class="sidebar-overlay fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
       (click)="mobileOpen = false; mobileOpenChange.emit(false)"
     ></div>
 }
@@ -45,34 +45,34 @@ interface SidebarItem {
       @if (!collapsed) {
 <div class="px-4 pt-5 pb-3">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-rose-400/20 flex items-center justify-center flex-shrink-0">
-            <svg class="w-4 h-4 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="w-8 h-8 rounded-lg bg-accent-400/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-accent-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
           </div>
           <div>
             <span class="text-white font-bold text-[17px] tracking-tight">ConTrack</span>
-            <span class="block text-white/40 text-[11px] font-medium">Contractor Compliance Portal</span>
+            <span class="block text-white/70 text-[11px] font-medium">Contractor Compliance Portal</span>
           </div>
         </div>
         <!-- Sidebar search filter -->
         <div class="mt-3 relative">
-          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/70 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
           </svg>
           <input
             type="text"
             placeholder="Search navigation…" aria-label="Search navigation"
             [(ngModel)]="searchTerm"
-            class="sidebar-search w-full pl-8 pr-3 py-1.5 text-[12px] bg-white/8 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/12 focus:border-white/20 transition-all"
+            class="sidebar-search w-full pl-8 pr-3 py-1.5 text-[12px] bg-white/8 border border-white/10 rounded-lg text-white placeholder:text-white/70 focus:outline-none focus:bg-white/12 focus:border-white/20 transition-all"
           />
         </div>
       </div>
 }
       @if (collapsed) {
 <div class="py-4 flex flex-col items-center gap-1">
-        <div class="w-8 h-8 rounded-lg bg-rose-400/20 flex items-center justify-center">
-          <svg class="w-4 h-4 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-8 h-8 rounded-lg bg-accent-400/20 flex items-center justify-center">
+          <svg class="w-4 h-4 text-accent-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
         </div>
@@ -95,7 +95,7 @@ interface SidebarItem {
       <div class="flex lg:hidden items-center justify-end px-4 py-3">
         <button type="button" aria-label="Close navigation"
           (click)="mobileOpen = false; mobileOpenChange.emit(false)"
-          class="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/8 transition-colors"
+          class="p-1.5 rounded-lg text-white/70 hover:text-white/70 hover:bg-white/8 transition-colors"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -171,8 +171,8 @@ interface SidebarItem {
       <!-- Version footer -->
       @if (!collapsed) {
 <div class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
-        <div class="text-[10px] text-white/35">ConTrack v1.0</div>
-        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <div class="text-[10px] text-white/70">ConTrack v1.0</div>
+        <div class="text-[10px] text-white/75 font-medium">Designed &amp; Developed by StatCo Solutions</div>
         <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
 }

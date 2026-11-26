@@ -64,9 +64,9 @@ interface WorkspaceTab {
   `,
   styles: [`
     .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
-    .loader { text-align: center; padding: 3rem; color: #6b7280; }
+    .loader { text-align: center; padding: 3rem; color: #5b6472; }
     .workspace-title { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 1.5rem 0 0.25rem; }
-    .workspace-desc { color: #6b7280; font-size: 0.875rem; margin-bottom: 1.5rem; }
+    .workspace-desc { color: #5b6472; font-size: 0.875rem; margin-bottom: 1.5rem; }
     .tab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.75rem; }
     .tab-card {
       display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem;
@@ -79,8 +79,8 @@ interface WorkspaceTab {
     .tab-icon :deep(svg) { width: 1.25rem; height: 1.25rem; }
     .tab-content { flex: 1; display: flex; flex-direction: column; }
     .tab-content strong { font-size: 0.875rem; font-weight: 600; color: #111827; }
-    .tab-content span { font-size: 0.75rem; color: #6b7280; margin-top: 2px; }
-    .tab-arrow { width: 1rem; height: 1rem; color: #9ca3af; flex-shrink: 0; }
+    .tab-content span { font-size: 0.75rem; color: #5b6472; margin-top: 2px; }
+    .tab-arrow { width: 1rem; height: 1rem; color: #636b78; flex-shrink: 0; }
     .tab-card:hover .tab-arrow { color: #6366f1; }
     .error-card { text-align: center; padding: 3rem; color: #dc2626; }
     .btn { display: inline-block; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; margin-top: 1rem; }

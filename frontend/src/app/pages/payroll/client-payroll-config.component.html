@@ -222,7 +222,7 @@
                 <button type="button" class="btn btn-xs btn-ghost" (click)="moveComp(i, -1)" [disabled]="i === 0">↑</button>
                 <button type="button" class="btn btn-xs btn-ghost" (click)="moveComp(i, 1)" [disabled]="i === componentForms.length - 1">↓</button>
                 <button type="button" class="compact-action btn btn-xs btn-ghost" (click)="openCompModal(i)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
-                <button type="button" class="compact-action btn btn-xs btn-danger" (click)="removeComp(i)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+                <button type="button" class="compact-action btn btn-xs btn-danger" (click)="removeComp(i)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
               </td>
             </tr>
 }
@@ -251,7 +251,7 @@
           <h3>{{ getStateName(sc.stateCode) }} <code>{{ sc.stateCode }}</code></h3>
           <div class="stat-card-actions">
             <button type="button" class="compact-action btn btn-xs btn-ghost" (click)="openStatModal(i)" title="Edit" aria-label="Edit" data-action-label="Edit" data-action-icon="pencil"><ui-icon name="pencil" [size]="20" /></button>
-            <button type="button" class="compact-action btn btn-xs btn-danger" (click)="removeStat(i)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-circle"><ui-icon name="x-circle" [size]="20" /></button>
+            <button type="button" class="compact-action btn btn-xs btn-danger" (click)="removeStat(i)" title="Close" aria-label="Close" data-action-label="Close" data-action-icon="x-mark"><ui-icon name="x-mark" [size]="20" /></button>
           </div>
         </div>
         <div class="stat-grid">

@@ -23,7 +23,7 @@ import {
   imports: [CommonModule, FormsModule, LoadingSpinnerComponent, PageHeaderComponent, EmptyStateComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <ui-page-header title="Expiry & Renewals" subtitle="Track registration and license expiry tasks"></ui-page-header>
+    <ui-page-header title="Expiry & Renewals" subtitle="Track registration and licence expiry tasks"></ui-page-header>
 
     <div class="p-6 space-y-6">
       @if (loading) {

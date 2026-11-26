@@ -134,7 +134,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
               <option value="PAN">PAN Card</option>
               <option value="PASSPORT">Passport</option>
               <option value="VOTER_ID">Voter ID</option>
-              <option value="DRIVING_LICENSE">Driving License</option>
+              <option value="DRIVING_LICENSE">Driving Licence</option>
               <option value="UAN">UAN Card</option>
               <option value="BANK">Bank Document</option>
               <option value="CANCELLED_CHEQUE">Cancelled Cheque</option>
@@ -239,7 +239,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
     `
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
       .stat { padding: 14px 16px; }
-      .lbl { font-size: 12px; color: #6b7280; }
+      .lbl { font-size: 12px; color: #5b6472; }
       .val { font-size: 22px; font-weight: 700; color: #111827; margin-top: 2px; }
       .input-sm { border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.875rem; }
       .btn-primary { background: #1d4ed8; color: #fff; border: none; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 600; }
@@ -248,7 +248,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       .tab-btn { border: 1px solid #d1d5db; background: #fff; color: #374151; border-radius: 9999px; padding: 5px 10px; font-size: 12px; font-weight: 600; }
       .tab-btn.active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
       .doc-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-      .doc-table th { text-align: left; background: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+      .doc-table th { text-align: left; background: #f8fafc; color: #5b6472; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
       .doc-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #111827; }
       .chip { background: #f3f4f6; color: #374151; border-radius: 9999px; font-size: 11px; padding: 2px 8px; font-weight: 600; }
       .validity-chip, .verify-chip { border-radius: 9999px; font-size: 10px; padding: 2px 8px; font-weight: 700; display: inline-flex; align-items: center; }

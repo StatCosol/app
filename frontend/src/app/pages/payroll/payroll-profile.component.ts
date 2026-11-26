@@ -31,7 +31,7 @@ import { PageHeaderComponent } from '../../shared/ui';
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px; margin-top: 1rem; }
       .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
       .row:last-child { border-bottom: none; }
-      .k { color: #6b7280; font-size: 13px; }
+      .k { color: #5b6472; font-size: 13px; }
       .v { font-weight: 600; }
     `,
   ],

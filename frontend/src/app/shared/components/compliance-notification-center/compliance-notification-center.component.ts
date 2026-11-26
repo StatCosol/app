@@ -71,7 +71,7 @@ import {
     .ntf-header { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
     .ntf-title { font-weight: 700; font-size: 14px; color: #0f172a; margin: 0; }
     .ntf-badge { background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
-    .ntf-loading, .ntf-empty { padding: 24px 16px; text-align: center; color: #94a3b8; font-size: 13px; }
+    .ntf-loading, .ntf-empty { padding: 24px 16px; text-align: center; color: #636b78; font-size: 13px; }
     .ntf-list { max-height: 400px; overflow-y: auto; }
     .ntf-item { padding: 12px 16px; border-bottom: 1px solid #f8fafc; cursor: pointer; transition: background 0.15s; }
     .ntf-item:hover { background: #f8fafc; }
@@ -82,10 +82,10 @@ import {
     .ntf-priority--high { background: #fef3c7; color: #92400e; }
     .ntf-priority--medium { background: #f0f9ff; color: #1e40af; }
     .ntf-priority--low { background: #f0fdf4; color: #166534; }
-    .ntf-module { font-size: 10px; color: #64748b; font-weight: 600; }
-    .ntf-time { font-size: 10px; color: #94a3b8; margin-left: auto; }
+    .ntf-module { font-size: 10px; color: #5b6472; font-weight: 600; }
+    .ntf-time { font-size: 10px; color: #636b78; margin-left: auto; }
     .ntf-item-title { font-size: 13px; font-weight: 600; color: #1e293b; margin: 0; }
-    .ntf-item-msg { font-size: 12px; color: #64748b; margin: 2px 0 0; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ntf-item-msg { font-size: 12px; color: #5b6472; margin: 2px 0 0; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   `],
 })
 export class ComplianceNotificationCenterComponent implements OnInit, OnDestroy {

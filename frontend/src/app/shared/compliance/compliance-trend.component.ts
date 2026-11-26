@@ -12,12 +12,12 @@ import { ClientBranchesService } from '../../core/client-branches.service';
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
       <div>
         <div style="font-size:14px;font-weight:900;color:#0f172a;">Completion Trend (Last {{ months }} months)</div>
-        <div style="font-size:12px;color:#64748b;margin-top:4px;">Upload completion % (state rules applied)</div>
+        <div style="font-size:12px;color:#5b6472;margin-top:4px;">Upload completion % (state rules applied)</div>
       </div>
     </div>
 
     @if (loading) {
-<div style="color:#94a3b8;font-size:12px;padding:10px 0;">Loading…</div>
+<div style="color:#636b78;font-size:12px;padding:10px 0;">Loading…</div>
 }
 
     @if (!loading) {
@@ -57,7 +57,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
 }
 
       @if (rows.length===0) {
-<div style="color:#94a3b8;font-size:12px;padding:14px;text-align:center;">No trend data</div>
+<div style="color:#636b78;font-size:12px;padding:14px;text-align:center;">No trend data</div>
 }
     </div>
 }

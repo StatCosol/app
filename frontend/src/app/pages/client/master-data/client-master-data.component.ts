@@ -125,7 +125,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
     .page { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1rem; }
     .tab-bar { display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 1.25rem; }
     .tab-btn {
-      padding: 0.6rem 1.25rem; font-size: 0.875rem; font-weight: 500; color: #6b7280;
+      padding: 0.6rem 1.25rem; font-size: 0.875rem; font-weight: 500; color: #5b6472;
       border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -2px;
       background: none; border-top: none; border-left: none; border-right: none;
       transition: color 0.2s, border-color 0.2s;
