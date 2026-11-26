@@ -25,6 +25,31 @@ import { PayrollComponentEntity } from '../entities/payroll-component.entity';
  */
 @Injectable()
 export class StatutoryCalculatorService {
+  /**
+   * ESI contribution-period re-check for an employee the ₹21,000 ceiling
+   * removed earlier. At the start of a new period (April or October) they are
+   * brought back into ESI when their fixed gross is at or below the ceiling.
+   * Only ceiling exclusions qualify (`ceilingExcludedOn` set); an exclusion HR
+   * made by hand is never undone here, and nothing changes mid-period.
+   */
+  shouldReincludeInEsi(params: {
+    setup: PayrollClientSetupEntity;
+    esiApplicable?: boolean;
+    ceilingExcludedOn?: string | null;
+    periodMonth: number;
+    fixedGross: number;
+  }): boolean {
+    const { setup, periodMonth } = params;
+    if (!setup.esiEnabled) return false;
+    if (params.esiApplicable !== false || !params.ceilingExcludedOn)
+      return false;
+    if (periodMonth !== 4 && periodMonth !== 10) return false;
+    const fixedGross = Number(params.fixedGross) || 0;
+    if (fixedGross <= 0) return false;
+    const threshold = Number(setup.esiWageCeiling) || 21000;
+    return fixedGross <= threshold;
+  }
+
   compute(params: {
     values: Record<string, number>;
     setup: PayrollClientSetupEntity;

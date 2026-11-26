@@ -156,4 +156,41 @@ describe('EmployeesService', () => {
     expect(riskCache.invalidateBranch).toHaveBeenCalledWith('branch-old');
     expect(riskCache.invalidateBranch).toHaveBeenCalledWith('branch-new');
   });
+
+  describe('ESI coverage on a wage change', () => {
+    function covered(extra: Record<string, any> = {}) {
+      employeeRepo.findOne.mockResolvedValue({
+        id: 'e1',
+        clientId: 'c1',
+        branchId: 'b1',
+        monthlyGross: 20000,
+        esiApplicable: true,
+        esiCeilingExcludedOn: null,
+        ...extra,
+      });
+      employeeRepo.save.mockImplementation(async (employee: any) => employee);
+      jest
+        .spyOn(service as any, 'assertMonthlyGrossMeetsMinimumWage')
+        .mockResolvedValue(undefined);
+    }
+
+    it('keeps a covered employee in ESI after a raise above ₹21,000', async () => {
+      covered();
+      const saved = await service.update('c1', 'e1', { monthlyGross: 24000 });
+      expect(saved.esiApplicable).toBe(true);
+    });
+
+    it('still keeps a not-covered employee out when gross is above ₹21,000', async () => {
+      covered({ esiApplicable: false, monthlyGross: 23000 });
+      const saved = await service.update('c1', 'e1', { phone: '9999999999' });
+      expect(saved.esiApplicable).toBe(false);
+    });
+
+    it("treats HR's own ESI choice as manual, clearing the ceiling marker", async () => {
+      covered({ esiApplicable: false, esiCeilingExcludedOn: '2026-04-01' });
+      const saved = await service.update('c1', 'e1', { esiApplicable: false });
+      expect(saved.esiApplicable).toBe(false);
+      expect(saved.esiCeilingExcludedOn).toBeNull();
+    });
+  });
 });

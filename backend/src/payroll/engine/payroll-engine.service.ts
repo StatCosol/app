@@ -1056,6 +1056,7 @@ export class PayrollEngineService {
       let gradeId: string | null = null;
       let empPfApplicable: boolean | undefined;
       let empEsiApplicable: boolean | undefined;
+      let empEsiCeilingExcludedOn: string | null = null;
       let empPfServiceStartDate: string | null = null;
       let empBasicAtPfStart: number | null = null;
       let empCtcAnnual: number | null = null;
@@ -1104,6 +1105,7 @@ export class PayrollEngineService {
           gradeId = masterEmp.gradeId ?? null;
           empPfApplicable = masterEmp.pfApplicable;
           empEsiApplicable = masterEmp.esiApplicable;
+          empEsiCeilingExcludedOn = masterEmp.esiCeilingExcludedOn ?? null;
           empPfServiceStartDate = masterEmp.pfServiceStartDate ?? null;
           empBasicAtPfStart = masterEmp.basicAtPfStart
             ? Number(masterEmp.basicAtPfStart)
@@ -1652,6 +1654,20 @@ export class PayrollEngineService {
       values['GROSS'] = values['GROSS'] + holidayDblAmountEarly;
       values['ESI_WAGE'] = values['ESI_WAGE'] + holidayDblAmountEarly;
 
+      // ESI contribution-period re-check: someone the ceiling removed at an
+      // earlier period start comes back in at this period start when their
+      // fixed gross is now ₹21,000 or less. HR's manual exclusions stay out.
+      const esiReincluded =
+        !!emp.employeeId &&
+        this.statutory.shouldReincludeInEsi({
+          setup,
+          esiApplicable: empEsiApplicable,
+          ceilingExcludedOn: empEsiCeilingExcludedOn,
+          periodMonth: run.periodMonth,
+          fixedGross: Number(values['ACTUAL_GROSS'] ?? 0),
+        });
+      if (esiReincluded) empEsiApplicable = true;
+
       // Statutory deductions (PF/ESI)
       const statResult = this.statutory.compute({
         values,
@@ -1674,7 +1690,18 @@ export class PayrollEngineService {
         await qr.manager.update(
           EmployeeEntity,
           { id: emp.employeeId },
-          { esiApplicable: false },
+          {
+            esiApplicable: false,
+            // Marks this as a ceiling exclusion, so the next period start
+            // re-checks it (see shouldReincludeInEsi).
+            esiCeilingExcludedOn: `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}-01`,
+          },
+        );
+      } else if (esiReincluded && emp.employeeId) {
+        await qr.manager.update(
+          EmployeeEntity,
+          { id: emp.employeeId },
+          { esiApplicable: true, esiCeilingExcludedOn: null },
         );
       }
 
