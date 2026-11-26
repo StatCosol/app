@@ -53,7 +53,7 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
     { code: '', label: 'All documents' },
     { code: 'RETURN', label: 'Returns / Filings' },
     { code: 'REGISTER', label: 'Registers' },
-    { code: 'LICENSE', label: 'Licenses' },
+    { code: 'LICENSE', label: 'Licences' },
     { code: 'MCD', label: 'Monthly Compliance Docket' },
     { code: 'AUDIT_REPORT', label: 'Audit Reports' },
   ];

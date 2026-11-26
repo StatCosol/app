@@ -49,7 +49,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <div class="info-row"><span class="label">Name as per Aadhaar</span><span class="value">{{ emp.name }}</span></div>
             <div class="info-row"><span class="label">Employee Code</span><span class="value font-mono">{{ emp.employeeCode }}</span></div>
             <div class="info-row"><span class="label">Gender</span><span class="value">{{ emp.gender || '-' }}</span></div>
-            <div class="info-row"><span class="label">DOB as per Aadhaar</span><span class="value">{{ emp.dateOfBirth || '-' }}</span></div>
+            <div class="info-row"><span class="label">Date of Birth (as per Aadhaar)</span><span class="value">{{ emp.dateOfBirth || '-' }}</span></div>
             <div class="info-row"><span class="label">Father's Name</span><span class="value">{{ emp.fatherName || '-' }}</span></div>
             <div class="info-row">
               <span class="label">Marital Status</span>
@@ -125,7 +125,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
             <div class="info-row"><span class="label">Aadhaar</span><span class="value font-mono">{{ emp.aadhaar || '-' }}</span></div>
             <div class="info-row"><span class="label">PAN</span><span class="value font-mono">{{ emp.pan || '-' }}</span></div>
             <div class="info-row"><span class="label">UAN</span><span class="value font-mono">{{ emp.uan || '-' }}</span></div>
-            <div class="info-row"><span class="label">ESIC Number</span><span class="value font-mono">{{ emp.esic || '-' }}</span></div>
+            <div class="info-row"><span class="label">ESIC IP Number</span><span class="value font-mono">{{ emp.esic || '-' }}</span></div>
             <div class="info-row"><span class="label">PF Applicable</span><span class="value">{{ emp.pfApplicable ? 'Yes' : 'No' }}</span></div>
             <div class="info-row"><span class="label">PF Registered</span><span class="value">{{ emp.pfRegistered ? 'Yes' : 'No' }}</span></div>
             @if (emp.pfServiceStartDate) {

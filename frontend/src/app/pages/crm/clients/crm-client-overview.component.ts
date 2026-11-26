@@ -95,7 +95,7 @@ export class CrmClientOverviewComponent implements OnInit, OnDestroy {
     { label: 'Contractors', route: 'contractors', icon: '👷', description: 'View and manage linked contractors' },
     { label: 'CLRA', route: 'clra', icon: '⚖️', description: 'PE establishments, CLRA contractors and assignments' },
     { label: 'Submission Review', route: 'compliance-tracker', icon: '✅', description: 'Review contractor documents, monthly submissions and compliance tasks' },
-    { label: 'Registrations', route: 'registrations', icon: '📋', description: 'Manage branch registrations & licenses' },
+    { label: 'Registrations', route: 'registrations', icon: '📋', description: 'Manage branch registrations & licences' },
     { label: 'Unit Documents', route: 'unit-documents', icon: '📂', description: 'Registrations, licences, renewals and reports shared with branch and client users' },
     { label: 'Safety', route: 'safety', icon: '🛡️', description: 'View factory/establishment safety documents' },
     { label: 'Payroll', route: 'payroll-status', icon: '💰', description: 'Monitor payroll processing status' },

@@ -2,7 +2,7 @@
 
   <div class="header">
     <div>
-      <h1 class="title">Registrations &amp; Licenses</h1>
+      <h1 class="title">Registrations &amp; Licences</h1>
       <p class="sub">CRM can add/edit/delete branch registrations. Client &amp; Branch users can view expiry tracking.</p>
     </div>
     <ui-client-context-strip [inline]="true"></ui-client-context-strip>
@@ -69,7 +69,7 @@
     <table>
       <thead>
         <tr>
-          <th>Registration / License</th>
+          <th>Registration / Licence</th>
           <th>Number</th>
           <th>Authority</th>
           <th>Issued</th>
@@ -198,7 +198,7 @@
 <div class="drawer">
     <div class="drawerHead">
       <div class="drawerTitle">
-        {{ editingId ? 'Edit Registration / License' : 'Add Registration / License' }}
+        {{ editingId ? 'Edit Registration / Licence' : 'Add Registration / Licence' }}
       </div>
       <div class="flex gap-2 flex-wrap">
         <button type="button" class="standard-action btn secondary" (click)="closeForm()">Cancel</button>
@@ -219,7 +219,7 @@
       </div>
 
       <div>
-        <label for="cr-type">Registration / License Type *</label>
+        <label for="cr-type">Registration / Licence Type *</label>
         <select id="cr-type" name="type" [(ngModel)]="form.type">
           <option value="">Select…</option>
           @for (t of regTypes; track t) {
@@ -270,7 +270,7 @@
         @if (documentFile) {
 <button type="button" class="compact-action btn secondary ml-1.5 text-xs px-2 py-1" (click)="removeFormFile()" title="Remove" aria-label="Remove" data-action-label="Remove" data-action-icon="trash"><ui-icon name="trash" [size]="20" /></button>
 }
-        <div class="muted mt-1.5">Optional. Upload a scanned copy of the registration certificate or license.</div>
+        <div class="muted mt-1.5">Optional. Upload a scanned copy of the registration certificate or licence.</div>
       </div>
     </div>
 

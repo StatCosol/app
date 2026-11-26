@@ -190,7 +190,7 @@ type Tab = 'profile' | 'compliance' | 'history';
                   <span class="text-sm font-medium">{{ emp.esiApplicable ? 'Yes' : 'No' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-sm text-gray-500">IP Number</span>
+                  <span class="text-sm text-gray-500">ESIC IP Number</span>
                   <span class="text-sm font-medium">{{ emp.esic || '-' }}</span>
                 </div>
                 @if (emp.esiApplicableFrom) {
@@ -283,7 +283,7 @@ export class PayrollEmployeeDetailComponent implements OnInit, OnDestroy {
     if (!this.emp) return [];
     return [
       { label: 'Name as per Aadhaar', value: this.emp.name },
-      { label: 'DOB as per Aadhaar', value: this.emp.dateOfBirth },
+      { label: 'Date of Birth (as per Aadhaar)', value: this.emp.dateOfBirth },
       { label: 'Father Name', value: this.emp.fatherName },
       { label: 'Phone', value: this.emp.phone },
       { label: 'Email', value: this.emp.email },

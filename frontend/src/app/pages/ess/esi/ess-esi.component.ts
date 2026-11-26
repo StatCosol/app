@@ -23,7 +23,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
         <h2 class="card-title">ESI Information</h2>
         <div class="info-grid">
           <div class="info-item">
-            <span class="info-label">ESI IP Number</span>
+            <span class="info-label">ESIC IP Number</span>
             <span class="info-value highlight">{{ statutory.esi.ipNumber || 'Not assigned' }}</span>
           </div>
           <div class="info-item">

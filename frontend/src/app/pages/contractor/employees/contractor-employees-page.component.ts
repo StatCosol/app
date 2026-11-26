@@ -272,7 +272,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
 <tr class="hover:bg-gray-50 transition-colors">
                 <td class="px-4 py-3">
                   <div class="font-medium text-sm text-gray-900">{{ emp.name }}</div>
-                  <div class="text-xs text-gray-500 font-mono mt-0.5">Employee ID: {{ emp.employeeCode || 'Not assigned' }}</div>
+                  <div class="text-xs text-gray-500 font-mono mt-0.5">Employee Code: {{ emp.employeeCode || 'Not assigned' }}</div>
                   @if (emp.phone) {
 <div class="text-xs text-gray-400 mt-0.5">{{ emp.phone }}</div>
 }
@@ -678,7 +678,7 @@ export const BULK_UPLOAD_BATCH_SIZE = 1000;
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">ESIC No.</label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">ESIC IP Number</label>
                   <input
                     type="text"
                     [(ngModel)]="form.esic"

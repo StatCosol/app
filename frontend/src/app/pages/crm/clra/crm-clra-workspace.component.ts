@@ -337,7 +337,7 @@ const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
               <input type="text" [(ngModel)]="workerForm.uan" class="w-full rounded-lg border-gray-300" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">ESI No.</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">ESIC IP Number</label>
               <input type="text" [(ngModel)]="workerForm.esiNo" class="w-full rounded-lg border-gray-300" />
             </div>
             <div>

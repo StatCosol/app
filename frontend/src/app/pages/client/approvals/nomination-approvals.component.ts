@@ -18,7 +18,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <ui-page-header
         title="Nomination Approvals"
         subtitle="Review pending statutory nominations"
-        [breadcrumbs]="[{ label: 'Approvals Center', route: '/client/approvals' }, { label: 'Nomination Approvals' }]">
+        [breadcrumbs]="[{ label: 'Approvals Centre', route: '/client/approvals' }, { label: 'Nomination Approvals' }]">
       </ui-page-header>
 
       @if (loading) {

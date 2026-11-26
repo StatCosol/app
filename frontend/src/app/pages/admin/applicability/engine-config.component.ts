@@ -422,7 +422,7 @@ export class EngineConfigComponent implements OnInit {
     { value: 'STATE_RULE', label: 'State Rule' },
     { value: 'SAFETY', label: 'Safety' },
     { value: 'SPECIAL_ACT', label: 'Special Act' },
-    { value: 'LICENSE', label: 'License' },
+    { value: 'LICENSE', label: 'Licence' },
     { value: 'RETURN', label: 'Return' },
   ];
   frequencyOptions = [

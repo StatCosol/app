@@ -18,7 +18,7 @@ type RenewalTab = 'ALL' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE';
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
         title="Renewal Tasks"
-        subtitle="Registration and license renewals by branch and status">
+        subtitle="Registration and licence renewals by branch and status">
       </ui-page-header>
 
       <div class="flex flex-wrap gap-2 mb-4">

@@ -20,7 +20,7 @@ interface ClientOption {
 }
 
 /**
- * Landing page for the top-level "Registrations & Licenses" sidebar entry.
+ * Landing page for the top-level "Registrations & Licences" sidebar entry.
  * Lets the CRM pick a client, then routes to the existing
  * /crm/clients/:clientId/registrations workspace.
  */
@@ -33,8 +33,8 @@ interface ClientOption {
     <div class="page">
       <header class="head">
         <div>
-          <h1>Registrations &amp; Licenses</h1>
-          <p>Select a client to manage their branch registrations, licenses and renewal documents.</p>
+          <h1>Registrations &amp; Licences</h1>
+          <p>Select a client to manage their branch registrations, licences and renewal documents.</p>
         </div>
       </header>
 

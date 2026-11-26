@@ -181,7 +181,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <div class="info-rows">
                 <div class="info-row"><span class="info-label">Name as per Aadhaar</span><span class="info-value">{{ emp.name }}</span></div>
                 <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ emp.gender || '-' }}</span></div>
-                <div class="info-row"><span class="info-label">DOB as per Aadhaar</span><span class="info-value">{{ emp.dateOfBirth || '-' }}</span></div>
+                <div class="info-row"><span class="info-label">Date of Birth (as per Aadhaar)</span><span class="info-value">{{ emp.dateOfBirth || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">Father's Name</span><span class="info-value">{{ emp.fatherName || '-' }}</span></div>
               </div>
             </div>
@@ -200,7 +200,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 <div class="info-row"><span class="info-label">Aadhaar</span><span class="info-value">{{ emp.aadhaar || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">PAN</span><span class="info-value">{{ emp.pan || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">UAN</span><span class="info-value">{{ emp.uan || '-' }}</span></div>
-                <div class="info-row"><span class="info-label">ESIC Number</span><span class="info-value">{{ emp.esic || '-' }}</span></div>
+                <div class="info-row"><span class="info-label">ESIC IP Number</span><span class="info-value">{{ emp.esic || '-' }}</span></div>
               </div>
             </div>
 

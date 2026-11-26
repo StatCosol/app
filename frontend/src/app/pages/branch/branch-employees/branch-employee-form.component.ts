@@ -84,7 +84,7 @@ import {
             <ui-form-select label="Gender" [options]="genderOptions" [(ngModel)]="form.gender"
                             name="gender"></ui-form-select>
             <div class="form-field">
-              <label class="form-label" for="emp-dob">DOB as per Aadhaar</label>
+              <label class="form-label" for="emp-dob">Date of Birth (as per Aadhaar)</label>
               <input autocomplete="off" id="emp-dob" type="date" class="form-date-input" [(ngModel)]="form.dateOfBirth" name="dateOfBirth" (change)="onDobChange()" />
               @if (dobWarning) {
 <div class="mt-1 flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2 text-xs font-medium">
@@ -145,7 +145,7 @@ import {
                            [error]="panError"></ui-form-input>
             <ui-form-input label="UAN (Universal Account Number)" [(ngModel)]="form.uan" name="uan"
                            placeholder="PF UAN number"></ui-form-input>
-            <ui-form-input label="ESIC Number" [(ngModel)]="form.esic" name="esic"
+            <ui-form-input label="ESIC IP Number" [(ngModel)]="form.esic" name="esic"
                            placeholder="ESI contribution number"></ui-form-input>
             <div class="form-field">
               <label class="form-label" for="emp-pf-service-start">PF Service Start Date</label>

@@ -134,7 +134,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
               <option value="PAN">PAN Card</option>
               <option value="PASSPORT">Passport</option>
               <option value="VOTER_ID">Voter ID</option>
-              <option value="DRIVING_LICENSE">Driving License</option>
+              <option value="DRIVING_LICENSE">Driving Licence</option>
               <option value="UAN">UAN Card</option>
               <option value="BANK">Bank Document</option>
               <option value="CANCELLED_CHEQUE">Cancelled Cheque</option>

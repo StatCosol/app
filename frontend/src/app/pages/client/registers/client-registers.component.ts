@@ -64,7 +64,7 @@ type RegisterRow = {
   template: `
     <div class="page">
       <ui-page-header
-        title="Registers Download Center"
+        title="Registers Download Centre"
         [subtitle]="isBranch ? 'Track register preparation and approval, and download approved branch files' : 'Preview and download payroll registers by period and branch'">
         <div class="actions">
           <ui-button

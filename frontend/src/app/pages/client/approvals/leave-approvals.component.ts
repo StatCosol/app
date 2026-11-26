@@ -18,7 +18,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
       <ui-page-header
         title="Leave Approvals"
         subtitle="Review pending leave applications"
-        [breadcrumbs]="[{ label: 'Approvals Center', route: '/client/approvals' }, { label: 'Leave Approvals' }]">
+        [breadcrumbs]="[{ label: 'Approvals Centre', route: '/client/approvals' }, { label: 'Leave Approvals' }]">
       </ui-page-header>
 
       @if (loading) {

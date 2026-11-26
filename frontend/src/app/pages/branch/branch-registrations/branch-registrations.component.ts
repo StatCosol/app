@@ -906,7 +906,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   private buildRequestDescription(): string {
     const docs = [
       this.requestModel.documents.authorityForm ? 'Authority Form' : '',
-      this.requestModel.documents.previousLicense ? 'Previous License' : '',
+      this.requestModel.documents.previousLicense ? 'Previous Licence' : '',
       this.requestModel.documents.identityProof ? 'Identity Proof' : '',
       this.requestModel.documents.amendmentProof ? 'Amendment Proof' : '',
     ]

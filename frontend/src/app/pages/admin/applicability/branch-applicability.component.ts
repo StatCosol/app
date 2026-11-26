@@ -377,7 +377,7 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
     STATE_RULE: 'State Rules',
     SAFETY: 'Safety',
     SPECIAL_ACT: 'Special Acts',
-    LICENSE: 'Licenses',
+    LICENSE: 'Licences',
     RETURN: 'Returns',
   };
 
