@@ -1,0 +1,102 @@
+name: Branch Compliance Recompute (one-off repair)
+
+# Re-runs branch compliance applicability for every active production branch
+# with the fixed law-family logic from PR #870, so existing shops/offices lose
+# the Factories Act / Code on OSH and factories lose the S&E Act.
+#
+# Always run `dry-run` first: it reports how many branches would change and
+# rolls back. `apply` copies branch_compliances to
+# branch_compliances_backup_<UTC stamp> in the same database, then commits.
+# Only existing AUTO rows are updated; manual overrides and missing rows are
+# left alone. Output is aggregate counts only (this repository is public).
+#
+# Restore if needed:
+#   BEGIN; DELETE FROM branch_compliances;
+#   INSERT INTO branch_compliances SELECT * FROM branch_compliances_backup_<stamp>;
+#   COMMIT;
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run reports only; apply backs up and commits'
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, apply]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: branch-compliance-recompute
+  cancel-in-progress: false
+
+env:
+  RG: statcompy-rg
+  CA_NAME: statcompy-backend
+  PG_HOST: statcompy-db.postgres.database.azure.com
+  PG_USER: Statcocompy
+  PG_DB: statcompy
+
+jobs:
+  recompute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get this runner's public IP
+        id: ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> "$GITHUB_OUTPUT"
+
+      - name: Open temporary PG firewall rule
+        run: |
+          az postgres flexible-server firewall-rule create \
+            -g "$RG" -s statcompy-db \
+            -n "ghrecompute-${{ github.run_id }}" \
+            --start-ip-address "${{ steps.ip.outputs.ip }}" \
+            --end-ip-address   "${{ steps.ip.outputs.ip }}" \
+            --output none
+
+      - name: Fetch DB password from Container App secret
+        run: |
+          PWD=$(az containerapp secret show \
+            -g "$RG" -n "$CA_NAME" --secret-name db-pass \
+            --query value -o tsv)
+          echo "::add-mask::$PWD"
+          echo "DB_PASS=$PWD" >> "$GITHUB_ENV"
+
+      - name: Recompute (${{ inputs.mode }})
+        env:
+          DB_HOST: ${{ env.PG_HOST }}
+          DB_USER: ${{ env.PG_USER }}
+          DB_NAME: ${{ env.PG_DB }}
+          DB_SSL: 'true'
+        run: node scripts/recompute-branch-compliance.cjs ${{ inputs.mode == 'apply' && '--apply' || '' }}
+
+      - name: Always — remove temporary firewall rule
+        if: always()
+        working-directory: .
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            -g "$RG" -s statcompy-db \
+            -n "ghrecompute-${{ github.run_id }}" \
+            --yes --output none || true
