@@ -25,6 +25,31 @@ import { PayrollComponentEntity } from '../entities/payroll-component.entity';
  */
 @Injectable()
 export class StatutoryCalculatorService {
+  /**
+   * ESI contribution-period re-check for an employee the ₹21,000 ceiling
+   * removed earlier. At the start of a new period (April or October) they are
+   * brought back into ESI when their fixed gross is at or below the ceiling.
+   * Only ceiling exclusions qualify (`ceilingExcludedOn` set); an exclusion HR
+   * made by hand is never undone here, and nothing changes mid-period.
+   */
+  shouldReincludeInEsi(params: {
+    setup: PayrollClientSetupEntity;
+    esiApplicable?: boolean;
+    ceilingExcludedOn?: string | null;
+    periodMonth: number;
+    fixedGross: number;
+  }): boolean {
+    const { setup, periodMonth } = params;
+    if (!setup.esiEnabled) return false;
+    if (params.esiApplicable !== false || !params.ceilingExcludedOn)
+      return false;
+    if (periodMonth !== 4 && periodMonth !== 10) return false;
+    const fixedGross = Number(params.fixedGross) || 0;
+    if (fixedGross <= 0) return false;
+    const threshold = Number(setup.esiWageCeiling) || 21000;
+    return fixedGross <= threshold;
+  }
+
   compute(params: {
     values: Record<string, number>;
     setup: PayrollClientSetupEntity;
@@ -36,11 +61,12 @@ export class StatutoryCalculatorService {
     /**
      * Payroll period month (1-12). Used to apply the ESI contribution-period rule:
      *   April (4) starts H1 (Apr-Sep); October (10) starts H2 (Oct-Mar).
-     *   If the employee's ESI wage exceeds the threshold:
-     *     - At a period-start month → ESI is dropped for the period (and caller is
-     *       expected to flip the master `esiApplicable` flag off).
-     *     - In a mid-period month → ESI continues but capped at the threshold
-     *       (statutory max wage) until the period ends.
+     *   Coverage is decided on FIXED gross (ACTUAL_GROSS) only:
+     *     - At a period-start month, fixed gross above the threshold → ESI is
+     *       dropped for the period (and caller is expected to flip the master
+     *       `esiApplicable` flag off).
+     *     - In a mid-period month nothing removes a covered employee; ESI is
+     *       charged on actual total wages until the period ends.
      */
     periodMonth?: number;
   }): { values: Record<string, number>; esiDroppedAtPeriodStart?: boolean } {
@@ -82,9 +108,9 @@ export class StatutoryCalculatorService {
     // GROSS, and it is wages for ESI contribution. Overwriting GROSS without
     // it silently dropped the approved double wage from net pay.
     //
-    // Neither counts towards the ESI coverage threshold: ESIC excludes
-    // overtime when deciding whether an employee is covered, so a ₹20,000
-    // employee working ₹1,500 of overtime in April stays covered.
+    // Neither counts towards the ESI coverage threshold: coverage is judged
+    // on fixed gross only (see the ESI section), so a ₹20,000 employee
+    // working ₹1,500 of overtime in April stays covered.
     const otAmountForEsi = Number(result['OT_AMOUNT'] ?? 0);
     const holidayDblAmount = components.some(
       (c) => c.code === 'HOLIDAY_DBL_AMOUNT',
@@ -189,29 +215,33 @@ export class StatutoryCalculatorService {
     let esiDroppedAtPeriodStart = false;
     if (setup.esiEnabled && empEsiApplicable !== false) {
       if (esiWage === 0 && !anyEsiFlagSet) esiWage = gross; // fallback only when no flags configured
-      // Coverage is judged on wages without overtime / holiday extra wage.
+      // Coverage is judged on FIXED gross only (Madan, 2026-11-26): the
+      // registered monthly gross (ACTUAL_GROSS). Overtime, holiday wages,
+      // incentives and other variable earnings never count, and neither does
+      // attendance pro-rating. Only when no fixed gross is recorded do we fall
+      // back to the earned ESI wage components (still without OT / holiday).
+      const fixedGross = Number(result['ACTUAL_GROSS'] ?? 0);
       const coverageWage =
-        esiCoverageWageBase === 0 && !anyEsiComponentFlag
-          ? gross
-          : esiCoverageWageBase;
+        payableDays === 0
+          ? 0
+          : fixedGross > 0
+            ? fixedGross
+            : esiCoverageWageBase === 0 && !anyEsiComponentFlag
+              ? gross
+              : esiCoverageWageBase;
 
       const threshold = Number(setup.esiWageCeiling) || 21000;
       result['ESI_WAGES'] = esiWage;
 
       // ESI contribution-period rule (statutory, India):
       //   Two periods — April–September (H1) and October–March (H2).
-      //   If wage exceeds the threshold:
+      //   If fixed gross exceeds the threshold:
       //     - At the start of a period (April or October) the employee is removed
       //       from ESI for that entire period.
-      //     - Mid-period, an employee who was covered at the start of the
-      //       period stays covered and ESI is charged on ACTUAL wages (not
-      //       capped at the threshold) until the period ends.
-      //
-      // COMPLIANCE CONFIRMATION PENDING (2026-11): this used to cap the
-      // mid-period wage at the threshold (₹25,000 → ESI on ₹21,000). The ESI
-      // Act charges contributions on wages actually paid while the employee is
-      // covered, so the cap under-deducted. Confirm with the compliance team
-      // before relying on it; reverting is the single `else` branch below.
+      //     - Mid-period (including after a wage increase), an employee who was
+      //       covered at the start of the period stays covered and ESI is
+      //       charged on ACTUAL total wages (not capped) until the period ends.
+      // Confirmed by Madan (compliance owner) on 2026-11-26.
       const periodMonth = params.periodMonth;
       const isPeriodStart = periodMonth === 4 || periodMonth === 10;
       let effectiveEsiWage = esiWage;
@@ -219,8 +249,12 @@ export class StatutoryCalculatorService {
         if (isPeriodStart) {
           effectiveEsiWage = 0;
           esiDroppedAtPeriodStart = true;
+        } else if (empEsiApplicable === undefined) {
+          // No employee master says this person is covered (e.g. a preview
+          // or an unlinked row), so fixed gross decides in every month.
+          effectiveEsiWage = 0;
         }
-        // Mid-period: no cap, effectiveEsiWage stays at actual wages.
+        // A covered employee mid-period: no cap, ESI on actual wages.
       }
 
       if (effectiveEsiWage > 0) {

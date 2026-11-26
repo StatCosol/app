@@ -443,6 +443,7 @@ export class EmployeesService {
     dto: UpdateEmployeeDto,
   ): Promise<EmployeeEntity> {
     const emp = await this.findById(clientId, id);
+    const wasEsiCovered = emp.esiApplicable === true;
 
     // Validate & check duplicate phone if changed
     if (dto.phone !== undefined) {
@@ -538,10 +539,17 @@ export class EmployeesService {
       emp.esiRegistered = true;
     }
 
-    // Statutory rule: if monthly gross exceeds the ESI ceiling (₹21,000)
-    // the employee is not covered under ESI.
-    if (Number(emp.monthlyGross) > 21000) {
+    // Statutory rule: ESI coverage follows fixed gross (₹21,000 ceiling), but
+    // an employee already covered stays in ESI until the contribution period
+    // ends, even after a wage increase. Payroll re-checks fixed gross at the
+    // next period start (April / October). So only someone not covered before
+    // this edit is kept out by a gross above the ceiling.
+    if (Number(emp.monthlyGross) > 21000 && !wasEsiCovered) {
       emp.esiApplicable = false;
+    }
+    // An explicit HR decision on ESI replaces any automatic ceiling exclusion.
+    if (dto.esiApplicable !== undefined) {
+      emp.esiCeilingExcludedOn = null;
     }
 
     const saved = await this.empRepo.save(emp);

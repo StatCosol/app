@@ -21,6 +21,9 @@ describe('Regular payroll from approved attendance', () => {
     esi?: boolean;
     holidayDoubleDays?: Record<string, number>;
     otHours?: number;
+    /** Employee master ESI flag; defaults to `esi`. */
+    masterEsi?: boolean;
+    esiCeilingExcludedOn?: string | null;
   }) {
     const run = {
       id: 'run',
@@ -46,7 +49,8 @@ describe('Regular payroll from approved attendance', () => {
       payrollCategory: 'REGULAR',
       monthlyGross: basic,
       pfApplicable: false,
-      esiApplicable: !!opts.esi,
+      esiApplicable: opts.masterEsi ?? !!opts.esi,
+      esiCeilingExcludedOn: opts.esiCeilingExcludedOn ?? null,
     };
     const builder: any = {};
     for (const method of ['delete', 'from', 'where', 'andWhere'])
@@ -191,9 +195,118 @@ describe('Regular payroll from approved attendance', () => {
     expect(manager.update).toHaveBeenCalledWith(
       EmployeeEntity,
       { id: 'emp' },
-      { esiApplicable: false },
+      { esiApplicable: false, esiCeilingExcludedOn: '2026-04-01' },
     );
     expect(svc.empRepo.update).not.toHaveBeenCalled();
+  });
+
+  describe("Madan's ESI examples through a full payroll run", () => {
+    it('X: ₹20,000 fixed with ₹3,000 OT in December stays in ESI', async () => {
+      // 15.6 OT hours × (20,000 / 26 / 8) × 2 = ₹3,000.
+      const { svc, manager, values } = fixture({
+        present: 26,
+        basic: 20000,
+        esi: true,
+        month: 12,
+        otHours: 15.6,
+      });
+      await svc.processWithEngine('run');
+      expect(values().OT_AMOUNT).toBe(3000);
+      expect(values().ESI_WAGES).toBe(23000);
+      expect(values().ESI_EMP).toBe(173);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('Y: ₹23,000 fixed working 15 days (₹11,500) is not put into ESI', async () => {
+      const { svc, manager, values } = fixture({
+        present: 15,
+        basic: 23000,
+        esi: true,
+        masterEsi: false, // kept out when registered above ₹21,000
+        month: 12,
+      });
+      await svc.processWithEngine('run');
+      expect(values().BASIC).toBeCloseTo(13269.23, 1); // 23,000 × 15 / 26 days
+      expect(values().ESI_EMP).toBe(0);
+      expect(values().ESI_ER).toBe(0);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('Y in October: low earned pay does not bring them back into ESI', async () => {
+      const { svc, manager, values } = fixture({
+        present: 15,
+        basic: 23000,
+        esi: true,
+        masterEsi: false,
+        esiCeilingExcludedOn: '2026-04-01',
+        month: 10,
+      });
+      await svc.processWithEngine('run');
+      expect(values().ESI_EMP).toBe(0);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ESI re-check at the next contribution period', () => {
+    it('brings a ceiling-excluded employee back into ESI in October at ₹21,000 or less', async () => {
+      const { svc, manager, values } = fixture({
+        present: 26,
+        basic: 20000,
+        esi: true,
+        masterEsi: false,
+        esiCeilingExcludedOn: '2026-04-01',
+        month: 10,
+      });
+      await svc.processWithEngine('run');
+      expect(values().ESI_EMP).toBe(150); // 0.75% of 20,000, charged this run
+      expect(manager.update).toHaveBeenCalledWith(
+        EmployeeEntity,
+        { id: 'emp' },
+        { esiApplicable: true, esiCeilingExcludedOn: null },
+      );
+    });
+
+    it('keeps them out in October while fixed gross is still above ₹21,000', async () => {
+      const { svc, manager, values } = fixture({
+        present: 26,
+        basic: 23000,
+        esi: true,
+        masterEsi: false,
+        esiCeilingExcludedOn: '2026-04-01',
+        month: 10,
+      });
+      await svc.processWithEngine('run');
+      expect(values().ESI_EMP).toBe(0);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('never re-includes mid-period, only at a period start', async () => {
+      const { svc, manager, values } = fixture({
+        present: 26,
+        basic: 20000,
+        esi: true,
+        masterEsi: false,
+        esiCeilingExcludedOn: '2026-04-01',
+        month: 7,
+      });
+      await svc.processWithEngine('run');
+      expect(values().ESI_EMP).toBe(0);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('leaves a manual HR exclusion alone', async () => {
+      const { svc, manager, values } = fixture({
+        present: 26,
+        basic: 20000,
+        esi: true,
+        masterEsi: false,
+        esiCeilingExcludedOn: null,
+        month: 10,
+      });
+      await svc.processWithEngine('run');
+      expect(values().ESI_EMP).toBe(0);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
   });
 
   it('never removes anyone from ESI because of overtime', async () => {

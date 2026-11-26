@@ -149,6 +149,15 @@ export class EmployeeEntity {
   @Column({ name: 'esi_applicable_from', type: 'date', nullable: true })
   esiApplicableFrom: string | null;
 
+  /**
+   * Set by payroll when the ₹21,000 fixed-gross ceiling removed the employee
+   * from ESI at a contribution-period start (first day of that period). Only
+   * these employees are re-included automatically at a later period start;
+   * an exclusion HR made by hand leaves this null and is never undone.
+   */
+  @Column({ name: 'esi_ceiling_excluded_on', type: 'date', nullable: true })
+  esiCeilingExcludedOn: string | null;
+
   @Column({ name: 'bank_name', type: 'varchar', length: 200, nullable: true })
   bankName: string | null;
 

@@ -851,6 +851,18 @@ async function bootstrap() {
     try {
       await ds.query(`
         ALTER TABLE employees
+          ADD COLUMN IF NOT EXISTS esi_ceiling_excluded_on DATE DEFAULT NULL
+      `);
+      logger.log('Schema patch: employees.esi_ceiling_excluded_on OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch employees.esi_ceiling_excluded_on skipped: ${e?.message}`,
+      );
+    }
+
+    try {
+      await ds.query(`
+        ALTER TABLE employees
           ADD COLUMN IF NOT EXISTS bulk_import_batch_id UUID DEFAULT NULL
       `);
       await ds.query(`
