@@ -1,6 +1,6 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 
 interface NavItem {
   label: string;
@@ -48,8 +48,8 @@ interface NavItem {
         @for (item of items; track item) {
 <a
            [routerLink]="item.route"
-           routerLinkActive="bg-white/15 !text-white"
-           [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
+           [class]="isActive(item) ? 'bg-white/15 !text-white' : ''"
+           [attr.aria-current]="isActive(item) ? 'page' : null"
            (click)="onNavClick()"
            [title]="item.label"
            class="flex items-center gap-3 px-3 py-2 rounded-lg text-white/85 hover:bg-white/10 hover:text-white transition-colors">
@@ -91,6 +91,8 @@ interface NavItem {
   `],
 })
 export class SalesSidebarComponent {
+  private readonly router = inject(Router);
+
   @Input() collapsed = false;
   @Output() collapsedChange = new EventEmitter<boolean>();
   @Input() mobileOpen = false;
@@ -103,6 +105,14 @@ export class SalesSidebarComponent {
     { label: 'Follow-ups',route: '/sales/followups', iconPath: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
     { label: 'Profile',   route: '/sales/profile',   iconPath: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
   ];
+
+  /** The most specific item matching the URL is active, so New Lead and Leads never light up together, while a lead's detail page still highlights Leads. */
+  isActive(item: NavItem): boolean {
+    const path = this.router.url.split(/[?#]/)[0];
+    const matches = (route: string) => path === route || path.startsWith(route + '/');
+    if (!matches(item.route)) return false;
+    return !this.items.some((other) => other.route.length > item.route.length && matches(other.route));
+  }
 
   get asideClasses(): string {
     return [
