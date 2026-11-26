@@ -56,8 +56,10 @@ jobs:
       - name: Local smoke script safety regressions
         shell: pwsh
         run: ../scripts/test-auditxpert-smoke.ps1
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests with coverage threshold
+        # coverageThreshold in backend/package.json fails this step if overall
+        # coverage, or coverage of users/admin/compliances/compliance, drops.
+        run: npm test -- --coverage --coverageReporters=text-summary
       - name: Time Office PostgreSQL regressions
         env:
           TIME_OFFICE_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
