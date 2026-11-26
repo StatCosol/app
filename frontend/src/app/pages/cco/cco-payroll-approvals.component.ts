@@ -59,6 +59,11 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
   runStatusFilter: RunStatusFilter = 'SUBMITTED';
   runStatusOptions: RunStatusFilter[] = ['SUBMITTED', 'APPROVED', 'REJECTED', 'PROCESSED'];
 
+  statusLabel(status: string | null | undefined): string {
+    const text = String(status ?? '').replace(/_/g, ' ').toLowerCase();
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+  }
+
   structures: QueueRow[] = [];
   runs: PayrollRunRow[] = [];
   selected: QueueRow | null = null;

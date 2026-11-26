@@ -22,6 +22,8 @@ describe('Actions have distinct meanings', () => {
     ['Run EL Accrual','calculator'], ['Run preview','eye'], ['Run now','play'],
     ['Generate PIN','key'], ['Load records','folder-open'],
     ['Load more attendance','chevron-down'], ['Load type checklist','clipboard-check'],
+    ['Apply','search'], ['Apply Leave','calendar'], ['Send Back','undo'],
+    ['Send Reminder','send'], ['Copy link','clipboard'],
   ])('%s uses %s', (label, icon) => expect(actionIconName(label)).toBe(icon));
 });
 

@@ -127,12 +127,12 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             <div class="ess-cred-row">
               <span class="ess-cred-label">Email</span>
               <span class="ess-cred-value">{{ essResult.email }}</span>
-              <button class="compact-action ess-copy-btn" (click)="copyCredential(essResult.email)" title="Copy email" aria-label="Copy email" data-action-label="Copy email" data-action-icon="document"><ui-icon name="document" [size]="20" /></button>
+              <button class="compact-action ess-copy-btn" (click)="copyCredential(essResult.email)" title="Copy email" aria-label="Copy email" data-action-label="Copy email" data-action-icon="clipboard"><ui-icon name="clipboard" [size]="20" /></button>
             </div>
             <div class="ess-cred-row">
               <span class="ess-cred-label">Password</span>
               <span class="ess-cred-value font-mono">{{ essResult.generatedPassword }}</span>
-              <button class="compact-action ess-copy-btn" (click)="copyCredential(essResult.generatedPassword)" title="Copy password" aria-label="Copy password" data-action-label="Copy password" data-action-icon="document"><ui-icon name="document" [size]="20" /></button>
+              <button class="compact-action ess-copy-btn" (click)="copyCredential(essResult.generatedPassword)" title="Copy password" aria-label="Copy password" data-action-label="Copy password" data-action-icon="clipboard"><ui-icon name="clipboard" [size]="20" /></button>
             </div>
           </div>
         </div>

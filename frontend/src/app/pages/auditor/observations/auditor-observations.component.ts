@@ -69,6 +69,11 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   capaDraft = '';
 
   readonly statusOptions = ['', 'NEEDS_ACTION', 'OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+
+  statusOptionLabel(status: string): string {
+    const text = status.replace(/_/g, ' ').toLowerCase();
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
   readonly riskOptions = ['', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
   constructor(

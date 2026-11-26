@@ -40,7 +40,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           </span></button>
 }
           <button (click)="generatePdf()" [disabled]="actionBusy"
-                  class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700" title="Generate PDF" aria-label="Generate PDF" data-action-label="Generate PDF" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+                  class="compact-action px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700" title="Generate PDF" aria-label="Generate PDF" data-action-label="Generate PDF" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span class="compact-action-label">
             {{ generatingPdf ? 'Generating...' : 'Generate PDF' }}
           </span></button>
           <button (click)="openEmail()" [disabled]="actionBusy"
@@ -189,7 +189,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           @if (canRecordPayment()) {
 <button [disabled]="actionBusy"
                   (click)="openPayment()"
-                  class="compact-action px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700" title="Record Payment" aria-label="Record Payment" data-action-label="Record Payment" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></button>
+                  class="compact-action px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700" title="Record Payment" aria-label="Record Payment" data-action-label="Record Payment" data-action-icon="currency-rupee"><ui-icon name="currency-rupee" [size]="20" /></button>
 }
         </div>
         @if (payments.length) {
@@ -269,7 +269,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <button (click)="showConversionModal = false" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="submitTaxInvoiceConversion()"
                     [disabled]="actionBusy || !conversionForm.purchaseOrderNumber.trim() || !conversionForm.invoiceDate"
-                    class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50" title="Generate Tax Invoice" aria-label="Generate Tax Invoice" data-action-label="Generate Tax Invoice" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+                    class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50" title="Generate Tax Invoice" aria-label="Generate Tax Invoice" data-action-label="Generate Tax Invoice" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span class="compact-action-label">
               {{ convertingProforma ? 'Generating...' : 'Generate Tax Invoice' }}
             </span></button>
           </div>

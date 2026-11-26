@@ -38,7 +38,7 @@
       <ui-button variant="secondary" [loading]="sendingDigest" (clicked)="sendDigestNow()" icon="send" [iconOnly]="true" label="Send Weekly Digest">
         {{ sendingDigest ? 'Sending...' : 'Send Weekly Digest' }}
       </ui-button>
-      <ui-button variant="danger" [loading]="sendingAlerts" (clicked)="sendCriticalAlertsNow()" icon="send" [iconOnly]="true" label="Send Critical Alerts">
+      <ui-button variant="danger" [loading]="sendingAlerts" (clicked)="sendCriticalAlertsNow()" icon="exclamation-triangle" [iconOnly]="true" label="Send Critical Alerts">
         {{ sendingAlerts ? 'Sending...' : 'Send Critical Alerts' }}
       </ui-button>
       <ui-button variant="secondary" [routerLink]="['/admin/notifications']">

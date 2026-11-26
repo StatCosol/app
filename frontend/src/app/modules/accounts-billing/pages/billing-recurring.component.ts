@@ -38,7 +38,7 @@ interface RecurringConfig {
         </div>
         <div class="flex gap-2">
           <button (click)="runNow()" [disabled]="running"
-                  class="compact-action px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-medium disabled:opacity-50" title="Run Now" aria-label="Run Now" data-action-label="Run Now" data-action-icon="refresh"><ui-icon name="refresh" [size]="20" /><span class="compact-action-label">
+                  class="compact-action px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-medium disabled:opacity-50" title="Run Now" aria-label="Run Now" data-action-label="Run Now" data-action-icon="play"><ui-icon name="play" [size]="20" /><span class="compact-action-label">
             {{ running ? 'Running…' : 'Run Now' }}
           </span></button>
           <button (click)="openCreate()"

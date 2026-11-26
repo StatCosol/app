@@ -160,7 +160,7 @@ import { PageHeaderComponent } from '../../../shared/ui';
           {{ submitting ? 'Submitting...' : (canManagerReview ? 'Submit Manager Review' : 'Submit Branch Review') }}
         </span></button>
         @if (canSendBack) {
-        <button (click)="sendBack()" [disabled]="submitting" class="compact-action btn-secondary text-red-600" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="send"><ui-icon name="send" [size]="20" /></button>
+        <button (click)="sendBack()" [disabled]="submitting" class="compact-action btn-secondary text-red-600" title="Send Back" aria-label="Send Back" data-action-label="Send Back" data-action-icon="undo"><ui-icon name="undo" [size]="20" /></button>
         }
       </div>
 }

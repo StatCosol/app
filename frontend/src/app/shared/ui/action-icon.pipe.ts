@@ -19,7 +19,10 @@ export function actionIconName(label: unknown): IconName {
   if (/^load.*checklist/.test(text)) return 'clipboard-check';
   if (/^load more/.test(text)) return 'chevron-down';
   if (/^load/.test(text)) return 'folder-open';
+  if (/^(send back|return)/.test(text)) return 'undo';
+  if (/^copy/.test(text)) return 'clipboard';
   if (/^(send|resend|remind|notify)/.test(text)) return 'send';
+  if (/^apply (leave|to)/.test(text)) return 'calendar';
   if (/^(search|apply)/.test(text)) return 'search';
   if (/^(reset|clear|revert|restore|reopen|re-open)/.test(text)) return 'undo';
   if (/^(assign|unassign|manage|configure)/.test(text)) return 'cog';
