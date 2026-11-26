@@ -31,6 +31,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.statcosol.ess.portal.databinding.ActivityMainBinding
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -123,6 +125,23 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Android 15 draws apps edge-to-edge, so the status bar would sit on top of the
+        // portal's header (Profile and Sign Out). Pad the page by the system bars,
+        // display cutout and keyboard so nothing is hidden behind them.
+        // Older versions still resize for the keyboard and honour fitsSystemWindows.
+        if (Build.VERSION.SDK_INT >= 35) {
+            binding.root.setBackgroundColor(ContextCompat.getColor(this, R.color.brand_primary_dark))
+            ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+                val bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() or
+                        WindowInsetsCompat.Type.displayCutout() or
+                        WindowInsetsCompat.Type.ime()
+                )
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                WindowInsetsCompat.CONSUMED
+            }
+        }
         prefs = getSharedPreferences("ess_portal", Context.MODE_PRIVATE)
 
         configureWebView()
