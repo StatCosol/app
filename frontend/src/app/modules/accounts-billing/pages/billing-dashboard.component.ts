@@ -110,12 +110,12 @@ import {
             <p class="text-sm opacity-80">Total Billed</p>
             <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats().totalBilled) }}</p>
           </div>
-          <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-5 text-white shadow">
-            <p class="text-sm opacity-80">Total Received</p>
+          <div class="bg-gradient-to-br from-green-700 to-green-800 rounded-xl p-5 text-white shadow">
+            <p class="text-sm">Total Received</p>
             <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats().totalReceived) }}</p>
           </div>
-          <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-5 text-white shadow">
-            <p class="text-sm opacity-80">Outstanding</p>
+          <div class="bg-gradient-to-br from-orange-700 to-orange-800 rounded-xl p-5 text-white shadow">
+            <p class="text-sm">Outstanding</p>
             <p class="text-3xl font-bold mt-1">₹{{ formatNum(stats().totalOutstanding) }}</p>
           </div>
         </div>

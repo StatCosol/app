@@ -26,7 +26,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="flex gap-2 flex-wrap">
           @if (invoice.invoiceStatus === 'DRAFT') {
 <button (click)="approve()" [disabled]="actionBusy"
-                  class="compact-action px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
+                  class="compact-action px-4 py-2 bg-green-700 text-white rounded-lg text-sm hover:bg-green-800" title="Approve" aria-label="Approve" data-action-label="Approve" data-action-icon="check-circle"><ui-icon name="check-circle" [size]="20" /></button>
 }
           @if (isEditable() && !actionBusy) {
 <a [routerLink]="['/accounts/invoices', invoice.id, 'edit']"
@@ -35,7 +35,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           @if (canConvert()) {
 <button (click)="openTaxInvoiceConversion()"
                   [disabled]="actionBusy"
-                  class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50" [title]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" [attr.aria-label]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" [attr.data-action-label]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
+                  class="compact-action px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800 disabled:opacity-50" [title]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" [attr.aria-label]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" [attr.data-action-label]="invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice'" data-action-icon="eye"><ui-icon name="eye" [size]="20" /><span class="compact-action-label">
             {{ invoice.convertedInvoice ? 'View Tax Invoice' : 'Generate Tax Invoice' }}
           </span></button>
 }
@@ -189,7 +189,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           @if (canRecordPayment()) {
 <button [disabled]="actionBusy"
                   (click)="openPayment()"
-                  class="compact-action px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700" title="Record Payment" aria-label="Record Payment" data-action-label="Record Payment" data-action-icon="currency-rupee"><ui-icon name="currency-rupee" [size]="20" /></button>
+                  class="compact-action px-3 py-1.5 bg-green-700 text-white rounded-lg text-xs hover:bg-green-800" title="Record Payment" aria-label="Record Payment" data-action-label="Record Payment" data-action-icon="currency-rupee"><ui-icon name="currency-rupee" [size]="20" /></button>
 }
         </div>
         @if (payments.length) {
@@ -269,7 +269,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
             <button (click)="showConversionModal = false" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="submitTaxInvoiceConversion()"
                     [disabled]="actionBusy || !conversionForm.purchaseOrderNumber.trim() || !conversionForm.invoiceDate"
-                    class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50" title="Generate Tax Invoice" aria-label="Generate Tax Invoice" data-action-label="Generate Tax Invoice" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span class="compact-action-label">
+                    class="compact-action px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800 disabled:opacity-50" title="Generate Tax Invoice" aria-label="Generate Tax Invoice" data-action-label="Generate Tax Invoice" data-action-icon="document-plus"><ui-icon name="document-plus" [size]="20" /><span class="compact-action-label">
               {{ convertingProforma ? 'Generating...' : 'Generate Tax Invoice' }}
             </span></button>
           </div>
@@ -324,7 +324,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <div class="p-6 border-t flex justify-end gap-3">
             <button (click)="showPaymentModal = false" class="standard-action px-4 py-2 border rounded-lg text-sm">Cancel</button>
             <button (click)="submitPayment()" [disabled]="actionBusy"
-                    class="standard-action px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">
+                    class="standard-action px-4 py-2 bg-green-700 text-white rounded-lg text-sm hover:bg-green-800">
               {{ savingPayment ? 'Saving...' : 'Save Payment' }}
             </button>
           </div>

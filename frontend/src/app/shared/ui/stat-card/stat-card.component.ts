@@ -92,9 +92,9 @@ export class StatCardComponent {
     const colors: Record<StatCardColor, string> = {
       primary: 'text-brand-600/80',
       success: 'text-emerald-700',
-      warning: 'text-amber-600/80',
-      error: 'text-red-600/80',
-      info: 'text-sky-600/80',
+      warning: 'text-amber-700',
+      error: 'text-red-700',
+      info: 'text-sky-700',
       gray: 'text-gray-500',
     };
     return colors[this.color] || colors.primary;

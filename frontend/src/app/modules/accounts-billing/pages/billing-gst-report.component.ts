@@ -37,7 +37,7 @@ interface ReportOption {
           type="button"
           (click)="exportExcel()"
           [disabled]="loading || exporting || !report"
-          class="compact-action px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50"
+          class="compact-action px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 disabled:opacity-50"
          title="Download Excel" aria-label="Download Excel" data-action-label="Download Excel" data-action-icon="download"><ui-icon name="download" [size]="20" /><span class="compact-action-label">
           {{ exporting ? 'Preparing Excel...' : 'Download Excel' }}
         </span></button>

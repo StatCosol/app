@@ -29,7 +29,7 @@ interface NavItem {
         @if (!collapsed) {
 <div>
           <div class="text-white font-bold tracking-tight">Sales</div>
-          <div class="text-white/70 text-[11px]">Business Development</div>
+          <div class="text-white/80 text-[11px]">Business Development</div>
         </div>
 }
       </div>
@@ -48,11 +48,11 @@ interface NavItem {
         @for (item of items; track item) {
 <a
            [routerLink]="item.route"
-           routerLinkActive="bg-white/15 text-white"
+           routerLinkActive="bg-white/15 !text-white"
            [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
            (click)="onNavClick()"
            [title]="item.label"
-           class="flex items-center gap-3 px-3 py-2 rounded-lg text-white/75 hover:bg-white/10 hover:text-white transition-colors">
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-white/85 hover:bg-white/10 hover:text-white transition-colors">
           <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
             <path [attr.d]="item.iconPath" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -65,8 +65,8 @@ interface NavItem {
 
       @if (!collapsed) {
 <div class="px-4 py-3 border-t border-white/10 text-center">
-        <div class="text-[10px] text-white/70">Sales v1.0</div>
-        <div class="text-[10px] text-white/75">StatCo Solutions</div>
+        <div class="text-[10px] text-white/80">Sales v1.0</div>
+        <div class="text-[10px] text-white/80">StatCo Solutions</div>
       </div>
 }
     </aside>
@@ -79,7 +79,7 @@ interface NavItem {
       transform: translateX(-100%);
       flex-shrink: 0;
       display: flex; flex-direction: column;
-      background: linear-gradient(180deg, #064E3B 0%, #047857 100%);
+      background: linear-gradient(180deg, #064E3B 0%, #065F46 100%);
       box-shadow: 2px 0 16px rgba(6,78,59,0.18);
       transition: width .25s ease, transform .25s ease;
     }

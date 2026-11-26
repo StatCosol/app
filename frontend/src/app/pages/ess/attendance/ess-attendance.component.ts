@@ -491,21 +491,22 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .checkin-left { flex: 1; min-width: 260px; }
       .checkin-right { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 16px; }
       .checkin-status-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-      .checkin-date-block .text-xs { color: #636b78; }
+      .checkin-date-block .text-xs { color: #cbd5e1; }
       .checkin-date-block .text-lg { color: #f1f5f9; }
       .checkin-live-time { display: flex; align-items: center; gap: 8px; }
+      .checkin-live-time .text-2xl { color: #f1f5f9; }
       .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
       @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       .checkin-times { display: flex; align-items: center; gap: 12px; }
       .time-box { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 16px; text-align: center; min-width: 90px; }
       .time-box.done { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); }
       .time-box.worked { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); }
-      .time-label { font-size: 10px; color: #636b78; text-transform: uppercase; letter-spacing: 0.05em; }
+      .time-label { font-size: 10px; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.05em; }
       .time-val { font-size: 18px; font-weight: 700; color: #f1f5f9; margin-top: 2px; }
-      .time-arrow { font-size: 18px; color: #5b6472; }
+      .time-arrow { font-size: 18px; color: #94a3b8; }
 
       /* ── Capture Method ── */
-      .capture-method-section label.text-xs { color: #636b78; }
+      .capture-method-section label.text-xs { color: #cbd5e1; }
       .capture-options { display: flex; gap: 8px; flex-wrap: wrap; }
       .capture-opt {
         display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -515,7 +516,8 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       }
       .capture-opt:hover:not(.disabled) { background: rgba(255,255,255,0.12); }
       .capture-opt.active { background: rgba(99,102,241,0.2); border-color: #6366f1; }
-      .capture-opt.disabled { opacity: 0.4; cursor: not-allowed; }
+      .capture-opt.disabled { cursor: not-allowed; border-style: dashed; }
+      .capture-opt.disabled .capture-icon { opacity: 0.45; }
       .capture-icon { font-size: 20px; line-height: 1; }
       .capture-label { font-size: 10px; color: #cbd5e1; font-weight: 600; }
       .capture-badge {
@@ -553,15 +555,15 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .checkin-actions { display: flex; gap: 10px; }
       .btn-checkin {
         flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: 700; font-size: 14px;
-        background: #22c55e; color: #fff; cursor: pointer; transition: all 0.2s;
+        background: #15803d; color: #fff; cursor: pointer; transition: all 0.2s;
       }
-      .btn-checkin:hover:not(:disabled) { background: #16a34a; }
+      .btn-checkin:hover:not(:disabled) { background: #166534; }
       .btn-checkin:disabled { opacity: 0.5; cursor: not-allowed; background: #4ade80; }
       .btn-checkout {
         flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: 700; font-size: 14px;
-        background: #ef4444; color: #fff; cursor: pointer; transition: all 0.2s;
+        background: #b91c1c; color: #fff; cursor: pointer; transition: all 0.2s;
       }
-      .btn-checkout:hover:not(:disabled) { background: #dc2626; }
+      .btn-checkout:hover:not(:disabled) { background: #991b1b; }
       .btn-checkout:disabled { opacity: 0.5; cursor: not-allowed; background: #f87171; }
 
       .geo-info { display: flex; align-items: center; gap: 4px; }
@@ -576,7 +578,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       }
       .onsite-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
       .visit-timeline { margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; }
-      .visit-timeline-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #636b78; margin-bottom: 8px; }
+      .visit-timeline-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #cbd5e1; margin-bottom: 8px; }
       .visit-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
       .visit-badge {
         font-size: 10px; font-weight: 800; border-radius: 6px; padding: 2px 7px;
@@ -587,7 +589,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .visit-time { font-variant-numeric: tabular-nums; color: #e2e8f0; font-weight: 600; min-width: 74px; }
       .visit-loc { color: #93c5fd; text-decoration: none; font-size: 12px; }
       .visit-loc:hover { text-decoration: underline; color: #bfdbfe; }
-      .visit-loc-none { color: #5b6472; font-size: 12px; }
+      .visit-loc-none { color: #cbd5e1; font-size: 12px; }
 
       /* ── OT / Comp-Off Panel ── */
       .ot-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 20px; }

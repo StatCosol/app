@@ -1,5 +1,4 @@
 <div class="border-t border-gray-200 p-4"
-  [class.opacity-50]="disabled"
   [class.pointer-events-none]="disabled">
 
   <!-- File chips -->
@@ -24,7 +23,8 @@
     <textarea autocomplete="off" id="c-message"
       name="composerMessage"
       class="flex-1 rounded-lg border-gray-300 text-sm placeholder-gray-400
-             focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-none"
+             focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-none
+             disabled:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
       rows="2"
       [(ngModel)]="message"
       [disabled]="disabled"
@@ -35,7 +35,7 @@
 
     <div class="flex flex-col gap-2">
       <!-- Attach button -->
-      <label class="cursor-pointer px-3 py-2 rounded-lg border border-gray-300 text-gray-500
+      <label [class.opacity-50]="disabled" class="cursor-pointer px-3 py-2 rounded-lg border border-gray-300 text-gray-500
                     hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center justify-center">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

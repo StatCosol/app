@@ -19,7 +19,7 @@ import { PageHeaderComponent } from '../../shared/ui';
     <div class="space-y-5">
       <ui-page-header title="Leads" subtitle="Pipeline of open, won, and archived opportunities">
         <a routerLink="/sales/leads/new"
-           class="compact-action inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg" title="New Lead" aria-label="New Lead" data-action-label="New Lead" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></a>
+           class="compact-action inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg" title="New Lead" aria-label="New Lead" data-action-label="New Lead" data-action-icon="plus"><ui-icon name="plus" [size]="20" /></a>
       </ui-page-header>
 
       <!-- Filters -->

@@ -203,7 +203,7 @@ interface NavItem {
     .tb-avatar-wrap:hover { background: #f3f4f6; }
     .tb-avatar {
       width: 36px; height: 36px; border-radius: 50%;
-      background: linear-gradient(135deg, #6366f1, #4338ca);
+      background: linear-gradient(135deg, #4f46e5, #4338ca);
       color: #fff; font-size: 14px; font-weight: 700;
       display: grid; place-items: center;
     }
