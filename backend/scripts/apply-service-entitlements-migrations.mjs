@@ -129,6 +129,8 @@ const serviceMigrationFiles = new Set([
   '20261024_cancelled_audit_guard.sql',
   '20261024b_audit_action_approvals.sql',
   '20261104_statutory_audit_entry.sql',
+  // Indexes for the /uploads download check's stored-path lookups.
+  '20261127_uploads_path_indexes.sql',
 ]);
 
 const config = {
