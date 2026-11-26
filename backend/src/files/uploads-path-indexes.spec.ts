@@ -52,7 +52,9 @@ describe('uploads path lookup indexes', () => {
       );
       const query = before.slice(queryStart);
       const table = alias
-        ? new RegExp(`(?:FROM|JOIN)\\s+([a-z_]+)\\s+${alias}\\b`).exec(query)?.[1]
+        ? new RegExp(`(?:FROM|JOIN)\\s+([a-z_]+)\\s+${alias}\\b`).exec(
+            query,
+          )?.[1]
         : /FROM\s+([a-z_]+)/.exec(query)?.[1];
       return `${table}.${column}`;
     });
