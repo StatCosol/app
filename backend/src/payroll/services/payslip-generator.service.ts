@@ -24,7 +24,7 @@ import {
   toBuffer,
   addPageNumbers,
 } from '../../common/utils/pdf-helpers';
-import { loadLogoBuffer } from '../utils/payslip-pdf';
+import { loadLogoBuffer, payslipOtherEarnings } from '../utils/payslip-pdf';
 import {
   renderPayslipLayout,
   validatePayslipLayout,
@@ -512,16 +512,23 @@ export class PayslipGeneratorService {
     const otherEarningsExplicit = valueMap.get('OTHER_EARNINGS') ?? 0;
     const arrearAttBonus = valueMap.get('ARREAR_ATT_BONUS') ?? 0;
     const otAmount = valueMap.get('OT_AMOUNT') ?? 0;
-    // Show OT pay as part of "Other Earnings" rather than its own row.
-    const otherEarningsBase =
-      otherEarningsExplicit > 0
-        ? otherEarningsExplicit
-        : Math.max(0, gross - basic - hra - others - attBonus);
-    const otherEarningsRow = otherEarningsBase + otAmount;
+    // OT and holiday wages are shown inside "Other Earnings"; GROSS already
+    // includes both, so they are never added on top of it.
+    const otherEarnings = payslipOtherEarnings({
+      gross,
+      basic,
+      hra,
+      others,
+      attBonus,
+      otherEarningsExplicit,
+      otAmount,
+      holidayDblAmount: valueMap.get('HOLIDAY_DBL_AMOUNT') ?? 0,
+    });
+    const otherEarningsRow = otherEarnings.amount;
     const otherEarningsNoteParts: string[] = [];
     if ((runEmp as any).otherEarningsNote)
       otherEarningsNoteParts.push((runEmp as any).otherEarningsNote);
-    if (otAmount > 0) otherEarningsNoteParts.push('incl. OT');
+    otherEarningsNoteParts.push(...otherEarnings.notes);
     const otherEarningsLabel = otherEarningsNoteParts.length
       ? `Other Earnings (${otherEarningsNoteParts.join(', ')})`
       : 'Other Earnings';
@@ -714,7 +721,7 @@ export class PayslipGeneratorService {
       // Row 4: Gross / Total Deduction
       drawRow(
         'Gross',
-        this.formatCurrency(gross + otAmount),
+        this.formatCurrency(gross),
         'Total Deduction',
         this.formatCurrency(totalDeduction),
         tY,
