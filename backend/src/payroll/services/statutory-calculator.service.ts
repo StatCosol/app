@@ -249,8 +249,12 @@ export class StatutoryCalculatorService {
         if (isPeriodStart) {
           effectiveEsiWage = 0;
           esiDroppedAtPeriodStart = true;
+        } else if (empEsiApplicable === undefined) {
+          // No employee master says this person is covered (e.g. a preview
+          // or an unlinked row), so fixed gross decides in every month.
+          effectiveEsiWage = 0;
         }
-        // Mid-period: no cap, effectiveEsiWage stays at actual wages.
+        // A covered employee mid-period: no cap, ESI on actual wages.
       }
 
       if (effectiveEsiWage > 0) {

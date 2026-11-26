@@ -200,6 +200,53 @@ describe('Regular payroll from approved attendance', () => {
     expect(svc.empRepo.update).not.toHaveBeenCalled();
   });
 
+  describe("Madan's ESI examples through a full payroll run", () => {
+    it('X: ₹20,000 fixed with ₹3,000 OT in December stays in ESI', async () => {
+      // 15.6 OT hours × (20,000 / 26 / 8) × 2 = ₹3,000.
+      const { svc, manager, values } = fixture({
+        present: 26,
+        basic: 20000,
+        esi: true,
+        month: 12,
+        otHours: 15.6,
+      });
+      await svc.processWithEngine('run');
+      expect(values().OT_AMOUNT).toBe(3000);
+      expect(values().ESI_WAGES).toBe(23000);
+      expect(values().ESI_EMP).toBe(173);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('Y: ₹23,000 fixed working 15 days (₹11,500) is not put into ESI', async () => {
+      const { svc, manager, values } = fixture({
+        present: 15,
+        basic: 23000,
+        esi: true,
+        masterEsi: false, // kept out when registered above ₹21,000
+        month: 12,
+      });
+      await svc.processWithEngine('run');
+      expect(values().BASIC).toBeCloseTo(13269.23, 1); // 23,000 × 15 / 26 days
+      expect(values().ESI_EMP).toBe(0);
+      expect(values().ESI_ER).toBe(0);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('Y in October: low earned pay does not bring them back into ESI', async () => {
+      const { svc, manager, values } = fixture({
+        present: 15,
+        basic: 23000,
+        esi: true,
+        masterEsi: false,
+        esiCeilingExcludedOn: '2026-04-01',
+        month: 10,
+      });
+      await svc.processWithEngine('run');
+      expect(values().ESI_EMP).toBe(0);
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('ESI re-check at the next contribution period', () => {
     it('brings a ceiling-excluded employee back into ESI in October at ₹21,000 or less', async () => {
       const { svc, manager, values } = fixture({

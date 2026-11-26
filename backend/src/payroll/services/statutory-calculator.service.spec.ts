@@ -113,6 +113,7 @@ describe('StatutoryCalculatorService', () => {
         values: { BASIC: 25000 },
         setup: setup({ pfEnabled: false }),
         components: [comp('BASIC', { esi: true })],
+        esiApplicable: true, // covered at the period start
         periodMonth: 6, // mid-period
       });
       expect(res.values.ESI_WAGES).toBe(25000);
@@ -279,6 +280,7 @@ describe('StatutoryCalculatorService', () => {
           values: { ACTUAL_GROSS: 24000, BASIC: 24000 },
           setup: setup({ pfEnabled: false }),
           components: esiComps,
+          esiApplicable: true,
           periodMonth: 7,
         });
         expect(result.esiDroppedAtPeriodStart).toBeUndefined();
@@ -318,6 +320,66 @@ describe('StatutoryCalculatorService', () => {
         expect(result.esiDroppedAtPeriodStart).toBeUndefined();
         expect(result.values.ESI_EMP).toBe(158);
       });
+    });
+
+    // Madan's examples, 2026-11-26.
+    describe("Madan's examples", () => {
+      const esiComps = [comp('BASIC', { esi: true })];
+
+      it('X: ₹20,000 fixed + ₹3,000 OT in December (₹23,000) stays in ESI', () => {
+        const result = svc.compute({
+          values: { ACTUAL_GROSS: 20000, BASIC: 20000, OT_AMOUNT: 3000 },
+          setup: setup({ pfEnabled: false }),
+          components: esiComps,
+          esiApplicable: true,
+          periodMonth: 12,
+        });
+        expect(result.esiDroppedAtPeriodStart).toBeUndefined();
+        expect(result.values.ESI_WAGES).toBe(23000);
+        expect(result.values.ESI_EMP).toBe(173); // ceil(0.75% of 23,000)
+        expect(result.values.ESI_ER).toBe(748); // ceil(3.25% of 23,000)
+      });
+
+      it('X: the same ₹3,000 OT in October (a period start) still keeps them in', () => {
+        const result = svc.compute({
+          values: { ACTUAL_GROSS: 20000, BASIC: 20000, OT_AMOUNT: 3000 },
+          setup: setup({ pfEnabled: false }),
+          components: esiComps,
+          esiApplicable: true,
+          periodMonth: 10,
+        });
+        expect(result.esiDroppedAtPeriodStart).toBeUndefined();
+        expect(result.values.ESI_EMP).toBe(173);
+      });
+
+      it.each([4, 10, 12])(
+        'Y: ₹23,000 fixed, 15 days worked (₹11,500 earned) is not in ESI in month %i',
+        (month) => {
+          const result = svc.compute({
+            values: { ACTUAL_GROSS: 23000, BASIC: 11500, PAYABLE_DAYS: 15 },
+            setup: setup({ pfEnabled: false }),
+            components: esiComps,
+            esiApplicable: false,
+            periodMonth: month,
+          });
+          expect(result.values.ESI_EMP).toBe(0);
+          expect(result.values.ESI_ER).toBe(0);
+        },
+      );
+
+      it.each([6, 12])(
+        'Y: with no employee ESI flag on record, fixed gross still keeps them out in month %i',
+        (month) => {
+          const result = svc.compute({
+            values: { ACTUAL_GROSS: 23000, BASIC: 11500, PAYABLE_DAYS: 15 },
+            setup: setup({ pfEnabled: false }),
+            components: esiComps,
+            periodMonth: month,
+          });
+          expect(result.values.ESI_EMP).toBe(0);
+          expect(result.values.ESI_ER).toBe(0);
+        },
+      );
     });
   });
 });
