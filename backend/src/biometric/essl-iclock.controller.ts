@@ -19,7 +19,7 @@ import { EsslService } from './essl.service';
  * eSSL / ZKTeco "iclock" ADMS push protocol adapter.
  *
  * Devices are configured with:  http://<host>/iclock   (no /api prefix)
- * They authenticate by serial number (SN) against `biometric_devices` table.
+ * Registered serial numbers also require a configured source-IP allow-list.
  *
  * Endpoints implemented:
  *   GET  /iclock/cdata?SN=xxx&options=all&pushver=...   handshake
@@ -58,14 +58,14 @@ export class EsslIclockController {
     this.logger.log(
       `handshake SN=${sn || '-'} from=${req?.ip || req?.socket?.remoteAddress || '-'}`,
     );
-    return this.essl.handshake(sn);
+    return this.essl.handshake(sn, req.ip);
   }
 
   /** Device polls for pending commands. */
   @Get('getrequest')
   @Header('Content-Type', 'text/plain')
-  async getRequest(@Query('SN') sn: string): Promise<string> {
-    await this.essl.touch(sn);
+  async getRequest(@Query('SN') sn: string, @Req() req: any): Promise<string> {
+    await this.essl.touch(sn, req.ip);
     return 'OK';
   }
 
@@ -73,8 +73,8 @@ export class EsslIclockController {
   @Post('devicecmd')
   @Header('Content-Type', 'text/plain')
   @HttpCode(200)
-  async deviceCmd(@Query('SN') sn: string): Promise<string> {
-    await this.essl.touch(sn);
+  async deviceCmd(@Query('SN') sn: string, @Req() req: any): Promise<string> {
+    await this.essl.touch(sn, req.ip);
     return 'OK';
   }
 
@@ -101,12 +101,12 @@ export class EsslIclockController {
       `push table=${tableU || '-'} SN=${sn || '-'} bytes=${raw.length} from=${req?.ip || req?.socket?.remoteAddress || '-'}`,
     );
     if (tableU === 'ATTLOG') {
-      const count = await this.essl.ingestAttlog(sn, raw);
+      const count = await this.essl.ingestAttlog(sn, raw, req.ip);
       return `OK: ${count}\nStamp=${stamp || Date.now()}`;
     }
 
     // OPERLOG / other tables — acknowledge only for now.
-    await this.essl.touch(sn);
+    await this.essl.touch(sn, req.ip);
     return `OK\nStamp=${stamp || Date.now()}`;
   }
 
