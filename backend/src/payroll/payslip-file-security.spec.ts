@@ -5,6 +5,7 @@ import { PayrollPayslipsService } from './payroll-payslips.service';
 import { payslipFileName } from './utils/payslip-file-name';
 import { generatePayslipPdfBuffer } from './utils/payslip-pdf';
 import archiver = require('archiver');
+import { PayslipGeneratorService } from './services/payslip-generator.service';
 
 jest.mock('archiver', () => jest.fn());
 
@@ -14,6 +15,64 @@ jest.mock('./utils/payslip-pdf', () => ({
 }));
 
 describe('payslip filename containment', () => {
+  it('contains the alternate payslip generator within its client and run', async () => {
+    const temp = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'alternate-payslip-security-'),
+    );
+    try {
+      const run = {
+        id: 'run-a',
+        clientId: 'client-a',
+        periodYear: 2026,
+        periodMonth: 11,
+      };
+      const worker = {
+        id: 'worker-a',
+        employeeId: 'employee-a',
+        employeeCode: '../../client-b/existing',
+      };
+      const save = jest.fn(async (row) => row);
+      const svc = Object.create(PayslipGeneratorService.prototype);
+      Object.assign(svc, {
+        UPLOADS_DIR: temp,
+        runRepo: { findOne: async () => run },
+        runEmpRepo: { findOne: async () => worker },
+        clientRepo: { findOne: async () => null },
+        empRepo: { findOne: async () => null },
+        compRepo: { find: async () => [] },
+        compValRepo: { find: async () => [] },
+        layoutRepo: { findOne: async () => null },
+        access: { assertClientAllowed: jest.fn(async () => {}) },
+        enrichValueMap: jest.fn(async () => {}),
+        renderPayslipPdf: jest.fn(async () => Buffer.from('TEST PDF')),
+        archiveRepo: { findOne: async () => null, create: (row) => row, save },
+      });
+      const result = await svc.generateForEmployee(
+        'run-a',
+        'employee-a',
+        'test-user',
+        { id: 'test-user', roleCode: 'CLIENT', clientId: 'client-a' },
+      );
+      expect(result.fileName).toBe(
+        payslipFileName(2026, 11, worker.employeeCode, worker.id),
+      );
+      expect(path.dirname(save.mock.calls[0][0].filePath)).toBe(
+        path.join(temp, 'client-a', '2026_11', 'run-a'),
+      );
+      expect(save.mock.calls[0][0].employeeCode).toBe(worker.employeeCode);
+      await expect(
+        svc.archivePayslip(
+          run,
+          worker,
+          Buffer.from('BAD'),
+          '../../escape.pdf',
+          'test-user',
+        ),
+      ).rejects.toThrow('Invalid payslip archive path');
+    } finally {
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
+  });
   it.each([
     '../../other-client/payslip',
     '..\\..\\other-client\\payslip',

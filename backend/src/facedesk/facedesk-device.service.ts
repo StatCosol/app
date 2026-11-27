@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
+import { isUUID } from 'class-validator';
 import { FaceDeskDeviceEntity } from './entities/facedesk.entities';
 
 export interface FaceDeskDeviceContext {
@@ -59,6 +60,22 @@ export class FaceDeskDeviceService {
   ): Promise<Omit<FaceDeskDeviceEntity, 'adminPin'>> {
     if (!body?.deviceName)
       throw new BadRequestException('deviceName is required');
+    if (
+      body.mode != null &&
+      !['ATTENDANCE', 'ENROLLMENT'].includes(body.mode)
+    ) {
+      throw new BadRequestException('Invalid kiosk mode');
+    }
+    if (body.branchId != null) {
+      if (!isUUID(body.branchId))
+        throw new BadRequestException('Invalid branch');
+      const branches = await this.dataSource.query(
+        'SELECT id FROM client_branches WHERE id = $1 AND clientid = $2',
+        [body.branchId, clientId],
+      );
+      if (!branches.length)
+        throw new BadRequestException('Branch does not belong to this client');
+    }
     const adminPin = (body.adminPin ?? '').trim();
     if (!adminPin) {
       throw new BadRequestException(
