@@ -1,4 +1,5 @@
 import { actualContractorDocumentSql } from '../common/actual-records';
+import { operationalDate } from '../common/operational-date';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -31,10 +32,7 @@ export class ComplianceCronService {
   ) {}
 
   private toDateOnly(d: Date): string {
-    const yyyy = d.getUTCFullYear();
-    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(d.getUTCDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return operationalDate(d);
   }
 
   private async findAdminUserId(): Promise<string | null> {
@@ -49,7 +47,7 @@ export class ComplianceCronService {
     return admin?.id ?? null;
   }
 
-  @Cron('0 30 1 * * *')
+  @Cron('0 30 1 * * *', { timeZone: 'Asia/Kolkata' })
   async markOverdueAndNotify() {
     const logId = await this.cronLogger.start(
       'compliance:markOverdueAndNotify',
@@ -168,7 +166,7 @@ export class ComplianceCronService {
     }
   }
 
-  @Cron('0 0 1 * * *')
+  @Cron('0 0 1 * * *', { timeZone: 'Asia/Kolkata' })
   async sendSlaReminders() {
     const today = new Date();
     const todayStr = this.toDateOnly(today);
@@ -301,7 +299,7 @@ export class ComplianceCronService {
 
   /* ═══════ Reupload Reminders (daily 09:30) ═══════ */
 
-  @Cron('0 30 9 * * *')
+  @Cron('0 30 9 * * *', { timeZone: 'Asia/Kolkata' })
   async sendReuploadReminders() {
     const now = new Date();
     const adminId = await this.findAdminUserId();
@@ -410,7 +408,7 @@ export class ComplianceCronService {
 
   /* ═══════ MCD Reminders (daily 10:00) ═══════ */
 
-  @Cron('0 0 10 * * *')
+  @Cron('0 0 10 * * *', { timeZone: 'Asia/Kolkata' })
   async sendMcdReminders() {
     const now = new Date();
     const year = now.getUTCFullYear();
@@ -478,7 +476,7 @@ export class ComplianceCronService {
 
   /* ═══════ MCD Escalation (1st of month at 08:00) ═══════ */
 
-  @Cron('0 0 8 1 * *')
+  @Cron('0 0 8 1 * *', { timeZone: 'Asia/Kolkata' })
   async escalateOverdueMcd() {
     const now = new Date();
     // Escalate previous month's incomplete MCD
@@ -564,7 +562,7 @@ export class ComplianceCronService {
    * Sends notification + email for each contractor that has REJECTED documents
    * on any active (non-completed, non-cancelled) audit.
    */
-  @Cron('0 0 2 * * *')
+  @Cron('0 0 2 * * *', { timeZone: 'Asia/Kolkata' })
   async notifyNonCompliantAuditDocuments() {
     const logId = await this.cronLogger.start(
       'audit:notifyNonCompliantDocuments',

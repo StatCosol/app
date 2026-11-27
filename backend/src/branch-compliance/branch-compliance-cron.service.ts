@@ -13,7 +13,7 @@ export class BranchComplianceCronService {
   ) {}
 
   /** Run daily at 1:00 AM to mark overdue documents */
-  @Cron(CronExpression.EVERY_DAY_AT_1AM)
+  @Cron(CronExpression.EVERY_DAY_AT_1AM, { timeZone: 'Asia/Kolkata' })
   async handleOverdueCheck() {
     this.logger.log('Running overdue compliance document check...');
     try {
@@ -27,7 +27,7 @@ export class BranchComplianceCronService {
   }
 
   /** Run daily at 9:00 AM — send T-5 day reminders */
-  @Cron('0 9 * * *')
+  @Cron('0 9 * * *', { timeZone: 'Asia/Kolkata' })
   async handleT5Reminder() {
     this.logger.log('Running T-5 day compliance reminders...');
     try {
@@ -52,7 +52,7 @@ export class BranchComplianceCronService {
   }
 
   /** Run daily at 9:30 AM — send T-2 day URGENT reminders */
-  @Cron('30 9 * * *')
+  @Cron('30 9 * * *', { timeZone: 'Asia/Kolkata' })
   async handleT2Reminder() {
     this.logger.log('Running T-2 day URGENT compliance reminders...');
     try {

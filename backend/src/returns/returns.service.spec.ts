@@ -100,6 +100,77 @@ describe('ReturnsService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('filed dates in India', () => {
+    afterEach(() => jest.useRealTimers());
+
+    it.each([
+      ['2026-11-26T18:29:59Z', '2026-11-26'],
+      ['2026-11-26T18:30:00Z', '2026-11-27'],
+      ['2026-11-26T23:59:59Z', '2026-11-27'],
+      ['2026-11-27T00:00:00Z', '2026-11-27'],
+      ['2026-12-31T18:30:00Z', '2027-01-01'],
+    ])('persists the Indian date at %s', async (instant, expected) => {
+      jest.useFakeTimers().setSystemTime(new Date(instant));
+      assignmentsRepo.findOne.mockResolvedValue({ id: 'assignment' });
+      returnsRepo.findOne.mockResolvedValue({
+        id: 'test-return',
+        clientId: 'c1',
+        status: 'IN_PROGRESS',
+        filedDate: null,
+        challanFilePath: '/test-evidence.pdf',
+      });
+      await service.updateStatusAsCrm(crmUser, 'test-return', {
+        status: 'SUBMITTED',
+      });
+      expect(returnsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'SUBMITTED',
+          filedDate: expected,
+        }),
+      );
+    });
+
+    it.each([
+      ['', '2026-11-27'],
+      ['2026-11-20', '2026-11-20'],
+    ])(
+      'bulk filing defaults to India time but preserves an explicit date (%s)',
+      async (filedOn, expected) => {
+        jest.useFakeTimers().setSystemTime(new Date('2026-11-26T18:30:00Z'));
+        assignmentsRepo.findOne.mockResolvedValue({ id: 'assignment' });
+        returnsRepo.findOne.mockResolvedValue({
+          id: 'test-return',
+          clientId: 'c1',
+          status: 'IN_PROGRESS',
+        });
+        expect(
+          await service.bulkMarkFiled(crmUser, ['test-return'], filedOn),
+        ).toEqual([{ taskId: 'test-return', ok: true }]);
+        expect(returnsRepo.save).toHaveBeenCalledWith(
+          expect.objectContaining({ filedDate: expected }),
+        );
+      },
+    );
+
+    it('does not replace an existing filed date on resubmission', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-11-26T18:30:00Z'));
+      assignmentsRepo.findOne.mockResolvedValue({ id: 'assignment' });
+      returnsRepo.findOne.mockResolvedValue({
+        id: 'test-return',
+        clientId: 'c1',
+        status: 'IN_PROGRESS',
+        filedDate: '2026-11-20',
+        challanFilePath: '/test-evidence.pdf',
+      });
+      await service.updateStatusAsCrm(crmUser, 'test-return', {
+        status: 'SUBMITTED',
+      });
+      expect(returnsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ filedDate: '2026-11-20' }),
+      );
+    });
+  });
+
   // ── createForCrm ──
 
   describe('createForCrm', () => {
