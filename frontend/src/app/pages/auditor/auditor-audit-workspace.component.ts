@@ -1214,8 +1214,16 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
+  get canStartReportRevision(): boolean {
+    if (this.reportHeld) return false;
+    const status = this.statusKey(this.audit?.status);
+    return ['COMPLETED', 'CLOSED'].includes(status) ||
+      (this.reportStatus === 'PUBLISHED' &&
+        ['IN_PROGRESS', 'SUBMITTED', 'CORRECTION_PENDING', 'REVERIFICATION_PENDING'].includes(status));
+  }
+
   async reopenForReaudit(): Promise<void> {
-    if (!this.auditId || this.busy || !['COMPLETED', 'CLOSED'].includes(this.statusKey(this.audit?.status))) return;
+    if (!this.auditId || this.busy || !this.canStartReportRevision) return;
     const result = await this.dialog.prompt('Reopen audit', 'Explain the corrections required. The last published report remains available while a new draft is reviewed.', { placeholder: 'Reason for reopening', confirmText: 'Reopen audit' });
     if (!result.confirmed) return;
     const reason = (result.value || '').trim();

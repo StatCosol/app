@@ -25,6 +25,15 @@ BEGIN
   END IF;
   aid := CASE WHEN TG_OP='DELETE' THEN OLD.audit_id ELSE NEW.audit_id END;
   SELECT status INTO audit_state FROM audits WHERE id=aid FOR UPDATE;
+  -- The authorized client soft-delete cascade closes outstanding work after
+  -- marking the client deleted. Permit only that metadata-only archival write;
+  -- findings, evidence, risk, ownership and issued PDFs must stay untouched.
+  IF TG_OP='UPDATE' AND NEW.status='CLOSED'
+    AND (to_jsonb(NEW)-'status'-'updated_at') = (to_jsonb(OLD)-'status'-'updated_at')
+    AND EXISTS(SELECT 1 FROM audits a JOIN clients c ON c.id=a.client_id
+      WHERE a.id=aid AND c.is_deleted=true) THEN
+    RETURN NEW;
+  END IF;
   SELECT status,held_at INTO report_state,report_held FROM audit_reports
     WHERE audit_id=aid ORDER BY updated_at DESC,created_at DESC LIMIT 1;
   IF (audit_state NOT IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')
@@ -44,8 +53,12 @@ FOR EACH ROW EXECUTE FUNCTION guard_audit_observation_draft();
 CREATE OR REPLACE FUNCTION preserve_submitted_audit_score() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF OLD.submitted_at IS NOT NULL AND NOT (
-    OLD.status IN ('COMPLETED','CLOSED') AND NEW.status='IN_PROGRESS'
-    AND NEW.submitted_at IS NULL AND NEW.score IS NULL
+    NEW.status='IN_PROGRESS' AND NEW.submitted_at IS NULL AND NEW.score IS NULL
+    AND (OLD.status IN ('COMPLETED','CLOSED') OR EXISTS(
+      SELECT 1 FROM audit_reports draft JOIN audit_reports issued ON issued.audit_id=draft.audit_id
+      WHERE draft.audit_id=OLD.id AND draft.status='DRAFT' AND issued.status='PUBLISHED'
+        AND draft.version_no>issued.version_no
+    ))
   ) THEN
     NEW.score := OLD.score;
     NEW.score_calculated_at := OLD.score_calculated_at;

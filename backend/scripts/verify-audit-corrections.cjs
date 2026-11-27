@@ -138,7 +138,7 @@ async function reset() {
     clientId: randomUUID(),
     status: 'CORRECTION_PENDING',
   });
-  await ds.query("INSERT INTO clients SELECT client_id,'Synthetic client' FROM audits WHERE id=$1",[auditId]);
+  await ds.query("INSERT INTO clients(id,client_name) SELECT client_id,'Synthetic client' FROM audits WHERE id=$1",[auditId]);
   await ncRepo().save({
     id: ncId,
     auditId,
@@ -185,7 +185,7 @@ async function main() {
     ALTER TABLE audits ADD COLUMN branch_id uuid, ADD COLUMN contractor_user_id uuid, ADD COLUMN audit_code text, ADD COLUMN audit_type text, ADD COLUMN period_code text, ADD COLUMN score numeric, ADD COLUMN score_calculated_at timestamptz, ADD COLUMN submitted_at timestamptz;
     ALTER TABLE audit_reports ADD COLUMN report_type text DEFAULT 'CLIENT', ADD COLUMN version_no int DEFAULT 1, ADD COLUMN executive_summary text, ADD COLUMN scope text, ADD COLUMN methodology text, ADD COLUMN findings text, ADD COLUMN recommendations text, ADD COLUMN selected_observation_ids jsonb, ADD COLUMN finalized_at timestamptz;
     ALTER TABLE audit_checklist_items ADD COLUMN item_label text, ADD COLUMN sort_order int, ADD COLUMN created_at timestamptz;
-    CREATE TABLE clients(id uuid PRIMARY KEY,client_name text);
+    CREATE TABLE clients(id uuid PRIMARY KEY,client_name text,is_deleted boolean DEFAULT false);
     CREATE TABLE client_branches(id uuid PRIMARY KEY,branchname text);
     CREATE TABLE audit_observation_categories(id uuid PRIMARY KEY,name text);
     CREATE TABLE audit_observations(id uuid PRIMARY KEY,audit_id uuid,category_id uuid,sequence_number int,observation text,clause text,risk text,status text,recommendation text,consequences text,compliance_requirements text,elaboration text,evidence_file_paths text,created_at timestamptz);

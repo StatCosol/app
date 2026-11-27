@@ -1225,10 +1225,6 @@ export class AuditsService implements OnModuleInit {
       if (!audit) throw new NotFoundException('Audit not found');
       if (audit.assigned_auditor_id !== user.userId)
         throw new ForbiddenException('Not your audit');
-      if (!['COMPLETED', 'CLOSED'].includes(audit.status))
-        throw new BadRequestException(
-          'Only completed or closed audits can be reopened for re-audit',
-        );
       assertContractorAuditScope(
         audit.audit_type,
         audit.branch_id,
@@ -1238,6 +1234,18 @@ export class AuditsService implements OnModuleInit {
         'SELECT * FROM audit_reports WHERE audit_id = $1 ORDER BY updated_at DESC, created_at DESC LIMIT 1 FOR UPDATE',
         [auditId],
       );
+      const issuedWhileActive =
+        report?.status === 'PUBLISHED' &&
+        [
+          'IN_PROGRESS',
+          'SUBMITTED',
+          'CORRECTION_PENDING',
+          'REVERIFICATION_PENDING',
+        ].includes(audit.status);
+      if (!['COMPLETED', 'CLOSED'].includes(audit.status) && !issuedWhileActive)
+        throw new BadRequestException(
+          'Only completed/closed audits or audits with a published report can start a new revision',
+        );
       if (report?.held_at)
         throw new BadRequestException(
           'Release the report hold before reopening the audit',
