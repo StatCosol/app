@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString, IsUUID, Matches } from 'class-validator';
 
 export class UploadMonthlyDocumentDto {
   @IsUUID()
@@ -7,6 +7,7 @@ export class UploadMonthlyDocumentDto {
 
   @IsString()
   @IsNotEmpty()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'month must be YYYY-MM' })
   month: string;
 
   @IsString()

@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import * as path from 'path';
 import * as fs from 'fs';
 import PDFDocument from 'pdfkit';
+import { uniqueUploadDiskName } from '../common/safe-upload';
 
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { EmployeeNominationEntity } from '../employees/entities/employee-nomination.entity';
@@ -259,7 +260,9 @@ export class NominationsService {
     );
     fs.mkdirSync(outDir, { recursive: true });
 
-    const fileName = `${dto.formType}_${emp.employeeCode}_v${nextVersion}.pdf`;
+    const fileName = uniqueUploadDiskName(
+      `${dto.formType}_${emp.employeeCode}_v${nextVersion}.pdf`,
+    );
     const filePath = path.join(outDir, fileName);
 
     // Generate PDF
