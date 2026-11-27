@@ -39,6 +39,9 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,12 +51,20 @@ jobs:
           python-version: '3.11'
       - run: pip install semgrep
       - name: Scan first-party source
-        run: semgrep scan --config p/security-audit --error --metrics=off --json --output semgrep.json backend/src frontend/src face-svc/app mobile/app/src mobile/essportal/src
+        run: semgrep scan --config p/security-audit --error --metrics=off --json --output semgrep.json --sarif-output semgrep.sarif backend/src frontend/src face-svc/app mobile/app/src mobile/essportal/src
+      - name: Publish Semgrep findings
+        if: ${{ !cancelled() && hashFiles('semgrep.sarif') != '' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')) }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+          category: .github/workflows/security.yml:semgrep
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: semgrep
-          path: semgrep.json
+          path: |
+            semgrep.json
+            semgrep.sarif
 
   gitleaks:
     name: gitleaks (secret scan)
@@ -87,6 +98,9 @@ jobs:
   trivy-fs:
     name: Trivy filesystem scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -96,15 +110,29 @@ jobs:
           docker run --rm -v "$PWD:/workspace" aquasec/trivy:0.74.0 fs
           --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1
           --format json --output /workspace/trivy-fs.json /workspace
+      - name: Convert Trivy findings to SARIF
+        if: ${{ !cancelled() && hashFiles('trivy-fs.json') != '' }}
+        run: docker run --rm -v "$PWD:/workspace" aquasec/trivy:0.74.0 convert --format sarif --output /workspace/trivy-fs.sarif /workspace/trivy-fs.json
+      - name: Publish filesystem findings
+        if: ${{ !cancelled() && hashFiles('trivy-fs.sarif') != '' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')) }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: .github/workflows/security.yml:trivy-fs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: trivy-filesystem
-          path: trivy-fs.json
+          path: |
+            trivy-fs.json
+            trivy-fs.sarif
 
   trivy-images:
     name: Trivy image scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -120,15 +148,30 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/workspace"
           aquasec/trivy:0.74.0 image --severity HIGH,CRITICAL --exit-code 1
           --format json --output /workspace/trivy-image.json scan-target:${{ github.sha }}
+      - name: Convert image findings to SARIF
+        if: ${{ !cancelled() && hashFiles('trivy-image.json') != '' }}
+        run: docker run --rm -v "$PWD:/workspace" aquasec/trivy:0.74.0 convert --format sarif --output /workspace/trivy-image.sarif /workspace/trivy-image.json
+      - name: Publish image findings
+        if: ${{ !cancelled() && hashFiles('trivy-image.sarif') != '' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')) }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image.sarif
+          # Match the original matrix category so stale alerts can be reconciled.
+          category: .github/workflows/security.yml:trivy-images/context:${{ matrix.name }}/dockerfile:${{ matrix.name }}/Dockerfile/name:${{ matrix.name }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: trivy-image-${{ matrix.name }}
-          path: trivy-image.json
+          path: |
+            trivy-image.json
+            trivy-image.sarif
 
   codeql:
     name: CodeQL (JS/TS)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -139,7 +182,8 @@ jobs:
           build-mode: none
       - uses: github/codeql-action/analyze@v4
         with:
-          upload: false
+          upload: ${{ github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]') }}
+          category: .github/workflows/security.yml:codeql
           output: codeql-results
       - uses: actions/upload-artifact@v4
         if: always()

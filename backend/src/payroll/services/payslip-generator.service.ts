@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
@@ -25,6 +29,7 @@ import {
   addPageNumbers,
 } from '../../common/utils/pdf-helpers';
 import { loadLogoBuffer, payslipOtherEarnings } from '../utils/payslip-pdf';
+import { payslipFileName } from '../utils/payslip-file-name';
 import {
   renderPayslipLayout,
   validatePayslipLayout,
@@ -164,8 +169,12 @@ export class PayslipGeneratorService {
       layout,
     });
 
-    const monthStr = String(run.periodMonth).padStart(2, '0');
-    const fileName = `Payslip_${runEmp.employeeCode}_${run.periodYear}_${monthStr}.pdf`;
+    const fileName = payslipFileName(
+      run.periodYear,
+      run.periodMonth,
+      runEmp.employeeCode,
+      runEmp.id,
+    );
 
     // Archive the payslip
     await this.archivePayslip(run, runEmp, buffer, fileName, generatedByUserId);
@@ -850,14 +859,23 @@ export class PayslipGeneratorService {
     generatedByUserId: string,
   ) {
     // Ensure directory exists
-    const dirPath = path.join(
-      this.UPLOADS_DIR,
-      run.clientId,
+    const archiveRoot = path.resolve(this.UPLOADS_DIR);
+    const clientDir = path.resolve(archiveRoot, run.clientId);
+    const periodDir = path.resolve(
+      clientDir,
       `${run.periodYear}_${String(run.periodMonth).padStart(2, '0')}`,
     );
+    const dirPath = path.resolve(periodDir, run.id);
+    const filePath = path.resolve(dirPath, fileName);
+    if (
+      path.dirname(clientDir) !== archiveRoot ||
+      path.dirname(dirPath) !== periodDir ||
+      path.dirname(filePath) !== dirPath
+    ) {
+      throw new BadRequestException('Invalid payslip archive path');
+    }
     fs.mkdirSync(dirPath, { recursive: true });
 
-    const filePath = path.join(dirPath, fileName);
     fs.writeFileSync(filePath, buffer);
 
     // Upsert archive record
