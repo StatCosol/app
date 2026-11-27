@@ -22,7 +22,11 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import * as fs from 'fs';
 import * as path from 'path';
-import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+import {
+  makeSafeUploadOptions,
+  assertSafeFile,
+  uniqueUploadDiskName,
+} from '../common/safe-upload';
 import {
   actualAuditObservationSql,
   actualAuditSql,
@@ -260,6 +264,9 @@ export class CrmComplianceTrackerController {
     @Param('itemId') itemId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    if (!/^[1-9]\d*$/.test(itemId) || !Number.isSafeInteger(Number(itemId))) {
+      throw new BadRequestException('itemId must be a positive integer');
+    }
     assertSafeFile(file);
 
     const allowedMimes = new Set([
@@ -312,8 +319,7 @@ export class CrmComplianceTrackerController {
       item.branch_id,
     );
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const ext = path.extname(file.originalname) || '.pdf';
-    const safeName = `mcd_${itemId}_${Date.now()}${ext}`;
+    const safeName = uniqueUploadDiskName(file.originalname, `mcd_${item.id}`);
     const diskPath = path.join(dir, safeName);
     fs.writeFileSync(diskPath, file.buffer);
     const fileUrl = `mcd-evidence/${item.client_id}/${item.branch_id}/${safeName}`;

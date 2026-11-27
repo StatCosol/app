@@ -40,6 +40,7 @@ import {
   table,
 } from '../common/utils/pdf-helpers';
 import { buildNominationPdf } from './utils/statutory-nomination-pdf';
+import { uniqueUploadDiskName } from '../common/safe-upload';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -589,7 +590,9 @@ export class ClientEmployeesController {
     const buffer = await buildNominationPdf(upperType, emp, typeNominations);
 
     // Write PDF to disk
-    const fileName = `${formType}_${emp.employeeCode}.pdf`;
+    const fileName = uniqueUploadDiskName(
+      `${formType}_${emp.employeeCode}.pdf`,
+    );
     const dirPath = path.join(process.cwd(), 'uploads', 'forms', clientId);
     if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
     const filePath = path.join(dirPath, fileName);

@@ -70,6 +70,10 @@ export class MonthlyDocumentsService {
     code: string,
     file: UploadedFile,
   ): Promise<MonthlyComplianceUploadEntity> {
+    // Month is also a directory segment; reject traversal before any file write.
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      throw new BadRequestException('month must be YYYY-MM');
+    }
     if (!file?.buffer) throw new BadRequestException('File is required');
     if (!this.allowedMimeTypes.has(file.mimetype)) {
       throw new BadRequestException(
