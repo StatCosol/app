@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import {
   BadRequestException,
   ForbiddenException,
@@ -1133,7 +1134,7 @@ export class ReturnsService {
   }
 
   private today(): string {
-    return new Date().toISOString().substring(0, 10);
+    return operationalDate();
   }
 
   private saveFile(file: UploadedFile, kind: ReturnKind): string {
