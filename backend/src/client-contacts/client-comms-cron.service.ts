@@ -25,7 +25,7 @@ export interface RunOptions {
 export interface RunResultEntry {
   clientId: string;
   clientName: string;
-  status: 'SENT' | 'SKIPPED' | 'FAILED';
+  status: 'SENT' | 'QUEUED' | 'SKIPPED' | 'FAILED';
   reason?: string;
   recipients?: string[];
   cc?: string[];
@@ -422,22 +422,31 @@ export class ClientCommsCronService {
         title,
         body,
       );
-      const ok = (send as { ok?: boolean }).ok !== false;
+      const ok = 'ok' in send && send.ok;
+      const status =
+        'queued' in send && send.queued
+          ? 'QUEUED'
+          : ok
+            ? 'SENT'
+            : 'skipped' in send
+              ? 'SKIPPED'
+              : 'FAILED';
       await this.recordRun({
         clientId: c.id,
         commType: 'PAYROLL_INPUT_REQUEST',
         runMonth: month,
         recipients,
-        status: ok ? 'SENT' : 'FAILED',
+        status,
         failureReason: ok
           ? null
           : (send as { error?: string }).error || 'Unknown send error',
         triggeredBy: opts.triggeredBy,
+        digestEventId: 'digestEventId' in send ? send.digestEventId : undefined,
       });
       results.push({
         clientId: c.id,
         clientName: c.name,
-        status: ok ? 'SENT' : 'FAILED',
+        status,
         recipients,
         reason: ok ? undefined : (send as { error?: string }).error,
       });
@@ -546,23 +555,32 @@ export class ClientCommsCronService {
       const send = await this.email.sendAuditMail(to, subject, title, body, {
         cc: cc.length ? cc : undefined,
       });
-      const ok = (send as { ok?: boolean }).ok !== false;
+      const ok = 'ok' in send && send.ok;
+      const status =
+        'queued' in send && send.queued
+          ? 'QUEUED'
+          : ok
+            ? 'SENT'
+            : 'skipped' in send
+              ? 'SKIPPED'
+              : 'FAILED';
       await this.recordRun({
         clientId: c.id,
         commType: 'MCD_REQUEST',
         runMonth: month,
         recipients: to,
         ccEmails: cc,
-        status: ok ? 'SENT' : 'FAILED',
+        status,
         failureReason: ok
           ? null
           : (send as { error?: string }).error || 'Unknown send error',
         triggeredBy: opts.triggeredBy,
+        digestEventId: 'digestEventId' in send ? send.digestEventId : undefined,
       });
       results.push({
         clientId: c.id,
         clientName: c.name,
-        status: ok ? 'SENT' : 'FAILED',
+        status,
         recipients: to,
         cc,
         reason: ok ? undefined : (send as { error?: string }).error,
@@ -662,22 +680,31 @@ export class ClientCommsCronService {
         'Weekly Compliance News',
         tpl.body,
       );
-      const ok = (send as { ok?: boolean }).ok !== false;
+      const ok = 'ok' in send && send.ok;
+      const status =
+        'queued' in send && send.queued
+          ? 'QUEUED'
+          : ok
+            ? 'SENT'
+            : 'skipped' in send
+              ? 'SKIPPED'
+              : 'FAILED';
       await this.recordRun({
         clientId: c.id,
         commType: 'WEEKLY_COMPLIANCE_NEWS',
         runMonth: runWeek,
         recipients,
-        status: ok ? 'SENT' : 'FAILED',
+        status,
         failureReason: ok
           ? null
           : (send as { error?: string }).error || 'Unknown send error',
         triggeredBy: opts.triggeredBy,
+        digestEventId: 'digestEventId' in send ? send.digestEventId : undefined,
       });
       results.push({
         clientId: c.id,
         clientName: c.name,
-        status: ok ? 'SENT' : 'FAILED',
+        status,
         recipients,
         reason: ok ? undefined : (send as { error?: string }).error,
       });
@@ -877,7 +904,7 @@ export class ClientCommsCronService {
     const rows = await this.ds.query(
       `SELECT 1 FROM client_monthly_comm_runs
        WHERE client_id = $1 AND comm_type = $2 AND run_month = $3
-         AND status = 'SENT' LIMIT 1`,
+         AND status IN ('SENT','QUEUED','UNKNOWN') LIMIT 1`,
       [clientId, commType, runMonth],
     );
     return rows.length > 0;
@@ -889,7 +916,8 @@ export class ClientCommsCronService {
     runMonth: Date;
     recipients: string[];
     ccEmails?: string[];
-    status: 'SENT' | 'SKIPPED' | 'FAILED';
+    status: 'SENT' | 'QUEUED' | 'SKIPPED' | 'FAILED';
+    digestEventId?: string;
     failureReason?: string | null;
     triggeredBy: string;
   }) {
@@ -897,15 +925,16 @@ export class ClientCommsCronService {
       await this.ds.query(
         `INSERT INTO client_monthly_comm_runs
            (client_id, comm_type, run_month, recipients, cc_emails, status,
-            failure_reason, triggered_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            failure_reason, triggered_by, digest_event_id, sent_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CASE WHEN $6::text = 'SENT' THEN NOW() ELSE NULL END)
          ON CONFLICT (client_id, comm_type, run_month) DO UPDATE SET
            recipients     = EXCLUDED.recipients,
            cc_emails      = EXCLUDED.cc_emails,
            status         = EXCLUDED.status,
            failure_reason = EXCLUDED.failure_reason,
            triggered_by   = EXCLUDED.triggered_by,
-           sent_at        = NOW()`,
+           digest_event_id = EXCLUDED.digest_event_id,
+           sent_at        = EXCLUDED.sent_at`,
         [
           args.clientId,
           args.commType,
@@ -915,6 +944,7 @@ export class ClientCommsCronService {
           args.status,
           args.failureReason || null,
           args.triggeredBy,
+          args.digestEventId || null,
         ],
       );
     } catch (e) {
@@ -927,6 +957,7 @@ export class ClientCommsCronService {
   private buildSummary(entries: RunResultEntry[]) {
     const summary = {
       total: entries.length,
+      queued: entries.filter((e) => e.status === 'QUEUED').length,
       sent: entries.filter((e) => e.status === 'SENT').length,
       skipped: entries.filter((e) => e.status === 'SKIPPED').length,
       failed: entries.filter((e) => e.status === 'FAILED').length,

@@ -53,11 +53,11 @@ export interface WeeklyNewsRecipient {
 }
 
 export interface CommRunSummary {
-  summary: { total: number; sent: number; skipped: number; failed: number };
+  summary: { total: number; queued: number; sent: number; skipped: number; failed: number };
   entries: Array<{
     clientId: string;
     clientName: string;
-    status: 'SENT' | 'SKIPPED' | 'FAILED';
+    status: 'QUEUED' | 'SENT' | 'SKIPPED' | 'FAILED';
     reason?: string;
     recipients?: string[];
     cc?: string[];

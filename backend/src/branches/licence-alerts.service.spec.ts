@@ -121,3 +121,45 @@ describe('Licence alert scope and licence amendments', () => {
     expect(changed.licensedWorkerLimit).toBeNull();
   });
 });
+
+describe('Queued licence delivery', () => {
+  it('retains the notification as not emailed until the digest is sent', async () => {
+    const ds = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce([{ id: 'alert' }])
+        .mockResolvedValueOnce([{ email: 'fixture@example.invalid' }])
+        .mockResolvedValueOnce([{ id: 'alert' }])
+        .mockResolvedValue([]),
+    };
+    const mail = {
+      sendAuditMail: jest
+        .fn()
+        .mockResolvedValue({ ok: true, queued: true, digestEventId: 'event' }),
+    };
+    const service = new LicenceAlertsService(ds as any, mail as any, {} as any);
+    await (service as any).notify(
+      {
+        registrationId: 'registration',
+        clientId: 'client',
+        branchId: 'branch',
+        type: 'LICENCE',
+        branchName: 'Fixture',
+        clientName: 'Fixture',
+      },
+      'key',
+      'EXPIRY',
+      'HIGH',
+      'Expiry',
+      'Due',
+    );
+    expect(ds.query.mock.calls[2][0]).toContain('digest_event_id IS NULL');
+    expect(ds.query.mock.calls[3]).toEqual([
+      'UPDATE registration_alerts SET digest_event_id=$2,email_lease_until=NULL WHERE id=$1',
+      ['alert', 'event'],
+    ]);
+    expect(
+      ds.query.mock.calls.some(([sql]) => sql.includes('SET emailed=true')),
+    ).toBe(false);
+  });
+});

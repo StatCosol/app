@@ -14,6 +14,12 @@ export class InvoiceEmailLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'digest_event_id', type: 'uuid', nullable: true })
+  digestEventId: string | null;
+
+  @Column({ name: 'digest_delivery_applied', type: 'boolean', default: false })
+  digestDeliveryApplied: boolean;
+
   @Column({ name: 'invoice_id', type: 'uuid', nullable: true })
   invoiceId: string | null;
 
@@ -49,10 +55,10 @@ export class InvoiceEmailLog {
   @Column({
     name: 'sent_status',
     type: 'enum',
-    enum: MailStatus,
+    enum: [...Object.values(MailStatus), 'QUEUED', 'UNKNOWN'],
     default: MailStatus.NOT_SENT,
   })
-  sentStatus: MailStatus;
+  sentStatus: MailStatus | 'QUEUED' | 'UNKNOWN';
 
   @Column({ name: 'sent_at', type: 'timestamp', nullable: true })
   sentAt: Date | null;

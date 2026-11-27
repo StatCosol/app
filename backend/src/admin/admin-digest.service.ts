@@ -5,7 +5,7 @@ import { EmailService } from '../email/email.service';
 import { CronLockService } from '../common/services/cron-lock.service';
 
 type DigestType = 'WEEKLY' | 'CRITICAL';
-type DigestRunStatus = 'SUCCESS' | 'FAILED' | 'SKIPPED';
+type DigestRunStatus = 'SUCCESS' | 'QUEUED' | 'FAILED' | 'SKIPPED';
 
 export interface OverdueAuditRow {
   client: string;
@@ -166,7 +166,7 @@ export class AdminDigestService {
     triggeredBy: string | null = null,
     source = 'MANUAL',
   ): Promise<{
-    status: 'ok' | 'skipped';
+    status: 'queued' | 'skipped';
     runId: number | null;
     recipientsCount: number;
   }> {
@@ -194,29 +194,33 @@ export class AdminDigestService {
         weekly.lowestCompliance,
       );
 
-      await this.email.sendAuditMail(
+      const delivery = await this.email.sendAuditMail(
         to,
         'Statco Weekly Compliance Digest',
         'Weekly Compliance Digest',
         html,
       );
+      if (!('ok' in delivery) || !delivery.ok)
+        throw new Error('Summary could not be queued');
 
       const run = await this.logRun(
         'WEEKLY',
-        'SUCCESS',
+        'QUEUED',
         triggeredBy,
         to.length,
         {
           source,
+          digestEventId:
+            'digestEventId' in delivery ? delivery.digestEventId : null,
           overdueAuditsCount: weekly.overdueAudits.length,
           assignmentsDueCount: weekly.assignmentsDue.length,
           lowestComplianceCount: weekly.lowestCompliance.length,
         },
         null,
       );
-      this.logger.log('Weekly digest email sent');
+      this.logger.log('Weekly digest email queued for daily summary');
       return {
-        status: 'ok',
+        status: 'queued',
         runId: run?.id ?? null,
         recipientsCount: to.length,
       };
@@ -238,7 +242,7 @@ export class AdminDigestService {
     triggeredBy: string | null = null,
     source = 'MANUAL',
   ): Promise<{
-    status: 'ok' | 'skipped';
+    status: 'queued' | 'skipped';
     runId: number | null;
     recipientsCount: number;
   }> {
@@ -283,27 +287,31 @@ export class AdminDigestService {
         critical.overdueAudits30,
         critical.assignmentsPastDue,
       );
-      await this.email.sendAuditMail(
+      const delivery = await this.email.sendAuditMail(
         to,
         'Statco Daily Critical Alerts',
         'Daily Critical Alerts',
         html,
       );
+      if (!('ok' in delivery) || !delivery.ok)
+        throw new Error('Summary could not be queued');
       const run = await this.logRun(
         'CRITICAL',
-        'SUCCESS',
+        'QUEUED',
         triggeredBy,
         to.length,
         {
           source,
+          digestEventId:
+            'digestEventId' in delivery ? delivery.digestEventId : null,
           overdueAudits30Count: critical.overdueAudits30.length,
           assignmentsPastDueCount: critical.assignmentsPastDue.length,
         },
         null,
       );
-      this.logger.log('Critical alerts email sent');
+      this.logger.log('Critical alerts email queued for daily summary');
       return {
-        status: 'ok',
+        status: 'queued',
         runId: run?.id ?? null,
         recipientsCount: to.length,
       };
