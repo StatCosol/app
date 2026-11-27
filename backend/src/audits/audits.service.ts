@@ -1,3 +1,4 @@
+import { observationScore, submissionScore } from './audit-score';
 import { operationalDate } from '../common/operational-date';
 import { carryForwardAuditDocuments } from './audit-document-carry-forward';
 import {
@@ -637,12 +638,9 @@ export class AuditsService implements OnModuleInit {
           'Release the report hold before completing or closing the audit',
         );
       const reportStatus = String(latestReport?.status || '').toUpperCase();
-      if (
-        targetStatus === 'CLOSED' &&
-        !['APPROVED', 'PUBLISHED'].includes(reportStatus)
-      ) {
+      if (!['APPROVED', 'PUBLISHED'].includes(reportStatus)) {
         throw new BadRequestException(
-          'CRM must approve the latest report before closing the audit',
+          'CRM must approve the latest report before completing or closing the audit',
         );
       }
       const reportFinalized = ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(
@@ -692,11 +690,7 @@ export class AuditsService implements OnModuleInit {
         throw new BadRequestException(
           'Resolve audit point corrections before completing the audit',
         );
-      const scoreResult = await this.calculateScore(auditId);
-      audit.score = fieldwork
-        ? Math.round((scoreResult.score + fieldwork.score) / 2)
-        : scoreResult.score;
-      audit.scoreCalculatedAt = new Date();
+      // Preserve the submitted assessment; correction closure is not a fresh audit.
       // Item #10: release the contractor upload lock so the contractor can
       // upload supplementary documents post-audit and roll-forward into the
       // next audit cycle.
@@ -789,61 +783,15 @@ export class AuditsService implements OnModuleInit {
   // Risk weights: CRITICAL=10, HIGH=6, MEDIUM=3, LOW=1
   // Score = max(0, 100 − totalWeightedDemerits) for open observations.
   // Resolved/Closed observations don't count.
-  private static readonly RISK_WEIGHT: Record<string, number> = {
-    CRITICAL: 10,
-    HIGH: 6,
-    MEDIUM: 3,
-    LOW: 1,
-  };
-
-  async calculateScore(auditId: string): Promise<{
-    score: number;
-    breakdown: {
-      critical: number;
-      high: number;
-      medium: number;
-      low: number;
-      total: number;
-    };
-  }> {
+  async calculateScore(auditId: string) {
     const audit = await this.repo.findOne({ where: { id: auditId } });
     if (!audit) throw new NotFoundException('Audit not found');
-
     const observations = await this.observationRepo.find({
       where: { auditId },
     });
-
-    let critical = 0,
-      high = 0,
-      medium = 0,
-      low = 0;
-    let totalDemerits = 0;
-
-    for (const obs of observations) {
-      // Only count open observations (not RESOLVED/CLOSED)
-      if (obs.status === 'RESOLVED' || obs.status === 'CLOSED') continue;
-
-      const risk = (obs.risk || 'LOW').toUpperCase();
-      const weight = AuditsService.RISK_WEIGHT[risk] ?? 1;
-      totalDemerits += weight;
-
-      if (risk === 'CRITICAL') critical++;
-      else if (risk === 'HIGH') high++;
-      else if (risk === 'MEDIUM') medium++;
-      else low++;
-    }
-
-    const score = Math.max(0, 100 - totalDemerits);
-
-    // Persist
-    audit.score = score;
-    audit.scoreCalculatedAt = new Date();
-    await this.repo.save(audit);
-
-    return {
-      score,
-      breakdown: { critical, high, medium, low, total: observations.length },
-    };
+    const result = observationScore(observations);
+    // This preview endpoint never writes the assessment, including after closure.
+    return { ...result, score: audit.submittedAt ? audit.score : result.score };
   }
 
   // ─── Auditor: List Contractors for Client ──────────────────────
@@ -938,42 +886,8 @@ export class AuditsService implements OnModuleInit {
     auditId: string,
     finalRemark?: string,
   ) {
-    this.assertAuditor(user);
-    const audit = await this.repo.findOne({ where: { id: auditId } });
-    if (!audit) throw new NotFoundException('Audit not found');
-    if (audit.assignedAuditorId !== user.userId) {
-      throw new ForbiddenException('Not your audit');
-    }
-    if (['COMPLETED', 'CLOSED', 'CANCELLED'].includes(audit.status)) {
-      throw new BadRequestException('Audit already completed/closed/cancelled');
-    }
-
-    const managed = await this.dataSource.query(
-      'SELECT 1 FROM audit_item_reviews WHERE audit_id=$1 UNION ALL SELECT 1 FROM audit_item_evidence WHERE audit_id=$1 LIMIT 1',
-      [auditId],
-    );
-    if (
-      managed.length ||
-      (this.statutoryEntry && (await this.statutoryEntry.hasSession(auditId)))
-    )
-      return this.submitAudit(user, auditId, finalRemark);
-
-    const obsScore = await this.calculateScore(auditId);
-    audit.score = obsScore.score;
-    audit.scoreCalculatedAt = new Date();
-    audit.submittedAt = new Date();
-    audit.status = 'SUBMITTED';
-    if (finalRemark) audit.finalRemark = finalRemark;
-    await this.repo.save(audit);
-    await this.updateScheduleStatusOnSubmit(auditId);
-
-    return {
-      id: audit.id,
-      status: audit.status,
-      score: obsScore.score,
-      message:
-        'Exceptional review round submitted. The report still requires preparation and CRM review; the audit is not closed.',
-    };
+    // Legacy button follows the same review and assessment rules as submission.
+    return this.submitAudit(user, auditId, finalRemark);
   }
 
   // ──────────────────────────────────────────────────────────────────
@@ -1212,23 +1126,24 @@ export class AuditsService implements OnModuleInit {
       contractorDocs: count(documents.contractorDocuments),
     };
 
-    // Also factor in observation-based score
-    const obsScore = await this.calculateScore(auditId);
-
-    // Document compliance score: % of total documents that are complied
+    const obsScore = observationScore(
+      await this.observationRepo.find({ where: { auditId } }),
+    );
     const fieldwork = await fieldworkScore(this.dataSource, auditId);
-    const docScore =
-      fieldwork?.score ??
-      (stats.total > 0
-        ? Math.round((stats.complied / stats.total) * 100)
-        : 100);
-
-    // Blended score: 50% observation-based, 50% document-based
-    const blendedScore = Math.round((obsScore.score + docScore) / 2);
-
-    audit.score = blendedScore;
-    audit.scoreCalculatedAt = new Date();
-    audit.submittedAt = new Date();
+    const assessment = submissionScore(
+      obsScore.score,
+      stats.total,
+      stats.complied,
+      fieldwork?.score,
+    );
+    const docScore = assessment.document;
+    // Keep the first submission for this revision, including NC resubmission.
+    const blendedScore = audit.submittedAt ? audit.score : assessment.blended;
+    if (!audit.submittedAt) {
+      audit.score = blendedScore;
+      audit.scoreCalculatedAt = new Date();
+      audit.submittedAt = new Date();
+    }
     if (finalRemark) audit.finalRemark = finalRemark;
 
     // Check if there are open NCs — if so, set CORRECTION_PENDING instead of SUBMITTED

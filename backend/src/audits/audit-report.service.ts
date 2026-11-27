@@ -1,3 +1,4 @@
+import { readIssuedReport } from './issued-report';
 import {
   fieldworkAppendix,
   assertFieldworkReviewed,
@@ -679,6 +680,10 @@ export class AuditReportService {
     const report = await this.getReportForAuditor(user, auditId);
     if (report.stage !== 'FINAL') {
       throw new BadRequestException('Only finalized reports can be exported');
+    }
+
+    if (report.status === 'PUBLISHED') {
+      return readIssuedReport(this.dataSource, report.reportId!);
     }
 
     const selectedIds = Array.isArray(report.selectedObservationIds)

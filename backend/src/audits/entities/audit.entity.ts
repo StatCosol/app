@@ -93,7 +93,7 @@ export class AuditEntity {
   notes: string | null;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
-  score: number | null; // Computed from observations (0-100)
+  score: number | null; // Assessment saved at submission (0-100); correction progress does not replace it
 
   @Column({ name: 'score_calculated_at', type: 'timestamptz', nullable: true })
   scoreCalculatedAt: Date | null;

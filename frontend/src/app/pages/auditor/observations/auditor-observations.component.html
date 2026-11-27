@@ -167,14 +167,17 @@
           </div>
         </div>
 
+        @if (item.readOnly) {
+          <p role="status">This audit/report is read-only. Reopen it before changing observations. Published PDFs remain unchanged.</p>
+        }
         <label class="field">
           Branch Reply / Elaborated Response
-          <textarea autocomplete="off" id="ao-branch-response-draft" name="branchResponseDraft" rows="3" [(ngModel)]="branchResponseDraft" placeholder="Branch response or verification context"></textarea>
+          <textarea [disabled]="!!selected?.readOnly" autocomplete="off" id="ao-branch-response-draft" name="branchResponseDraft" rows="3" [(ngModel)]="branchResponseDraft" placeholder="Branch response or verification context"></textarea>
         </label>
 
         <label class="field">
           Verification Notes
-          <textarea autocomplete="off" id="ao-verification-notes" name="verificationNotes" rows="2" [(ngModel)]="verificationNotes" placeholder="Notes for verify/reopen actions"></textarea>
+          <textarea [disabled]="!!selected?.readOnly" autocomplete="off" id="ao-verification-notes" name="verificationNotes" rows="2" [(ngModel)]="verificationNotes" placeholder="Notes for verify/reopen actions"></textarea>
         </label>
 
         <div class="action-row">
@@ -245,7 +248,7 @@
         </label>
 
         <div class="action-row">
-          <button type="button" class="standard-action btn btn-primary" [disabled]="busy || loading || selected?.status === 'CLOSED'" (click)="saveCapaDetails()">Save CAPA Details</button>
+          <button type="button" class="standard-action btn btn-primary" [disabled]="busy || loading || selected?.status === 'CLOSED'" [attr.aria-disabled]="!!selected?.readOnly" (click)="saveCapaDetails()">Save CAPA Details</button>
         </div>
 
         <div class="obs-preview">

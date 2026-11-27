@@ -130,7 +130,7 @@ const reportService = (source) =>
   );
 async function reset() {
   await ds.query(
-    'TRUNCATE audits,audit_non_compliances,audit_resubmissions,audit_document_reviews,contractor_documents,audit_reports,audit_checklist_items,audit_item_reviews,audit_logs',
+    'TRUNCATE audit_report_publications,clients,audit_observations,audits,audit_non_compliances,audit_resubmissions,audit_document_reviews,contractor_documents,audit_reports,audit_checklist_items,audit_item_reviews,audit_logs',
   );
   await auditRepo().save({
     id: auditId,
@@ -138,6 +138,7 @@ async function reset() {
     clientId: randomUUID(),
     status: 'CORRECTION_PENDING',
   });
+  await ds.query("INSERT INTO clients SELECT client_id,'Synthetic client' FROM audits WHERE id=$1",[auditId]);
   await ncRepo().save({
     id: ncId,
     auditId,
@@ -180,6 +181,20 @@ async function main() {
     CREATE TABLE users(id uuid PRIMARY KEY,name text);
     CREATE TABLE audit_logs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),entity_type text,entity_id uuid,action text,performed_by uuid,snapshot jsonb,created_at timestamptz DEFAULT now());`);
 
+  await ds.query(`
+    ALTER TABLE audits ADD COLUMN branch_id uuid, ADD COLUMN contractor_user_id uuid, ADD COLUMN audit_code text, ADD COLUMN audit_type text, ADD COLUMN period_code text, ADD COLUMN score numeric, ADD COLUMN score_calculated_at timestamptz, ADD COLUMN submitted_at timestamptz;
+    ALTER TABLE audit_reports ADD COLUMN report_type text DEFAULT 'CLIENT', ADD COLUMN version_no int DEFAULT 1, ADD COLUMN executive_summary text, ADD COLUMN scope text, ADD COLUMN methodology text, ADD COLUMN findings text, ADD COLUMN recommendations text, ADD COLUMN selected_observation_ids jsonb, ADD COLUMN finalized_at timestamptz;
+    ALTER TABLE audit_checklist_items ADD COLUMN item_label text, ADD COLUMN sort_order int, ADD COLUMN created_at timestamptz;
+    CREATE TABLE clients(id uuid PRIMARY KEY,client_name text);
+    CREATE TABLE client_branches(id uuid PRIMARY KEY,branchname text);
+    CREATE TABLE audit_observation_categories(id uuid PRIMARY KEY,name text);
+    CREATE TABLE audit_observations(id uuid PRIMARY KEY,audit_id uuid,category_id uuid,sequence_number int,observation text,clause text,risk text,status text,recommendation text,consequences text,compliance_requirements text,elaboration text,evidence_file_paths text,created_at timestamptz);
+    CREATE TABLE audit_item_evidence(id uuid,item_id uuid,file_name text,uploaded_role text,revision int,description text,location text,created_at timestamptz);
+    CREATE TABLE audit_entry_answers(audit_id uuid,item_id text,answer text,status text,remarks text);
+    CREATE TABLE audit_entry_evidence(audit_id uuid,item_id text,filename text);
+    CREATE TABLE audit_entry_documents(audit_id uuid,item_id text,filename text,revision int,review_status text);
+  `);
+  await ds.query(readFileSync(join(__dirname,'../migrations/20261128_audit_report_publications.sql'),'utf8'));
   await test('missing upload cannot close an NC or audit', async () => {
     await assert.rejects(
       nc.reviewCorrectedDocument(auditor, ncId, 'COMPLIED'),
@@ -340,18 +355,15 @@ async function main() {
       [auditId],
     );
     const reports = reportService({
-      query: async (sql, params) => {
-        if (sql.startsWith('WITH changed'))
-          await ds.query(
-            'UPDATE audit_reports SET held_at=NOW() WHERE audit_id=$1',
-            [auditId],
-          );
-        return ds.query(sql, params);
+      query: ds.query.bind(ds),
+      transaction: async fn => {
+        await ds.query('UPDATE audit_reports SET held_at=NOW() WHERE audit_id=$1',[auditId]);
+        return ds.transaction(fn);
       },
     });
     await assert.rejects(
       reports.approveReportForCrm(crm, auditId),
-      /Report changed/,
+      /hold/,
     );
     assert.equal(
       (await ds.query('SELECT status FROM audit_reports'))[0].status,
@@ -366,20 +378,17 @@ async function main() {
         [auditId, status],
       );
       const controller = new AdminReportsController({
-        query: async (sql, params) => {
-          if (sql.startsWith('WITH changed'))
-            await ds.query(
-              'UPDATE audit_reports SET held_at=NOW() WHERE id=$1',
-              [report.id],
-            );
-          return ds.query(sql, params);
+        query: ds.query.bind(ds),
+        transaction: async fn => {
+          await ds.query('UPDATE audit_reports SET held_at=NOW() WHERE id=$1',[report.id]);
+          return ds.transaction(fn);
         },
       });
       await assert.rejects(
         action === 'approve'
           ? controller.approveAuditReport(report.id, crm)
           : controller.publishAuditReport(report.id),
-        /Report changed/,
+        /hold/,
       );
       assert.equal(
         (

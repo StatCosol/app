@@ -232,7 +232,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   }
 
   saveCapaDetails(): void {
-    if (!this.selected || this.busy || this.loading || this.statusKey(this.selected.status) === 'CLOSED') return;
+    if (!this.selected || this.selected.readOnly || this.busy || this.loading || this.statusKey(this.selected.status) === 'CLOSED') return;
     const target = { ...this.selected };
     const auditId = this.filterAuditId;
     const listVersion = this.listVersion;
@@ -555,6 +555,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   private actionGuardReason(action: ObservationAction): string | null {
     if (this.loading || this.busy) return 'Wait for the current request to finish.';
     if (!this.selected) return 'Select an observation first.';
+    if (this.selected.readOnly) return 'This audit/report is read-only. Reopen it before changing observations.';
 
     const status = this.statusKey(this.selected.status) || 'OPEN';
 

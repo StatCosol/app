@@ -473,11 +473,11 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get canSubmitObservation(): boolean {
-    return this.canReviewDocuments && !!this.auditId && this.observationForm.observation.trim().length >= 5;
+    return (this.canReviewDocuments || (this.audit?.status === 'SUBMITTED' && this.reportStatus === 'DRAFT')) && (!this.reportStatus || this.reportStatus === 'DRAFT') && !!this.auditId && this.observationForm.observation.trim().length >= 5;
   }
 
   get canGenerateAiDraft(): boolean {
-    return this.canReviewDocuments && !!this.auditId && !!this.audit?.clientId && this.observationForm.observation.trim().length >= 10;
+    return this.canReviewDocuments && (!this.reportStatus || this.reportStatus === 'DRAFT') && !!this.auditId && !!this.audit?.clientId && this.observationForm.observation.trim().length >= 10;
   }
 
   get isReportFinalized(): boolean {

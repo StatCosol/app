@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { AuditOutputEngineService } from './audit-output-engine.service';
 import { generateAuditReportPdfBuffer } from '../../audits/utils/report-pdf';
 import {
@@ -18,7 +19,16 @@ describe('Audit output follow-up integrity', () => {
     const query = jest
       .fn()
       .mockResolvedValueOnce(report ? [report] : [])
-      .mockResolvedValue([]);
+      .mockImplementation(async (sql: string) =>
+        sql.includes('FROM audit_report_publications')
+          ? [
+              {
+                pdf: Buffer.from('pdf'),
+                sha256: createHash('sha256').update('pdf').digest('hex'),
+              },
+            ]
+          : [],
+      );
     const notify = { sendAuditReportReady: jest.fn() };
     const repo = {
       findOne: jest.fn().mockResolvedValue({

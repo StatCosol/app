@@ -1,3 +1,4 @@
+import { archiveIssuedReport } from './issued-report';
 import { BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
@@ -7,7 +8,34 @@ type ReportState = { id: string; status: string; held_at?: unknown };
 // Access checks belong to the caller. Every approval/publication shares this
 // conditional write so a concurrent hold cannot bypass governance.
 export async function transitionGovernedReport(
-  dataSource: Pick<DataSource, 'query'>,
+  dataSource: DataSource,
+  report: ReportState,
+  action: ReportAction,
+  actorId: string | null = null,
+): Promise<void> {
+  return dataSource.transaction(async (manager) => {
+    const [identity] = await manager.query(
+      'SELECT audit_id FROM audit_reports WHERE id=$1',
+      [report.id],
+    );
+    if (!identity) throw new BadRequestException('Report not found');
+    await manager.query('SELECT id FROM audits WHERE id=$1 FOR UPDATE', [
+      identity.audit_id,
+    ]);
+    const [locked] = await manager.query(
+      'SELECT id,status,held_at FROM audit_reports WHERE id=$1 FOR UPDATE',
+      [report.id],
+    );
+    if (!locked) throw new BadRequestException('Report not found');
+    await transitionReportState(manager, locked, action, actorId);
+    if (action !== 'approve')
+      await archiveIssuedReport(manager, report.id, actorId);
+  });
+}
+
+/** Conditional state/date write; publication callers must also archive in their transaction. */
+export async function transitionReportState(
+  manager: Pick<DataSource, 'query'>,
   report: ReportState,
   action: ReportAction,
   actorId: string | null = null,
@@ -44,7 +72,7 @@ export async function transitionGovernedReport(
       `Only ${rules.allowed.join('/')} reports can be ${rules.verb}. Current status: ${report.status}`,
     );
   }
-  const changed = await dataSource.query(
+  const changed = await manager.query(
     `WITH changed AS (UPDATE audit_reports
      SET ${rules.assignment}, updated_at = NOW()
      WHERE id = $1 AND held_at IS NULL AND ${rules.condition}
