@@ -19,6 +19,7 @@ import { PayrollRunEntity } from './entities/payroll-run.entity';
 import { PayrollRunComponentValueEntity } from './entities/payroll-run-component-value.entity';
 import { generatePayslipPdfBuffer, loadLogoBuffer } from './utils/payslip-pdf';
 import { PayrollClientScopeService } from './payroll-client-scope.service';
+import { payslipFileName } from './utils/payslip-file-name';
 
 @Injectable()
 export class PayrollPayslipsService {
@@ -399,7 +400,12 @@ export class PayrollPayslipsService {
       componentValues,
     });
 
-    const fileName = `payslip_${run.periodYear}_${String(run.periodMonth).padStart(2, '0')}_${emp.employeeCode}.pdf`;
+    const fileName = payslipFileName(
+      run.periodYear,
+      run.periodMonth,
+      emp.employeeCode,
+      emp.id,
+    );
     return { fileName, fileType: 'application/pdf', buffer };
   }
 
@@ -439,20 +445,31 @@ export class PayrollPayslipsService {
     // Load client logo once for all employees
     const logoBuffer = loadLogoBuffer(client?.logoUrl);
 
-    const baseDir = path.join(
+    const archiveRoot = path.resolve(
       process.cwd(),
       'uploads',
       'payslips-archive',
-      runId,
     );
+    const baseDir = path.resolve(archiveRoot, run.id);
+    if (path.dirname(baseDir) !== archiveRoot) {
+      throw new BadRequestException('Invalid payslip archive directory');
+    }
     if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true });
 
     let created = 0;
     let updated = 0;
 
     for (const emp of employees) {
-      const fileName = `payslip_${run.periodYear}_${String(run.periodMonth).padStart(2, '0')}_${emp.employeeCode}.pdf`;
-      const filePath = path.join(baseDir, fileName);
+      const fileName = payslipFileName(
+        run.periodYear,
+        run.periodMonth,
+        emp.employeeCode,
+        emp.id,
+      );
+      const filePath = path.resolve(baseDir, fileName);
+      if (path.dirname(filePath) !== baseDir) {
+        throw new BadRequestException('Invalid payslip archive path');
+      }
 
       // Fetch employee record for dateOfJoining
       const employee = emp.employeeId
@@ -575,7 +592,19 @@ export class PayrollPayslipsService {
     archive.pipe(res);
 
     for (const f of files) {
-      if (f.filePath && fs.existsSync(f.filePath)) {
+      const expectedDir = path.resolve(
+        process.cwd(),
+        'uploads',
+        'payslips-archive',
+        run.id,
+      );
+      if (
+        f.filePath &&
+        path.dirname(path.resolve(f.filePath)) === expectedDir &&
+        path.basename(f.filePath) === f.fileName &&
+        !/[\\/]/.test(f.fileName) &&
+        fs.existsSync(f.filePath)
+      ) {
         archive.file(f.filePath, { name: f.fileName });
       }
     }
