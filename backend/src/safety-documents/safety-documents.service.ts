@@ -530,7 +530,7 @@ export class SafetyDocumentsService {
      Expiry check (cron)
      ═══════════════════════════════════════════════════ */
 
-  @Cron(CronExpression.EVERY_DAY_AT_8AM)
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, { timeZone: 'Asia/Kolkata' })
   async checkExpiringSafetyDocuments(): Promise<void> {
     this.logger.log('Checking for expiring safety documents...');
 
