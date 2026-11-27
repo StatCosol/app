@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { BiometricDeviceEntity } from './entities/biometric-device.entity';
 import { BiometricService } from './biometric.service';
 import { IngestPunchItemDto } from './biometric.dto';
+import { assertEsslSource } from './essl-source-policy';
 
 /**
  * eSSL/ZKTeco "iclock" protocol service.
@@ -22,9 +23,9 @@ export class EsslService {
   ) {}
 
   /** Returns the config block the device should adopt on handshake. */
-  async handshake(sn: string): Promise<string> {
-    const device = await this.requireDevice(sn);
-    await this.touch(sn);
+  async handshake(sn: string, sourceIp: string): Promise<string> {
+    const device = await this.requireDevice(sn, sourceIp);
+    await this.markSeen(sn);
     // Standard ZK/eSSL ADMS handshake response.
     // ServerVersion + Flags telling the device what tables to push.
     const lines = [
@@ -44,9 +45,13 @@ export class EsslService {
     return lines.join('\n');
   }
 
-  /** Update last_seen_at for the device (no-op if SN unknown). */
-  async touch(sn: string): Promise<void> {
-    if (!sn) return;
+  /** Authorize command polls and acknowledgements before updating telemetry. */
+  async touch(sn: string, sourceIp: string): Promise<void> {
+    await this.requireDevice(sn, sourceIp);
+    await this.markSeen(sn);
+  }
+
+  private async markSeen(sn: string): Promise<void> {
     await this.deviceRepo
       .createQueryBuilder()
       .update(BiometricDeviceEntity)
@@ -64,10 +69,14 @@ export class EsslService {
    *
    * Returns count of records parsed (not necessarily inserted; dedupe happens downstream).
    */
-  async ingestAttlog(sn: string, body: string): Promise<number> {
-    const device = await this.requireDevice(sn);
+  async ingestAttlog(
+    sn: string,
+    body: string,
+    sourceIp: string,
+  ): Promise<number> {
+    const device = await this.requireDevice(sn, sourceIp);
     if (!body || !body.trim()) {
-      await this.touch(sn);
+      await this.markSeen(sn);
       return 0;
     }
 
@@ -96,7 +105,7 @@ export class EsslService {
     }
 
     if (!punches.length) {
-      await this.touch(sn);
+      await this.markSeen(sn);
       return 0;
     }
 
@@ -135,8 +144,12 @@ export class EsslService {
 
   // ── Internal ───────────────────────────────────────────────
 
-  private async requireDevice(sn: string): Promise<BiometricDeviceEntity> {
+  private async requireDevice(
+    sn: string,
+    sourceIp: string,
+  ): Promise<BiometricDeviceEntity> {
     if (!sn) throw new UnauthorizedException('Missing SN');
+    assertEsslSource(sn, sourceIp);
     const device = await this.deviceRepo.findOne({
       where: { serialNumber: sn },
     });
