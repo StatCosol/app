@@ -30,10 +30,10 @@ function makeService(row: any = null) {
 
 describe('FaceDeskDeviceService', () => {
   it('provisions a device with a 64-hex install token and hashed admin PIN', async () => {
-    const { service, repo } = makeService();
+    const { service, repo, dataSource } = makeService();
     const d = await service.provision('c1', {
       deviceName: 'Gate 1',
-      branchId: 'b1',
+      branchId: '11111111-1111-4111-8111-111111111111',
       adminPin: '1234',
     });
     expect(d.installToken).toMatch(/^[0-9a-f]{64}$/);
@@ -42,7 +42,40 @@ describe('FaceDeskDeviceService', () => {
     expect(d).not.toHaveProperty('adminPin');
     const saved = repo.save.mock.calls[0][0];
     expect(saved.adminPin).toMatch(/^\$2[aby]\$/);
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('clientid = $2'),
+      ['11111111-1111-4111-8111-111111111111', 'c1'],
+    );
   });
+
+  it('rejects another client branch before creating a kiosk', async () => {
+    const { service, repo, dataSource } = makeService();
+    dataSource.query.mockResolvedValue([]);
+    await expect(
+      service.provision('c1', {
+        deviceName: 'TEST',
+        branchId: '11111111-1111-4111-8111-111111111111',
+        adminPin: '1234',
+      }),
+    ).rejects.toThrow('Branch does not belong');
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it.each([{ branchId: '../other' }, { mode: 'UNRESTRICTED' }])(
+    'rejects malformed provisioning input %p',
+    async (extra) => {
+      const { service, repo, dataSource } = makeService();
+      await expect(
+        service.provision('c1', {
+          deviceName: 'TEST',
+          adminPin: '1234',
+          ...extra,
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(dataSource.query).not.toHaveBeenCalled();
+    },
+  );
 
   it('requires an admin PIN at provision time', async () => {
     const { service } = makeService();
