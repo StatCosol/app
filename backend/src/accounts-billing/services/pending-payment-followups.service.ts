@@ -40,6 +40,7 @@ interface RowError {
 export interface UploadResult {
   created: number;
   sent: number;
+  queued: number;
   failed: number;
   skipped: number;
   parseErrors: { line: number; reason: string }[];
@@ -265,6 +266,7 @@ export class PendingPaymentFollowupsService {
       return {
         created: 0,
         sent: 0,
+        queued: 0,
         failed: 0,
         skipped: 0,
         parseErrors: errors,
@@ -326,14 +328,14 @@ export class PendingPaymentFollowupsService {
       created.push(await this.repo.save(entity));
     }
 
-    let sent = 0;
+    let queued = 0;
     let failed = 0;
     const skipped = 0;
     if (options.autoSend) {
       for (const ent of created) {
         try {
           const ok = await this.sendReminderForEntity(ent);
-          if (ok) sent++;
+          if (ok) queued++;
           else failed++;
         } catch {
           failed++;
@@ -343,7 +345,8 @@ export class PendingPaymentFollowupsService {
 
     return {
       created: created.length,
-      sent,
+      sent: 0,
+      queued,
       failed,
       skipped: skipped + dbDuplicateSkips,
       parseErrors: errors,
@@ -447,12 +450,12 @@ export class PendingPaymentFollowupsService {
       this.log.log('Daily pending-payment reminders: nothing to send.');
       return;
     }
-    let sent = 0;
+    let queued = 0;
     let failed = 0;
     for (const ent of due) {
       try {
         const ok = await this.sendReminderForEntity(ent);
-        if (ok) sent++;
+        if (ok) queued++;
         else failed++;
       } catch (e) {
         this.log.error(
@@ -462,7 +465,7 @@ export class PendingPaymentFollowupsService {
       }
     }
     this.log.log(
-      `Daily pending-payment reminders: sent=${sent}, failed=${failed}, total=${due.length}`,
+      `Daily pending-payment reminders: queued=${queued}, failed=${failed}, total=${due.length}`,
     );
   }
 
@@ -475,12 +478,12 @@ export class PendingPaymentFollowupsService {
       );
     }
     const ok = await this.sendReminderForEntity(ent);
-    return { success: ok, reminderCount: ent.reminderCount };
+    return { success: ok, queued: ok, reminderCount: ent.reminderCount };
   }
 
   async sendBulk(ids: string[]) {
     if (!ids?.length) throw new BadRequestException('No ids supplied');
-    let sent = 0;
+    let queued = 0;
     let failed = 0;
     const skipped: string[] = [];
     for (const id of ids) {
@@ -492,19 +495,25 @@ export class PendingPaymentFollowupsService {
           continue;
         }
         const ok = await this.sendReminderForEntity(ent);
-        if (ok) sent++;
+        if (ok) queued++;
         else failed++;
       } catch (e) {
         this.log.error(`Bulk reminder ${id} failed: ${(e as Error).message}`);
         failed++;
       }
     }
-    return { sent, failed, skipped: skipped.length };
+    return { sent: 0, queued, failed, skipped: skipped.length };
   }
 
   private async sendReminderForEntity(
     ent: PendingPaymentFollowup,
   ): Promise<boolean> {
+    if (ent.lastReminderStatus === 'QUEUED') return true;
+    if (ent.lastReminderStatus === 'UNKNOWN') {
+      throw new BadRequestException(
+        'Previous summary delivery needs review before another reminder',
+      );
+    }
     const subject = `Payment Reminder — Invoice ${ent.invoiceNumber}`;
     const dueLine = ent.dueDate
       ? `<p>This invoice was due on <strong>${ent.dueDate}</strong>.</p>`
@@ -537,31 +546,21 @@ export class PendingPaymentFollowupsService {
       <p>Regards,<br/>StatCo Solutions — Accounts Team</p>
     `;
 
-    const fromName =
-      this.config.get<string>('INVOICE_FROM_NAME') ||
-      this.config.get<string>('SMTP_FROM_NAME', 'StatCo Solutions');
-    const fromEmail =
-      this.config.get<string>('INVOICE_FROM_EMAIL') ||
-      this.config.get<string>('SMTP_FROM_EMAIL') ||
-      this.config.get<string>('SMTP_USER', '');
-    // EmailService.pickTransport() routes the message through the SMTP
-    // mailbox that matches the From address (e.g. SMTP_FINANCE_USER for
-    // finance@statcosol.com), so we no longer need to downgrade the
-    // From to SMTP_USER. Pass the configured finance address directly.
-
     let ok = false;
     let failureReason: string | null = null;
+    let digestEventId: string | null = null;
     try {
-      const result = await this.emailService.send(
+      const result = await this.emailService.sendNotificationMail(
         ent.clientEmail,
         subject,
         `Payment Reminder — Invoice ${ent.invoiceNumber}`,
         html,
-        { name: fromName, email: fromEmail },
+        'Payment reminders',
         { cc: ent.ccEmail || undefined },
       );
-      if ('ok' in result && result.ok) {
+      if ('queued' in result && result.queued) {
         ok = true;
+        digestEventId = result.digestEventId;
       } else if ('error' in result) {
         failureReason = String(result.error);
       } else {
@@ -571,16 +570,18 @@ export class PendingPaymentFollowupsService {
       failureReason = (e as Error).message;
     }
 
-    ent.reminderCount = (ent.reminderCount || 0) + 1;
-    ent.lastReminderSentAt = new Date();
-    ent.lastReminderStatus = ok ? 'SENT' : 'FAILED';
-    ent.lastFailureReason = ok ? null : failureReason;
-    await this.repo.save(ent);
+    // Only delivery metadata changes; never save a stale payment/balance entity.
+    await this.repo.update(ent.id, {
+      lastReminderStatus: ok ? 'QUEUED' : 'FAILED',
+      lastFailureReason: ok ? null : failureReason,
+    });
 
     // Mirror into invoice_email_logs so the Email Logs page surfaces it.
     try {
-      await this.emailLogRepo.save(
-        this.emailLogRepo.create({
+      await this.emailLogRepo
+        .createQueryBuilder()
+        .insert()
+        .values({
           invoiceId: null,
           pendingPaymentId: ent.id,
           source: 'PENDING_PAYMENT',
@@ -588,14 +589,22 @@ export class PendingPaymentFollowupsService {
           ccEmail: ent.ccEmail || null,
           subject,
           body: `Payment reminder for invoice ${ent.invoiceNumber} — ₹${amountFmt}`,
-          sentStatus: ok ? MailStatus.SENT : MailStatus.FAILED,
-          sentAt: ok ? ent.lastReminderSentAt : null,
+          digestEventId,
+          sentStatus: ok ? 'QUEUED' : MailStatus.FAILED,
+          sentAt: null,
           sentBy: null,
           failureReason: ok ? null : failureReason,
-        }),
-      );
+        })
+        .orIgnore()
+        .execute();
     } catch (e) {
       this.log.warn(`Failed to record email log: ${(e as Error).message}`);
+      await this.repo.update(ent.id, {
+        lastReminderStatus: 'UNKNOWN',
+        lastFailureReason:
+          'Summary may be queued but delivery tracking could not be saved; review before another reminder',
+      });
+      return false;
     }
 
     return ok;

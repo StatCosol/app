@@ -177,7 +177,7 @@ export class LicenceAlertsService {
     if (!recipients.length) return;
     const claimed: Array<{ id: string }> = await this.dataSource.query(
       `WITH claimed AS (UPDATE registration_alerts SET email_lease_until=NOW()+INTERVAL '10 minutes'
-       WHERE id=$1 AND emailed=false AND (email_lease_until IS NULL OR email_lease_until < NOW()) RETURNING id)
+       WHERE id=$1 AND emailed=false AND digest_event_id IS NULL AND (email_lease_until IS NULL OR email_lease_until < NOW()) RETURNING id)
        SELECT id FROM claimed`,
       [alerts[0].id],
     );
@@ -191,7 +191,12 @@ export class LicenceAlertsService {
         title,
         `<p>${this.escapeHtml(message)}</p><p>Client: ${this.escapeHtml(row.clientName)}<br>Branch: ${this.escapeHtml(row.branchName)}</p><p>Review the licence and deployment warnings in LegitX or BranchDesk.</p>`,
       );
-      if ('ok' in result && result.ok) {
+      if ('queued' in result && result.queued) {
+        await this.dataSource.query(
+          'UPDATE registration_alerts SET digest_event_id=$2,email_lease_until=NULL WHERE id=$1',
+          [alerts[0].id, result.digestEventId],
+        );
+      } else if ('ok' in result && result.ok) {
         await this.dataSource.query(
           'UPDATE registration_alerts SET emailed=true,email_lease_until=NULL WHERE id=$1',
           [alerts[0].id],

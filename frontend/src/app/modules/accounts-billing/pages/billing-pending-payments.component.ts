@@ -42,7 +42,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           <input #fileInput type="file" accept=".csv" (change)="onFile($event)" class="text-sm" />
           <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" [(ngModel)]="autoSend" />
-            Send reminder email immediately for each row
+            Include each row in the 10:30 AM IST daily email summary
           </label>
           <button (click)="upload(fileInput)"
                   [disabled]="!selectedFile || uploading"
@@ -53,7 +53,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
         @if (uploadResult) {
 <div class="text-sm bg-slate-50 border rounded p-3 space-y-1">
           <div><strong>Created:</strong> {{ uploadResult.created }}</div>
-          <div><strong>Reminders sent:</strong> {{ uploadResult.sent }}
+          <div><strong>Reminders queued:</strong> {{ uploadResult.queued }}
                &nbsp; <strong>Failed:</strong> {{ uploadResult.failed }}</div>
           @if (uploadResult.parseErrors?.length) {
 <div class="text-red-600">
@@ -131,13 +131,13 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 @if (p.lastReminderSentAt) {
 <span>
                   {{ p.lastReminderSentAt | date:'short' }}
-                  <span [class]="p.lastReminderStatus === 'SENT' ? 'text-green-600' : 'text-red-600'">
+                  <span [class]="p.lastReminderStatus === 'SENT' ? 'text-green-600' : p.lastReminderStatus === 'QUEUED' ? 'text-slate-600' : 'text-red-600'">
                     ({{ p.lastReminderStatus }})
                   </span>
                 </span>
 }
                 @if (!p.lastReminderSentAt) {
-<span class="text-slate-400">never</span>
+<span class="text-slate-600">{{ p.lastReminderStatus || 'Not sent yet' }}</span>
 }
               </td>
               <td class="px-3 py-2 text-center">
@@ -314,13 +314,13 @@ export class BillingPendingPaymentsComponent implements OnInit {
   async sendOne(p: PendingPaymentFollowup): Promise<void> {
     const ok = await this.dialog.confirm(
       'Send Reminder',
-      `Send reminder to ${p.clientEmail} for invoice ${p.invoiceNumber}?`,
+      `Queue a daily-summary reminder to ${p.clientEmail} for invoice ${p.invoiceNumber}?`,
       { confirmText: 'Send' },
     );
     if (!ok) return;
     this.svc.sendPendingPaymentReminder(p.id).subscribe({
       next: (r) => {
-        this.flash(r?.success ? 'Reminder sent.' : 'Reminder send failed.', !r?.success);
+        this.flash(r?.success ? 'Reminder queued for the 10:30 AM IST daily summary.' : 'Reminder send failed.', !r?.success);
         this.load();
       },
       error: (e) => this.flash('Send failed: ' + (e.error?.message || e.message), true),
@@ -332,13 +332,13 @@ export class BillingPendingPaymentsComponent implements OnInit {
     if (!ids.length) return;
     const ok = await this.dialog.confirm(
       'Send Reminders',
-      `Send reminders to ${ids.length} client(s)?`,
+      `Queue daily-summary reminders for ${ids.length} client(s)?`,
       { confirmText: 'Send' },
     );
     if (!ok) return;
     this.svc.sendPendingPaymentReminders(ids).subscribe({
       next: (r) => {
-        this.flash(`Sent: ${r.sent}, failed: ${r.failed}, skipped: ${r.skipped}.`,
+        this.flash(`Queued: ${r.queued || 0}, failed: ${r.failed}, skipped: ${r.skipped}.`,
           r.failed > 0);
         this.load();
       },

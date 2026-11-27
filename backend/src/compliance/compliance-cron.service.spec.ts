@@ -48,7 +48,10 @@ describe('ComplianceCronService', () => {
           useValue: { createTicket: jest.fn() },
         },
         { provide: EmailService, useValue: { send: jest.fn() } },
-        { provide: DataSource, useValue: { query: jest.fn() } },
+        {
+          provide: DataSource,
+          useValue: { query: jest.fn().mockResolvedValue([]) },
+        },
         {
           provide: CronLoggerService,
           useValue: {
@@ -69,5 +72,10 @@ describe('ComplianceCronService', () => {
 
   it('markOverdueAndNotify should complete without error', async () => {
     await expect(service.markOverdueAndNotify()).resolves.not.toThrow();
+    expect((service as any).cronLogger.succeed).toHaveBeenCalledWith(
+      'logId',
+      0,
+    );
+    expect((service as any).cronLogger.fail).not.toHaveBeenCalled();
   });
 });

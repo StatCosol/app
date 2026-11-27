@@ -657,7 +657,7 @@ export class AdminClientContactsComponent implements OnInit {
         const s = res.summary;
         this.flash(
           s.failed ? 'err' : 'ok',
-          `Payroll mail: sent=${s.sent}, skipped=${s.skipped}, failed=${s.failed}`,
+          `Payroll mail: queued=${s.queued || 0}, sent=${s.sent}, skipped=${s.skipped}, failed=${s.failed}`,
         );
       },
       error: (e) => {
@@ -681,7 +681,7 @@ export class AdminClientContactsComponent implements OnInit {
         const s = res.summary;
         this.flash(
           s.failed ? 'err' : 'ok',
-          `MCD mail: sent=${s.sent}, skipped=${s.skipped}, failed=${s.failed}`,
+          `MCD mail: queued=${s.queued || 0}, sent=${s.sent}, skipped=${s.skipped}, failed=${s.failed}`,
         );
       },
       error: (e) => {
@@ -705,7 +705,7 @@ export class AdminClientContactsComponent implements OnInit {
         const s = res.summary;
         this.flash(
           s.failed ? 'err' : 'ok',
-          `News mail: sent=${s.sent}, skipped=${s.skipped}, failed=${s.failed}`,
+          `News mail: queued=${s.queued || 0}, sent=${s.sent}, skipped=${s.skipped}, failed=${s.failed}`,
         );
       },
       error: (e) => {

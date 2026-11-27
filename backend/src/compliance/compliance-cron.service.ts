@@ -55,34 +55,27 @@ export class ComplianceCronService {
     try {
       const today = this.toDateOnly(new Date());
 
-      const due = await this.tasks
-        .createQueryBuilder('t')
-        .where('t.dueDate < :today', { today })
-        .andWhere('t.status IN (:...st)', {
-          st: ['PENDING', 'IN_PROGRESS', 'REJECTED'] as TaskStatus[],
-        })
-        // Don't escalate tasks for soft-deleted clients
-        .andWhere(
-          't.clientId NOT IN (SELECT id FROM clients WHERE COALESCE(is_deleted, false) = true)',
-        )
-        .getMany();
-
+      // One atomic transition: concurrent workers cannot claim the same tasks,
+      // and an approval committed meanwhile is never overwritten.
+      const due: Array<
+        ComplianceTask & { clientName: string; branchName: string | null }
+      > = await this.dataSource.query(
+        `WITH claimed AS (
+          UPDATE compliance_tasks SET status='OVERDUE',updated_at=now()
+          WHERE due_date < $1::date AND status IN ('PENDING','IN_PROGRESS','REJECTED')
+          AND client_id NOT IN (SELECT id FROM clients WHERE COALESCE(is_deleted,false)=true)
+          RETURNING *
+        ) SELECT t.id,t.client_id AS "clientId",t.branch_id AS "branchId",
+          t.assigned_by_user_id AS "assignedByUserId",t.assigned_to_user_id AS "assignedToUserId",
+          t.title,to_char(t.due_date,'YYYY-MM-DD') AS "dueDate",t.period_label AS "periodLabel",
+          c.client_name AS "clientName",b.branchname AS "branchName"
+          FROM claimed t JOIN clients c ON c.id=t.client_id LEFT JOIN client_branches b ON b.id=t.branch_id`,
+        [today],
+      );
       if (!due.length) {
+        await this.cronLogger.succeed(logId, 0);
         return;
       }
-
-      await this.tasks
-        .createQueryBuilder()
-        .update()
-        .set({ status: 'OVERDUE' as TaskStatus })
-        .where('dueDate < :today', { today })
-        .andWhere('status IN (:...st)', {
-          st: ['PENDING', 'IN_PROGRESS', 'REJECTED'] as TaskStatus[],
-        })
-        .andWhere(
-          'client_id NOT IN (SELECT id FROM clients WHERE COALESCE(is_deleted, false) = true)',
-        )
-        .execute();
 
       for (const t of due) {
         const taskId = t.id;
@@ -127,7 +120,17 @@ export class ComplianceCronService {
           }
         }
 
-        // Existing email logic remains
+        const escape = (value: string | null | undefined) =>
+          String(value || '—')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        const summaryItem = `<p><strong>${escape(t.title)}</strong> (task #${taskId})</p>
+          <p>Client: ${escape(t.clientName)}<br>Branch: ${escape(t.branchName)}<br>
+          Period: ${escape(t.periodLabel)}<br>Due date: ${escape(t.dueDate)}</p>
+          <p>Overdue as of ${today}. Review the task and arrange submission of the required evidence.</p>`;
+        // Both roles add to the same daily summary; repeated recipients deduplicate.
         if (t.assignedByUserId) {
           const crm = await this.users.findOne({
             where: { id: t.assignedByUserId },
@@ -137,7 +140,7 @@ export class ComplianceCronService {
               crm.email,
               `Task Overdue #${taskId}`,
               'Compliance Task Overdue',
-              `Task #${taskId} is overdue as of ${today}. Please follow up with the contractor.`,
+              summaryItem,
             );
           }
         }
@@ -150,7 +153,7 @@ export class ComplianceCronService {
               contractor.email,
               `Task Overdue #${taskId}`,
               'Compliance Task Overdue',
-              `Task #${taskId} is overdue. Please upload evidence and submit immediately.`,
+              summaryItem,
             );
           }
         }

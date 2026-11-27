@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+import { NotificationDigestService } from './notification-digest.service';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import { baseHtml } from './email.templates';
@@ -37,7 +39,10 @@ export class EmailService {
   private readonly defaultTransporter: MailTransporter;
   private readonly defaultUser: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly digests: NotificationDigestService,
+  ) {
     this.enabled =
       config.get<string>('EMAIL_ENABLED', 'false').toLowerCase() === 'true';
 
@@ -53,6 +58,9 @@ export class EmailService {
         port,
         secure,
         auth: { user, pass },
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 120000,
       }) as MailTransporter;
     };
 
@@ -187,13 +195,53 @@ export class EmailService {
     }
   }
 
-  /**
-   * Send an audit-related email from the dedicated audit mailbox
-   * (defaults to crm_india@statcosol.com; override via AUDIT_FROM_EMAIL
-   * / AUDIT_FROM_NAME env vars). All audit notifications, NC alerts,
-   * upload-window updates, and final report distribution emails go
-   * through this helper so the From: address stays consistent.
-   */
+  /** All operational email notifications share one recipient summary. */
+  async sendNotificationMail(
+    to: string | string[],
+    subject: string,
+    title: string,
+    bodyHtml: string,
+    category: string,
+    extras?: { cc?: string | string[]; bcc?: string | string[] },
+  ) {
+    if (!this.enabled) return { skipped: true as const };
+    try {
+      return await this.digests.enqueue({
+        to,
+        subject,
+        title,
+        bodyHtml,
+        category,
+        ...extras,
+      });
+    } catch (error) {
+      this.log.error('Notification summary could not be queued');
+      return {
+        ok: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  @Cron('0 * * * * *', { timeZone: 'Asia/Kolkata', waitForCompletion: true })
+  async deliverDailySummaries() {
+    if (!this.enabled) return;
+    try {
+      await this.digests.flush((to, subject, body) =>
+        this.send(to, subject, 'Your daily StatCo summary', body, {
+          name: 'StatCo Notifications',
+          email: this.config.get<string>(
+            'AUDIT_FROM_EMAIL',
+            'crm_india@statcosol.com',
+          ),
+        }),
+      );
+    } catch (error) {
+      // Fail closed: never fall back to one email per task.
+      this.log.error('Daily notification summary failed', error);
+    }
+  }
+
   async sendAuditMail(
     to: string | string[],
     subject: string,
@@ -201,36 +249,24 @@ export class EmailService {
     bodyHtml: string,
     extras?: { cc?: string | string[]; bcc?: string | string[] },
   ) {
-    return this.send(
+    return this.sendNotificationMail(
       to,
       subject,
       title,
       bodyHtml,
-      {
-        name: this.config.get<string>('AUDIT_FROM_NAME', 'StatCo Audit Desk'),
-        email: this.config.get<string>(
-          'AUDIT_FROM_EMAIL',
-          'crm_india@statcosol.com',
-        ),
-      },
+      'Audit and compliance',
       extras,
     );
   }
 
   adminRecipients(): string[] {
-    const raw = this.config.get<string>('ADMIN_ALERT_EMAILS', '');
-    return raw
+    return this.config
+      .get<string>('ADMIN_ALERT_EMAILS', '')
       .split(',')
       .map((s) => s.trim())
-      .filter((s) => !!s);
+      .filter(Boolean);
   }
 
-  /**
-   * Send a payroll-related email from the dedicated payroll mailbox
-   * (defaults to payroll_audit@statcosol.com; override via
-   * PAYROLL_FROM_EMAIL / PAYROLL_FROM_NAME). Use for salary slips,
-   * PF/ESI notifications, and any payroll cron output.
-   */
   async sendPayrollMail(
     to: string | string[],
     subject: string,
@@ -238,26 +274,16 @@ export class EmailService {
     bodyHtml: string,
     extras?: { cc?: string | string[]; bcc?: string | string[] },
   ) {
-    return this.send(
+    return this.sendNotificationMail(
       to,
       subject,
       title,
       bodyHtml,
-      {
-        name: this.config.get<string>('PAYROLL_FROM_NAME', 'StatCo Payroll'),
-        email: this.config.get<string>(
-          'PAYROLL_FROM_EMAIL',
-          'payroll_audit@statcosol.com',
-        ),
-      },
+      'Payroll',
       extras,
     );
   }
 
-  /**
-   * Send compliance advisory/news emails. Defaults to the CRM audit mailbox so
-   * compliance news can reuse the same approved SMTP identity.
-   */
   async sendComplianceMail(
     to: string | string[],
     subject: string,
@@ -265,24 +291,12 @@ export class EmailService {
     bodyHtml: string,
     extras?: { cc?: string | string[]; bcc?: string | string[] },
   ) {
-    return this.send(
+    return this.sendNotificationMail(
       to,
       subject,
       title,
       bodyHtml,
-      {
-        name: this.config.get<string>(
-          'COMPLIANCE_FROM_NAME',
-          this.config.get<string>('AUDIT_FROM_NAME', 'StatCo Audit Desk'),
-        ),
-        email: this.config.get<string>(
-          'COMPLIANCE_FROM_EMAIL',
-          this.config.get<string>(
-            'AUDIT_FROM_EMAIL',
-            'crm_india@statcosol.com',
-          ),
-        ),
-      },
+      'Compliance news',
       extras,
     );
   }

@@ -62,7 +62,7 @@ export class ComplianceMailService {
       );
     } else if (result.ok) {
       this.logger.log(
-        `Sent ${urgency} for ${params.returnName} to ${recipients.join(',')}`,
+        `Queued ${urgency} for ${params.returnName} to ${recipients.join(',')}`,
       );
     } else {
       this.logger.error(
@@ -129,7 +129,7 @@ export class ComplianceMailService {
       );
     } else if (result.ok) {
       this.logger.log(
-        `Sent batch summary (${params.documents.length} docs) to ${recipients.join(',')}`,
+        `Queued batch summary (${params.documents.length} docs) to ${recipients.join(',')}`,
       );
     } else {
       this.logger.error(`Failed to send batch summary: ${result.error}`);
