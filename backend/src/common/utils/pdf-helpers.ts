@@ -1,3 +1,4 @@
+import { operationalDate } from '../operational-date';
 import PDFDocument from 'pdfkit';
 
 /* ──────────────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ export function addPageNumbers(doc: PDFKit.PDFDocument): void {
       .fontSize(7)
       .fillColor(MUTED)
       .text(
-        `Page ${i + 1} of ${pages.count}  •  Generated ${new Date().toISOString().slice(0, 10)}`,
+        `Page ${i + 1} of ${pages.count}  •  Generated ${operationalDate()}`,
         40,
         bottom,
         { align: 'center', width: doc.page.width - 80, lineBreak: false },

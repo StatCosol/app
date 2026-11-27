@@ -1,3 +1,4 @@
+import { operationalDate } from '../../common/operational-date';
 import {
   Injectable,
   BadRequestException,
@@ -858,7 +859,7 @@ export class ContractorEmployeesService {
     }
     emp.isActive = false;
     emp.status = 'LEFT';
-    emp.dateOfExit = new Date().toISOString().split('T')[0];
+    emp.dateOfExit = operationalDate();
     emp.exitReason = exitReason || null;
     return this.repo.save(emp);
   }

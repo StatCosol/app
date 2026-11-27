@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import {
   BadRequestException,
   ForbiddenException,
@@ -619,7 +620,7 @@ export class SafetyDocumentsService {
     daysAhead = 30,
   ): Promise<any[]> {
     if (scope.branchIds && !scope.branchIds.length) return [];
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + daysAhead);
     const future = futureDate.toISOString().slice(0, 10);

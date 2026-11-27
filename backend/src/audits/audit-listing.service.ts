@@ -1,3 +1,4 @@
+import { addCalendarDays, operationalDate } from '../common/operational-date';
 import { applyClientBranchScope } from '../common/portal-client-scope';
 import { actualAuditSql } from '../common/actual-records';
 import { contractorScopeReadiness } from './contractor-audit-scope';
@@ -692,16 +693,14 @@ export class AuditListingService {
 
     const p = () => `$${params.length + 1}`;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
 
     if (tab === 'OVERDUE') {
       clauses.push(`a.due_date < '${today}'`);
       clauses.push("a.status NOT IN ('COMPLETED','SUBMITTED','CLOSED')");
     } else if (tab === 'DUE_SOON') {
       clauses.push(`a.due_date >= '${today}'`);
-      clauses.push(
-        `a.due_date <= '${new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}'`,
-      );
+      clauses.push(`a.due_date <= '${addCalendarDays(today, 7)}'`);
       clauses.push("a.status NOT IN ('COMPLETED','SUBMITTED','CLOSED')");
     } else if (tab === 'COMPLETED') {
       clauses.push("a.status IN ('COMPLETED','SUBMITTED','CLOSED')");

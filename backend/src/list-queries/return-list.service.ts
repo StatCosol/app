@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import { Injectable } from '@nestjs/common';
 import { DataSource, SelectQueryBuilder } from 'typeorm';
 import { AccessScopeService, ReqUser } from '../access/access-scope.service';
@@ -236,7 +237,7 @@ export class ReturnListService {
     ) {
       return status;
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     if (dueDate < today) return 'OVERDUE';
     return status;
   }
@@ -245,7 +246,7 @@ export class ReturnListService {
     qb: SelectQueryBuilder<ComplianceReturnEntity>,
     tab: string,
   ) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     switch (tab.toUpperCase()) {
       case 'OVERDUE':
         qb.andWhere('r.dueDate < :today', { today });

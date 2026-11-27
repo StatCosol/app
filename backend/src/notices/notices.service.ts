@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -242,7 +243,7 @@ export class NoticesService {
     qb.andWhere(await this.scope.where<NoticeEntity>(user, clientId));
 
     const all = await qb.getMany();
-    const now = new Date().toISOString().slice(0, 10);
+    const now = operationalDate();
 
     return {
       total: all.length,

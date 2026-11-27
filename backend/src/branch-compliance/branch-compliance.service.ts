@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import {
   applyClientBranchScope,
   assertClientRecord,
@@ -1465,7 +1466,7 @@ export class BranchComplianceService {
   // ─── Overdue Cron Logic ────────────────────────────────────
 
   async markOverdueDocuments() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = operationalDate();
 
     const result = await this.dataSource.query(
       `UPDATE compliance_documents

@@ -1,3 +1,4 @@
+import { operationalDate } from '../../common/operational-date';
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -44,9 +45,7 @@ export class MinimumWageService {
     }
     const skill = String(skillCategory).toUpperCase() as MinimumWageSkill;
     const dateStr =
-      onDate && /^\d{4}-\d{2}-\d{2}$/.test(onDate)
-        ? onDate
-        : new Date().toISOString().slice(0, 10);
+      onDate && /^\d{4}-\d{2}-\d{2}$/.test(onDate) ? onDate : operationalDate();
     const sched =
       scheduledEmployment && String(scheduledEmployment).trim()
         ? String(scheduledEmployment).trim()

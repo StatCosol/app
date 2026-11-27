@@ -1,3 +1,4 @@
+import { operationalDate } from '../../common/operational-date';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -63,7 +64,7 @@ export class StateSlabService {
 
   /** Today, when a caller has no payroll period to offer. */
   private static today(): string {
-    return new Date().toISOString().slice(0, 10);
+    return operationalDate();
   }
 
   async resolveAmount(params: {

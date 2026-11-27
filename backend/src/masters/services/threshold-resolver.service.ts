@@ -1,3 +1,4 @@
+import { operationalDate } from '../../common/operational-date';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,7 +16,7 @@ export class ThresholdResolverService {
     stateCode?: string | null,
     onDate?: string,
   ): Promise<number> {
-    const date = onDate ?? new Date().toISOString().slice(0, 10);
+    const date = onDate ?? operationalDate();
 
     const row = await this.repo
       .createQueryBuilder('t')

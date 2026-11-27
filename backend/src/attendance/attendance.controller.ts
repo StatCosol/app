@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import {
   Controller,
   Get,
@@ -377,7 +378,7 @@ export class AttendanceController {
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    const targetDate = date ?? new Date().toISOString().slice(0, 10);
+    const targetDate = date ?? operationalDate();
     return this.svc.persistMismatchesForDate(clientId, targetDate);
   }
 

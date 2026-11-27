@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import {
   BadRequestException,
   ForbiddenException,
@@ -46,7 +47,7 @@ export class AuditNcService {
       where: { auditId },
       order: { createdAt: 'DESC' },
     });
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = operationalDate();
     return {
       auditId,
       preliminaryPublishedAt: audit.preliminaryPublishedAt,
@@ -122,7 +123,7 @@ export class AuditNcService {
       order: { createdAt: 'DESC' },
     });
     const visible = ncs.filter((n) => !!n.publishedAt);
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = operationalDate();
     return {
       auditId,
       publishedAt: audit.preliminaryPublishedAt,
@@ -483,7 +484,7 @@ export class AuditNcService {
   /** Phase 5 — list overdue NCs across the calling auditor's audits. */
   async listOverdueNcsForAuditor(user: ReqUser) {
     this.assertAuditor(user);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     const rows = await this.dataSource.query(
       `SELECT nc.id                       AS "ncId",
               nc.audit_id                 AS "auditId",

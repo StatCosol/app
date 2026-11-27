@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import { PayrollDocumentReconciliationService } from '../payroll-reconciliation/payroll-document-reconciliation.service';
 import {
   calculateRateCard,
@@ -123,9 +124,7 @@ export class ContractorComputationService {
   async compareQuotations(user: ReqUser, q: Record<string, string>) {
     const clientId = await this.resolveCrmClient(user, q.clientId);
     const onDate =
-      q.onDate && this.validDate(q.onDate)
-        ? q.onDate
-        : new Date().toISOString().slice(0, 10);
+      q.onDate && this.validDate(q.onDate) ? q.onDate : operationalDate();
     const branchId = q.branchId || null;
     const qb = this.quotationRepo
       .createQueryBuilder('q')
@@ -2295,7 +2294,7 @@ export class ContractorComputationService {
     const onDate =
       input.onDate && this.validDate(input.onDate)
         ? input.onDate
-        : new Date().toISOString().slice(0, 10);
+        : operationalDate();
     let stateCode: string | null = null;
     if (input.branchId)
       stateCode =
