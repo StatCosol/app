@@ -20,6 +20,7 @@ import {
   TableColumn,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { AuthService } from '../../../core/auth.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   CrmMinimumWagesService,
@@ -55,7 +56,7 @@ interface FormState extends UpsertWagePayload {
   template: `
     <ui-page-header
       title="Minimum Wages"
-      subtitle="Statutory minimum wage master. Upload refreshed rates every April and October."
+      subtitle="View and filter statutory minimum wages. Only Admin can change nationwide rates."
     ></ui-page-header>
 
     <!-- Filters -->
@@ -94,12 +95,15 @@ interface FormState extends UpsertWagePayload {
 
     <!-- Toolbar -->
     <div class="flex flex-wrap items-center gap-2 mb-3">
+      <ui-button variant="secondary" (clicked)="exportRates()" icon="download" label="Export Rates" [disabled]="loading || !rows.length">Export Rates</ui-button>
+      @if (canManageRates) {
       <ui-button variant="primary" (clicked)="openAdd()" icon="plus" [iconOnly]="true" label="Add Wage">+ Add Wage</ui-button>
       <ui-button variant="secondary" (clicked)="downloadTemplate()" icon="download" [iconOnly]="true" label="Download Template">Download Template</ui-button>
       <label class="inline-flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium rounded cursor-pointer">
         Bulk Upload (Excel)
         <input type="file" accept=".xlsx,.xls,.csv" (change)="onBulkFile($event)" hidden />
       </label>
+      }
       <span class="text-xs text-gray-500 ml-auto">{{ rows.length }} row(s)</span>
     </div>
 
@@ -110,7 +114,7 @@ interface FormState extends UpsertWagePayload {
     @if (!loading) {
 <ui-data-table
 
-      [columns]="cols"
+      [columns]="visibleColumns"
       [data]="rows"
       emptyMessage="No minimum-wage rows found.">
       <ng-template uiTableCell="monthlyWage" let-row>₹{{ row.monthlyWage | number:'1.2-2' }}</ng-template>
@@ -127,7 +131,7 @@ interface FormState extends UpsertWagePayload {
 }
 
     <!-- Add/Edit Modal -->
-    @if (showForm) {
+    @if (canManageRates && showForm) {
 <div
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
       (click)="cancelForm()">
@@ -230,7 +234,24 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
     private toast: ToastService,
     private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
+    private auth: AuthService,
   ) {}
+
+  get canManageRates(): boolean {
+    return this.auth.getRoleCode() === 'ADMIN';
+  }
+
+  get visibleColumns(): TableColumn[] {
+    return this.canManageRates ? this.cols : this.cols.filter(c => c.key !== 'actions');
+  }
+
+  exportRates(): void {
+    if (this.loading || !this.rows.length) return;
+    const sheet = XLSX.utils.json_to_sheet(this.rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'MinimumWages');
+    XLSX.writeFile(workbook, 'minimum-wages.xlsx');
+  }
 
   ngOnInit(): void {
     this.load();
@@ -273,11 +294,13 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
   }
 
   openAdd(): void {
+    if (!this.canManageRates) return;
     this.form = this.emptyForm();
     this.showForm = true;
   }
 
   openEdit(row: MinimumWageRow): void {
+    if (!this.canManageRates) return;
     this.form = {
       id: row.id,
       stateCode: row.stateCode,
@@ -299,6 +322,7 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
   }
 
   save(): void {
+    if (!this.canManageRates) return;
     const f = this.form;
     if (!f.stateCode?.trim() || !f.skillCategory || f.monthlyWage == null || !f.effectiveFrom) {
       this.toast.warning('State, Skill, Monthly Wage, and Effective From are required');
@@ -341,12 +365,13 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
   }
 
   async remove(row: MinimumWageRow): Promise<void> {
+    if (!this.canManageRates) return;
     const ok = await this.dialog.confirm(
       'Delete Minimum Wage',
       `Delete minimum wage row for ${row.stateCode} / ${row.skillCategory}?`,
       { variant: 'danger', confirmText: 'Delete' },
     );
-    if (!ok) return;
+    if (!ok || !this.canManageRates) return;
     this.api.remove(row.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.toast.success('Deleted');
@@ -389,6 +414,7 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
   }
 
   onBulkFile(ev: Event): void {
+    if (!this.canManageRates) return;
     const input = ev.target as HTMLInputElement;
     const file = input?.files?.[0];
     if (!file) return;
@@ -415,12 +441,14 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
   }
 
   private async bulkUpload(rows: any[]): Promise<void> {
+    if (!this.canManageRates) return;
     let ok = 0;
     let failed = 0;
     const errors: string[] = [];
     this.loading = true;
     this.cdr.markForCheck();
     for (let i = 0; i < rows.length; i++) {
+      if (!this.canManageRates) break;
       const r = rows[i] || {};
       const skill = String(r.skillCategory || '').toUpperCase().replace(/[\s-]+/g, '_') as MinimumWageSkill;
       if (!SKILL_OPTIONS.includes(skill)) {

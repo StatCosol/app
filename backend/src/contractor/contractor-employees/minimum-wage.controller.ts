@@ -34,8 +34,7 @@ interface UpsertWageDto {
 
 /**
  * Item #4b: master CRUD for minimum-wage rows + lookup endpoint.
- *  - ADMIN and CRM can create / update / delete rows (CRM uploads the
- *    refreshed rates every April / October).
+ *  - Only ADMIN can change nationwide rates, including bulk imports.
  *  - ADMIN, CRM, CONTRACTOR, CLIENT can read & lookup.
  */
 @Controller({ path: 'minimum-wages', version: '1' })
@@ -82,7 +81,7 @@ export class MinimumWageController {
   }
 
   @Post()
-  @Roles('ADMIN', 'CRM')
+  @Roles('ADMIN')
   async create(@Body() dto: UpsertWageDto) {
     const row = this.repo.create({
       stateCode: dto.stateCode.toUpperCase(),
@@ -99,7 +98,7 @@ export class MinimumWageController {
   }
 
   @Put(':id')
-  @Roles('ADMIN', 'CRM')
+  @Roles('ADMIN')
   async update(@Param('id') id: string, @Body() dto: Partial<UpsertWageDto>) {
     const row = await this.repo.findOne({ where: { id } });
     if (!row) return { error: 'not found' };
@@ -121,7 +120,7 @@ export class MinimumWageController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'CRM')
+  @Roles('ADMIN')
   async remove(@Param('id') id: string) {
     await this.repo.delete(id);
     return { ok: true };
@@ -135,7 +134,7 @@ export class MinimumWageController {
    * Returns per-row outcome: 'inserted' | 'updated' | 'skipped' | 'error'.
    */
   @Post('bulk-import')
-  @Roles('ADMIN', 'CRM')
+  @Roles('ADMIN')
   async bulkImport(@Body() body: { rows: UpsertWageDto[]; dryRun?: boolean }) {
     const rows = Array.isArray(body?.rows) ? body.rows : [];
     if (!rows.length) {
