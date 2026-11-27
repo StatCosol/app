@@ -1,3 +1,4 @@
+import { operationalDate } from '../../common/operational-date';
 import {
   Injectable,
   NotFoundException,
@@ -353,8 +354,7 @@ export class InvoicesService {
         throw new NotFoundException('Proforma invoice not found');
       }
 
-      const invoiceDate =
-        dto.invoiceDate || new Date().toISOString().slice(0, 10);
+      const invoiceDate = dto.invoiceDate || operationalDate();
       const paymentTermsDays = proforma.billingClient?.paymentTermsDays ?? 30;
       const dueDate =
         dto.dueDate || this.calculateDueDate(invoiceDate, paymentTermsDays);

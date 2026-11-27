@@ -1,3 +1,4 @@
+import { addCalendarDays, operationalDate } from '../common/operational-date';
 import {
   BadRequestException,
   ForbiddenException,
@@ -792,10 +793,8 @@ export class ComplianceReuploadService {
       .where('r.clientId IN (:...clientIds)', { clientIds });
 
     // Status filter with overdue/dueSoon virtual filters
-    const today = new Date().toISOString().slice(0, 10);
-    const dueSoonDate = new Date();
-    dueSoonDate.setDate(dueSoonDate.getDate() + 3);
-    const dueSoonStr = dueSoonDate.toISOString().slice(0, 10);
+    const today = operationalDate();
+    const dueSoonStr = addCalendarDays(today, 3);
 
     if (q?.status === 'OVERDUE') {
       qb.andWhere('r.status IN (:...activeStatuses)', {

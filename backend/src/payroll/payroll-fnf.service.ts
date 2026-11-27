@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import * as fs from 'fs';
 import {
   BadRequestException,
@@ -772,7 +773,7 @@ export class PayrollFnfService {
         reason: fnf.reason,
       },
       settlement: { ...breakup, netAmount },
-      issueDate: new Date().toISOString().slice(0, 10),
+      issueDate: operationalDate(),
       remarks: fnf.remarks,
     });
 

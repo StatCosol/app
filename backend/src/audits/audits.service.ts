@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import { carryForwardAuditDocuments } from './audit-document-carry-forward';
 import {
   assertContractorAuditScope,
@@ -1355,7 +1356,7 @@ export class AuditsService implements OnModuleInit {
               file_path: null,
               file_name: null,
               prepared_by_user_id: user.userId,
-              prepared_date: new Date().toISOString().slice(0, 10),
+              prepared_date: operationalDate(),
               created_at: new Date(),
               updated_at: new Date(),
             }),

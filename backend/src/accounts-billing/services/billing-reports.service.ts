@@ -1,3 +1,4 @@
+import { operationalDate } from '../../common/operational-date';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as ExcelJS from 'exceljs';
@@ -146,7 +147,7 @@ export class BillingReportsService {
     this.addSummarySheet(workbook, report);
     this.addDataSheet(workbook, report);
 
-    const dateSuffix = new Date().toISOString().slice(0, 10);
+    const dateSuffix = operationalDate();
     const fileName = `${report.reportType.toLowerCase().replace(/_/g, '-')}-${dateSuffix}.xlsx`;
     return {
       buffer: Buffer.from(await workbook.xlsx.writeBuffer()),

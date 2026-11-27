@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import {
   isTestAudit,
   isTestContractorDocument,
@@ -154,7 +155,7 @@ export class ContractorDocumentsService {
     if (!audit) return; // unknown audit — let the upload proceed
     const { uploadLockFrom, uploadLockUntil } = audit;
     if (!uploadLockFrom || !uploadLockUntil) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     if (today >= uploadLockFrom && today <= uploadLockUntil) {
       throw new BadRequestException(
         `Document uploads are locked by the auditor until ${uploadLockUntil}. Please wait for the lock period to end before uploading.`,

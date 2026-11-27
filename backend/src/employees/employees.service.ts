@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import { validateInternshipPeriod } from './internship-period';
 import {
   Injectable,
@@ -123,7 +124,7 @@ export class EmployeesService {
       sched = null;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     let row: { monthly_wage: string | number; effective_from: string } | null =
       null;
     try {
@@ -678,7 +679,7 @@ export class EmployeesService {
       throw new BadRequestException('dateOfExit must be in YYYY-MM-DD format');
     }
     emp.isActive = false;
-    emp.dateOfExit = dateOfExit || new Date().toISOString().split('T')[0];
+    emp.dateOfExit = dateOfExit || operationalDate();
     emp.exitReason = exitReason || null;
     const deactivated = await this.empRepo.save(emp);
     if (deactivated.branchId)

@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import { AuditType } from '../common/enums';
 import {
   BadRequestException,
@@ -460,7 +461,7 @@ export class StatutoryAuditEntryService {
         throw new ConflictException(
           'Audit already submitted; use the correction workflow',
         );
-      const today = new Date().toISOString().slice(0, 10);
+      const today = operationalDate();
       if (
         audit.uploadLockFrom &&
         audit.uploadLockUntil &&
@@ -507,7 +508,7 @@ export class StatutoryAuditEntryService {
   async auditeeRead(user: ReqUser, id: string) {
     const { audit, session } = await this.auditeeAudit(user, id);
     // Auditees see requirements and document-review feedback, not unpublished findings.
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     const uploadLocked = !!(
       audit.uploadLockFrom &&
       audit.uploadLockUntil &&

@@ -1,3 +1,4 @@
+import { operationalDate } from '../../common/operational-date';
 import { PayrollConfigurationScopeGuard } from '../payroll-configuration-scope.guard';
 import { salaryStructureTestSql } from '../salary-structure-record-scope';
 import {
@@ -1256,7 +1257,7 @@ export class PayrollEngineController {
     effectiveFrom: string,
     effectiveTo: string | null,
   ): Promise<void> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     if (effectiveFrom > today) {
       throw new BadRequestException(
         `Cannot activate before effective date ${effectiveFrom}`,
@@ -1433,7 +1434,7 @@ export class PayrollEngineController {
     effectiveFrom: string,
     effectiveTo: string | null,
   ): Promise<void> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     if (effectiveFrom > today) {
       throw new BadRequestException(
         `Cannot activate before effective date ${effectiveFrom}`,

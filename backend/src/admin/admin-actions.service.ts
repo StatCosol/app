@@ -1,3 +1,4 @@
+import { operationalDate } from '../common/operational-date';
 import {
   Injectable,
   BadRequestException,
@@ -19,7 +20,7 @@ const DENORM_ASSIGNMENT_COL: Record<string, string> = {
 };
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return operationalDate();
 }
 
 /**

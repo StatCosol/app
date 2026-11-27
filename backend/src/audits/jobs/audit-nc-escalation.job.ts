@@ -1,3 +1,4 @@
+import { operationalDate } from '../../common/operational-date';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -44,7 +45,7 @@ export class AuditNcEscalationJob {
   }
 
   async scan(): Promise<{ scanned: number; escalated: number }> {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = operationalDate();
     const overdue: AuditNonComplianceEntity[] = await this.ncRepo
       .createQueryBuilder('nc')
       .where('nc.status IN (:...st)', {
