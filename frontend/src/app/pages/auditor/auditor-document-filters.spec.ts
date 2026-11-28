@@ -29,6 +29,50 @@ function setup(api: any = {}) {
 describe('Auditor document filters', () => {
   afterEach(() => { vi.restoreAllMocks(); TestBed.resetTestingModule(); });
 
+  it('renders assigned scope labels before uploads exist without creating document rows', async () => {
+    vi.spyOn(AuditorAuditWorkspaceComponent.prototype, 'ngOnInit').mockImplementation(() => {});
+    await TestBed.configureTestingModule({ imports: [AuditorAuditWorkspaceComponent], providers: [ActivatedRoute, Router, AuditsService, AiApiService, AuditorAuditService, AuditorObservationsService, ToastService, ConfirmDialogService, ProtectedFileService].map(provide => ({ provide, useValue: { url: '/auditor' } })) }).compileComponents();
+    const fixture = TestBed.createComponent(AuditorAuditWorkspaceComponent);
+    const c = fixture.componentInstance;
+    c.loading = false; c.auditId = 'audit'; c.activeTab = 'documents';
+    c.audit = { status: 'PLANNED', auditType: 'CONTRACTOR', branchId: 'branch-a', branch: { branchName: 'Branch A' }, contractorUserId: 'vendor-a', contractorUser: { name: 'Vendor A' } };
+    c.documentGroup = 'CONTRACTOR'; c.changeDocumentFilters('group');
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const selectedLabel = (name: string) => {
+      const label = Array.from(fixture.nativeElement.querySelectorAll('.document-filters label') as NodeListOf<HTMLLabelElement>).find(item => item.firstChild?.textContent?.trim() === name);
+      return label?.querySelector('select')?.selectedOptions[0]?.textContent?.trim();
+    };
+    expect(selectedLabel('Branch / unit')).toBe('Branch A');
+    expect(selectedLabel('Contractor')).toBe('Vendor A');
+    expect(c.visibleDocuments).toEqual([]);
+    expect(fixture.nativeElement.querySelectorAll('.document-review').length).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('0 matching document(s)');
+    // Arriving uploads replace the fallback options without duplicating scope or admitting other vendors.
+    c.contractorDocuments = documents;
+    fixture.changeDetectorRef.markForCheck(); fixture.detectChanges(); await fixture.whenStable();
+    expect(c.documentBranchOptions.filter(option => option.id === 'branch-a')).toHaveLength(1);
+    expect(c.documentContractorOptions.filter(option => option.id === 'vendor-a')).toHaveLength(1);
+    expect(c.visibleDocuments.map(row => row.id)).toEqual(['one', 'two']);
+    expect(selectedLabel('Contractor')).toBe('Vendor A');
+    fixture.destroy();
+  });
+
+  it('preserves an empty assigned branch label across groups without inventing scope for legacy audits', () => {
+    const c = setup(); c.contractorDocuments = []; c.branchDocuments = [];
+    c.audit = { branchId: 'branch-a', branchName: 'Branch A', contractorUserId: 'vendor-a', contractorName: 'Vendor A' };
+    for (const group of ['BRANCH', 'SUPPORTING', 'CONTRACTOR']) {
+      c.documentGroup = group; c.changeDocumentFilters('group');
+      expect(c.documentBranchOptions).toEqual([{ id: 'branch-a', name: 'Branch A' }]);
+      expect(c.visibleDocuments).toEqual([]);
+    }
+    c.contractorDocBranchFilter = 'branch-b';
+    expect(c.documentContractorOptions).toEqual([]);
+    c.audit = {}; c.changeDocumentFilters('group');
+    expect(c.documentBranchOptions).toEqual([]);
+    expect(c.documentContractorOptions).toEqual([]);
+    expect(c.documentSelectionReady).toBe(false);
+  });
+
   it('starts without combined queues and requires explicit scope for multi-branch audits', () => {
     const c = setup(); expect(c.visibleDocuments).toEqual([]);
     c.documentGroup = 'CONTRACTOR'; c.changeDocumentFilters('group');

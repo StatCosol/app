@@ -28,6 +28,7 @@ import {
 import { AuditorObservationsService } from '../../core/auditor-observations.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { AuditContextComponent } from './audit-context.component';
+import { auditContext } from './audit-context';
 import { ProtectedFileService } from '../../shared/files/services/protected-file.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
@@ -160,9 +161,14 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get documentBranchOptions(): Array<{ id: string; name: string }> {
-    return this.documentOptions(this.documentGroupRows, row => this.documentBranchId(row), row =>
+    const options = this.documentOptions(this.documentGroupRows, row => this.documentBranchId(row), row =>
       row.branchName || row.task?.branch?.branchName || row.task?.branch?.branchname ||
       (this.documentBranchId(row) === '__UNASSIGNED__' ? 'No branch specified' : this.audit?.branch?.branchName || 'Audit branch'));
+    // The assignment still identifies the scope when this group has no uploads.
+    if (this.documentGroup && this.audit?.branchId && !options.some(option => option.id === this.audit.branchId)) {
+      options.push({ id: this.audit.branchId, name: auditContext(this.audit).branch });
+    }
+    return options;
   }
 
   private get branchScopedDocuments(): any[] {
@@ -171,7 +177,13 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get documentContractorOptions(): Array<{ id: string; name: string }> {
-    return this.documentOptions(this.branchScopedDocuments, row => String(row.contractorUserId || '__UNASSIGNED__'), row => row.contractorName || row.contractorEmail || 'No contractor specified');
+    const options = this.documentOptions(this.branchScopedDocuments, row => String(row.contractorUserId || '__UNASSIGNED__'), row => row.contractorName || row.contractorEmail || 'No contractor specified');
+    if (this.documentGroup === 'CONTRACTOR' && this.audit?.branchId &&
+        this.contractorDocBranchFilter === this.audit.branchId && this.audit?.contractorUserId &&
+        !options.some(option => option.id === this.audit.contractorUserId)) {
+      options.push({ id: this.audit.contractorUserId, name: auditContext(this.audit).contractor });
+    }
+    return options;
   }
 
   private get contractorScopedDocuments(): any[] {
