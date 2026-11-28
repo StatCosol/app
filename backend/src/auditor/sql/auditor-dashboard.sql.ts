@@ -154,11 +154,20 @@ SELECT
   b.branchname     AS "branchName",
   a.due_date       AS "dueDate",
   a.status,
-  a.updated_at     AS "lastUpdatedAt"
+  a.updated_at     AS "lastUpdatedAt",
+  rpt.status       AS "reportStatus",
+  (rpt.held_at IS NOT NULL) AS "reportHeld"
 FROM audits a
 LEFT JOIN clients c ON c.id = a.client_id
 LEFT JOIN client_branches b ON b.id = a.branch_id
 LEFT JOIN users cu ON cu.id = a.contractor_user_id
+-- The latest report decides whether the builder can still edit it.
+LEFT JOIN LATERAL (
+  SELECT r.status, r.held_at FROM audit_reports r
+  WHERE r.audit_id = a.id
+  ORDER BY r.updated_at DESC, r.created_at DESC
+  LIMIT 1
+) rpt ON true
 WHERE ${actualAuditSql()} AND a.assigned_auditor_id = $1
   AND (
     ($2::text = 'PENDING_SUBMISSION' AND a.status = 'COMPLETED')

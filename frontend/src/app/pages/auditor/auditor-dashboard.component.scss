@@ -82,6 +82,18 @@
   gap: 1rem;
 }
 
+/* Wide tables (observations, evidence) need the full row. */
+.dashboard-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+/* The queue is paged, so the page scrolls rather than a nested table box. */
+:host ::ng-deep .dashboard-queue .table-scroll {
+  max-height: none;
+}
+
 :host .card .field-action-group {
   flex-wrap: wrap;
 }

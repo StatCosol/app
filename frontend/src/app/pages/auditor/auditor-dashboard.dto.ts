@@ -85,6 +85,9 @@ export interface AuditorReportPending {
   auditName: string;
   dueDate: string; // YYYY-MM-DD
   status: AuditorAuditItem['status'];
+  /** Latest report's status (DRAFT, SUBMITTED, APPROVED, PUBLISHED), if any. */
+  reportStatus?: string | null;
+  reportHeld?: boolean;
 }
 
 /** Activity timeline item */
