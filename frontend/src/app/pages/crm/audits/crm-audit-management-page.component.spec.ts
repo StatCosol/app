@@ -19,10 +19,11 @@ describe('CRM report holds', () => {
       crmGetReportStatus: vi.fn(() => of({ status: 'SUBMITTED', held: false })),
     };
     const toast = { success: vi.fn(), error: vi.fn() };
-    const component = new CrmAuditManagementPageComponent(api as any, {} as any, {} as any, {} as any, toast as any, {} as any, {} as any, { markForCheck: vi.fn() } as any);
+    const dialog = { prompt: vi.fn(async (_title: string, _message: string, _options: any) => ({confirmed:true,value:'  Evidence reviewed  '})) };
+    const component = new CrmAuditManagementPageComponent(api as any, {} as any, {} as any, {} as any, toast as any, dialog as any, {} as any, { markForCheck: vi.fn() } as any);
     component.selectedAudit = sampleAudit;
     component.latestReportStatus = { status: 'SUBMITTED', held: true, holdRemarks: 'Awaiting evidence' };
-    return { component, api, toast };
+    return { component, api, toast, dialog };
   }
 
   it('blocks approve and publish when server status is held', () => {
@@ -30,6 +31,58 @@ describe('CRM report holds', () => {
     component.approveReport(); component.publishReport();
     expect(api.crmApproveReport).not.toHaveBeenCalled();
     expect(api.crmPublishReport).not.toHaveBeenCalled();
+  });
+  it.each(['approve','publish'] as const)('sends %s remarks and reloads saved review history', async action => {
+    const {component,api} = setup();
+    component.latestReportStatus = {status:action==='approve'?'SUBMITTED':'APPROVED',held:false};
+    const saved = {decision:action==='approve'?'APPROVED':'PUBLISHED',remarks:'Evidence reviewed',revision:'2',reviewedAt:'2026-11-28T05:00:00Z',reviewedBy:'Synthetic CRM'};
+    api.crmGetReportStatus.mockReturnValue(of({status:saved.decision,held:false,reviewHistory:[saved]} as any));
+    await (action==='approve'?component.approveReport():component.publishReport());
+    expect(action==='approve'?api.crmApproveReport:api.crmPublishReport).toHaveBeenCalledWith('sample-audit','Evidence reviewed');
+    expect(component.latestReportStatus?.reviewHistory).toEqual([saved]);
+  });
+  it('preserves failed remarks for retry without offering them on another audit', async () => {
+    const {component,api,dialog}=setup();
+    component.latestReportStatus={status:'SUBMITTED',held:false};
+    api.crmApproveReport.mockReturnValue(throwError(()=>new Error('offline')));
+    await component.approveReport();
+    await component.approveReport();
+    expect(dialog.prompt.mock.calls[1][2].defaultValue).toBe('Evidence reviewed');
+    component.selectedAudit={...sampleAudit,id:'other-audit'};
+    await component.approveReport();
+    expect(dialog.prompt.mock.calls[2][2].defaultValue).toBe('');
+  });
+  it('does not approve a different selection after the remarks dialog opens', async () => {
+    const {component,api,dialog}=setup();
+    component.latestReportStatus={status:'SUBMITTED',held:false};
+    let finish: (value:any)=>void = ()=>{};
+    dialog.prompt.mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
+    const pending=component.approveReport();
+    component.selectedAudit={...sampleAudit,id:'other-audit'};
+    finish({confirmed:true,value:'Notes for original audit'});
+    await pending;
+    expect(api.crmApproveReport).not.toHaveBeenCalled();
+    expect(component.governanceBusy).toBe(false);
+  });
+  it('rejects overlong remarks and duplicate review clicks', async () => {
+    const {component,api,dialog}=setup();
+    component.latestReportStatus={status:'SUBMITTED',held:false};
+    dialog.prompt.mockResolvedValue({confirmed:true,value:'x'.repeat(2001)});
+    const first=component.approveReport();
+    await component.approveReport(); await first;
+    expect(dialog.prompt).toHaveBeenCalledTimes(1);
+    expect(api.crmApproveReport).not.toHaveBeenCalled();
+  });
+  it('does not send a decision when the page closes during the remarks dialog', async () => {
+    const {component,api,dialog}=setup();
+    component.latestReportStatus={status:'SUBMITTED',held:false};
+    let finish: (value:any)=>void = ()=>{};
+    dialog.prompt.mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
+    const pending=component.approveReport();
+    component.ngOnDestroy();
+    finish({confirmed:true,value:'Do not submit after leaving'});
+    await pending;
+    expect(api.crmApproveReport).not.toHaveBeenCalled();
   });
 
   it('releases hold and reloads status from the API', () => {
@@ -58,7 +111,7 @@ describe('CRM report holds', () => {
     pending.next({}); pending.complete(); component.ngOnDestroy();
   });
 
-  it.each([390, 1440])('renders held reports and wrapped notes at %s pixels', async width => {
+  it.each([390, 768, 1440])('renders held reports and wrapped notes at %s pixels', async width => {
     await page.viewport(width, 1000);
     const { api, toast } = setup();
     await TestBed.configureTestingModule({
@@ -72,7 +125,8 @@ describe('CRM report holds', () => {
     component.selectedAudit = sampleAudit;
     component.audits = [sampleAudit];
     component.filteredAudits = [sampleAudit];
-    component.latestReportStatus = { stage: 'FINAL', status: 'SUBMITTED', held: true, holdRemarks: 'Awaiting signed evidence. '+ 'Sample-reference-'.repeat(35) };
+    component.latestReportStatus = { stage: 'FINAL', status: 'SUBMITTED', held: true, holdRemarks: 'Awaiting signed evidence. '+ 'Sample-reference-'.repeat(35),
+      reviewHistory:[{decision:'APPROVED',remarks:'Verified evidence. '+'LongReference'.repeat(80),revision:'1',reviewedBy:'Synthetic reviewer',reviewedAt:'2026-11-28T05:00:00Z'}]};
     fixture.detectChanges(); await fixture.whenStable();
     const section = fixture.nativeElement.querySelector('[aria-label="Report status"]') as HTMLElement;
     const findButton = (text: string) => Array.from(section.querySelectorAll('button')).find(b => (b.getAttribute('aria-label') || b.textContent)?.trim().endsWith(text));
@@ -83,6 +137,10 @@ describe('CRM report holds', () => {
     const notes = section.querySelector('[role="status"] p') as HTMLElement;
     expect(notes.scrollWidth).toBeLessThanOrEqual(notes.clientWidth + 1);
     expect(section.getBoundingClientRect().width).toBeLessThanOrEqual(width);
+    const history=section.querySelector('[data-testid="report-review-history"]') as HTMLElement;
+    expect(history.textContent).toContain('Approval remarks');
+    expect(history.textContent).toContain('Synthetic reviewer');
+    expect(history.scrollWidth).toBeLessThanOrEqual(history.clientWidth+1);
     section.scrollIntoView({ block: 'center' });
     await page.screenshot({ path: `__screenshots__/audit-report-held-${width}.png` });
     findButton('Release Hold')!.click();

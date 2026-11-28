@@ -106,6 +106,7 @@ interface ReportStatusResponse {
   updatedAt?: string | null;
   held?: boolean;
   holdRemarks?: string | null;
+  reviewHistory?: Array<{ decision: string; remarks: string | null; revision: string; reviewedAt: string; reviewedBy: string | null }>;
   returnFeedback?: Array<{ reason: string; returnedAt: string; returnedBy: string | null }>;
   heldAt?: string | null;
 }
@@ -158,6 +159,7 @@ interface ClientAssignmentPreview {
 })
 export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private destroyed = false;
   private readonly workspaceReload$ = new Subject<void>();
   private readonly detailReload$ = new Subject<void>();
   private readonly baseUrl = environment.apiBaseUrl;
@@ -202,6 +204,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   actionRequests: any[] = [];
   autoGenerating = false;
   governanceBusy = false;
+  private reviewRemarksDraft: { auditId: string; action: string; value: string } | null = null;
   reportPreview: AuditFilePreview | null = null;
   reportPreviewBusy = false;
 
@@ -276,6 +279,8 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.reviewRemarksDraft = null;
     this.destroy$.next();
     this.destroy$.complete();
     this.workspaceReload$.complete();
@@ -1121,38 +1126,55 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     return Number.isNaN(value) ? Number.MAX_SAFE_INTEGER : value;
   }
 
-  approveReport(): void {
-    const id = this.currentAudit?.id;
-    if (!id || this.governanceBusy || this.latestReportStatus?.held) return;
-    this.governanceBusy = true;
-    this.auditsService.crmApproveReport(id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.toast.success('Report approved');
-        this.governanceBusy = false;
-        this.loadAuditInsights(id);
-        this.cdr.markForCheck();
-      },
-      error: (e: any) => {
-        this.toast.error(e?.error?.message || 'Failed to approve report');
-        this.governanceBusy = false;
-        this.cdr.markForCheck();
-      },
-    });
+  approveReport(): Promise<void> {
+    return this.reviewReport('approve');
   }
 
-  publishReport(): void {
+  publishReport(): Promise<void> {
+    return this.reviewReport('publish');
+  }
+
+  private async reviewReport(action: 'approve' | 'publish'): Promise<void> {
     const id = this.currentAudit?.id;
-    if (!id || this.governanceBusy || this.latestReportStatus?.held) return;
+    const requiredStatus = action === 'approve' ? 'SUBMITTED' : 'APPROVED';
+    if (!id || this.governanceBusy || this.latestReportStatus?.held || this.latestReportStatus?.status !== requiredStatus) return;
     this.governanceBusy = true;
-    this.auditsService.crmPublishReport(id).pipe(takeUntil(this.destroy$)).subscribe({
+    const result = await this.dialog.prompt(
+      action === 'approve' ? 'Approve report' : 'Publish report',
+      'Review remarks (optional, up to 2000 characters). These will be saved with this report decision.',
+      {
+        placeholder: 'Review remarks',
+        confirmText: action === 'approve' ? 'Approve' : 'Publish',
+        defaultValue: this.reviewRemarksDraft?.auditId === id && this.reviewRemarksDraft.action === action
+          ? this.reviewRemarksDraft.value : '',
+      },
+    );
+    if (!result.confirmed || this.destroyed || this.currentAudit?.id !== id || this.latestReportStatus?.held || this.latestReportStatus?.status !== requiredStatus) {
+      this.governanceBusy = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    const remarks = (result.value || '').trim();
+    this.reviewRemarksDraft = { auditId: id, action, value: remarks };
+    if (remarks.length > 2000) {
+      this.toast.error('Review remarks must be at most 2000 characters');
+      this.governanceBusy = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    const request = action === 'approve'
+      ? this.auditsService.crmApproveReport(id, remarks)
+      : this.auditsService.crmPublishReport(id, remarks);
+    request.pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
-        this.toast.success('Report published');
+        this.toast.success(action === 'approve' ? 'Report approved' : 'Report published');
+        this.reviewRemarksDraft = null;
         this.governanceBusy = false;
-        this.loadAuditInsights(id);
+        if (this.currentAudit?.id === id) this.loadAuditInsights(id);
         this.cdr.markForCheck();
       },
       error: (e: any) => {
-        this.toast.error(e?.error?.message || 'Failed to publish report');
+        this.toast.error(e?.error?.message || 'Failed to save report decision');
         this.governanceBusy = false;
         this.cdr.markForCheck();
       },

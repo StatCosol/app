@@ -380,6 +380,12 @@
           Status: {{ latestReportStatus?.status }}
         </div>
 }
+          @for (review of latestReportStatus?.reviewHistory || []; track $index) {
+            <div class="mt-2" data-testid="report-review-history">
+              <p class="whitespace-pre-wrap break-words [overflow-wrap:anywhere]"><strong>{{ review.decision === 'APPROVED' ? 'Approval remarks' : 'Publication remarks' }}:</strong> {{ review.remarks || 'No remarks provided' }}</p>
+              <p class="text-xs text-gray-500">Revision {{ review.revision }} · {{ review.reviewedBy || 'Reviewer' }} · {{ review.reviewedAt | date:'medium' }}</p>
+            </div>
+          }
           @for (feedback of latestReportStatus?.returnFeedback || []; track $index) {
             <p class="mt-2 whitespace-pre-wrap break-words"><strong>Correction requested:</strong> {{ feedback.reason }}</p>
             <p>{{ feedback.returnedBy || 'CRM' }} · {{ feedback.returnedAt | date:'medium' }}</p>

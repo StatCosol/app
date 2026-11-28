@@ -16,7 +16,10 @@ import { AssignmentsService } from '../assignments/assignments.service';
 import { generateAuditReportPdfBuffer } from './utils/report-pdf';
 import { AuditEntity } from './entities/audit.entity';
 import { AuditObservationEntity } from './entities/audit-observation.entity';
-import { transitionGovernedReport } from './report-governance';
+import {
+  normalizeReportRemarks,
+  transitionGovernedReport,
+} from './report-governance';
 
 @Injectable()
 export class AuditReportService {
@@ -101,6 +104,9 @@ export class AuditReportService {
       updatedAt: latestReport.updated_at || null,
       finalizedAt: latestReport.finalized_at || null,
       returnFeedback: await this.getReturnFeedback(audit.id),
+      reviewHistory: latestReport.id
+        ? await this.getReviewHistory(audit.id, latestReport.id)
+        : [],
     };
   }
 
@@ -110,6 +116,7 @@ export class AuditReportService {
   }
 
   async approveReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
+    const savedRemarks = normalizeReportRemarks(remarks);
     const audit = await this.getForCrm(user, auditId);
     this.assertSubmittedAudit(audit);
     const rows = await this.dataSource.query(
@@ -130,16 +137,18 @@ export class AuditReportService {
       current,
       'approve',
       user.userId,
+      savedRemarks,
     );
     return {
       auditId: audit.id,
       reportId: current.id,
       status: 'APPROVED',
-      remarks: remarks || null,
+      remarks: savedRemarks,
     };
   }
 
   async publishReportForCrm(user: ReqUser, auditId: string, remarks?: string) {
+    const savedRemarks = normalizeReportRemarks(remarks);
     const audit = await this.getForCrm(user, auditId);
     this.assertSubmittedAudit(audit);
     const rows = await this.dataSource.query(
@@ -160,12 +169,13 @@ export class AuditReportService {
       current,
       'publishCrm',
       user.userId,
+      savedRemarks,
     );
     return {
       auditId: audit.id,
       reportId: current.id,
       status: 'PUBLISHED',
-      remarks: remarks || null,
+      remarks: savedRemarks,
     };
   }
 
@@ -352,6 +362,9 @@ export class AuditReportService {
     return {
       ...this.mapReportRow(audit.id, rows[0] ?? null, audit.updatedAt || null),
       returnFeedback: await this.getReturnFeedback(audit.id),
+      reviewHistory: rows[0]?.reportId
+        ? await this.getReviewHistory(audit.id, rows[0].reportId)
+        : [],
     };
   }
 
@@ -853,6 +866,7 @@ export class AuditReportService {
   }
 
   async getLatestReportRow(auditId: string): Promise<{
+    id?: string;
     status?: string;
     held_at?: string | null;
     hold_remarks?: string | null;
@@ -868,6 +882,19 @@ export class AuditReportService {
       [auditId],
     );
     return rows[0] || null;
+  }
+
+  private async getReviewHistory(auditId: string, reportId: string) {
+    return this.dataSource.query(
+      `SELECT l.snapshot->>'decision' AS decision, l.snapshot->>'remarks' AS remarks,
+         l.snapshot->>'reportId' AS "reportId", l.snapshot->>'revision' AS revision,
+         l.created_at AS "reviewedAt", l.performed_by AS "reviewedById", u.name AS "reviewedBy"
+       FROM audit_logs l LEFT JOIN users u ON u.id=l.performed_by
+       WHERE l.entity_type='AUDIT' AND l.entity_id=$1 AND l.action='STATUS_CHANGE'
+         AND l.snapshot->>'kind'='REPORT_REVIEW' AND l.snapshot->>'reportId'=$2
+       ORDER BY l.created_at DESC,l.id DESC`,
+      [auditId, reportId],
+    );
   }
 
   private async getReturnFeedback(

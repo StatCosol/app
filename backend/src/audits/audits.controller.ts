@@ -106,7 +106,7 @@ export class AuditKpiController {
 
 @Controller({ path: 'crm/audits', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'CRM')
+@Roles('CRM')
 export class CrmAuditsController {
   constructor(
     private readonly svc: AuditsService,
@@ -150,7 +150,7 @@ export class CrmAuditsController {
     return this.auditOutputEngine.getReportHistory(id);
   }
 
-  /** The audit's client must be assigned to this CRM; ADMIN sees all. */
+  /** The audit's client must be assigned to this CRM. */
   @Get(':id/report/preview')
   async previewReport(
     @CurrentUser() user: ReqUser,
@@ -180,7 +180,6 @@ export class CrmAuditsController {
   }
 
   private async assertCrmAudit(user: ReqUser, id: string): Promise<void> {
-    if (user.roleCode === 'ADMIN') return;
     await this.svc.getForCrm(user, id);
   }
 
@@ -907,7 +906,7 @@ export class AuditorAuditsLegacyController {
 
 @Controller({ path: 'client/audits', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'CLIENT')
+@Roles('CLIENT')
 export class ClientAuditsController {
   constructor(
     private readonly svc: AuditsService,
@@ -1011,8 +1010,7 @@ export class ClientAuditsController {
   }
 
   private async assertReportAccess(user: ReqUser, id: string): Promise<void> {
-    if (user.roleCode !== 'ADMIN')
-      await assertClientAuditScope(this.ds, this.branchAccess, user, id);
+    await assertClientAuditScope(this.ds, this.branchAccess, user, id);
   }
 }
 
