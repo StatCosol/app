@@ -5,6 +5,12 @@ import { ContractorTasksComponent } from './contractor-tasks.component';
 import { ContractorProfileApiService } from '../../../core/contractor-profile-api.service';
 import { ContractorUnifiedTaskCenterPageComponent } from './contractor-unified-task-center-page.component';
 import { CONTRACTOR_ROUTES } from '../contractor.routes';
+import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, provideRouter } from '@angular/router';
+import { page } from '@vitest/browser/context';
+import { ComplianceService } from '../../../core/compliance.service';
+import { AuditsService } from '../../../core/audits.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 describe('Contractor assigned audit documents', () => {
   const audit = (id = 'audit') => ({
@@ -12,6 +18,9 @@ describe('Contractor assigned audit documents', () => {
     auditCode: id,
     notes: 'TEST ONLY fixture',
     branchId: 'branch',
+    contractorUserId: 'vendor',
+    contractorUser: { name: 'Test vendor' },
+    branch: { branchName: 'Test branch' },
     periodCode: '2026-10',
     auditType: 'CONTRACTOR',
     status: 'PLANNED',
@@ -174,5 +183,77 @@ describe('Contractor assigned audit documents', () => {
     const form = (post.mock.calls as any)[0][1] as FormData;
     expect(form.get('month')).toBe('2026-10');
     expect(form.get('auditId')).toBe('test');
+  });
+  it.each(['branchId', 'contractorUserId'])('does not infer missing %s from a sole vendor branch', key => {
+    const t = setup();
+    t.c.availableBranches = [{ id: 'branch', name: 'Test branch' }];
+    t.c.selectRow(t.c['mapAuditRow']({ ...audit(), [key]: null }));
+    expect(t.c.auditUploadScopeError).toContain('CRM must assign');
+    t.c.auditDocFile = new File(['TEST ONLY'], 'test.pdf');
+    t.c.auditDocType = 'CLRA_LICENSE';
+    t.c.auditDocTitle = 'TEST ONLY fixture';
+    t.c.uploadAuditDocument();
+    expect(t.profile.uploadAuditDocument).not.toHaveBeenCalled();
+    t.c.ngOnDestroy();
+  });
+  it('keeps the assigned branch and normalizes the legacy month before uploading', () => {
+    const t = setup();
+    t.c.selectRow(t.c['mapAuditRow']({ ...audit(), periodCode: '2026-9' }));
+    expect(t.c.selectedRow?.contractorName).toBe('Test vendor');
+    expect(t.c.selectedRow?.branchName).toBe('Test branch');
+    t.c.auditDocBranchId = 'other-branch';
+    t.c.auditDocFile = new File(['TEST ONLY'], 'test.pdf');
+    t.c.auditDocType = 'CLRA_LICENSE';
+    t.c.auditDocTitle = 'TEST ONLY fixture';
+    t.c.uploadAuditDocument();
+    expect(t.profile.uploadAuditDocument).toHaveBeenCalledWith(expect.objectContaining({
+      branchId: 'branch', month: '2026-09', auditId: 'audit',
+    }));
+    t.c.ngOnDestroy();
+  });
+  it.each([390, 768, 1440])('renders an explicit upload destination and an incomplete-scope warning at %ipx', async width => {
+    await page.viewport(width, 900);
+    const t = setup();
+    t.audits.contractorListAudits.mockReturnValue(of([{
+      ...audit(), client: { clientName: 'Test client' },
+      branch: { branchName: 'Test branch with a long descriptive location' },
+    }]));
+    await TestBed.configureTestingModule({
+      imports: [ContractorTasksComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: {
+          queryParamMap: new BehaviorSubject(convertToParamMap({})),
+          paramMap: new BehaviorSubject(convertToParamMap({})),
+          snapshot: { queryParamMap: convertToParamMap({}), routeConfig: { path: 'audit-documents' } },
+        }},
+        { provide: ComplianceService, useValue: t.api },
+        { provide: AuditsService, useValue: t.audits },
+        { provide: ContractorProfileApiService, useValue: t.profile },
+        { provide: ToastService, useValue: { error: vi.fn(), success: vi.fn() } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ContractorTasksComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const c = fixture.componentInstance;
+    c.selectRow(c.allRows[0]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('Monthly statutory uploads are under Tasks');
+    expect(host.querySelector('.audit-destination')?.textContent).toContain('Test vendor');
+    expect(host.querySelector('.wizard-form')?.textContent).toContain('Upload destination');
+    expect(host.querySelector('[name="auditDocBranch"]')).toBeNull();
+    expect(host.querySelector('.wizard-form')?.textContent).toContain('2026-10');
+    const destination = host.querySelector('.audit-destination') as HTMLElement;
+    expect(destination.scrollWidth).toBeLessThanOrEqual(destination.clientWidth + 1);
+    c.selectRow(c['mapAuditRow']({ ...audit('legacy'), branchId: null, contractorUserId: null }));
+    fixture.detectChanges();
+    expect(host.querySelector('[role="status"]')?.textContent).toContain('CRM must assign');
+    expect(host.querySelector('.action-card--wizard')).toBeNull();
+    fixture.destroy();
+    TestBed.resetTestingModule();
+    t.c.ngOnDestroy();
   });
 });
