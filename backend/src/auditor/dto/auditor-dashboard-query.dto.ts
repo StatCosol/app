@@ -163,8 +163,3 @@ export class AuditorReportsQueryDto {
   @Min(0)
   offset?: number;
 }
-
-export class UpdateEvidenceStatusDto {
-  @IsString()
-  status: string;
-}

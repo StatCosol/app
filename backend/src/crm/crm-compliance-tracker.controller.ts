@@ -851,44 +851,6 @@ export class CrmComplianceTrackerController {
     return { data: rows };
   }
 
-  /**
-   * POST /api/v1/crm/compliance-tracker/audit-closures/:observationId/close
-   * Close an observation
-   * Body: { notes?: string }
-   */
-  @ApiOperation({ summary: 'Close Observation' })
-  @Post('audit-closures/:observationId/close')
-  async closeObservation(
-    @CurrentUser() user: ReqUser,
-    @Param('observationId') observationId: string,
-    @Body() _body: { notes?: string },
-  ) {
-    const crmUserId = user.id;
-
-    // Verify observation belongs to CRM's client scope
-    const scope = await this.db.many(
-      `SELECT ao.id
-       FROM audit_observations ao
-       JOIN audits a ON a.id = ao.audit_id
-       JOIN client_assignments_current cac
-         ON cac.client_id = a.client_id
-         AND cac.assigned_to_user_id = $1
-         AND cac.assignment_type = 'CRM'
-       WHERE ao.id = $2::uuid`,
-      [crmUserId, observationId],
-    );
-    if (!scope.length)
-      return { ok: false, message: 'Observation not in your scope' };
-
-    await this.db.many(
-      `UPDATE audit_observations
-       SET status = 'CLOSED',
-           updated_at = NOW()
-       WHERE id = $1::uuid
-       RETURNING id`,
-      [observationId],
-    );
-
-    return { ok: true };
-  }
+  // Observations are closed only by the assigned auditor (verify-closure),
+  // inside the audit lock. The former CRM close endpoint bypassed both.
 }

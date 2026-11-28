@@ -30,12 +30,4 @@ export class CrmComplianceTrackerApi {
     if (clientId) hp = hp.set('clientId', clientId);
     return this.http.get('/api/v1/crm/compliance-tracker/audit-closures', { params: hp });
   }
-
-  /** POST /api/v1/crm/compliance-tracker/audit-closures/:observationId/close */
-  closeObservation(observationId: string, notes?: string): Observable<any> {
-    return this.http.post(
-      `/api/v1/crm/compliance-tracker/audit-closures/${observationId}/close`,
-      { notes },
-    );
-  }
 }

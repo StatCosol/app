@@ -255,7 +255,7 @@ export class ComplianceApiService {
   // =========================
   // CRM — Audit Closures
   // Controller: crm/compliance-tracker
-  // Routes: GET audit-closures, POST audit-closures/:observationId/close
+  // Routes: GET audit-closures (observations are closed by the assigned auditor)
   // =========================
 
   crmGetAuditClosures(query?: { clientId?: string; branchId?: string; monthKey?: string }) {
@@ -264,9 +264,6 @@ export class ComplianceApiService {
     });
   }
 
-  crmCloseAuditObservation(observationId: string, payload?: any) {
-    return this.http.post(this.v1(`crm/compliance-tracker/audit-closures/${observationId}/close`), payload || {});
-  }
 
   crmGetReuploadBacklog() {
     return this.http.get(this.v1('crm/compliance-tracker/reupload-backlog'));

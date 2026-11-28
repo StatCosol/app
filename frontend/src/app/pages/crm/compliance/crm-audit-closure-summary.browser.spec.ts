@@ -17,7 +17,7 @@ afterEach(() => { TestBed.resetTestingModule(); vi.restoreAllMocks(); });
 
 it.each([false, true])('renders an audit summary without an observation-close action (empty=%s)', async empty => {
   vi.spyOn(CrmComplianceComponent.prototype, 'ngOnInit').mockImplementation(() => {});
-  const api = { crmGetAuditClosures: vi.fn(() => of({ data: [] })), crmCloseAuditObservation: vi.fn() };
+  const api = { crmGetAuditClosures: vi.fn(() => of({ data: [] })) };
   await TestBed.configureTestingModule({ imports: [CrmComplianceComponent], providers: [
     provideRouter([]),
     { provide: CrmContractorDocumentsApi, useValue: {} },
@@ -46,6 +46,5 @@ it.each([false, true])('renders an audit summary without an observation-close ac
   (root.querySelector('button[aria-label="Refresh"]') as HTMLButtonElement).click();
   await fixture.whenStable();
   expect(api.crmGetAuditClosures).toHaveBeenCalledTimes(1);
-  expect(api.crmCloseAuditObservation).not.toHaveBeenCalled();
   fixture.destroy();
 });

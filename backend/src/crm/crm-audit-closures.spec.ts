@@ -37,4 +37,10 @@ describe('CRM operational audit closures', () => {
       expect(many).toHaveBeenCalledTimes(1);
     },
   );
+  it('offers no CRM route that closes auditor findings', () => {
+    // Findings close only through the assigned auditor's verify-closure.
+    expect(
+      (CrmComplianceTrackerController.prototype as any).closeObservation,
+    ).toBeUndefined();
+  });
 });

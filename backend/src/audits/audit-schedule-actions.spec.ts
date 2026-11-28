@@ -85,8 +85,24 @@ describe('Audit schedule actions', () => {
         s.startsWith('INSERT INTO audit_logs'),
       ) as any;
       expect(JSON.parse(log[1][2]).before.notes).toBe('Original note');
+      // Open NCs are retired with the audit; accepted/closed history is kept.
+      const retire = t.query.mock.calls.find(([s]) =>
+        s.startsWith('UPDATE audit_non_compliances'),
+      ) as any;
+      expect(retire[0]).toContain("status='CLOSED'");
+      expect(retire[0]).toContain("status NOT IN ('ACCEPTED','CLOSED')");
+      expect(retire[1]).toEqual(['audit']);
     },
   );
+  it('does not touch NCs when deleting an unused planned audit', async () => {
+    const t = setup('PLANNED');
+    await t.run('DELETE');
+    expect(
+      t.query.mock.calls.some(([s]) =>
+        s.startsWith('UPDATE audit_non_compliances'),
+      ),
+    ).toBe(false);
+  });
   it.each([
     'CLOSED',
     'COMPLETED',

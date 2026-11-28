@@ -18,6 +18,8 @@ import {
 } from './audits.controller';
 import { AuditsService } from './audits.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { BranchAccessService } from '../auth/branch-access.service';
+import { DataSource } from 'typeorm';
 
 describe('Rejected audit correction disk uploads', () => {
   let app: INestApplication;
@@ -31,6 +33,9 @@ describe('Rejected audit correction disk uploads', () => {
       controllers: [ContractorAuditNcController, BranchAuditNcController],
       providers: [
         { provide: AuditsService, useValue: { uploadCorrectedFile } },
+        // Upload routes do not use list scoping; these satisfy the constructor.
+        { provide: BranchAccessService, useValue: {} },
+        { provide: DataSource, useValue: {} },
         AuditNcUploadCleanupInterceptor,
       ],
     })

@@ -113,6 +113,14 @@ export async function changeAuditSchedule(
         notes=concat_ws(E'\\n',nullif(notes,''),$2::text),updated_at=NOW() WHERE id=$1`,
         [id, `Cancellation reason: ${explanation}`],
       );
+      // A cancelled audit has no correction cycle: retire its open NCs so
+      // vendors are not asked for uploads that will be refused and the daily
+      // escalation does not chase them.
+      await manager.query(
+        `UPDATE audit_non_compliances SET status='CLOSED',closed_at=NOW(),updated_at=NOW()
+        WHERE audit_id=$1 AND status NOT IN ('ACCEPTED','CLOSED')`,
+        [id],
+      );
     }
     return { id, status: action === 'DELETE' ? 'DELETED' : 'CANCELLED' };
   });

@@ -53,12 +53,13 @@ export class AuditNcEscalationJob {
       })
       .andWhere('nc.vendorWindowUntil IS NOT NULL')
       .andWhere('nc.vendorWindowUntil < :today', { today })
-      // Skip NCs whose audit/client has been soft-deleted
+      // Skip NCs whose client was soft-deleted or whose audit was cancelled
+      // (cancellations before NCs were retired at cancel left them open).
       .andWhere(
         `nc.auditId NOT IN (
            SELECT a.id FROM audits a
            JOIN clients c ON c.id = a.client_id
-           WHERE COALESCE(c.is_deleted, false) = true
+           WHERE COALESCE(c.is_deleted, false) = true OR a.status = 'CANCELLED'
          )`,
       )
       .getMany();
