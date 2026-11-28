@@ -44,7 +44,10 @@ describe('Contractor audit record isolation', () => {
         year: 2099,
         branchId: 'branch',
       });
-      expect(t.qb.addSelect).toHaveBeenCalledWith(['contractor.id', 'contractor.name']);
+      expect(t.qb.addSelect).toHaveBeenCalledWith([
+        'contractor.id',
+        'contractor.name',
+      ]);
       expect(t.qb.where).toHaveBeenCalledWith(
         expect.stringContaining('a.contractorUserId = :uid'),
         {

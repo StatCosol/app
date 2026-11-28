@@ -95,14 +95,19 @@ describe('Contractor audit upload classification', () => {
     async (key) => {
       const t = setup('Actual audit');
       t.audit[key] = null;
-      await expect(t.service.contractorUpload(user, dto, file))
-        .rejects.toThrow('Select a branch and contractor');
+      await expect(t.service.contractorUpload(user, dto, file)).rejects.toThrow(
+        'Select a branch and contractor',
+      );
       expect(t.repo.save).not.toHaveBeenCalled();
     },
   );
   it('keeps non-audit monthly uploads available', async () => {
     const t = setup('Actual audit');
-    await t.service.contractorUpload(user, { ...dto, auditId: undefined }, file);
+    await t.service.contractorUpload(
+      user,
+      { ...dto, auditId: undefined },
+      file,
+    );
     expect(t.repo.save).toHaveBeenCalled();
   });
 });
