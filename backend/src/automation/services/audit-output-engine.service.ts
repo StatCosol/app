@@ -1,7 +1,5 @@
-import {
-  fieldworkAppendix,
-  fieldworkScore,
-} from '../../audits/audit-fieldwork-report';
+import { readIssuedReport } from '../../audits/issued-report';
+import { fieldworkAppendix } from '../../audits/audit-fieldwork-report';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -30,80 +28,33 @@ export class AuditOutputEngineService {
   ) {}
 
   /**
-   * Recalculate audit score from document reviews.
-   * Uses the same blended formula as submitAudit (50% observation + 50% document).
+   * Read the submitted audit assessment without changing it.
+   * Submission owns scoring; NC progress must not rewrite the assessment.
    */
   async calculateAuditScore(
     auditId: string,
     manager?: EntityManager,
   ): Promise<{
     auditId: string;
-    docScore: number;
-    obsScore: number;
-    blendedScore: number;
-    totalDocs: number;
-    compliedDocs: number;
+    docScore: number | null;
+    obsScore: number | null;
+    blendedScore: number | null;
+    totalDocs: number | null;
+    compliedDocs: number | null;
   }> {
     const repo = manager?.getRepository(AuditEntity) ?? this.auditRepo;
     const audit = await repo.findOne({ where: { id: auditId } });
     if (!audit) throw new NotFoundException('Audit not found');
 
-    // Document compliance score
-    const branchDocStats = await (manager ?? this.dataSource).query(
-      `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS complied
-       FROM branch_documents
-       WHERE branch_id = $1 AND client_id = $2
-         AND reviewed_by IS NOT NULL AND status IN ('APPROVED','REJECTED')`,
-      [
-        audit.branchId || '00000000-0000-0000-0000-000000000000',
-        audit.clientId,
-      ],
-    );
-    const ctrDocStats = await (manager ?? this.dataSource).query(
-      `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE status = 'APPROVED')::int AS complied
-       FROM contractor_documents WHERE audit_id = $1`,
-      [auditId],
-    );
-    const bS = branchDocStats[0] || { total: 0, complied: 0 };
-    const cS = ctrDocStats[0] || { total: 0, complied: 0 };
-    const totalDocs = bS.total + cS.total;
-    const compliedDocs = bS.complied + cS.complied;
-    const fieldwork = await fieldworkScore(manager ?? this.dataSource, auditId);
-    const docScore =
-      fieldwork?.score ??
-      (totalDocs > 0 ? Math.round((compliedDocs / totalDocs) * 100) : 100);
-
-    // Observation-based score (from audit_observations)
-    const obsRows = await (manager ?? this.dataSource).query(
-      `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE status = 'COMPLIED')::int AS complied
-       FROM audit_observations WHERE audit_id = $1`,
-      [auditId],
-    );
-    const obs = obsRows[0] || { total: 0, complied: 0 };
-    const obsScore =
-      obs.total > 0 ? Math.round((obs.complied / obs.total) * 100) : 100;
-
-    const blendedScore = Math.round((obsScore + docScore) / 2);
-
-    // Update audit record
-    audit.score = blendedScore;
-    audit.scoreCalculatedAt = new Date();
-    await repo.save(audit);
-
-    this.logger.log(
-      `Score recalculated for audit ${auditId}: doc=${docScore}, obs=${obsScore}, blended=${blendedScore}`,
-    );
-
+    // The submitted assessment is historical. Corrections update their own
+    // workflow, never recalculate from mutable findings or all-period documents.
     return {
       auditId,
-      docScore,
-      obsScore,
-      blendedScore,
-      totalDocs,
-      compliedDocs,
+      docScore: null,
+      obsScore: null,
+      blendedScore: audit.score,
+      totalDocs: null,
+      compliedDocs: null,
     };
   }
 
@@ -132,7 +83,7 @@ export class AuditOutputEngineService {
 
     // Fetch the latest audit_reports record
     const reportRows = await (manager ?? this.dataSource).query(
-      `SELECT ar.executive_summary, ar.scope, ar.methodology,
+      `SELECT ar.id, ar.executive_summary, ar.scope, ar.methodology,
               ar.findings, ar.recommendations, ar.report_type AS report_version,
               ar.selected_observation_ids, ar.finalized_at, ar.updated_at, ar.version_no,
               ar.status, ar.held_at, ar.approved_date, ar.published_date
@@ -157,6 +108,19 @@ export class AuditOutputEngineService {
         generatedAt: new Date(),
         pdfBuffer: null,
         publishable: false,
+      };
+    }
+
+    if (report.status === 'PUBLISHED') {
+      return {
+        auditId,
+        version: nextVersion,
+        generatedAt: new Date(),
+        pdfBuffer: await readIssuedReport(
+          manager ?? this.dataSource,
+          report.id,
+        ),
+        publishable: !report.held_at,
       };
     }
 
@@ -289,8 +253,8 @@ export class AuditOutputEngineService {
         'CRM',
         {
           queryType: 'COMPLIANCE',
-          subject: `Audit Score Updated — ${auditCode} (${scoreText})`,
-          message: `Audit ${auditCode} score has been recalculated to ${scoreText} after reverification.`,
+          subject: `Audit Correction Updated — ${auditCode} (${scoreText})`,
+          message: `Audit ${auditCode} correction was reviewed. Submitted assessment: ${scoreText}.`,
           clientId: audit.clientId,
           branchId: audit.branchId || undefined,
         },
@@ -313,7 +277,7 @@ export class AuditOutputEngineService {
         {
           queryType: 'AUDIT',
           subject: `Audit Report Updated — ${auditCode} (${scoreText})`,
-          message: `Audit ${auditCode} has been updated. New score: ${scoreText}. View the latest report from your Audits page.`,
+          message: `Audit ${auditCode} has been updated. Submitted assessment: ${scoreText}. The issued report remains unchanged.`,
           clientId: audit.clientId,
           branchId: audit.branchId || undefined,
         },
@@ -328,7 +292,7 @@ export class AuditOutputEngineService {
   }
 
   /**
-   * Full refresh: recalculate score, generate report, publish.
+   * Read the preserved assessment/report for correction follow-up.
    * Call this after reverification, resubmission, or any NC closure.
    */
   async refreshAuditOutputs(

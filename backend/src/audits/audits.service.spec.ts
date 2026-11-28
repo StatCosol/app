@@ -156,10 +156,7 @@ describe('AuditsService', () => {
             hasSession: jest.fn().mockResolvedValue(flow === 'statutory'),
             submit: statutorySubmit,
           };
-          jest.spyOn(service, 'calculateScore').mockResolvedValue({
-            score: 100,
-            breakdown: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
-          });
+          (service as any).observationRepo.find.mockResolvedValue([]);
           const schedule = jest
             .spyOn(service, 'updateScheduleStatusOnSubmit')
             .mockResolvedValue();
@@ -273,23 +270,101 @@ describe('AuditsService', () => {
       'Complete the audit checklist',
     );
   });
+  it('keeps the real 62% submission score through corrections, resubmission and closure', async () => {
+    const audit: any = {
+      id: 'audit',
+      clientId: 'client',
+      assignedAuditorId: 'auditor',
+      status: 'IN_PROGRESS',
+      notes: 'TEST ONLY - isolated scoring regression',
+      score: null,
+      submittedAt: null,
+    };
+    audits.findOne.mockResolvedValue(audit);
+    audits.save.mockImplementation(async (value) => value);
+    checklist.find.mockResolvedValue([{ status: 'COMPLIED' }]);
+    const observations = [
+      { risk: 'CRITICAL', status: 'OPEN' },
+      { risk: 'HIGH', status: 'OPEN' },
+      { risk: 'HIGH', status: 'OPEN' },
+    ];
+    (service as any).observationRepo.find.mockResolvedValue(observations);
+    const docs = Array.from({ length: 13 }, (_, i) => ({
+      status: i < 6 ? 'APPROVED' : 'REJECTED',
+    }));
+    (service as any).documentReviewService.listDocumentsForAudit = jest
+      .fn()
+      .mockResolvedValue({ branchDocuments: docs, contractorDocuments: [] });
+    (service as any).ncRepo.count = jest.fn().mockResolvedValue(3);
+    (service as any).reportService.getLatestReportRow = jest
+      .fn()
+      .mockResolvedValue({ status: 'APPROVED' });
+    jest.spyOn(service, 'updateScheduleStatusOnSubmit').mockResolvedValue();
+    const first = await service.submitAudit(user, 'audit');
+    expect(first.score).toBe(62); // (78 observation + 46 document) / 2
+    expect(first).toHaveProperty('observationScore', 78);
+    const submittedAt = audit.submittedAt;
+    observations.forEach((o) => (o.status = 'RESOLVED'));
+    docs.forEach((d) => (d.status = 'APPROVED'));
+    (service as any).ncRepo.count.mockResolvedValue(0);
+    expect((await service.submitAudit(user, 'audit')).score).toBe(62);
+    expect(audit.submittedAt).toBe(submittedAt);
+    expect((await service.updateStatus(user, 'audit', 'CLOSED')).score).toBe(
+      62,
+    );
+    expect((await service.calculateScore('audit')).score).toBe(62);
+    const saves = audits.save.mock.calls.length;
+    const output = new AuditOutputEngineService(
+      audits as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {
+        query: jest.fn(() => {
+          throw new Error('Correction must not read all-period evidence');
+        }),
+      } as any,
+    );
+    expect((await output.calculateAuditScore('audit')).blendedScore).toBe(62);
+    expect(audits.save).toHaveBeenCalledTimes(saves);
+  });
+
+  it('requires CRM approval even when using the legacy completed transition', async () => {
+    audits.findOne.mockResolvedValue({
+      id: 'audit',
+      assignedAuditorId: 'auditor',
+      status: 'IN_PROGRESS',
+    });
+    checklist.find.mockResolvedValue([{ status: 'COMPLIED' }]);
+    (service as any).reportService.getLatestReportRow = jest
+      .fn()
+      .mockResolvedValue({ status: 'SUBMITTED' });
+    await expect(
+      service.updateStatus(user, 'audit', 'COMPLETED'),
+    ).rejects.toThrow('CRM must approve');
+    expect(audits.save).not.toHaveBeenCalled();
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
   it.each(['COMPLETED', 'CLOSED'])(
-    'uses the fieldwork blend when marking an audit %s',
+    'preserves the submitted assessment when marking an audit %s',
     async (target) => {
       audits.findOne.mockResolvedValue({
         id: 'audit',
         assignedAuditorId: 'auditor',
         status: target === 'CLOSED' ? 'SUBMITTED' : 'IN_PROGRESS',
+        score: 62,
+        submittedAt: new Date(),
       });
       audits.save.mockImplementation(async (a) => a);
       checklist.find.mockResolvedValue([{ status: 'COMPLIED' }]);
       (service as any).reportService.getLatestReportRow = jest
         .fn()
         .mockResolvedValue({
-          status: target === 'CLOSED' ? 'APPROVED' : 'SUBMITTED',
+          status: 'APPROVED',
         });
       (service as any).observationRepo.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
@@ -302,14 +377,12 @@ describe('AuditsService', () => {
             ? [{ managed: true, total: 2, complied: 2, nonComplied: 0 }]
             : [],
       );
-      jest.spyOn(service, 'calculateScore').mockResolvedValue({
-        score: 80,
-        breakdown: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
-      });
+      const calculation = jest.spyOn(service, 'calculateScore');
       const result = await service.updateStatus(user, 'audit', target);
-      expect(result).toEqual(expect.objectContaining({ score: 90 }));
+      expect(calculation).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ score: 62 }));
       expect(audits.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: target, score: 90 }),
+        expect.objectContaining({ status: target, score: 62 }),
       );
     },
   );

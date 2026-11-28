@@ -1,15 +1,26 @@
 import { AdminReportsController } from './admin-reports.controller';
+jest.mock('../audits/issued-report', () => ({
+  archiveIssuedReport: jest.fn().mockResolvedValue(undefined),
+}));
 
 describe('Admin audit report hold invariant', () => {
   const user = { userId: 'admin', roleCode: 'ADMIN' } as any;
   function setup(status: string, held = false) {
-    const query = jest
-      .fn()
-      .mockResolvedValueOnce([
-        { id: 'report', status, held_at: held ? new Date() : null },
-      ])
-      .mockResolvedValue([{ id: 'report' }]);
-    return { controller: new AdminReportsController({ query } as any), query };
+    const report = {
+      id: 'report',
+      audit_id: 'audit',
+      status,
+      held_at: held ? new Date() : null,
+    };
+    const query = jest.fn(async (_sql: string, _params?: any[]) => [report]);
+    return {
+      controller: new AdminReportsController({
+        query,
+        transaction: (fn: any) => fn({ query }),
+      } as any),
+      query,
+      report,
+    };
   }
 
   it.each(['approve', 'publish'])(
@@ -24,7 +35,9 @@ describe('Admin audit report hold invariant', () => {
           ? controller.approveAuditReport('report', user)
           : controller.publishAuditReport('report');
       await expect(run).rejects.toThrow('Release the report hold first');
-      expect(query).toHaveBeenCalledTimes(1);
+      expect(
+        query.mock.calls.some(([sql]) => sql.startsWith('WITH changed')),
+      ).toBe(false);
     },
   );
 
@@ -38,7 +51,9 @@ describe('Admin audit report hold invariant', () => {
           ? controller.approveAuditReport('report', user)
           : controller.publishAuditReport('report');
       await expect(run).resolves.toMatchObject({ ok: true });
-      const sql = query.mock.calls[1][0];
+      const sql = query.mock.calls.find(([sql]) =>
+        sql.startsWith('WITH changed'),
+      )![0];
       expect(sql).toContain('WITH changed AS');
       expect(sql).toContain('held_at IS NULL');
       expect(sql).toContain(`AND status = '${status}'`);
@@ -49,10 +64,12 @@ describe('Admin audit report hold invariant', () => {
   it.each(['approve', 'publish'])(
     'rejects a concurrent hold/status change during %s',
     async (action) => {
-      const { controller, query } = setup(
+      const { controller, query, report } = setup(
         action === 'approve' ? 'SUBMITTED' : 'APPROVED',
       );
-      query.mockResolvedValue([]);
+      query.mockImplementation(async (sql) =>
+        sql.startsWith('WITH changed') ? [] : [report],
+      );
       const run =
         action === 'approve'
           ? controller.approveAuditReport('report', user)
@@ -70,7 +87,9 @@ describe('Admin audit report hold invariant', () => {
           ? controller.approveAuditReport('report', user)
           : controller.publishAuditReport('report');
       await expect(run).rejects.toThrow('Only');
-      expect(query).toHaveBeenCalledTimes(1);
+      expect(
+        query.mock.calls.some(([sql]) => sql.startsWith('WITH changed')),
+      ).toBe(false);
     },
   );
 });

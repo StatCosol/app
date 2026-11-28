@@ -591,6 +591,13 @@
         </div>
 }
 
+        @if (canStartReportRevision && !['COMPLETED', 'CLOSED'].includes(statusKey(auditDetail.status))) {
+          <div class="py-3">
+            <button type="button" class="standard-action btn btn-secondary" [disabled]="busy" (click)="reopenForReaudit()">Start correction revision</button>
+            <p class="text-xs text-gray-500 mt-1.5">Create a new draft to resolve findings. The issued report remains unchanged; the revision requires CRM approval and publication.</p>
+          </div>
+        }
+
         @if (statusKey(auditDetail.status) === 'SUBMITTED') {
 <div class="py-3">
           <div class="flex items-center gap-2.5 mb-2">

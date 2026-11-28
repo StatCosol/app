@@ -1,3 +1,4 @@
+import { auditContentWritable } from './audit-content-writable';
 import {
   BadRequestException,
   ConflictException,
@@ -24,12 +25,6 @@ import {
   UploadFieldworkEvidenceDto,
 } from './dto/audit-fieldwork.dto';
 
-const EDITABLE = [
-  'PLANNED',
-  'IN_PROGRESS',
-  'CORRECTION_PENDING',
-  'REVERIFICATION_PENDING',
-];
 const SITE_TYPES = new Set([
   'EMERGENCY_EVACUATION',
   'FIRE_EQUIPMENT',
@@ -71,12 +66,11 @@ export class AuditFieldworkService {
     return a;
   }
   private async writable(a: any, db: EntityManager) {
-    if (!EDITABLE.includes(a.status)) return false;
     const [report] = await db.query(
-      'SELECT status FROM audit_reports WHERE audit_id=$1 ORDER BY updated_at DESC LIMIT 1',
+      'SELECT status, held_at FROM audit_reports WHERE audit_id=$1 ORDER BY updated_at DESC, created_at DESC LIMIT 1',
       [a.id],
     );
-    return !report || report.status === 'DRAFT';
+    return auditContentWritable(a.status, report);
   }
   private async assertWritable(a: any, db: EntityManager) {
     if (!(await this.writable(a, db)))

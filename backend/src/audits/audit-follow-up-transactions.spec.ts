@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
 import { NonComplianceEngineService } from '../automation/services/non-compliance-engine.service';
 import { TaskEngineService } from '../automation/services/task-engine.service';
@@ -63,6 +64,13 @@ describe('Audit follow-up transaction propagation', () => {
       create: jest.fn((_, value) => value),
       save: jest.fn(async (_, value) => ({ id: 'record', ...value })),
       query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM audit_report_publications'))
+          return [
+            {
+              pdf: Buffer.from('sample pdf'),
+              sha256: createHash('sha256').update('sample pdf').digest('hex'),
+            },
+          ];
         if (sql.includes('COUNT(*)')) return [{ total: 1, complied: 1 }];
         if (sql.includes('FROM audit_reports'))
           return [

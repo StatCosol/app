@@ -29,7 +29,7 @@ let app,db,source;let checks=0;const check=message=>{checks++;console.log('PASS 
  CREATE TABLE user_branches(user_id uuid,branch_id uuid);
  CREATE TABLE users(id uuid PRIMARY KEY,name text);
  CREATE TABLE audits(id uuid PRIMARY KEY,audit_code text,client_id uuid,branch_id uuid,contractor_user_id uuid,audit_type text,status text,period_code text,due_date date,assigned_auditor_id uuid);
- CREATE TABLE audit_reports(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),audit_id uuid,status text,updated_at timestamptz DEFAULT now());
+ CREATE TABLE audit_reports(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),audit_id uuid,status text,held_at timestamptz,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
  CREATE TABLE audit_checklist_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),audit_id uuid,item_label varchar(255),doc_type text,status text,is_required boolean,sort_order int,remarks text,automated_remarks text,automation_reviewed boolean NOT NULL DEFAULT false,reviewed_by uuid,reviewed_at timestamptz,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
  CREATE TABLE contractor_required_documents(contractor_user_id uuid,client_id uuid,doc_type text,is_required boolean);`);
  const migration=fs.readFileSync(path.join(root,'backend/migrations/20261023_audit_fieldwork.sql'),'utf8');await db.exec(migration);await db.exec(migration);check('Migration safely replays');

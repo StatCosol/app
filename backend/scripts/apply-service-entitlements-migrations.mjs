@@ -11,6 +11,7 @@ const migrationsDir = join(__dirname, '..', 'migrations');
 loadEnv({ path: join(__dirname, '..', '.env') });
 
 const serviceMigrationFiles = new Set([
+  '20261128_audit_report_publications.sql',
   '20261128_recipient_notification_digests.sql',
   // ESI ceiling exclusion marker; must exist before payroll reads employees.
   '20261126_employee_esi_ceiling_exclusion.sql',

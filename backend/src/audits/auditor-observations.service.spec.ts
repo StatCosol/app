@@ -1,3 +1,4 @@
+import { AuditEntity } from './entities/audit.entity';
 import { AuditorObservationsService } from './auditor-observations.service';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
@@ -24,10 +25,12 @@ describe('AuditXpert assignment and verification boundaries', () => {
       remove: jest.fn(),
     };
     const audits = {
+      query: jest.fn().mockResolvedValue([]),
       findOne: jest.fn().mockResolvedValue({
         id: 'audit-a',
         clientId: 'client-a',
         assignedAuditorId: 'auditor-a',
+        status: 'IN_PROGRESS',
       }),
       find: jest.fn().mockResolvedValue([{ id: 'audit-a' }]),
     };
@@ -37,6 +40,13 @@ describe('AuditXpert assignment and verification boundaries', () => {
         .mockResolvedValue([{ id: 'client-a' }]),
       isClientAssignedToAuditor: jest.fn().mockResolvedValue(false),
     };
+    const manager: any = {
+      query: jest.fn().mockResolvedValue([]),
+      getRepository: (entity: any) =>
+        entity === AuditEntity ? audits : observations,
+    };
+    (audits as any).manager = manager;
+    manager.transaction = (fn: any) => fn(manager);
     const service = new AuditorObservationsService(
       observations as any,
       {} as any,
@@ -46,6 +56,54 @@ describe('AuditXpert assignment and verification boundaries', () => {
     );
     return { service, observations, audits, assignments, obs };
   }
+  it.each(['SUBMITTED', 'APPROVED', 'PUBLISHED'])(
+    'blocks every observation mutation after report %s',
+    async (status) => {
+      const x = setup();
+      (x.audits as any).manager.query.mockResolvedValue([{ status }]);
+      for (const action of [
+        () =>
+          x.service.create(user, {
+            auditId: 'audit-a',
+            observation: 'TEST ONLY finding',
+          }),
+        () =>
+          x.service.update(user, 'observation-a', { observation: 'Changed' }),
+        () => x.service.delete(user, 'observation-a'),
+        () =>
+          x.service.verifyClosure(user, 'observation-a', 'Verified correction'),
+        () => x.service.reopen(user, 'observation-a', 'Reopen finding'),
+      ])
+        await expect(action()).rejects.toThrow('read-only');
+      expect(x.observations.save).not.toHaveBeenCalled();
+      expect(x.observations.remove).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['SUBMITTED', 'COMPLETED', 'CLOSED', 'CANCELLED'])(
+    'blocks edits in terminal/submitted audit %s even without a report',
+    async (status) => {
+      const x = setup();
+      x.audits.findOne.mockResolvedValue({
+        id: 'audit-a',
+        clientId: 'client-a',
+        assignedAuditorId: 'auditor-a',
+        status,
+      });
+      await expect(x.service.delete(user, 'observation-a')).rejects.toThrow(
+        'read-only',
+      );
+      expect(x.observations.remove).not.toHaveBeenCalled();
+    },
+  );
+  it('records a draft deletion before removing the finding', async () => {
+    const x = setup();
+    await x.service.delete(user, 'observation-a');
+    expect((x.audits as any).manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('OBSERVATION_DELETED'),
+      ['audit-a', 'auditor-a', expect.stringContaining('observation-a')],
+    );
+    expect(x.observations.remove).toHaveBeenCalled();
+  });
   it('limits unfiltered listing to explicit assignment or legacy unassigned audits', async () => {
     const x = setup();
     await x.service.listForAuditor(user);

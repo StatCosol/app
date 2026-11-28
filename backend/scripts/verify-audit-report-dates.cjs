@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { Client } = require('pg');
 require('ts-node').register({ transpileOnly: true, project: path.join(__dirname, '../tsconfig.json') });
-const { transitionGovernedReport } = require('../src/audits/report-governance');
+const { transitionReportState } = require('../src/audits/report-governance');
 const port = Number(process.env.AUDIT_REPORT_DATE_TEST_PORT);
 if (!Number.isInteger(port) || port < 1024 || port === 5432) {
   throw new Error('Set AUDIT_REPORT_DATE_TEST_PORT to a disposable local server port');
@@ -37,8 +37,8 @@ async function main() {
       for (const publish of ['publishCrm', 'publishAdmin']) {
         await db.query('TRUNCATE audit_reports');
         await db.query("INSERT INTO audit_reports (id,status,finalized_at) VALUES ('test','SUBMITTED',$1)", [at]);
-        await transitionGovernedReport(source, { id: 'test', status: 'SUBMITTED' }, 'approve', 'test-reviewer');
-        await transitionGovernedReport(source, { id: 'test', status: 'APPROVED' }, publish);
+        await transitionReportState(source, { id: 'test', status: 'SUBMITTED' }, 'approve', 'test-reviewer');
+        await transitionReportState(source, { id: 'test', status: 'APPROVED' }, publish);
         const { rows: [row] } = await db.query(`SELECT status, approved_by_user_id,
           approved_date::text, published_date::text,
           (finalized_at AT TIME ZONE 'Asia/Kolkata')::date::text AS finalized_date
@@ -52,10 +52,10 @@ async function main() {
     const status = action === 'approve' ? 'SUBMITTED' : 'APPROVED';
     await db.query('TRUNCATE audit_reports');
     await db.query("INSERT INTO audit_reports (id,status,held_at) VALUES ('test',$1,NOW())", [status]);
-    await assert.rejects(() => transitionGovernedReport(source, { id: 'test', status }, action), /Report changed/);
+    await assert.rejects(() => transitionReportState(source, { id: 'test', status }, action), /Report changed/);
     assert.equal((await db.query('SELECT status FROM audit_reports')).rows[0].status, status);
     await db.query("UPDATE audit_reports SET held_at=NULL,status='DRAFT'");
-    await assert.rejects(() => transitionGovernedReport(source, { id: 'test', status }, action), /Report changed/);
+    await assert.rejects(() => transitionReportState(source, { id: 'test', status }, action), /Report changed/);
     assert.equal((await db.query('SELECT status FROM audit_reports')).rows[0].status, 'DRAFT');
     passed += 2;
   }

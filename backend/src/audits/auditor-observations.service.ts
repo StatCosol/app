@@ -1,3 +1,4 @@
+import { auditContentWritable } from './audit-content-writable';
 import {
   Injectable,
   Logger,
@@ -19,6 +20,7 @@ import { isTestAudit, isTestAuditObservation } from '../common/actual-records';
 @Injectable()
 export class AuditorObservationsService {
   private readonly logger = new Logger(AuditorObservationsService.name);
+  private lockedAudit?: AuditEntity;
   constructor(
     @InjectRepository(AuditObservationEntity)
     private readonly observationRepo: Repository<AuditObservationEntity>,
@@ -30,11 +32,55 @@ export class AuditorObservationsService {
     private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
 
+  private async mutate<T>(
+    user: ReqUser,
+    auditId: string,
+    action: (service: AuditorObservationsService) => Promise<T>,
+  ): Promise<T> {
+    const authorized = await this.verifyAuditorAccess(user.userId, auditId);
+    return this.auditRepo.manager.transaction(async (manager) => {
+      const audit = await manager.getRepository(AuditEntity).findOne({
+        where: { id: auditId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!audit) throw new NotFoundException('Audit not found');
+      if (
+        audit.clientId !== authorized.clientId ||
+        audit.assignedAuditorId !== authorized.assignedAuditorId
+      )
+        throw new ForbiddenException(
+          'Audit assignment changed; reload before continuing',
+        );
+      if (audit.assignedAuditorId && audit.assignedAuditorId !== user.userId)
+        throw new ForbiddenException('You are not assigned to this audit');
+      const [report] = await manager.query(
+        'SELECT status, held_at FROM audit_reports WHERE audit_id=$1 ORDER BY updated_at DESC, created_at DESC LIMIT 1',
+        [auditId],
+      );
+      if (!auditContentWritable(audit.status, report))
+        throw new BadRequestException(
+          'This audit is read-only. Reopen the audit/report before changing observations.',
+        );
+      const scoped = new AuditorObservationsService(
+        manager.getRepository(AuditObservationEntity),
+        manager.getRepository(AuditObservationCategoryEntity),
+        manager.getRepository(AuditEntity),
+        this.assignmentsService,
+        this.riskCache,
+      );
+      scoped.lockedAudit = audit;
+      return action(scoped);
+    });
+  }
+
   async listCategories() {
     return this.categoryRepo.find({ order: { name: 'ASC' } });
   }
 
   private async verifyAuditorAccess(auditorUserId: string, auditId: string) {
+    // The transaction already rechecked identity under the audit lock. Avoid an
+    // extra pool connection for the legacy client-assignment fallback.
+    if (this.lockedAudit?.id === auditId) return this.lockedAudit;
     const audit = await this.auditRepo.findOne({ where: { id: auditId } });
     if (!audit) throw new NotFoundException('Audit not found');
 
@@ -67,24 +113,40 @@ export class AuditorObservationsService {
     ) {
       throw new BadRequestException('recordScope must be ACTUAL or TEST');
     }
-    const scoped = (
+    const scoped = async (
       rows: AuditObservationEntity[],
       audits: AuditEntity[] = [],
-    ) =>
-      rows
-        .map((row) => ({
-          ...row,
-          isTest:
-            isTestAudit(
-              row.audit || audits.find((a) => a.id === row.auditId) || {},
-            ) || isTestAuditObservation(row.observation),
-        }))
-        // An explicit audit deep link retains its history. Global queues default to actual.
-        .filter((row) =>
-          auditId && recordScope === undefined
-            ? true
-            : row.isTest === (recordScope === 'TEST'),
-        );
+    ) => {
+      const ids = [...new Set(rows.map((row) => row.auditId))];
+      const reports = ids.length
+        ? await this.auditRepo.query(
+            'SELECT DISTINCT ON (audit_id) audit_id,status,held_at FROM audit_reports WHERE audit_id=ANY($1::uuid[]) ORDER BY audit_id,updated_at DESC,created_at DESC',
+            [ids],
+          )
+        : [];
+      const reportByAudit = new Map(reports.map((r: any) => [r.audit_id, r]));
+      return (
+        rows
+          .map((row) => ({
+            ...row,
+            readOnly: !auditContentWritable(
+              (row.audit || audits.find((a) => a.id === row.auditId))?.status ||
+                '',
+              reportByAudit.get(row.auditId) as any,
+            ),
+            isTest:
+              isTestAudit(
+                row.audit || audits.find((a) => a.id === row.auditId) || {},
+              ) || isTestAuditObservation(row.observation),
+          }))
+          // An explicit audit deep link retains its history. Global queues default to actual.
+          .filter((row) =>
+            auditId && recordScope === undefined
+              ? true
+              : row.isTest === (recordScope === 'TEST'),
+          )
+      );
+    };
     if (auditId) {
       const audit = await this.verifyAuditorAccess(user.userId, auditId);
       const observations = await this.observationRepo.find({
@@ -168,6 +230,26 @@ export class AuditorObservationsService {
       evidenceFilePaths?: string[];
     },
   ) {
+    return this.mutate(user, dto.auditId, (service) =>
+      service.createDraft(user, dto),
+    );
+  }
+
+  private async createDraft(
+    user: ReqUser,
+    dto: {
+      auditId: string;
+      categoryId?: string;
+      observation: string;
+      consequences?: string;
+      complianceRequirements?: string;
+      elaboration?: string;
+      clause?: string;
+      recommendation?: string;
+      risk?: string;
+      evidenceFilePaths?: string[];
+    },
+  ) {
     if (!dto.observation) {
       throw new BadRequestException('Observation text is required');
     }
@@ -214,6 +296,27 @@ export class AuditorObservationsService {
   }
 
   async update(
+    user: ReqUser,
+    id: string,
+    dto: Partial<{
+      observation: string;
+      consequences: string | null;
+      complianceRequirements: string | null;
+      elaboration: string | null;
+      clause: string | null;
+      recommendation: string | null;
+      risk: string | null;
+      status: string;
+      categoryId: string | null;
+      evidenceFilePaths: string[];
+    }>,
+  ) {
+    return this.mutate(user, (await this.getOne(user, id)).auditId, (service) =>
+      service.updateDraft(user, id, dto),
+    );
+  }
+
+  private async updateDraft(
     user: ReqUser,
     id: string,
     dto: Partial<{
@@ -282,8 +385,22 @@ export class AuditorObservationsService {
   }
 
   async delete(user: ReqUser, id: string) {
+    return this.mutate(user, (await this.getOne(user, id)).auditId, (service) =>
+      service.deleteDraft(user, id),
+    );
+  }
+
+  private async deleteDraft(user: ReqUser, id: string) {
     const observation = await this.getOne(user, id);
     const branchId = observation.audit?.branchId;
+    await this.auditRepo.manager.query(
+      "INSERT INTO audit_logs(entity_type,entity_id,action,performed_by,snapshot) VALUES ('AUDIT',$1,'OBSERVATION_DELETED',$2,$3::jsonb)",
+      [
+        observation.auditId,
+        user.userId,
+        JSON.stringify({ observationId: id, before: observation }),
+      ],
+    );
     await this.observationRepo.remove(observation);
     if (branchId)
       this.riskCache
@@ -295,6 +412,16 @@ export class AuditorObservationsService {
   }
 
   async verifyClosure(user: ReqUser, id: string, remarks?: string) {
+    return this.mutate(user, (await this.getOne(user, id)).auditId, (service) =>
+      service.verifyClosureDraft(user, id, remarks),
+    );
+  }
+
+  private async verifyClosureDraft(
+    user: ReqUser,
+    id: string,
+    remarks?: string,
+  ) {
     const observation = await this.getOne(user, id);
     const currentStatus = String(observation.status || '').toUpperCase();
     if (currentStatus !== 'RESOLVED') {
@@ -324,6 +451,12 @@ export class AuditorObservationsService {
   }
 
   async reopen(user: ReqUser, id: string, remarks?: string) {
+    return this.mutate(user, (await this.getOne(user, id)).auditId, (service) =>
+      service.reopenDraft(user, id, remarks),
+    );
+  }
+
+  private async reopenDraft(user: ReqUser, id: string, remarks?: string) {
     const observation = await this.getOne(user, id);
     const currentStatus = String(observation.status || '').toUpperCase();
     if (!['CLOSED', 'RESOLVED'].includes(currentStatus)) {

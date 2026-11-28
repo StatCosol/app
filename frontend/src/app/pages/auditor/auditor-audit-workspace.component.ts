@@ -473,11 +473,11 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get canSubmitObservation(): boolean {
-    return this.canReviewDocuments && !!this.auditId && this.observationForm.observation.trim().length >= 5;
+    return (this.canReviewDocuments || (this.audit?.status === 'SUBMITTED' && this.reportStatus === 'DRAFT')) && (!this.reportStatus || this.reportStatus === 'DRAFT') && !!this.auditId && this.observationForm.observation.trim().length >= 5;
   }
 
   get canGenerateAiDraft(): boolean {
-    return this.canReviewDocuments && !!this.auditId && !!this.audit?.clientId && this.observationForm.observation.trim().length >= 10;
+    return this.canReviewDocuments && (!this.reportStatus || this.reportStatus === 'DRAFT') && !!this.auditId && !!this.audit?.clientId && this.observationForm.observation.trim().length >= 10;
   }
 
   get isReportFinalized(): boolean {
@@ -1214,8 +1214,16 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
+  get canStartReportRevision(): boolean {
+    if (this.reportHeld) return false;
+    const status = this.statusKey(this.audit?.status);
+    return ['COMPLETED', 'CLOSED'].includes(status) ||
+      (this.reportStatus === 'PUBLISHED' &&
+        ['IN_PROGRESS', 'SUBMITTED', 'CORRECTION_PENDING', 'REVERIFICATION_PENDING'].includes(status));
+  }
+
   async reopenForReaudit(): Promise<void> {
-    if (!this.auditId || this.busy || !['COMPLETED', 'CLOSED'].includes(this.statusKey(this.audit?.status))) return;
+    if (!this.auditId || this.busy || !this.canStartReportRevision) return;
     const result = await this.dialog.prompt('Reopen audit', 'Explain the corrections required. The last published report remains available while a new draft is reviewed.', { placeholder: 'Reason for reopening', confirmText: 'Reopen audit' });
     if (!result.confirmed) return;
     const reason = (result.value || '').trim();

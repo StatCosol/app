@@ -10,6 +10,19 @@ describe('AuditXpert corrections workspace', () => {
     const component = new AuditorObservationsComponent(api as any, { auditorListAllAudits: () => of([]) } as any, { paramMap: of(convertToParamMap({})), queryParamMap: queries } as any, { success: vi.fn(), warning: vi.fn(), error: vi.fn() } as any, { markForCheck: vi.fn() } as any, files as any);
     return { component, queries, api, files };
   }
+  it('keeps issued observations read-only across all action controls', () => {
+    const x=setup(); x.component.loading=false;
+    x.component.selected={id:'issued',status:'OPEN',readOnly:true};
+    expect(x.component.canAcknowledge).toBe(false);
+    expect(x.component.canResolve).toBe(false);
+    x.component.saveCapaDetails(); x.component.markAcknowledged(); x.component.markResolved();
+    x.component.selected.status='RESOLVED'; x.component.verificationNotes='Verified correction';
+    expect(x.component.canVerifyClosure).toBe(false); expect(x.component.canReopen).toBe(false);
+    x.component.verifyClosure(); x.component.reopenSelected();
+    expect(x.api.update).not.toHaveBeenCalled();
+    expect(x.api.verifyObservationClosure).not.toHaveBeenCalled();
+    expect(x.api.reopenObservation).not.toHaveBeenCalled();
+  });
   it('uses actual records for the normal queue and explicit test scope after switching', () => {
     const x=setup(); x.queries.next(convertToParamMap({})); x.component.ngOnInit();
     expect(x.api.list).toHaveBeenLastCalledWith(undefined,'ACTUAL');

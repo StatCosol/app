@@ -70,6 +70,10 @@ jobs:
         env:
           DIGEST_TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
         run: node scripts/test-notification-digests.cjs
+      - name: Issued audit report PostgreSQL regressions
+        env:
+          AUDIT_TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci
+        run: node scripts/test-audit-issued-integrity.cjs
       - name: Intern payroll migration regressions
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/statcompy_ci

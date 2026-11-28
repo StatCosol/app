@@ -6,6 +6,17 @@ function workspace() {
   c.audit = { status: 'SUBMITTED' }; return c;
 }
 describe('Auditor submission guidance', () => {
+  it.each(['IN_PROGRESS', 'SUBMITTED', 'CORRECTION_PENDING', 'REVERIFICATION_PENDING'])('allows a correction revision for published %s audits', status => {
+    const c = workspace(); c.audit = { status }; c.reportStatus = 'PUBLISHED';
+    expect(c.canStartReportRevision).toBe(true);
+    c.reportHeld = true; expect(c.canStartReportRevision).toBe(false);
+  });
+  it('does not offer revisions for cancelled audits or reports still in review', () => {
+    const c = workspace(); c.reportStatus = 'SUBMITTED';
+    expect(c.canStartReportRevision).toBe(false);
+    c.reportStatus = 'PUBLISHED'; c.audit = { status: 'CANCELLED' };
+    expect(c.canStartReportRevision).toBe(false);
+  });
   it.each([null, 'DRAFT'] as const)('directs submitted fieldwork to report preparation when report stage is %s', stage => {
     const c = workspace(); c.reportStage = stage;
     expect(c.currentFocus.title).toBe('Prepare and submit the audit report'); expect(c.currentFocus.tab).toBe('submit');

@@ -17,10 +17,14 @@ describe('Reopening contractor audit scope', () => {
       contractor_user_id: contractor,
       schedule_id: 'schedule',
     };
+    const report = {
+      id: 'published-report',
+      status: 'PUBLISHED',
+      held_at: null as string | null,
+    };
     const query = jest.fn(async (sql: string) => {
       if (sql.startsWith('SELECT * FROM audits ')) return [audit];
-      if (sql.startsWith('SELECT * FROM audit_reports '))
-        return [{ id: 'published-report' }];
+      if (sql.startsWith('SELECT * FROM audit_reports ')) return [report];
       if (sql.includes('MAX(version_no)')) return [{ next: 2 }];
       return [];
     });
@@ -39,7 +43,7 @@ describe('Reopening contractor audit scope', () => {
         }),
       },
     });
-    return { service, query };
+    return { service, query, report };
   }
   for (const status of ['COMPLETED', 'CLOSED']) {
     for (const route of ['direct', 'status']) {
@@ -100,5 +104,50 @@ describe('Reopening contractor audit scope', () => {
     await expect(
       service.reopenAuditForReaudit(user, 'audit', 'Correct report'),
     ).resolves.toMatchObject({ status: 'IN_PROGRESS' });
+  });
+  it.each([
+    'IN_PROGRESS',
+    'SUBMITTED',
+    'CORRECTION_PENDING',
+    'REVERIFICATION_PENDING',
+  ])('starts a separate draft for published %s audits', async (status) => {
+    const { service, query } = setup(status, 'branch', 'vendor');
+    await expect(
+      service.reopenAuditForReaudit(user, 'audit', 'Resolve findings'),
+    ).resolves.toMatchObject({ status: 'IN_PROGRESS' });
+    expect(
+      query.mock.calls.some(([sql]) =>
+        sql.startsWith('INSERT INTO audit_reports'),
+      ),
+    ).toBe(true);
+    expect(
+      query.mock.calls.some(([sql]) => sql.startsWith('UPDATE audit_reports')),
+    ).toBe(false);
+  });
+  it.each(['DRAFT', 'SUBMITTED', 'APPROVED'])(
+    'rejects active audits whose report is %s',
+    async (status) => {
+      const { service, report, query } = setup('SUBMITTED', 'branch', 'vendor');
+      report.status = status;
+      await expect(
+        service.reopenAuditForReaudit(user, 'audit', 'Resolve findings'),
+      ).rejects.toThrow('published report');
+      expect(query).toHaveBeenCalledTimes(2);
+    },
+  );
+  it('does not reopen cancelled or held published audits', async () => {
+    const cancelled = setup('CANCELLED', 'branch', 'vendor');
+    await expect(
+      cancelled.service.reopenAuditForReaudit(
+        user,
+        'audit',
+        'Resolve findings',
+      ),
+    ).rejects.toThrow('published report');
+    const held = setup('SUBMITTED', 'branch', 'vendor');
+    held.report.held_at = '2026-11-28';
+    await expect(
+      held.service.reopenAuditForReaudit(user, 'audit', 'Resolve findings'),
+    ).rejects.toThrow('hold');
   });
 });
