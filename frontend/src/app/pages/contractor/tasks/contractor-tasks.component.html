@@ -1,7 +1,7 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
-    [title]="typeFilter === 'AUDIT' ? 'Audits' : 'My Workboard'"
-    [description]="typeFilter === 'AUDIT' ? 'Upload compliance documents and complete audit checklist items' : 'Simple page to upload documents, fix rejected files, and complete audit work'"
+    [title]="typeFilter === 'AUDIT' ? 'Audit Documents' : 'My Workboard'"
+    [description]="typeFilter === 'AUDIT' ? 'Select an assigned audit, confirm its branch and period, then upload evidence or correct a rejected file. Monthly statutory uploads are under Tasks.' : 'Upload monthly statutory documents by branch and month. Use Audit Documents for evidence requested for an assigned audit.'"
     icon="clipboard-list">
   </ui-page-header>
   @if (typeFilter === 'AUDIT') {
@@ -400,6 +400,13 @@
           </div>
 
           <div class="list-row__title">{{ row.title }}</div>
+          @if (row.rowType === 'AUDIT') {
+            <div class="list-row__meta audit-destination">
+              <span>{{ row.clientName }}</span>
+              <span>Branch: {{ row.branchName !== '-' ? row.branchName : 'Not assigned — contact CRM' }}</span>
+              @if (row.contractorName) { <span>{{ row.contractorName }}</span> }
+            </div>
+          }
 
           <div class="list-row__meta">
             <span>{{ row.dueDate ? (row.dueDate | date: 'mediumDate') : 'No due date' }}</span>
@@ -621,7 +628,7 @@
       @if (!detailLoading && selectedRow.rowType === 'AUDIT') {
 <div class="detail-content">
         <div class="alert alert--info">
-          <strong>What to do:</strong> Upload all required compliance documents. If any document is rejected, upload corrected version below.
+          <strong>What to do:</strong> Confirm the assigned branch and period before uploading. Follow the review remarks when replacing a rejected document.
         </div>
 
         <!-- Upload lock banner -->
@@ -668,6 +675,7 @@
           <span>Client: {{ selectedRow.clientName || '-' }}</span>
           <span>Branch: {{ selectedRow.branchName || '-' }}</span>
           <span>Period: {{ selectedRow.periodCode || '-' }}</span>
+          @if (selectedRow.contractorName) { <span>Contractor: {{ selectedRow.contractorName }}</span> }
           <span>Frequency: {{ frequencyLabel(selectedRow.frequency) }}</span>
           <span>Scheduled: {{ selectedRow.scheduledDate ? (selectedRow.scheduledDate | date: 'mediumDate') : '-' }}</span>
           <span>Due: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
@@ -690,6 +698,9 @@
 }
 
         <!-- Upload audit compliance documents -->
+        @if (auditUploadScopeError) {
+          <div class="alert alert--warning" role="status">{{ auditUploadScopeError }}</div>
+        } @else {
         <div class="action-card action-card--wizard">
           <div class="wizard-header">
             <div>
@@ -804,7 +815,13 @@
 
           <!-- Details + upload row -->
           <div class="wizard-form">
-            @if (availableBranches.length > 1) {
+            @if (selectedRow.branchId) {
+              <div class="form-group wizard-form__group">
+                <span class="form-label">Upload destination</span>
+                <strong>{{ selectedRow.branchName !== '-' ? selectedRow.branchName : branchName(selectedRow.branchId) }}</strong>
+                <span> · {{ selectedRow.periodCode || 'Period not specified' }}</span>
+              </div>
+            } @else if (availableBranches.length > 1) {
 <div class="form-group wizard-form__group">
               <label class="form-label">Branch <span class="required">*</span></label>
               <select class="form-control" [(ngModel)]="auditDocBranchId" name="auditDocBranch" [disabled]="auditDocUploading">
@@ -854,6 +871,7 @@
         </div>
 
         <!-- NC correction uploads -->
+        }
         @if (auditNonCompliances.length) {
 <div class="action-card">
           <h5>Documents requiring correction ({{ auditNonCompliances.length }})</h5>

@@ -220,6 +220,13 @@
   font-size: 0.76rem;
 }
 
+.audit-destination {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
 .list-row__due {
   font-size: 0.75rem;
   font-weight: 600;
