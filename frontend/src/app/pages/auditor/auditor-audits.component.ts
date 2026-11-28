@@ -9,15 +9,12 @@ import { AuditsService } from '../../core/audits.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
   ActionButtonComponent,
-  DataTableComponent,
   EmptyStateComponent,
   FormInputComponent,
   FormSelectComponent,
   PageHeaderComponent,
   StatusBadgeComponent,
-  TableCellDirective,
   type SelectOption,
-  type TableColumn,
 } from '../../shared/ui';
 
 type AuditorScheduleAudit = {
@@ -46,12 +43,11 @@ type AuditorScheduleAudit = {
     FormSelectComponent,
     FormInputComponent,
     ActionButtonComponent,
-    DataTableComponent,
-    TableCellDirective,
     StatusBadgeComponent,
     EmptyStateComponent
 ],
   templateUrl: './auditor-audits.component.html',
+  styles: [`.client-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:1rem; } .client-card { min-width:0; overflow-wrap:anywhere; }`],
 })
 export class AuditorAuditsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
@@ -77,6 +73,9 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
 
   filters = {
     clientId: '',
+    branchId: '',
+    contractorUserId: '',
+    periodCode: '',
     auditType: '',
     status: '',
     search: '',
@@ -97,16 +96,63 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
     { value: 'CLOSED', label: 'Closed' },
   ];
   filteredAudits: AuditorScheduleAudit[] = [];
+  loadError = false;
 
-  auditColumns: TableColumn[] = [
-    { key: 'auditCode', header: 'Audit reference' },
-    { key: 'clientName', header: 'Client / branch' },
-    { key: 'auditTypeLabel', header: 'Audit type / contractor' },
-    { key: 'periodCode', header: 'Audit period' },
-    { key: 'scheduledDate', header: 'Due date' },
-    { key: 'status', header: 'Status' },
-    { key: 'action', header: 'Action' },
-  ];
+  get selectedClientName(): string {
+    return this.audits.find(a => this.clientKey(a) === this.filters.clientId)?.clientName || 'Selected client';
+  }
+
+  get selectedBranchName(): string {
+    return this.branchOptions.find(b => b.value === this.filters.branchId)?.label || 'Selected branch';
+  }
+
+  get activeDetailFilterCount(): number {
+    return [this.filters.contractorUserId, this.filters.periodCode, this.filters.auditType, this.filters.status, this.filters.search.trim()].filter(Boolean).length;
+  }
+
+  get clientGroups() {
+    const groups = new Map<string, AuditorScheduleAudit[]>();
+    for (const audit of this.filteredAudits) {
+      const key = this.clientKey(audit);
+      groups.set(key, [...(groups.get(key) || []), audit]);
+    }
+    return Array.from(groups, ([id, audits]) => ({
+      id, name: audits[0].clientName, count: audits.length,
+      branches: new Set(audits.map(a => a.branchId).filter(Boolean)).size,
+      contractors: new Set(audits.map(a => a.contractorUserId).filter(Boolean)).size,
+      pending: audits.filter(a => ['PLANNED', 'IN_PROGRESS', 'REVERIFICATION_PENDING'].includes(this.statusKey(a.status))).length,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  get branchOptions(): SelectOption[] {
+    return [{value: '', label: 'Choose an assigned branch'}, ...this.uniqueOptions(this.getClientScopedAudits().map(a => ({value: a.branchId || '__UNSPECIFIED__', label: a.branchName})))];
+  }
+
+  get branchGroups() {
+    const groups = new Map<string, AuditorScheduleAudit[]>();
+    for (const audit of this.filteredAudits) {
+      const key = audit.branchId || '__UNSPECIFIED__';
+      groups.set(key, [...(groups.get(key) || []), audit]);
+    }
+    return Array.from(groups, ([id, audits]) => ({id, name: audits[0].branchName, count: audits.length,
+      contractors: new Set(audits.map(a => a.contractorUserId).filter(Boolean)).size,
+    })).sort((a,b) => a.name.localeCompare(b.name));
+  }
+
+  selectBranch(id: string): void {
+    this.filters.branchId = id;
+    this.onBranchChange();
+  }
+
+  get contractorOptions(): SelectOption[] {
+    const rows = this.getClientScopedAudits().filter(a => !this.filters.branchId || (a.branchId || '__UNSPECIFIED__') === this.filters.branchId);
+    return [{value: '', label: 'All assigned contractors'}, ...this.uniqueOptions(rows.filter(a => !!a.contractorUserId).map(a => ({value: a.contractorUserId!, label: a.contractorName})))];
+  }
+
+  get periodOptions(): SelectOption[] {
+    return [{value: '', label: 'All assigned periods'}, ...this.uniqueOptions(this.getClientScopedAudits().map(a => ({value: a.periodCode || '__UNSPECIFIED__', label: a.periodCode || 'Period not specified'}))).sort((a,b) => b.value.localeCompare(a.value))];
+  }
+
 
   constructor(
     private readonly auditsService: AuditsService,
@@ -134,6 +180,7 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
     const version = ++this.loadVersion;
     const scope = this.recordScope;
     const isCurrent = () => version === this.loadVersion && scope === this.recordScope;
+    this.loadError = false;
     this.audits = [];
     this.recomputeViewModel();
     this.loading = true;
@@ -172,6 +219,7 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
         },
         error: () => {
           if (!isCurrent()) return;
+          this.loadError = true;
           this.toast.error('Failed to load scheduled audits');
           // loading reset by finalize
         },
@@ -179,28 +227,61 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
   }
 
   onRecordScopeChange(): void {
+    this.filters.clientId = '';
     this.clear();
     this.load();
   }
 
   onClientChange(): void {
+    this.filters.branchId = '';
+    this.filters.contractorUserId = '';
+    this.filters.periodCode = '';
     this.recomputeViewModel();
+    this.saveSelection();
+  }
+
+  selectClient(id: string): void {
+    this.filters.clientId = id;
+    this.onClientChange();
+  }
+
+  backToClients(): void {
+    this.filters.clientId = '';
+    this.clear();
+  }
+
+  onBranchChange(): void {
+    this.filters.contractorUserId = '';
+    this.onSearchChange();
   }
 
   onAuditTypeChange(): void {
     this.recomputeViewModel();
+    this.saveSelection();
   }
 
   onStatusChange(): void {
     this.recomputeViewModel();
+    this.saveSelection();
   }
 
   onSearchChange(): void {
     this.recomputeViewModel();
+    this.saveSelection();
   }
 
   openWorkspace(audit: AuditorScheduleAudit): void {
-    this.router.navigate(['/auditor/audits', audit.id, 'workspace']);
+    this.router.navigate(['/auditor/audits', audit.id, 'workspace'], {queryParams: {
+      recordScope: this.recordScope,
+      returnClientId: this.clientKey(audit),
+      returnBranchId: this.filters.branchId || null,
+      returnContractorUserId: this.filters.contractorUserId || null,
+      returnPeriodCode: this.filters.periodCode || null,
+      returnAuditType: this.filters.auditType || null,
+      returnStatus: this.filters.status || null,
+      returnSearch: this.filters.search || null,
+      tab: audit.auditType === 'CONTRACTOR' ? 'documents' : 'checklist',
+    }});
   }
 
   get totalAssignedCount(): number {
@@ -228,6 +309,7 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
   get hasActiveFilters(): boolean {
     return !!(
       this.filters.clientId ||
+      this.filters.branchId || this.filters.contractorUserId || this.filters.periodCode ||
       this.filters.auditType ||
       this.filters.status ||
       this.filters.search.trim()
@@ -317,12 +399,16 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
 
   clear(): void {
     this.filters = {
-      clientId: '',
+      clientId: this.filters.clientId,
+      branchId: '',
+      contractorUserId: '',
+      periodCode: '',
       auditType: '',
       status: '',
       search: '',
     };
     this.recomputeViewModel();
+    this.saveSelection();
   }
 
   formatDate(value?: string | null): string {
@@ -351,6 +437,9 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
     ];
 
     this.filteredAudits = clientAndTypeScopedAudits.filter((audit) => {
+      if (this.filters.branchId && (audit.branchId || '__UNSPECIFIED__') !== this.filters.branchId) return false;
+      if (this.filters.contractorUserId && audit.contractorUserId !== this.filters.contractorUserId) return false;
+      if (this.filters.periodCode && (audit.periodCode || '__UNSPECIFIED__') !== this.filters.periodCode) return false;
       if (this.filters.status && this.statusKey(audit.status) !== this.filters.status) {
         return false;
       }
@@ -384,6 +473,9 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
 
     this.filters = {
       clientId,
+      branchId: params.get('branchId') || '',
+      contractorUserId: params.get('contractorUserId') || '',
+      periodCode: params.get('periodCode') || '',
       auditType,
       status: this.statusOptions.some((option) => option.value === status) ? status : '',
       search,
@@ -392,7 +484,18 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
 
   private getClientScopedAudits(): AuditorScheduleAudit[] {
     if (!this.filters.clientId) return this.audits;
-    return this.audits.filter((audit) => String(audit.clientId || '') === this.filters.clientId);
+    return this.audits.filter((audit) => this.clientKey(audit) === this.filters.clientId);
+  }
+
+  private clientKey(audit: AuditorScheduleAudit): string {
+    return audit.clientId || `unassigned-${audit.id}`;
+  }
+
+  private saveSelection(): void {
+    void this.router.navigate([], {relativeTo: this.route, replaceUrl: true, queryParams: {
+      recordScope: this.recordScope === 'TEST' ? 'TEST' : null,
+      ...Object.fromEntries(Object.entries(this.filters).map(([key, value]) => [key, value || null])),
+    }});
   }
 
   private getClientAndTypeScopedAudits(
@@ -444,7 +547,7 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
   private uniqueOptions(options: SelectOption[]): SelectOption[] {
     const seen = new Set<string>();
     return options.filter((option) => {
-      const key = `${option.value}::${option.label}`;
+      const key = option.value;
       if (!option.value || seen.has(key)) return false;
       seen.add(key);
       return true;

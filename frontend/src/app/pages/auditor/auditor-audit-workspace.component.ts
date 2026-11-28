@@ -797,7 +797,17 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    this.router.navigate(['/auditor/audits']);
+    const query = this.route.snapshot.queryParamMap;
+    this.router.navigate(['/auditor/audits'], {queryParams: {
+      recordScope: query.get('recordScope') === 'TEST' ? 'TEST' : null,
+      clientId: query.get('returnClientId') || this.audit?.clientId || null,
+      branchId: query.get('returnBranchId') || this.audit?.branchId || null,
+      contractorUserId: query.get('returnContractorUserId') || null,
+      periodCode: query.get('returnPeriodCode') || null,
+      auditType: query.get('returnAuditType') || null,
+      status: query.get('returnStatus') || null,
+      search: query.get('returnSearch') || null,
+    }});
   }
 
   openStatutoryEntry(): void {
@@ -1470,6 +1480,12 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (audit) => {
           this.audit = audit || null;
+          // An assigned audit already establishes its exact document scope.
+          // Legacy audits without a branch still require an explicit choice.
+          if (!this.documentGroup && this.audit?.branchId) {
+            this.documentGroup = this.audit.auditType === 'CONTRACTOR' ? 'CONTRACTOR' : 'BRANCH';
+            this.changeDocumentFilters('group');
+          }
           this.loadReportStatus();
           this.loadEvidence();
           this.loadObservations();

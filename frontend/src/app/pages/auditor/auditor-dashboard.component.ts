@@ -1,5 +1,4 @@
-import { auditContext, auditOptionLabel } from './audit-context';
-import { AuditContextComponent } from './audit-context.component';
+import { auditContext } from './audit-context';
 import { ActionIconPipe } from '../../shared/ui/action-icon.pipe';
 import { IconComponent } from '../../shared/ui/icon/icon.component';
 import {
@@ -46,7 +45,7 @@ import {
   selector: 'app-auditor-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AuditContextComponent, ActionIconPipe, IconComponent,
+  imports: [ActionIconPipe, IconComponent,
     CommonModule,
     FormsModule,
     PageHeaderComponent,
@@ -65,7 +64,6 @@ import {
 })
 export class AuditorDashboardComponent implements OnInit, OnDestroy {
   readonly auditContext = auditContext;
-  get selectedQuickAudit(): any { return this.allActionableAudits.find(a => a.auditId === this.selectedQuickAuditId); }
   loading = true;
   errorMsg: string | null = null;
 
@@ -115,12 +113,22 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   // Active tab for My Audits
   auditTab: 'ACTIVE' | 'OVERDUE' | 'DUE_SOON' | 'COMPLETED' = 'ACTIVE';
 
-  // Phase 1 — Quick Audit Selector
-  quickAuditOptions: Array<{ value: string; label: string }> = [
-    { value: '', label: 'Select an audit to start / continue…' },
-  ];
-  selectedQuickAuditId = '';
+  selectedQuickClientId = '';
+  quickClientsLoading = false;
+  quickClientsError = false;
+  private quickAuditsSub?: Subscription;
   private allActionableAudits: AuditorAuditItem[] = [];
+
+  get quickClientOptions(): Array<{value: string; label: string}> {
+    const clients = new Map<string, {name: string; count: number}>();
+    for (const audit of this.allActionableAudits) {
+      if (!audit.clientId) continue;
+      const client = clients.get(audit.clientId) || {name: audit.clientName || 'Assigned client', count: 0};
+      client.count++; clients.set(audit.clientId, client);
+    }
+    return [{value: '', label: this.quickClientsLoading ? 'Loading assigned clients…' : 'Choose an assigned client'},
+      ...Array.from(clients, ([value, client]) => ({value, label: client.name + ' · ' + client.count + ' active audits'})).sort((a,b)=>a.label.localeCompare(b.label))];
+  }
 
   // Phase 1 — Timeline alert popup
   showAlertPopup = false;
@@ -449,53 +457,39 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.loadMyAudits();
   }
 
-  /** Load active audits, including correction and reverification follow-up
-   *  for the Quick Audit Selector dropdown. */
+  /** Group active assignments by client while retaining timeline alerts. */
   loadActionableAudits(): void {
+    this.quickAuditsSub?.unsubscribe();
+    this.quickClientsLoading = true;
+    this.quickClientsError = false;
+    this.allActionableAudits = [];
     const params = { ...this.buildFilterParams(), tab: 'ACTIVE', limit: '500' };
-    this.dashboardService.getAuditorAudits(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
+    this.quickAuditsSub = this.dashboardService.getAuditorAudits(params).pipe(takeUntil(this.destroy$), timeout(10000), finalize(()=>{this.quickClientsLoading=false;this.cdr.markForCheck();})).subscribe({
       next: (response) => {
         const items = (response?.items || []) as AuditorAuditItem[];
         // Sort: overdue first, then by due date asc
-        const todayStr = new Date().toISOString().slice(0, 10);
         const sorted = [...items].sort((a, b) => {
           const ad = a.dueDate || '9999-12-31';
           const bd = b.dueDate || '9999-12-31';
           return ad.localeCompare(bd);
         });
         this.allActionableAudits = sorted;
-        if (!sorted.some(a => a.auditId === this.selectedQuickAuditId)) this.selectedQuickAuditId = '';
-        this.quickAuditOptions = [
-          { value: '', label: `Select an audit to start / continue… (${sorted.length})` },
-          ...sorted.map((a) => {
-            const overdue = a.dueDate && a.dueDate < todayStr;
-            const due = a.dueDate ? ` · due ${new Date(a.dueDate).toLocaleDateString('en-IN')}` : '';
-            const statusTag = a.status ? ` [${a.status.replace(/_/g, ' ')}]` : '';
-            const flag = overdue ? '⚠ ' : '';
-            return {
-              value: a.auditId,
-              label: `${flag}${auditOptionLabel(a)}${due}${statusTag}`,
-            };
-          }),
-        ];
+        if (!sorted.some(a => a.clientId === this.selectedQuickClientId)) this.selectedQuickClientId = '';
         this.computeAlertItems();
         this.cdr.markForCheck();
       },
       error: () => {
         this.allActionableAudits = [];
-        this.quickAuditOptions = [{ value: '', label: 'No audits available' }];
+        this.selectedQuickClientId = '';
+        this.quickClientsError = true;
         this.cdr.markForCheck();
       },
     });
   }
 
-  /** Phase 1 — Open the audit picked from the quick selector dropdown. */
-  startSelectedAudit(): void {
-    if (!this.selectedQuickAuditId) {
-      this.toast.info('Please select an audit from the dropdown.');
-      return;
-    }
-    this.router.navigate(['/auditor/audits', this.selectedQuickAuditId, 'workspace']);
+  openAssignedClient(): void {
+    if (this.quickClientsLoading || !this.allActionableAudits.some(a=>a.clientId===this.selectedQuickClientId)) return;
+    this.router.navigate(['/auditor/audits'], {queryParams: {clientId: this.selectedQuickClientId}});
   }
 
   /** Phase 1 — Compute timeline alert items from summary + actionable list. */

@@ -30,9 +30,9 @@ it.each([390, 768, 1280])('handles first navigation with production event schedu
       await expect.element(page.getByRole('dialog', { name: 'Navigation', exact: true })).toBeVisible();
     }
     await page.getByRole('button', { name: 'Audit Work', exact: true }).click();
-    await expect.element(page.getByRole('link', { name: 'Select Audit Scope', exact: true })).toBeVisible();
-    await page.getByRole('link', { name: 'Select Audit Scope', exact: true }).click();
-    await expect.poll(() => router.url).toBe('/auditor/conduct-audit');
+    await expect.element(page.getByRole('link', { name: 'Assigned Clients', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Assigned Clients', exact: true }).click();
+    await expect.poll(() => router.url).toBe('/auditor/audits');
     if (width < 1024) {
       await expect.element(page.getByRole('dialog', { name: 'Navigation', exact: true })).not.toBeInTheDocument();
       await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
@@ -41,7 +41,7 @@ it.each([390, 768, 1280])('handles first navigation with production event schedu
       await expect.element(page.getByRole('dialog', { name: 'Navigation', exact: true })).not.toBeInTheDocument();
       await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
     }
-    await expect.element(page.getByRole('link', { name: 'Select Audit Scope', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect.element(page.getByRole('link', { name: 'Assigned Clients', exact: true })).toHaveAttribute('aria-current', 'page');
     expect(host.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
   } finally { app.destroy(); host.remove(); }
 });

@@ -90,3 +90,20 @@ describe('Auditor document filters', () => {
     fixture.destroy();
   });
 });
+
+describe('Assigned audit navigation context',()=>{
+  it('restores the selected client branch and test scope on the back action',()=>{
+    const navigate=vi.fn();
+    const query=new Map(Object.entries({recordScope:'TEST',returnClientId:'client-a',returnBranchId:'branch-a',returnContractorUserId:'vendor-a',returnPeriodCode:'2026-11',returnStatus:'IN_PROGRESS'}));
+    const c=new AuditorAuditWorkspaceComponent({snapshot:{queryParamMap:{get:(key:string)=>query.get(key)||null}}} as any,{navigate} as any,{} as any,{} as any,{} as any,{} as any,{} as any,{} as any,{} as any,{} as any);
+    c.goBack();
+    expect(navigate).toHaveBeenCalledWith(['/auditor/audits'],{queryParams:{recordScope:'TEST',clientId:'client-a',branchId:'branch-a',contractorUserId:'vendor-a',periodCode:'2026-11',auditType:null,status:'IN_PROGRESS',search:null}});
+  });
+  it('preselects only the exact assigned branch and contractor when opening an audit',()=>{
+    const c=setup({auditorGetAudit:()=>of({id:'audit',clientId:'client',branchId:'branch-a',contractorUserId:'vendor-a',auditType:'CONTRACTOR'})});
+    for(const name of ['loadReportStatus','loadEvidence','loadObservations','loadAuditDocuments','loadNonCompliances','loadChecklist','loadAuditInfo','loadSubmissionHistory'])(c as any)[name]=vi.fn();
+    (c as any).loadCockpit('audit');
+    expect(c.documentGroup).toBe('CONTRACTOR');expect(c.contractorDocBranchFilter).toBe('branch-a');expect(c.documentContractorFilter).toBe('vendor-a');
+    expect(c.filteredContractorDocuments.map(d=>d.id)).toEqual(['one','two']);
+  });
+});
