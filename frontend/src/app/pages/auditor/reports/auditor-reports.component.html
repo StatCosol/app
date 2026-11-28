@@ -1,9 +1,5 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <ui-page-header
-    title="Audit Reports"
-    description="Review assigned audits, compose reports, and export findings"
-    icon="document-report">
-  </ui-page-header>
+  <ui-page-header title="Audit Reports" icon="document-report"></ui-page-header>
 
   @if (loadError) { <div role="alert" class="card mb-4">{{ loadError }} <button class="standard-action" (click)="load()">Retry</button></div> }
   @if (exportError) { <div role="alert" class="card mb-4">{{ exportError }}</div> }
@@ -105,11 +101,11 @@
               Findings
             </ui-button>
             <ui-button
-              variant="primary"
+              [variant]="canEditReport(row) ? 'primary' : 'secondary'"
               size="sm"
               [disabled]="!row.auditId"
               [routerLink]="['/auditor/reports', row.auditId, 'builder']">
-              Edit report
+              {{ canEditReport(row) ? 'Edit report' : 'View report' }}
             </ui-button>
           </div>
         </ng-template>

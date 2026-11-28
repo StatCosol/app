@@ -23,4 +23,16 @@ describe('Auditor report audit-status filters', () => {
     expect(component.filteredReports.length).toBe(statuses.length);
     component.ngOnDestroy();
   });
+
+  it('offers Edit report only where the builder can still edit', () => {
+    const component = new AuditorReportsComponent({} as any, {} as any, {} as any, {} as any, {} as any);
+    const row = (status: string, reportStatus: string | null = null, reportHeld = false) =>
+      ({ status, reportStatus, reportHeld }) as any;
+    expect(component.canEditReport(row('IN_PROGRESS'))).toBe(true);
+    expect(component.canEditReport(row('SUBMITTED', 'DRAFT'))).toBe(true);
+    expect(component.canEditReport(row('CANCELLED', 'DRAFT'))).toBe(false);
+    expect(component.canEditReport(row('CLOSED', 'PUBLISHED'))).toBe(false);
+    expect(component.canEditReport(row('SUBMITTED', 'APPROVED'))).toBe(false);
+    expect(component.canEditReport(row('IN_PROGRESS', 'DRAFT', true))).toBe(false);
+  });
 });

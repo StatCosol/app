@@ -12,12 +12,9 @@
     </div>
 }
 
-    <ui-page-header
-      title="AuditXpert Workboard"
-      description="See what needs attention first, continue active audits, and return to corrections without hunting through multiple screens."
-      icon="clipboard-check">
+    <ui-page-header title="AuditXpert Workboard" icon="clipboard-check">
+      <ui-button variant="primary" [routerLink]="['/auditor/audits']" icon="eye" [iconOnly]="false" label="Open assigned clients">Open assigned clients</ui-button>
     </ui-page-header>
-  <div class="mb-4"><ui-button variant="primary" [routerLink]="['/auditor/audits']" icon="eye" [iconOnly]="false" label="Open assigned clients">Open assigned clients</ui-button></div>
 
     <div class="card dashboard-priority mb-6">
       <div>
@@ -36,7 +33,6 @@
       <div class="flex items-start justify-between gap-4 flex-wrap mb-3">
         <div>
           <h3 class="card-title mb-1">Start with your assigned client</h3>
-          <p class="text-sm text-gray-600">Choose a client once, then open its branch and the required contractor audit.</p>
         </div>
         <button type="button"
                 class="relative inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors"
@@ -71,7 +67,6 @@
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h3 class="card-title mb-1">Filters</h3>
-          <p class="text-sm text-gray-600">Narrow the dashboard by assigned client, audit type, or date range.</p>
         </div>
         <div class="text-sm text-gray-500">{{ activeFilterSummary }}</div>
       </div>
@@ -154,7 +149,6 @@
       <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div>
           <h3 class="card-title mb-1">My Working Queue</h3>
-          <p class="text-sm text-gray-600">Use this list for the audits you should work on right now.</p>
         </div>
         <div class="flex gap-2 flex-wrap">
           <ui-button
@@ -186,9 +180,14 @@
 
       @if (myAudits.length > 0) {
 <ui-data-table
-       
+        class="dashboard-queue"
         [columns]="auditColumns"
-        [data]="myAudits">
+        [data]="pagedAudits"
+        [showPagination]="myAudits.length > queuePageSize"
+        [currentPage]="queuePage"
+        [pageSize]="queuePageSize"
+        [totalItems]="myAudits.length"
+        (pageChange)="queuePage = $event.page">
 
         <ng-template uiTableCell="clientName" let-row>
           {{ row.clientName }}
@@ -333,12 +332,11 @@
       </div>
     </div>
 
-    <div class="dashboard-grid-2 mb-6">
+    <div class="dashboard-stack mb-6">
       <div class="card">
         <div class="flex items-start justify-between gap-4 mb-4">
           <div>
             <h3 class="card-title mb-1">Open Observations</h3>
-            <p class="text-sm text-gray-600">Issues that still need follow-up, ownership, or closure.</p>
           </div>
           <div class="text-sm text-gray-500">{{ observations.length }} observation(s)</div>
         </div>
@@ -409,7 +407,6 @@
         <div class="flex items-start justify-between gap-4 mb-4">
           <div>
             <h3 class="card-title mb-1">Pending Evidence</h3>
-            <p class="text-sm text-gray-600">Evidence or documents still awaited from the process.</p>
           </div>
           <div class="text-sm text-gray-500">{{ evidence.length }} item(s)</div>
         </div>
@@ -469,7 +466,6 @@
       <div class="flex items-start justify-between gap-4 mb-4">
         <div>
           <h3 class="card-title mb-1">Recent Activity · all assigned work</h3>
-          <p class="text-sm text-gray-600">A quick timeline of the latest changes across your audit work.</p>
         </div>
         <div class="text-sm text-gray-500">{{ recentActivities.length }} event(s)</div>
       </div>
@@ -514,7 +510,7 @@
             </div>
           </div>
           <div class="flex-1">
-            <p class="text-sm font-medium text-gray-900">{{ activity.description }}</p>
+            <p class="text-sm font-medium text-gray-900">{{ activityLabel(activity.description) }}</p>
             <div class="flex gap-3 text-xs text-gray-500 mt-1 flex-wrap">
               @if (activity.clientName) {
 <span>{{ activity.clientName }}</span>

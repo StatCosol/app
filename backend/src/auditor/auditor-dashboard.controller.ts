@@ -182,12 +182,24 @@ export class AuditorDashboardController {
     try {
       const auditorId = user.id;
       const items = await this.dataSource.query(
+        // Name the audit and client: events point at an audit, an NC or an
+        // observation, so resolve the audit through whichever one matches.
         `SELECT
            al.id,
            'OTHER'           AS "activityType",
            al.action         AS "description",
-           al.created_at     AS "timestamp"
+           al.created_at     AS "timestamp",
+           a.audit_code      AS "auditName",
+           c.client_name     AS "clientName"
          FROM audit_logs al
+         LEFT JOIN audit_non_compliances nc
+           ON al.entity_type = 'AUDIT_NC' AND nc.id = al.entity_id
+         LEFT JOIN audit_observations ob
+           ON al.entity_type <> 'AUDIT_NC' AND ob.id = al.entity_id
+         LEFT JOIN audits a
+           ON a.id = COALESCE(nc.audit_id, ob.audit_id, al.entity_id)
+          AND a.assigned_auditor_id = $1
+         LEFT JOIN clients c ON c.id = a.client_id
          WHERE al.performed_by = $1
          ORDER BY al.created_at DESC
          LIMIT 50`,

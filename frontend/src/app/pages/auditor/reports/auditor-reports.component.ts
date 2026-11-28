@@ -121,7 +121,16 @@ export class AuditorReportsComponent implements OnInit, OnDestroy {
       auditName: row?.auditName ?? row?.audit_name ?? row?.auditCode ?? row?.audit_code ?? 'Audit',
       dueDate: row?.dueDate ?? row?.due_date ?? '',
       status: row?.status ?? '',
+      reportStatus: row?.reportStatus ?? row?.report_status ?? null,
+      reportHeld: !!(row?.reportHeld ?? row?.report_held),
     };
+  }
+
+  /** Mirrors the builder's canEdit: closed audits and non-draft or held reports are read-only. */
+  canEditReport(row: AuditorReportPending): boolean {
+    const audit = String(row.status || '').toUpperCase();
+    const report = String(row.reportStatus || '').toUpperCase();
+    return !['COMPLETED', 'CLOSED', 'CANCELLED'].includes(audit) && !row.reportHeld && (!report || report === 'DRAFT');
   }
 
   applyFilter(): void {

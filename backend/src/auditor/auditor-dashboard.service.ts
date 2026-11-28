@@ -62,6 +62,8 @@ export interface AuditorReportDto {
   dueDate: Date;
   status: string;
   lastUpdatedAt: Date;
+  reportStatus: string | null;
+  reportHeld: boolean;
 }
 
 /**

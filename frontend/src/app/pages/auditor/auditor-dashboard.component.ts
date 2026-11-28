@@ -133,7 +133,23 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   // Phase 1 — Timeline alert popup
   showAlertPopup = false;
   alertItems: Array<{ tone: 'red' | 'amber' | 'blue'; text: string }> = [];
-  private alertShownThisSession = false;
+  private static readonly ALERT_SHOWN_KEY = 'auditor_timeline_alerts_shown';
+  private get alertShownThisSession(): boolean {
+    try { return sessionStorage.getItem(AuditorDashboardComponent.ALERT_SHOWN_KEY) === '1'; } catch { return false; }
+  }
+  private set alertShownThisSession(value: boolean) {
+    try {
+      if (value) sessionStorage.setItem(AuditorDashboardComponent.ALERT_SHOWN_KEY, '1');
+    } catch { /* storage unavailable: the badge still shows the count */ }
+  }
+
+  // Working queue is paged in the browser so the page, not the table, scrolls.
+  readonly queuePageSize = 10;
+  queuePage = 1;
+  get pagedAudits(): AuditorAuditItem[] {
+    const start = (this.queuePage - 1) * this.queuePageSize;
+    return this.myAudits.slice(start, start + this.queuePageSize);
+  }
 
   // Data tables
   myAudits: AuditorAuditItem[] = [];
@@ -338,6 +354,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.auditsSub = this.dashboardService.getAuditorAudits(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.myAudits = response.items;
+        this.queuePage = 1;
         this.cdr.markForCheck();
       },
       error: () => {
@@ -495,7 +512,8 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   /** Phase 1 — Compute timeline alert items from summary + actionable list. */
   private computeAlertItems(): void {
     const items: Array<{ tone: 'red' | 'amber' | 'blue'; text: string }> = [];
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const todayStr = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
     const dueToday = this.allActionableAudits.filter((a) => a.dueDate === todayStr).length;
     const overdue = this.allActionableAudits.filter((a) => a.dueDate && a.dueDate < todayStr).length;
 
@@ -553,6 +571,31 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.router.navigate([this.priorityAction.route], {
       queryParams: this.priorityAction.queryParams,
     });
+  }
+
+  private static readonly ACTIVITY_LABELS: Record<string, string> = {
+    NC_ACCEPTED: 'Correction accepted',
+    NC_REJECTED: 'Correction returned',
+    NC_REUPLOADED: 'Correction re-uploaded',
+    NC_OVERDUE_ESCALATED: 'Overdue correction escalated',
+    STATUS_CHANGE: 'Audit status changed',
+    VERIFY: 'Finding verified',
+    RETURN: 'Finding returned for correction',
+    RETURNED_FOR_CORRECTION: 'Returned for correction',
+    REPORT_REVIEW: 'Report reviewed',
+    OBSERVATION_DELETED: 'Observation deleted',
+    EVIDENCE_RESUBMITTED: 'Evidence resubmitted',
+    REMINDER_SENT: 'Reminder sent',
+  };
+
+  /** Readable text for an audit-log action code, e.g. NC_ACCEPTED becomes "Correction accepted". */
+  activityLabel(code: string | null | undefined): string {
+    const key = String(code || '').trim().toUpperCase();
+    if (!key) return 'Activity';
+    const known = AuditorDashboardComponent.ACTIVITY_LABELS[key];
+    if (known) return known;
+    const words = key.toLowerCase().replace(/_/g, ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1);
   }
 
   getAuditActionLabel(audit: AuditorAuditItem): string {
