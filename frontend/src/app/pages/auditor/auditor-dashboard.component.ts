@@ -20,7 +20,6 @@ import { AuditsService } from '../../core/audits.service';
 import { AuditorObservationsService } from '../../core/auditor-observations.service';
 import { environment } from '../../../environments/environment';
 import { ToastService } from '../../shared/toast/toast.service';
-import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   PageHeaderComponent,
   DataTableComponent,
@@ -166,7 +165,6 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     { key: 'requestedOn', header: 'Requested On' },
     { key: 'pendingDays', header: 'Pending Days', align: 'center' },
     { key: 'status', header: 'Status', align: 'center' },
-    { key: 'actions', header: 'Actions', align: 'center' },
   ];
 
   constructor(
@@ -174,7 +172,6 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     private auditsService: AuditsService,
     private observationsService: AuditorObservationsService,
     private toast: ToastService,
-    private dialog: ConfirmDialogService,
     private router: Router,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
@@ -625,38 +622,6 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   closeObservation(obs: AuditorObservationPending): void {
     this.updateObservation(obs);
-  }
-
-  /** Remind for pending evidence */
-  remindEvidence(ev: AuditorEvidencePending): void {
-    this.http.post(`${environment.apiBaseUrl}/api/v1/auditor/dashboard/evidence/${ev.id}/remind`, {}).pipe(
-      takeUntil(this.destroy$),
-      timeout(10000),
-    ).subscribe({
-      next: () => this.toast.success('Reminder sent for: ' + ev.evidenceName),
-      error: () => this.toast.error('Failed to send reminder'),
-    });
-  }
-
-  /** Mark evidence as not required */
-  async markNotRequired(ev: AuditorEvidencePending): Promise<void> {
-    const ok = await this.dialog.confirm(
-      'Mark Not Required',
-      `Mark "${ev.evidenceName}" as not required?`,
-      { confirmText: 'Mark' },
-    );
-    if (!ok) return;
-    this.http.patch(`${environment.apiBaseUrl}/api/v1/auditor/dashboard/evidence/${ev.id}/status`, { status: 'NOT_REQUIRED' }).pipe(
-      takeUntil(this.destroy$),
-      timeout(10000),
-    ).subscribe({
-      next: () => {
-        this.toast.success('Marked not required: ' + ev.evidenceName);
-        this.loadEvidence();
-        this.loadSummary();
-      },
-      error: () => this.toast.error('Failed to update evidence status'),
-    });
   }
 
   openStatusQueue(status: string): void {

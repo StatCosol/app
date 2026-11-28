@@ -19,6 +19,11 @@ const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
       CREATE TABLE audit_reports(audit_id uuid REFERENCES audits(id) ON DELETE CASCADE,status text);`);
     const tables = ['audit_checklist_items','audit_item_evidence','audit_item_reviews','audit_observations','audit_document_reviews','audit_non_compliances','audit_resubmissions','contractor_documents','ai_audit_observations'];
     for (const table of tables) await db.exec(`CREATE TABLE ${table}(audit_id uuid REFERENCES audits(id) ON DELETE CASCADE)`);
+    await db.exec(`ALTER TABLE audit_non_compliances
+      ADD COLUMN status text NOT NULL DEFAULT 'NC_RAISED',
+      ADD COLUMN closed_at timestamptz,
+      ADD COLUMN updated_at timestamptz,
+      ADD COLUMN fixture_label text;`);
     const migration=fs.readFileSync(path.join(__dirname,'../migrations/20261024_cancelled_audit_guard.sql'),'utf8');
     await db.exec(migration); await db.exec(migration);
     for (let n=1;n<=4;n++) {
@@ -26,10 +31,27 @@ const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
       await db.query("INSERT INTO audits(id,client_id,status,notes,schedule_id,upload_lock_from,upload_lock_until) VALUES($1,$2,'PLANNED','Original test note',$1,'2099-11-01','2099-11-08')",[id(n),id(20)]);
     }
     const run=(n,action='CANCEL')=>changeAuditSchedule(source,user,id(n),action,'TEST ONLY duplicate schedule',async()=>true);
+    for (const status of ['NC_RAISED','AWAITING_REUPLOAD','REUPLOADED','REVERIFICATION_PENDING','ACCEPTED','CLOSED']) {
+      await db.query("INSERT INTO audit_non_compliances(audit_id,status,fixture_label,closed_at,updated_at) VALUES($1,$2,$2,CASE WHEN $2 IN ('ACCEPTED','CLOSED') THEN '2026-01-01T00:00:00Z'::timestamptz ELSE NULL END,'2026-01-01T00:00:00Z')",[id(1),status]);
+    }
+    await db.query("INSERT INTO audit_non_compliances(audit_id,fixture_label) VALUES($1,'unrelated audit')",[id(4)]);
     await run(1);
     const cancelled=(await db.query('SELECT * FROM audits WHERE id=$1',[id(1)])).rows[0];
     assert.equal(cancelled.status,'CANCELLED'); assert.equal(cancelled.upload_lock_from,null); assert.equal(cancelled.upload_lock_until,null);
     assert.ok(cancelled.notes.startsWith('Original test note\nCancellation reason:'));
+    const retired=(await db.query('SELECT * FROM audit_non_compliances WHERE audit_id=$1',[id(1)])).rows;
+    for (const nc of retired) {
+      if (['ACCEPTED','CLOSED'].includes(nc.fixture_label)) {
+        assert.equal(nc.status,nc.fixture_label);
+        assert.equal(new Date(nc.updated_at).toISOString(),'2026-01-01T00:00:00.000Z');
+        assert.equal(new Date(nc.closed_at).toISOString(),'2026-01-01T00:00:00.000Z');
+      } else {
+        assert.equal(nc.status,'CLOSED');
+        assert(new Date(nc.closed_at)>new Date('2026-01-01'));
+        assert.equal(new Date(nc.closed_at).getTime(),new Date(nc.updated_at).getTime());
+      }
+    }
+    assert.equal((await db.query('SELECT status FROM audit_non_compliances WHERE audit_id=$1',[id(4)])).rows[0].status,'NC_RAISED');
     await assert.rejects(db.query("UPDATE audits SET status='IN_PROGRESS' WHERE id=$1",[id(1)]),/cancelled/);
     await assert.rejects(db.query("UPDATE audit_schedules SET status='IN_PROGRESS' WHERE id=$1",[id(1)]),/cancelled/);
     await run(2,'DELETE');
@@ -37,7 +59,7 @@ const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
     const log=(await db.query('SELECT snapshot FROM audit_logs WHERE entity_id=$1',[id(2)])).rows[0].snapshot;
     assert.equal(log.before.notes,'Original test note'); assert.equal(log.operation,'DELETE_UNUSED_SCHEDULE');
     for (const table of tables) {
-      await db.query(`INSERT INTO ${table} VALUES($1)`,[id(3)]);
+      await db.query(`INSERT INTO ${table}(audit_id) VALUES($1)`,[id(3)]);
       await assert.rejects(run(3,'DELETE'),/preserve/);
       assert.equal((await db.query(`SELECT * FROM ${table} WHERE audit_id=$1`,[id(3)])).rows.length,1);
       await db.query(`DELETE FROM ${table} WHERE audit_id=$1`,[id(3)]);
@@ -83,6 +105,15 @@ const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
     await assert.rejects(review(used),/preserve/);
     const moved=await request(9);await db.query('UPDATE audits SET branch_id=$2 WHERE id=$1',[id(9),id(90)]);
     await assert.rejects(review(moved),/scope changed/);await review(moved,'REJECT');
+    // Failure to retire an NC must roll back cancellation and its audit log.
+    await db.query("INSERT INTO audits(id,client_id,status) VALUES($1,$2,'PLANNED')",[id(12),id(20)]);
+    await db.query("INSERT INTO audit_non_compliances(audit_id) VALUES($1)",[id(12)]);
+    await db.exec(`ALTER TABLE audit_non_compliances ADD CONSTRAINT simulated_nc_failure CHECK(audit_id <> '${id(12)}'::uuid OR status <> 'CLOSED')`);
+    await assert.rejects(run(12),/simulated_nc_failure/);
+    assert.equal((await db.query('SELECT status FROM audits WHERE id=$1',[id(12)])).rows[0].status,'PLANNED');
+    assert.equal((await db.query('SELECT status FROM audit_non_compliances WHERE audit_id=$1',[id(12)])).rows[0].status,'NC_RAISED');
+    assert.equal((await db.query('SELECT * FROM audit_logs WHERE entity_id=$1',[id(12)])).rows.length,0);
+    console.log('PASS: cancellation retires open NCs, preserves accepted/closed NCs and unrelated audits, and rolls back on retirement failure.');
     console.log('PASS: CCO request/approve/reject/resubmit, duplicate request/review prevention, requester and CCO scope, self-approval denial, request-history retention after deletion, stale report/evidence/scope rejection and transactional rollback.');
     console.log('PASS: transactional cancellation/deletion, original notes and snapshots, locks/calendar, all 9 evidence/work tables, draft/published report protection, scope denial, terminal-state trigger and idempotent migration. Disposable test data only.');
   } finally { await db.close(); }

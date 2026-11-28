@@ -449,12 +449,6 @@
             <ui-status-badge [status]="formatStatus(row.status)"></ui-status-badge>
           </ng-template>
 
-          <ng-template uiTableCell="actions" let-row>
-            <div class="flex gap-2 justify-center flex-wrap">
-              <ui-button variant="secondary" size="sm" (clicked)="remindEvidence(row)" icon="send" [iconOnly]="false" label="Remind">Remind</ui-button>
-              <ui-button variant="secondary" size="sm" (clicked)="markNotRequired(row)">Not Required</ui-button>
-            </div>
-          </ng-template>
         </ui-data-table>
 }
 

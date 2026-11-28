@@ -36,6 +36,7 @@ import {
 import { UpdateAuditChecklistDto } from './dto/update-audit-checklist.dto';
 import { ReviewCorrectedDocumentDto } from './dto/review-corrected-document.dto';
 import { OpenAuditWorkspaceDto } from './dto/open-audit-workspace.dto';
+import { assertClientAuditScope } from './client-audit-scope';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { AuditorAssignmentGuard } from '../assignments/auditor-assignment.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -1010,31 +1011,8 @@ export class ClientAuditsController {
   }
 
   private async assertReportAccess(user: ReqUser, id: string): Promise<void> {
-    if (user.roleCode !== 'ADMIN') {
-      const [audit] = await this.ds.query(
-        `SELECT client_id AS "clientId", branch_id AS "branchId", contractor_user_id AS "contractorUserId"
-           FROM audits
-          WHERE id = $1
-          LIMIT 1`,
-        [id],
-      );
-      if (!audit || audit.clientId !== user.clientId) {
-        throw new ForbiddenException('Audit not in client scope');
-      }
-      const ids = await this.branchAccess.getUserBranchIds(user.userId);
-      if (user.userType === 'BRANCH' && !ids.length)
-        throw new ForbiddenException('No assigned branches');
-      if (audit.branchId && ids.length && !ids.includes(audit.branchId))
-        throw new ForbiddenException('Audit not in branch scope');
-      if (!audit.branchId && audit.contractorUserId && ids.length) {
-        const mapped = await this.ds.query(
-          'SELECT 1 FROM branch_contractor WHERE branch_id = ANY($1::uuid[]) AND contractor_user_id = $2 LIMIT 1',
-          [ids, audit.contractorUserId],
-        );
-        if (!mapped.length)
-          throw new ForbiddenException('Audit not in branch scope');
-      }
-    }
+    if (user.roleCode !== 'ADMIN')
+      await assertClientAuditScope(this.ds, this.branchAccess, user, id);
   }
 }
 
@@ -1113,7 +1091,11 @@ export class ContractorAuditNcController {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
 export class BranchAuditNcController {
-  constructor(private readonly svc: AuditsService) {}
+  constructor(
+    private readonly svc: AuditsService,
+    private readonly branchAccess: BranchAccessService,
+    private readonly ds: DataSource,
+  ) {}
 
   @ApiOperation({ summary: 'List open non-compliances for branch user' })
   @Get()
@@ -1129,6 +1111,8 @@ export class BranchAuditNcController {
     @CurrentUser() user: ReqUser,
     @Param('auditId', ParseUUIDPipe) auditId: string,
   ) {
+    // Same company is not enough: a branch user sees only their branches' audits.
+    await assertClientAuditScope(this.ds, this.branchAccess, user, auditId);
     return this.svc.listNcsForVendor(user, auditId);
   }
 

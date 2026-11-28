@@ -1,15 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Param,
-  Body,
-  Query,
-  UseGuards,
-  Logger,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Logger } from '@nestjs/common';
 import { normalizeDateFilters } from '../common/utils/filters';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -22,7 +11,6 @@ import {
   AuditorAuditsQueryDto,
   AuditorObservationsQueryDto,
   AuditorReportsQueryDto,
-  UpdateEvidenceStatusDto,
 } from './dto/auditor-dashboard-query.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
@@ -211,117 +199,6 @@ export class AuditorDashboardController {
     }
   }
 
-  /**
-   * POST /api/auditor/dashboard/evidence/:id/remind
-   * Sends a reminder notification for pending evidence
-   */
-  @ApiOperation({ summary: 'Remind Evidence' })
-  @Post('evidence/:id/remind')
-  async remindEvidence(
-    @CurrentUser() user: ReqUser,
-    @Param('id', ParseUUIDPipe) evidenceId: string,
-  ) {
-    try {
-      const auditorId = user.id;
-      // Verify auditor owns this evidence's audit
-      const rows = await this.dataSource.query(
-        `SELECT ce.id, ce.task_id, ct.client_id, c.client_name
-         FROM compliance_evidence ce
-         INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
-         INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
-           AND (a.branch_id IS NULL OR ct.branch_id IS NULL OR a.branch_id = ct.branch_id)
-         LEFT JOIN clients c ON c.id = ct.client_id
-         WHERE ce.id = $2
-         LIMIT 1`,
-        [auditorId, evidenceId],
-      );
-      if (!rows.length) {
-        return {
-          ok: false,
-          message: 'Evidence not found or not assigned to you',
-        };
-      }
-      // Log reminder in audit_logs (schema: entity_type, entity_id, action,
-      // performed_by, snapshot, created_at). Use REMINDER_SENT action and
-      // store the evidence id under entity_id; payload (clientName, kind)
-      // goes into snapshot for traceability.
-      await this.dataSource.query(
-        `INSERT INTO audit_logs (entity_type, entity_id, action, performed_by, snapshot, created_at)
-         VALUES ('AUDIT', $1, 'REMINDER_SENT', $2, $3::jsonb, NOW())`,
-        [
-          evidenceId,
-          auditorId,
-          JSON.stringify({
-            kind: 'EVIDENCE_REMINDER',
-            clientName: rows[0].client_name,
-          }),
-        ],
-      );
-      this.logger.log(
-        `Evidence reminder sent: ${evidenceId} by auditor ${auditorId}`,
-      );
-      return { ok: true, message: 'Reminder sent' };
-    } catch (err) {
-      this.logger.error('Failed to send evidence reminder', err);
-      return { ok: false, message: 'Failed to send reminder' };
-    }
-  }
-
-  /**
-   * PATCH /api/auditor/dashboard/evidence/:id/status
-   * Updates evidence status (e.g., NOT_REQUIRED)
-   */
-  @ApiOperation({ summary: 'Update Evidence Status' })
-  @Patch('evidence/:id/status')
-  async updateEvidenceStatus(
-    @CurrentUser() user: ReqUser,
-    @Param('id', ParseUUIDPipe) evidenceId: string,
-    @Body() body: UpdateEvidenceStatusDto,
-  ) {
-    try {
-      const auditorId = user.id;
-      // Verify auditor owns this evidence's audit
-      const rows = await this.dataSource.query(
-        `SELECT ce.id
-         FROM compliance_evidence ce
-         INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
-         INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
-           AND (a.branch_id IS NULL OR ct.branch_id IS NULL OR a.branch_id = ct.branch_id)
-         WHERE ce.id = $2
-         LIMIT 1`,
-        [auditorId, evidenceId],
-      );
-      if (!rows.length) {
-        return {
-          ok: false,
-          message: 'Evidence not found or not assigned to you',
-        };
-      }
-      await this.dataSource.query(
-        `UPDATE compliance_evidence SET status = $1, updated_at = NOW() WHERE id = $2`,
-        [body.status, evidenceId],
-      );
-      // Log in audit_logs (schema: entity_type, entity_id, action,
-      // performed_by, snapshot, created_at).
-      await this.dataSource.query(
-        `INSERT INTO audit_logs (entity_type, entity_id, action, performed_by, snapshot, created_at)
-         VALUES ('AUDIT', $1, 'STATUS_CHANGE', $2, $3::jsonb, NOW())`,
-        [
-          evidenceId,
-          auditorId,
-          JSON.stringify({
-            kind: 'EVIDENCE_STATUS_UPDATE',
-            newStatus: body.status,
-          }),
-        ],
-      );
-      this.logger.log(
-        `Evidence ${evidenceId} status updated to ${body.status} by auditor ${auditorId}`,
-      );
-      return { ok: true };
-    } catch (err) {
-      this.logger.error('Failed to update evidence status', err);
-      return { ok: false, message: 'Failed to update evidence status' };
-    }
-  }
+  // Evidence reminders/status changes were removed: nothing was delivered and
+  // compliance_evidence has no status column. CRM owns evidence review.
 }

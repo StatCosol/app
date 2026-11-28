@@ -117,6 +117,15 @@ export class AuditNcService {
         items: [],
       };
     }
+    if (audit.status === 'CANCELLED') {
+      return {
+        auditId,
+        publishedAt: audit.preliminaryPublishedAt,
+        message: 'This audit was cancelled; no corrections are required.',
+        counts: { total: 0, open: 0, overdue: 0 },
+        items: [],
+      };
+    }
 
     const ncs = await this.ncRepo.find({
       where: { auditId },
@@ -511,6 +520,7 @@ export class AuditNcService {
           AND nc.vendor_window_until IS NOT NULL
           AND nc.vendor_window_until < $1::date
           AND nc.closed_at IS NULL
+          AND a.status <> 'CANCELLED'
         ORDER BY nc.vendor_window_until ASC
         LIMIT 500`,
       [today, user.userId],
@@ -529,6 +539,7 @@ export class AuditNcService {
        LEFT JOIN client_branches cb ON cb.id = a.branch_id
        WHERE nc.requested_to_user_id = $1
          AND nc.status NOT IN ('CLOSED','ACCEPTED')
+         AND a.status <> 'CANCELLED'
        ORDER BY nc.raised_at DESC`,
       [user.userId],
     );
