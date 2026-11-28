@@ -7,6 +7,7 @@ const { DataSource } = require('typeorm');
 const { transitionGovernedReport } = require('../dist/src/audits/report-governance');
 const { readIssuedReport } = require('../dist/src/audits/issued-report');
 const { AuditsService } = require('../dist/src/audits/audits.service');
+const { AuditReportService } = require('../dist/src/audits/audit-report.service');
 const url = new URL(process.env.AUDIT_TEST_DB_URL || 'postgresql://digest_test@127.0.0.1:55438/postgres');
 assert(['localhost','127.0.0.1'].includes(url.hostname), 'Loopback test database required');
 const schema = 'audit_integrity_' + Date.now();
@@ -22,7 +23,7 @@ async function main() {
     CREATE TABLE users(id uuid PRIMARY KEY,name text);
     CREATE TABLE audits(id uuid PRIMARY KEY,client_id uuid,branch_id uuid,contractor_user_id uuid,audit_code text,audit_type text,period_code text,status text,score numeric,score_calculated_at timestamptz,submitted_at timestamptz,assigned_auditor_id uuid,schedule_id uuid,updated_at timestamptz DEFAULT now());
     CREATE TABLE audit_schedules(id uuid PRIMARY KEY,status text,updated_at timestamptz);
-    CREATE TABLE audit_logs(entity_type text,entity_id uuid,action text,performed_by uuid,snapshot jsonb);
+    CREATE TABLE audit_logs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),entity_type text,entity_id uuid,action text,performed_by uuid,snapshot jsonb,created_at timestamptz DEFAULT now());
     CREATE TABLE audit_reports(id uuid PRIMARY KEY,audit_id uuid,status text,held_at timestamptz,report_type text,version_no int,executive_summary text,scope text,methodology text,findings text,recommendations text,selected_observation_ids jsonb,finalized_at timestamptz,approved_by_user_id uuid,approved_date date,published_date date,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
     CREATE TABLE audit_observation_categories(id uuid PRIMARY KEY,name text);
     CREATE TABLE audit_observations(id uuid PRIMARY KEY,audit_id uuid,category_id uuid,sequence_number int,observation text,clause text,risk text,status text,recommendation text,consequences text,compliance_requirements text,elaboration text,evidence_file_paths text,created_at timestamptz DEFAULT now());
@@ -47,8 +48,32 @@ async function main() {
   for (const sql of ["UPDATE audit_observations SET observation='forbidden' WHERE id=$1",'DELETE FROM audit_observations WHERE id=$1'])
     await assert.rejects(db.query(sql,[observation]),/read-only/);
   await assert.rejects(db.query("INSERT INTO audit_observations(id,audit_id,status) VALUES($1,$2,'OPEN')",[randomUUID(),audit]),/read-only/);
-  await transitionGovernedReport(db,{id:report,status:'SUBMITTED'},'approve');
-  await transitionGovernedReport(db,{id:report,status:'APPROVED'},'publishCrm');
+  const reviewer = randomUUID();
+  await db.query("INSERT INTO users VALUES($1,'Synthetic CRM reviewer')",[reviewer]);
+  const reportService = new AuditReportService(
+    {findOne:async()=>({id:audit,clientId:client,status:'SUBMITTED'})}, {}, db,
+    {isClientAssignedToCrm:async()=>true},
+  );
+  const crm={userId:reviewer,roleCode:'CRM'};
+  await assert.rejects(reportService.approveReportForCrm(crm,audit,{unexpected:'object'}),/2000/);
+  await db.query("ALTER TABLE audit_logs ADD CONSTRAINT simulated_review_failure CHECK(snapshot->>'kind' IS DISTINCT FROM 'REPORT_REVIEW')");
+  await assert.rejects(reportService.approveReportForCrm(crm,audit,'Approval must roll back'),/simulated_review_failure/);
+  assert.equal((await db.query('SELECT status FROM audit_reports WHERE id=$1',[report]))[0].status,'SUBMITTED');
+  await db.query('ALTER TABLE audit_logs DROP CONSTRAINT simulated_review_failure');
+  await reportService.approveReportForCrm(crm,audit,'  Evidence checked\nApproved for publication  ');
+  await db.query("ALTER TABLE audit_logs ADD CONSTRAINT simulated_publish_log_failure CHECK(snapshot->>'decision' IS DISTINCT FROM 'PUBLISHED')");
+  await assert.rejects(reportService.publishReportForCrm(crm,audit,'Publication must roll back'),/simulated_publish_log_failure/);
+  assert.equal((await db.query('SELECT status FROM audit_reports WHERE id=$1',[report]))[0].status,'APPROVED');
+  assert.equal((await db.query('SELECT * FROM audit_report_publications WHERE report_id=$1',[report])).length,0);
+  await db.query('ALTER TABLE audit_logs DROP CONSTRAINT simulated_publish_log_failure');
+  await reportService.publishReportForCrm(crm,audit,'  Issued after CRM review  ');
+  const reloaded = await reportService.getReportStatusForCrm(crm,audit);
+  assert.equal(reloaded.reviewHistory.length,2);
+  assert(reloaded.reviewHistory.some(r=>r.decision==='APPROVED' && r.remarks==='Evidence checked\nApproved for publication'));
+  assert(reloaded.reviewHistory.some(r=>r.decision==='PUBLISHED' && r.remarks==='Issued after CRM review'));
+  assert(reloaded.reviewHistory.every(r=>r.reportId===report && r.revision==='1' && r.reviewedById===reviewer && r.reviewedBy==='Synthetic CRM reviewer' && r.reviewedAt));
+  await assert.rejects(reportService.publishReportForCrm(crm,audit,'Duplicate click'),/Only APPROVED/);
+  assert.equal((await reportService.getReportStatusForCrm(crm,audit)).reviewHistory.length,2);
   const original = await readIssuedReport(db,report);
   assert.equal(original.subarray(0,5).toString(),'%PDF-');
   assert(original.length > 1000);
@@ -65,6 +90,8 @@ async function main() {
   assert.equal(Number(reopened.previousScore),62);
   assert.equal((await db.query('SELECT score FROM audits WHERE id=$1',[audit]))[0].score,null);
   assert.equal((await db.query('SELECT status FROM audit_reports WHERE id=$1',[report]))[0].status,'PUBLISHED');
+  assert.equal((await reportService.getReportStatusForCrm(crm,audit)).reviewHistory.length,0);
+  assert.equal((await db.query("SELECT * FROM audit_logs WHERE snapshot->>'reportId'=$1 AND snapshot->>'kind'='REPORT_REVIEW'",[report])).length,2);
   await db.query("UPDATE audit_observations SET observation='New revision finding',status='OPEN' WHERE id=$1",[observation]);
   assert.deepEqual(await readIssuedReport(db,report),original);
   // Finalization holds the same audit lock; a concurrent writer wakes and rejects.
@@ -101,6 +128,7 @@ async function main() {
   await assert.rejects(db.query('DELETE FROM audit_observations WHERE id=$1',[observation]),/read-only/);
   assert.deepEqual(await readIssuedReport(db,report),original);
   console.log('PASS: idempotent migration, stored PDF, immutable versions, 62% score retention, draft locks, concurrent finalization, CRM/Admin publication and failure rollback. No live data or emails.');
+  console.log('PASS: CRM approval/publication remarks survive reload with reviewer/version/time, invalid remarks and duplicate decisions are refused, review-log failure rolls back state and PDF, and new revisions retain separate history.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{
   if(db?.isInitialized) await db.destroy();

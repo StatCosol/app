@@ -5,6 +5,15 @@ import { DataSource } from 'typeorm';
 type ReportAction = 'approve' | 'publishAdmin' | 'publishCrm';
 type ReportState = { id: string; status: string; held_at?: unknown };
 
+export function normalizeReportRemarks(remarks?: unknown): string | null {
+  if (remarks == null) return null;
+  if (typeof remarks !== 'string' || remarks.length > 2000)
+    throw new BadRequestException(
+      'Review remarks must be at most 2000 characters',
+    );
+  return remarks.trim() || null;
+}
+
 // Access checks belong to the caller. Every approval/publication shares this
 // conditional write so a concurrent hold cannot bypass governance.
 export async function transitionGovernedReport(
@@ -12,7 +21,9 @@ export async function transitionGovernedReport(
   report: ReportState,
   action: ReportAction,
   actorId: string | null = null,
+  remarks?: string | null,
 ): Promise<void> {
+  const savedRemarks = normalizeReportRemarks(remarks);
   return dataSource.transaction(async (manager) => {
     const [identity] = await manager.query(
       'SELECT audit_id FROM audit_reports WHERE id=$1',
@@ -30,6 +41,14 @@ export async function transitionGovernedReport(
     await transitionReportState(manager, locked, action, actorId);
     if (action !== 'approve')
       await archiveIssuedReport(manager, report.id, actorId);
+    await manager.query(
+      `INSERT INTO audit_logs(entity_type,entity_id,action,performed_by,snapshot)
+       SELECT 'AUDIT',audit_id,'STATUS_CHANGE',$2,
+         jsonb_build_object('kind','REPORT_REVIEW','reportId',id,'revision',version_no,
+           'decision',status,'remarks',$3::text)
+       FROM audit_reports WHERE id=$1`,
+      [report.id, actorId, savedRemarks],
+    );
   });
 }
 
