@@ -23,6 +23,7 @@ const outcome=p=>p.then(value=>({ok:true,value}),error=>({ok:false,error}));
         methodology text DEFAULT 'Document and site review methodology',findings text DEFAULT 'Detailed verified audit findings',
         recommendations text DEFAULT 'Recommended corrective actions for the audit',selected_observation_ids jsonb DEFAULT '[]',created_at timestamptz,updated_at timestamptz);
       CREATE TABLE audit_observations(id uuid PRIMARY KEY,audit_id uuid);
+      CREATE TABLE audit_non_compliances(audit_id uuid REFERENCES audits(id),status text NOT NULL DEFAULT 'NC_RAISED',closed_at timestamptz,updated_at timestamptz);
       CREATE TABLE audit_checklist_items(audit_id uuid,status text,automated_remarks text,automation_reviewed boolean);
       CREATE TABLE audit_logs(entity_type text,entity_id uuid,action text,performed_by uuid,snapshot jsonb);`);
     await db.exec(fs.readFileSync(path.join(__dirname,'../migrations/20261024_cancelled_audit_guard.sql'),'utf8'));
@@ -60,6 +61,7 @@ const outcome=p=>p.then(value=>({ok:true,value}),error=>({ok:false,error}));
     for(const cancelFirst of [true,false]){
       const n=cancelFirst?1:2;
       await db.query("INSERT INTO audits(id,client_id,assigned_auditor_id,status) VALUES($1,$2,$3,'IN_PROGRESS')",[id(n),id(20),auditor.userId]);
+      await db.query('INSERT INTO audit_non_compliances(audit_id) VALUES($1)',[id(n)]);
       await db.query("INSERT INTO audit_reports(id,audit_id,status,created_at,updated_at) VALUES($1,$2,'DRAFT',NOW(),NOW())",[id(n+30),id(n)]);
       await db.query("INSERT INTO audit_action_requests(id,audit_id,client_id,action,reason,requested_by,audit_snapshot) VALUES($1,$2,$3,'CANCEL','TEST ONLY concurrent approval',$4,$5::jsonb)",[id(n+40),id(n),id(20),id(10),JSON.stringify({client_id:id(20)})]);
       const hold={locked:deferred(),release:deferred()};
@@ -75,6 +77,9 @@ const outcome=p=>p.then(value=>({ok:true,value}),error=>({ok:false,error}));
       assert.match(lost.error.message,cancelFirst?/completed or closed/:/submitted or approved report/);
       const {rows:[row]}=await db.query('SELECT a.status AS audit,r.status AS report FROM audits a JOIN audit_reports r ON r.audit_id=a.id WHERE a.id=$1',[id(n)]);
       assert.deepEqual(row,cancelFirst?{audit:'CANCELLED',report:'DRAFT'}:{audit:'IN_PROGRESS',report:'SUBMITTED'});
+      const {rows:[nc]}=await db.query('SELECT status,closed_at FROM audit_non_compliances WHERE audit_id=$1',[id(n)]);
+      assert.equal(nc.status,cancelFirst?'CLOSED':'NC_RAISED');
+      assert.equal(nc.closed_at !== null,cancelFirst);
     }
     // A legacy direct update is also protected by the database backstop.
     await assert.rejects(db.query("UPDATE audit_reports SET status='SUBMITTED' WHERE audit_id=$1",[id(1)]),/cancelled audit/);
