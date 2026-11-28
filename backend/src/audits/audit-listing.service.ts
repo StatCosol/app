@@ -406,6 +406,8 @@ export class AuditListingService {
       .leftJoinAndSelect('a.client', 'client')
       .leftJoinAndSelect('a.branch', 'branch')
       .leftJoinAndSelect('a.assignedAuditor', 'assignedAuditor')
+      .leftJoin('a.contractorUser', 'contractor')
+      .addSelect(['contractor.id', 'contractor.name'])
       .where(
         `(a.contractorUserId = :uid OR (
           a.contractorUserId IS NULL

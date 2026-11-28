@@ -1,4 +1,5 @@
 import { operationalDate } from '../common/operational-date';
+import { assertContractorAuditScope } from '../audits/contractor-audit-scope';
 import {
   isTestAudit,
   isTestContractorDocument,
@@ -102,6 +103,7 @@ export class ContractorDocumentsService {
         'clientId',
         'branchId',
         'contractorUserId',
+        'auditType',
         'notes',
         'auditCode',
       ],
@@ -110,6 +112,11 @@ export class ContractorDocumentsService {
     if (audit.clientId !== clientId) {
       throw new BadRequestException('Audit does not belong to this client');
     }
+    assertContractorAuditScope(
+      audit.auditType,
+      audit.branchId,
+      audit.contractorUserId,
+    );
     if (audit.branchId && audit.branchId !== branchId) {
       throw new BadRequestException('Audit does not belong to this branch');
     }

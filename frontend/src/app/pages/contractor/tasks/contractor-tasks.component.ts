@@ -50,6 +50,9 @@ interface UnifiedWorkRow {
   finalRemark?: string;
   scheduledDate?: string | null;
   branchId?: string | null;
+  auditType?: string;
+  contractorUserId?: string | null;
+  contractorName?: string;
 }
 
 interface TimelineEvent {
@@ -847,12 +850,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       this.auditDocType = '';
       this.auditDocTitle = '';
       this.auditDocFile = null;
-      // Default upload branch: prefer the audit's own branch; else if the
-      // contractor only serves a single branch, auto-pick it; else require
-      // explicit user selection in the wizard.
+      // Never infer a missing contractor-audit assignment from the vendor's branches.
       this.auditDocBranchId =
         row.branchId ||
-        (this.availableBranches.length === 1 ? this.availableBranches[0].id : '');
+        (row.auditType !== 'CONTRACTOR' && this.availableBranches.length === 1 ? this.availableBranches[0].id : '');
       this.auditUploadedDocs = [];
       this.auditUploadLockFrom = null;
       this.auditUploadLockUntil = null;
@@ -1129,6 +1130,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   uploadAuditDocument(): void {
     const row = this.selectedRow;
     if (!row || row.rowType !== 'AUDIT' || this.auditDocUploading) return;
+    if (this.auditUploadScopeError) {
+      this.toast.error(this.auditUploadScopeError);
+      return;
+    }
     if (!this.auditDocFile) {
       this.toast.error('Select a file to upload');
       return;
@@ -1141,11 +1146,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       this.toast.error('Document title is required');
       return;
     }
-    // Resolve branchId: prefer the user's explicit selection in the wizard,
-    // then the audit row's branch, then the contractor's sole branch.
+    // An assigned branch is fixed; the selector is only for other unscoped audit types.
     const resolvedBranchId: string | null =
-      (this.auditDocBranchId && this.auditDocBranchId.trim()) ||
       row.branchId ||
+      (this.auditDocBranchId && this.auditDocBranchId.trim()) ||
       (this.availableBranches.length === 1 ? this.availableBranches[0].id : null);
 
     if (!resolvedBranchId) {
@@ -1220,6 +1224,9 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       if (row.status === 'SUBMITTED') return 'Awaiting verification';
     }
     if (row.rowType === 'AUDIT') {
+      if (row.auditType === 'CONTRACTOR' && (!row.branchId || !row.contractorUserId)) {
+        return 'Assignment incomplete — contact CRM before uploading';
+      }
       if (row.status === 'PLANNED') return 'Upload your compliance docs';
       if (row.status === 'IN_PROGRESS') return 'Audit in progress';
       if (row.status === 'COMPLETED') return 'Audit completed';
@@ -1700,7 +1707,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     const branchName = this.firstDefined(audit?.branch?.branchName, audit?.branchName, '-');
     const auditCode = this.firstDefined(audit?.auditCode, audit?.id, 'Audit');
     const auditType = this.firstDefined(audit?.auditType, 'CONTRACTOR_AUDIT');
-    const periodCode = this.firstDefined(audit?.periodCode, String(audit?.periodYear || ''), '');
+    const rawPeriod = String(this.firstDefined(audit?.periodCode, String(audit?.periodYear || ''), ''));
+    const month = /^(\d{4})-(\d{1,2})$/.exec(rawPeriod);
+    const periodCode = month && Number(month[2]) >= 1 && Number(month[2]) <= 12
+      ? month[1] + '-' + month[2].padStart(2, '0') : rawPeriod;
     const auditorFirst = audit?.assignedAuditor?.firstName || '';
     const auditorLast = audit?.assignedAuditor?.lastName || '';
     const auditorName = [auditorFirst, auditorLast].filter(Boolean).join(' ') ||
@@ -1710,6 +1720,9 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     return {
       id: String(audit?.id || ''),
       rowType: 'AUDIT',
+      auditType: String(auditType),
+      contractorUserId: this.firstDefined(audit?.contractorUserId, audit?.contractor_user_id, null),
+      contractorName: this.firstDefined(audit?.contractorUser?.name, audit?.contractorName, ''),
       title: `${auditCode} — ${auditType}${periodCode ? ' (' + periodCode + ')' : ''}`,
       status: this.normalizeStatus(audit?.status || 'PLANNED'),
       dueDate: this.firstDefined(audit?.scheduledDate, audit?.scheduled_date, audit?.dueDate, audit?.due_date, null),
@@ -1728,6 +1741,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       updatedAt: this.firstDefined(audit?.updatedAt, audit?.updated_at, null),
       branchId: this.firstDefined(audit?.branchId, audit?.branch_id, null),
     };
+  }
+
+  get auditUploadScopeError(): string {
+    const row = this.selectedRow;
+    return row?.rowType === 'AUDIT' && row.auditType === 'CONTRACTOR' &&
+      (!row.branchId?.trim() || !row.contractorUserId?.trim())
+      ? 'Upload unavailable: CRM must assign a branch and contractor to this audit first. Select a correctly assigned audit below.'
+      : '';
   }
 
   private mapAuditNcRow(row: any): AuditNonComplianceRow {
